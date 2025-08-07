@@ -32,17 +32,12 @@ const DailyChallenge = () => {
   );
 
   useEffect(() => {
-    console.log(submittedImageUrl, "submittedImageUrl");
-  }, [submittedImageUrl]);
-
-  useEffect(() => {
     const fetchDailyChallenge = async () => {
       try {
         const res = await api.get("/challenges/today");
         setChallengeData(res.data);
         // Optional: Check if already accepted
         const acceptedRes = await api.get(`/challenges/status`);
-        console.log("Challenge status:", acceptedRes.data);
         const { accepted_at, completed_at, image_key } = acceptedRes.data;
 
         if (completed_at) {
@@ -51,7 +46,6 @@ const DailyChallenge = () => {
             const signedUrlRes = await api.get(
               `/challenges/image-url?key=${image_key}`
             );
-            console.log(signedUrlRes);
             setSubmittedImageUrl(signedUrlRes.data.url);
           }
         } else if (accepted_at) {

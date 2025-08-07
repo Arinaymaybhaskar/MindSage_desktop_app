@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Switch } from "../components/ui/Switch";
 import { Input } from "../components/ui/Input";
-import api from "../api/axios";
 import {
   BellIcon,
   BrainIcon,
@@ -15,6 +14,9 @@ import {
 } from "lucide-react";
 import Select from "../components/ui/Select";
 import { Link } from "react-router-dom";
+import { userService } from "../api/userService";
+import { useAuth } from "../hooks/useAuth";
+
 
 const Settings = () => {
   const [settings, setSettings] = useState({
@@ -41,14 +43,21 @@ const Settings = () => {
     weekly_summary_email: true,
     journaling_goal: 5,
   });
+  const { accessToken } = useAuth();
+  const authMode = (localStorage.getItem("authMode") || "offline") as
+    | "offline"
+    | "online";
+
+  const userInfo = JSON.parse(localStorage.getItem("userInfo")!);
+
   const [formData, setFormData] = useState<{
-    name: string;
+    full_name: string;
     username: string;
     email: string;
   }>({
-    name: "",
-    username: "",
-    email: "",
+    full_name: userInfo.full_name,
+    username: userInfo.username,
+    email: userInfo.email,
   });
 
   const handleChange = (name: string, value: boolean | string | number) => {
@@ -57,13 +66,9 @@ const Settings = () => {
 
   const getSettings = async () => {
     // API call to fetch settings
-    const settings = JSON.parse(
-      localStorage.getItem("userSettings") ||
-        (await api.get("/users/me/settings").then((res) => {
-          localStorage.setItem("userSettings", JSON.stringify(res.data));
-          return res.data;
-        }))
-    );
+    const settings = JSON.parse( 
+      localStorage.getItem("userSettings")!
+    ) || await userService.getSettings(authMode, accessToken!);
     // convert snake_case to camelCase
     setSettings(settings);
   };
@@ -73,15 +78,33 @@ const Settings = () => {
   }, []);
 
   const saveSettings = async () => {
-    await api.put("/users/me/settings", settings).then((res) => {
+    try {
+      await userService.updateSettings(authMode, accessToken!, settings).then((res) => {
       localStorage.removeItem("userSettings");
-      localStorage.setItem("userSettings", JSON.stringify(res.data));
-    });
-    alert("Settings saved successfully!");
+        localStorage.setItem("userSettings", JSON.stringify(res));
+      })
+      alert("Settings saved successfully!");
+    } catch (error) {
+      console.log("Error: ", error)
+    }
   };
 
-  const handleProfileSubmit = () => {
-    console.log(formData);
+  const handleProfileSubmit = async (event: any) => {
+    event.preventDefault();
+    try {
+      console.log(formData, "formData");
+      await userService.updateProfile(authMode, accessToken!, formData).then(
+      (res) => {
+          localStorage.removeItem("userInfo");
+          localStorage.setItem("userInfo", JSON.stringify(res.user));
+        }
+      );
+      alert("Profile updated successfully!");
+      
+    } catch (error) {
+      console.log(error);
+      alert("Failed to update profile. Please try again.");
+    }
   };
 
   return (
@@ -114,11 +137,14 @@ const Settings = () => {
               Name
             </label>
             <input
+              spellCheck={false}
               type="text"
               id="name"
               name="name"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              value={formData.full_name}
+              onChange={(e) =>
+                setFormData({ ...formData, full_name: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
@@ -131,11 +157,14 @@ const Settings = () => {
               Username
             </label>
             <input
+              spellCheck={false}
               type="text"
               id="username"
               name="username"
               value={formData.username}
-              onChange={(e) => setFormData({...formData, username: e.target.value})}
+              onChange={(e) =>
+                setFormData({ ...formData, username: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
@@ -152,7 +181,9 @@ const Settings = () => {
               id="email"
               name="email"
               value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
@@ -179,7 +210,10 @@ const Settings = () => {
             You can export all your journal entries and user data for backup or
             migration purposes.
           </p>
-          <Link to="/data-export" className="inline-flex items-center text-indigo-600 hover:text-indigo-800">
+          <Link
+            to="/data-export"
+            className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
+          >
             Learn more about data exports
             <ExternalLinkIcon className="h-4 w-4 ml-1" />
           </Link>

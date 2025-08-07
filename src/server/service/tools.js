@@ -1,0 +1,61 @@
+import axios from "axios";
+import pool from "../db.js"; // if db.js is using default export, and extension is needed
+const AI_CORE_URL = process.env.AI_CORE_URL || "http://localhost:3000/api";
+
+// A collection of functions (tools) that the agent can execute.
+
+const vector_search = async ({ query, date_filter }) => {
+    console.log(`[Tool: vector_search] Searching for: "${query}"`, { date_filter });
+    // In a real implementation, you would pass the date_filter to the AI Core
+    // which would then need to support it in its Qdrant query.
+    // For now, we'll just pass the query.
+    const response = await axios.post(`${AI_CORE_URL}/search`, {
+      query,
+      provider: "ollama", // This could also be dynamic
+      limit: 5,
+      date_filter: date_filter || "all", // This is a placeholder for now
+    });
+    // We return the actual document content
+    return response.data.map(point => point.payload.document);
+};
+
+const get_all_entries = async ({ date_filter }, userId) => {
+    console.log(`[Tool: get_all_entries] Fetching all entries for date range: ${JSON.stringify(date_filter)}`);
+
+    const fromDate = new Date(date_filter.from);
+    const toDate = new Date(date_filter.to);
+
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        throw new Error("Invalid date_filter format. Expecting ISO 8601 timestamps.");
+    }
+
+    const result = await pool.query(
+        `SELECT content FROM journal_entries 
+         WHERE user_id = $1 AND created_at BETWEEN $2 AND $3
+         ORDER BY created_at ASC`,
+        [userId, fromDate.toISOString(), toDate.toISOString()]
+    );
+
+    console.log(`[Tool: get_all_entries] Found ${result.rowCount} entries.`);
+    console.log(result.rows)
+
+    return result.rows.map(row => row.content);
+};
+
+const retrieve_challenge_data = async ({ date_filter, status }, userId) => {
+    console.log(`[Tool: retrieve_challenge_data] Fetching challenges for: ${date_filter}`);
+    // Similar date parsing logic would be needed here.
+    const interval = date_filter.includes("week") ? "7 days" : "30 days";
+    const result = await pool.query(
+        `SELECT title, status FROM daily_challenges WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '${interval}' AND status = $2`,
+        [userId, status]
+    );
+    return result.rows;
+};
+
+// The toolkit object maps tool names to their functions.
+export const toolKit = {
+    vector_search,
+    get_all_entries,
+    retrieve_challenge_data,
+};

@@ -1,13 +1,23 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
-import { ArrowLeftIcon, BrainIcon, MicIcon, PaperclipIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  BrainIcon,
+  MicIcon,
+  PaperclipIcon,
+  XIcon,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoodTagSelector } from "../components/moodOptions";
 import { MoodSlider } from "../components/moodSlider";
 import { FollowUpQuestions } from "../components/followUpQuestions";
 import api from "../api/axios";
-import { AudioPlayer } from "../components/ui/AudioPlayer";
+// import { AudioPlayer } from "../components/ui/AudioPlayer";
+import { useAuth } from "../hooks/useAuth";
+import { mediaService } from "../api/mediaService";
+import VoiceRecorderUI from "../components/voiceRecorder";
+import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
 
 const emptyJournal: JournalEntry = {
   title: "",
@@ -25,13 +35,20 @@ export default function JournalForm() {
   const isEdit = Boolean(id);
   const DRAFT_KEY = id ? `draft-journal-${id}` : "draft-journal";
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const voiceRecorderState = useVoiceRecorder();
+  const { recordingBlob, resetRecording } = voiceRecorderState;
+  const { accessToken } = useAuth();
 
-  const handleImageUpload = (file: File) => {
-    setImageFile(file);
-  };
+  const authMode = (localStorage.getItem("authMode") || "offline") as
+    | "offline"
+    | "online";
+
+  // const handleImageUpload = (file: File) => {
+  //   setImageFile(file);
+  // };
 
   useEffect(() => {
     const savedDraft = localStorage.getItem(DRAFT_KEY);
@@ -57,33 +74,35 @@ export default function JournalForm() {
 
   useEffect(() => {
     if (isEdit && id) {
-      journalService.getOne(+id).then((res) => setEntry(res.data));
+      journalService
+        .getOne(authMode, accessToken!, +id)
+        .then((res) => setEntry(res));
     }
   }, [id]);
 
-  const uploadToS3 = async (
-    file: File | Blob,
-    type: string,
-    userId: string,
-    journalId: string
-  ) => {
-    const urlRes = await journalService.getUploadUrl(type, userId, journalId);
-    await fetch(urlRes.data.uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": type },
-      body: file,
-    });
-    return urlRes.data.key;
-  };
+  // const uploadToS3 = async (
+  //   file: File | Blob,
+  //   type: string,
+  //   userId: string,
+  //   journalId: string
+  // ) => {
+  //   const urlRes = await journalService.getUploadUrl(type, userId, journalId);
+  //   await fetch(urlRes.data.uploadUrl, {
+  //     method: "PUT",
+  //     headers: { "Content-Type": type },
+  //     body: file,
+  //   });
+  //   return urlRes.data.key;
+  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
       let res;
-      if(isEdit && id) {
-        console.log(id)
-        res = await journalService.update(+id, {
+      if (isEdit && id) {
+        console.log(id);
+        res = await journalService.update(authMode, accessToken!, +id, {
           title: entry.title,
           content: entry.content,
           mood_score: entry.mood_score,
@@ -91,7 +110,7 @@ export default function JournalForm() {
           mood_tags: entry.mood_tags,
         });
       } else {
-        res = await journalService.create({
+        res = await journalService.create(authMode, accessToken!, {
           title: entry.title,
           content: entry.content,
           mood_score: entry.mood_score,
@@ -99,44 +118,96 @@ export default function JournalForm() {
           mood_tags: entry.mood_tags,
         });
       }
+      console.log(res);
 
-      const journalId = res.data.id;
-      const userId = res.data.user_id;
-      
-      let imageKey: string | undefined;
-      let audioKey: string | undefined;
-      if(!imageKey && !audioKey) {
+      // const journalId = res.journalId;
+      // const userId = res.user_id;
+
+      // let imageKey: string | undefined;
+      // let audioKey: string | undefined;
+      // if(!imageKey && !audioKey) {
+      //   navigate("/");
+      //   return;
+      // }
+      // if (imageFile) {
+      //   imageKey = await uploadToS3(
+      //     imageFile,
+      //     imageFile.type,
+      //     userId,
+      //     journalId
+      //   );
+      // }
+
+      // if (audioBlob) {
+      //   audioKey = await uploadToS3(
+      //     audioBlob,
+      //     audioBlob.type || "audio/webm",
+      //     userId,
+      //     journalId
+      //   );
+      // }
+      // console.log("Image key:", imageKey);
+      // console.log("Audio key:", audioKey);
+
+      // const payload = {
+      //   ...entry,
+      //   image_key: imageKey,
+      //   audio_key: audioKey,
+      // };
+      // console.log("Submitting entry", payload);
+
+      // await journalService.update(journalId, payload);
+      if (authMode === "online") {
+        localStorage.removeItem(DRAFT_KEY);
         navigate("/");
         return;
-      } 
+      }
+
+      const journalId = res.journalId;
+      let imageKey: string | undefined;
+      let audioKey: string | undefined;
       if (imageFile) {
-        imageKey = await uploadToS3(
-          imageFile,
-          imageFile.type,
-          userId,
-          journalId
+        const arrayBuffer = await imageFile.arrayBuffer();
+        const result = await mediaService.saveFileForJournal(
+          journalId,
+          "image",
+          arrayBuffer,
+          imageFile.name
         );
+        if (result.success) {
+          imageKey = result.key;
+        }
       }
-
-      if (audioBlob) {
-        audioKey = await uploadToS3(
-          audioBlob,
-          audioBlob.type || "audio/webm",
-          userId,
-          journalId
+      if (recordingBlob) {
+        console.log(recordingBlob.type);
+        const arrayBuffer = await recordingBlob.arrayBuffer();
+        const filename = `audio-${Date.now()}.webm`;
+        const result = await mediaService.saveFileForJournal(
+          journalId,
+          "audio",
+          arrayBuffer,
+          filename
         );
+        if (result.success) {
+          resetRecording();
+          audioKey = result.key;
+        }
       }
-      console.log("Image key:", imageKey);
-      console.log("Audio key:", audioKey);
-
-      const payload = {
+      const finalEntry = {
         ...entry,
-        image_key: imageKey,
         audio_key: audioKey,
+        image_key: imageKey,
       };
-      console.log("Submitting entry", payload);
-
-      await journalService.update(journalId, payload);
+      // Step 3: Update the journal entry with the new image key
+      if (imageKey || audioKey) {
+        finalEntry.image_key = imageKey;
+        await journalService.update(
+          authMode,
+          accessToken!,
+          journalId,
+          finalEntry
+        );
+      }
 
       localStorage.removeItem(DRAFT_KEY);
       navigate("/");
@@ -172,6 +243,23 @@ export default function JournalForm() {
     } finally {
       setIsGeneratingQuestions(false);
     }
+  };
+
+  const handleImageChange = (e: any) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith("image/")) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
   };
 
   return (
@@ -323,17 +411,52 @@ export default function JournalForm() {
                     <input
                       type="file"
                       className="hidden"
-                      onChange={(e) => handleImageUpload(e.target.files![0])}
+                      onChange={handleImageChange}
                     />
                   </label>
-                  <span className="text-sm text-gray-500">{imageFile ? imageFile.name : "No file chosen"}</span>
+                  <span className="text-sm text-gray-500">
+                    {imageFile ? imageFile.name : "No file chosen"}
+                  </span>
                 </div>
+                {/* Image Preview Section */}
+                {imagePreview && (
+                  <div className="relative w-24 h-24">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      onClick={handleRemoveImage}
+                      className="absolute top-0 right-0 bg-white border border-gray-300 rounded-full p-0.5 hover:bg-red-100 hover:text-red-600 transition-colors"
+                      title="Remove image"
+                    >
+                      <XIcon size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Audio Journal
                 </label>
-                <AudioPlayer setAudioBlob={setAudioBlob} />
+                <VoiceRecorderUI {...voiceRecorderState} />
+                {recordingBlob && (
+                  <div className="relative mt-4 w-full bg-gray-50 border border-gray-200 rounded-lg p-2">
+                    <audio
+                      controls
+                      src={URL.createObjectURL(recordingBlob)}
+                      className="w-full"
+                    />
+                    <button
+                      onClick={resetRecording}
+                      className="absolute top-1 right-1 bg-white border border-gray-300 rounded-full p-0.5 hover:bg-red-100 hover:text-red-600 transition-colors"
+                      title="Remove audio"
+                    >
+                      <XIcon size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
               <button
                 type="submit"

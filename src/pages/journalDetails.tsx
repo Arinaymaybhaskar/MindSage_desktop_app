@@ -9,28 +9,48 @@ import {
   ImageIcon,
 } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
-import dayjs from "dayjs";
+import { useAuth } from "../hooks/useAuth";
+import { formatTimeAgo } from "../utils/DateFormatter";
 
 export default function JournalDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [showImageModal, setShowImageModal] = useState(false);
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const { accessToken } = useAuth();
+
+  const authMode = (localStorage.getItem("authMode") || "offline") as
+    | "offline"
+    | "online";
 
   useEffect(() => {
     const fetchEntry = async () => {
-      const res = await journalService.getOne(+id!);
-      setEntry(res.data);
-
-      if (res.data.image_key) {
-        const imageRes = await journalService.getMediaUrl(res.data.image_key);
-        setImageUrl(imageRes.data.url);
+      const res = await journalService.getOne(authMode, accessToken!, +id!);
+      setEntry(res);
+      console.log("calling getImage with: ", res.image_key);
+      if (res.image_key) {
+        await window.electron.ipcRenderer
+          .invoke("media:getImage", res.image_key.toString())
+          .then((res) => {
+            setImageUrl(res);
+          });
       }
-      if (res.data.audio_key) {
-        const audioRes = await journalService.getMediaUrl(res.data.audio_key);
-        setAudioUrl(audioRes.data.url);
+      if(res.audio_key) {
+        await window.electron.ipcRenderer
+          .invoke("media:getAudio", res.audio_key.toString())
+          .then((res) => {
+            setAudioUrl(res);
+          });
       }
+      //   const imageRes = await journalService.getMediaUrl(res.data.image_key);
+      //   setImageUrl(imageRes.url);
+      // }
+      // if (res.audio_key) {
+      //   const audioRes = await journalService.getMediaUrl(res.data.audio_key);
+      //   setAudioUrl(audioRes.url);
+      // }
     };
 
     fetchEntry();
@@ -41,9 +61,11 @@ export default function JournalDetail() {
   };
 
   const handleDelete = async () => {
-    const confirm = window.confirm("Are you sure you want to delete this entry?");
+    const confirm = window.confirm(
+      "Are you sure you want to delete this entry?"
+    );
     if (confirm) {
-      await journalService.remove(+id!)
+      await journalService.remove(authMode, accessToken!, +id!);
       navigate("/journals");
     }
   };
@@ -54,13 +76,12 @@ export default function JournalDetail() {
     <div className="max-w-3xl mx-auto p-6 mt-6 bg-white shadow-xl rounded-2xl">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">{entry.title}</h1>
+          <h1 className="text-2xl font-semibold text-zinc-900">
+            {entry.title}
+          </h1>
           <div className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
             <CalendarIcon className="w-4 h-4" />
-            {new Date(entry.created_at!).toDateString() ===
-                  new Date().toDateString()
-                    ? "Today"
-                    : dayjs(entry.created_at!).format("MMMM D, YYYY")}
+            {formatTimeAgo(entry.created_at!)}
           </div>
         </div>
         <div className="flex gap-2">
@@ -81,15 +102,42 @@ export default function JournalDetail() {
         </div>
       </div>
 
-      {/* Image */}
-      {imageUrl && (
-        <div className="mb-4">
-          <img
-            src={imageUrl}
-            alt="Journal visual"
-            className="w-full h-auto rounded-xl object-cover"
-          />
-        </div>
+      {/* Image with modal preview */}
+      {entry.image_key && (
+        <>
+          <div className="mb-4">
+            <img
+              src={imageUrl}
+              alt="Journal visual"
+              className="w-[300px] h-[200px] object-cover rounded-xl cursor-pointer"
+              onClick={() => setShowImageModal(true)}
+            />
+          </div>
+
+          {showImageModal && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+              onClick={() => setShowImageModal(false)} // Close on background click
+            >
+              <div
+                className="relative"
+                onClick={(e) => e.stopPropagation()} // Prevent close on image click
+              >
+                <button
+                  className="absolute top-2 right-2 text-white text-2xl font-bold hover:text-red-400"
+                  onClick={() => setShowImageModal(false)}
+                >
+                  ×
+                </button>
+                <img
+                  src={imageUrl}
+                  alt="Full View"
+                  className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-lg"
+                />
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Audio */}
@@ -111,17 +159,19 @@ export default function JournalDetail() {
       <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-600">
         <div className="flex items-center gap-1">
           <SmileIcon className="w-4 h-4" />
-          Mood Score: <span className="font-medium ml-1">{entry.mood_score}</span>
+          Mood Score:{" "}
+          <span className="font-medium ml-1">{entry.mood_score}</span>
         </div>
         <div className="flex items-center gap-1">
           <AudioLinesIcon className="w-4 h-4" />
-          Sentiment Score: <span className="font-medium ml-1">{entry.sentiment_score}</span>
+          Sentiment Score:{" "}
+          <span className="font-medium ml-1">{entry.sentiment_score}</span>
         </div>
-        {entry.mood_tags!.length > 0 && (
+        {JSON.parse(entry.mood_tags!).length > 0 && (
           <div className="flex items-center gap-1">
             <ImageIcon className="w-4 h-4" />
             Tags:
-            {entry.mood_tags!.map((tag, idx) => (
+            {JSON.parse(entry.mood_tags!).map((tag, idx) => (
               <span
                 key={idx}
                 className="bg-zinc-200 text-zinc-800 px-2 py-0.5 rounded-full text-xs ml-1"

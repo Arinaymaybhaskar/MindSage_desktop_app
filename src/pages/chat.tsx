@@ -27,10 +27,6 @@ const fetchAiResponse = async (
   userInput: string,
   provider: Provider
 ) => {
-  console.log(`Sending to backend endpoint ${endpoint}:`, {
-    query: userInput,
-    provider: provider,
-  });
 
   const response = await api.post(endpoint, {
     query: userInput,

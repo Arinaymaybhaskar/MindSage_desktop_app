@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api/axios";
-import { AuthLayout } from "../layouts/AuthLayout";
-import { EyeIcon, EyeOffIcon, InfoIcon } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
-import GoogleLoginButton from "../components/GoogleLoginButton";
+import api from "../../api/axios";
+import { AuthLayout } from "../../layouts/AuthLayout";
+import {
+  CloudIcon,
+  EyeIcon,
+  EyeOffIcon,
+  InfoIcon,
+  ShieldIcon,
+} from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import GoogleLoginElectron from "../../components/googleLoginElectron";
+import { authService } from "../../api/authService";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -17,7 +24,7 @@ export default function Register() {
     null
   );
   const [usernameError, setUsernameError] = useState<string | null>(null);
-
+  const [authMode, setAuthMode] = useState<'online' | 'offline'>("offline");
   const [usernameChecking, setUsernameChecking] = useState(false);
   const { login } = useAuth();
   const [error, setError] = useState("");
@@ -30,6 +37,9 @@ export default function Register() {
   };
 
   useEffect(() => {
+    if (authMode === "offline") {
+      return;
+    }
     if (!form.username) {
       setUsernameAvailable(null);
       return;
@@ -60,15 +70,19 @@ export default function Register() {
   }, [form.username]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    if (usernameError || !usernameAvailable) {
-      setError("Please fix username issues before submitting.");
-      return;
-    }
+    // if (usernameError || !usernameAvailable) {
+    //   setError("Please fix username issues before submitting.");
+    //   return;
+    // }
     e.preventDefault();
     setError("");
     setIsLoading(true);
     try {
-      await api.post("/auth/register", form);
+      const payload = {
+                ...form,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            };
+      await authService.register(authMode, payload);
       navigate("/login");
     } catch (err) {
       console.log(err);
@@ -87,7 +101,7 @@ export default function Register() {
       const res = await api.post("/auth/google-login", {
         credential: response.credential,
       });
-      login(res.data.accessToken, res.data.refreshToken);
+      login(res.data.accessToken, res.data.refreshToken, authMode);
       navigate("/");
     } catch (err) {
       console.error("Google login failed:", err);
@@ -115,7 +129,7 @@ export default function Register() {
   };
 
   return (
-    <AuthLayout title="Register" subtitle="Create a new account">
+    <AuthLayout title="Register" authMode={authMode} setAuthMode={setAuthMode}>
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
           <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm">
@@ -172,13 +186,17 @@ export default function Register() {
             <div className="mt-1 text-sm">
               {usernameError ? (
                 <span className="text-red-600">{usernameError}</span>
-              ) : usernameChecking ? (
-                <span className="text-gray-500">Checking availability...</span>
-              ) : usernameAvailable === true ? (
-                <span className="text-green-600">Username is available</span>
-              ) : usernameAvailable === false ? (
-                <span className="text-red-600">Username already taken</span>
               ) : null}
+              {authMode === "online" &&
+                (usernameChecking ? (
+                  <span className="text-gray-500">
+                    Checking availability...
+                  </span>
+                ) : usernameAvailable === true ? (
+                  <span className="text-green-600">Username is available</span>
+                ) : usernameAvailable === false ? (
+                  <span className="text-red-600">Username already taken</span>
+                ) : null)}
             </div>
           )}
         </div>
@@ -232,18 +250,48 @@ export default function Register() {
             </button>
           </div>
         </div>
+        <div
+          className={`${
+            authMode === "offline"
+              ? "bg-yellow-50 border-yellow-400"
+              : "bg-purple-50 border-purple-400"
+          } border-l-4 p-4`}
+        >
+          <div className="flex">
+            <div className="flex-shrink-0">
+              {authMode === "offline" ? (
+                <ShieldIcon className="h-5 w-5 text-yellow-400" />
+              ) : (
+                <CloudIcon className="h-5 w-5 text-purple-400" />
+              )}
+            </div>
+            <div className="ml-3">
+              <p
+                className={`text-sm ${
+                  authMode === "offline" ? "text-yellow-700" : "text-purple-700"
+                }`}
+              >
+                {authMode === "offline"
+                  ? "This is a 100% offline app. Your information is stored locally on this device and will not be sent to any server unless you choose to."
+                  : "Your information will be securely stored in the cloud and accessible from any device you log in from."}
+              </p>
+            </div>
+          </div>
+        </div>
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${authMode === "offline" ? "bg-blue-50 text-blue-700 border border-blue-300 rounded-l-lg hover:bg-blue-100" : "bg-purple-50 text-purple-700 border border-purple-300 rounded-r-lg hover:bg-purple-100" }`}
         >
           {isLoading ? "Creating account" : "Register"}
         </button>
       </form>
-      <GoogleLoginButton
-        clientId={import.meta.env.VITE_O_AUTH_CLIENT_ID}
-        onSuccess={handleGoogleSuccess}
-      />
+      {authMode === "online" && (
+        <GoogleLoginElectron
+          onError={() => console.log("Error in google login")}
+          onSuccess={handleGoogleSuccess}
+        />
+      )}
       <div className="mt-6 text-center text-sm">
         <span className="text-gray-600">Already have an account? </span>
         <Link

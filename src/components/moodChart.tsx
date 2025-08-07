@@ -54,9 +54,6 @@ export const MoodChart = () => {
     };
     fetchData();
   }, [range]);
-  useEffect(() => {
-    console.log(data, "data");
-  }, [data]);
 
   const formattedData = Array.isArray(data)
     ? data.map((entry) => ({

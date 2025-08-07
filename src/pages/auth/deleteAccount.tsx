@@ -1,10 +1,17 @@
 import React, { useState } from "react";
 import { AlertCircleIcon, ArrowLeftIcon, LockIcon } from "lucide-react";
-import api from "../api/axios";
+import { useAuth } from "../../hooks/useAuth";
+import { userService } from "../../api/userService";
 export function DeleteAccount() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { accessToken } = useAuth();
+
+  const authMode = (localStorage.getItem("authMode") || "offline") as
+    | "offline"
+    | "online";
+
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
     if (error) setError("");
@@ -20,7 +27,9 @@ export function DeleteAccount() {
 
   const deleteAccount = async () => {
     try {
-      await api.delete("/users/me", { data: { password } });
+      await userService.deleteAccount(authMode, accessToken!, {
+        password,
+      });
       localStorage.clear();
       alert("Your account has been deleted.");
       window.location.href = "/"; // Redirect to homepage/login

@@ -1,0 +1,246 @@
+import Database from 'better-sqlite3';
+import path from 'node:path';
+import fs from 'node:fs';
+
+// Define the path for the database in the user's app data folder
+const dbPath = path.join(process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share"), 'MindSage', 'mind-sage.db');
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
+// Create and export the database instance
+export const db = new Database(dbPath);
+
+
+export function initDatabase() {
+    db.exec(`
+        PRAGMA foreign_keys = ON;
+
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            full_name TEXT,
+            timezone TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        DROP TABLE IF EXISTS user_settings;
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER PRIMARY KEY,
+            dark_mode INTEGER DEFAULT 0,
+            font_size TEXT DEFAULT 'medium',
+            auto_save_interval INTEGER DEFAULT 60,
+            speech_language TEXT DEFAULT 'en',
+            biometric_lock INTEGER DEFAULT 0,
+            send_to_ai INTEGER DEFAULT 1,
+            journal_reminder INTEGER DEFAULT 1,
+            challenge_alert INTEGER DEFAULT 1,
+            check_in_frequency TEXT DEFAULT 'daily',
+            ai_tone TEXT DEFAULT 'neutral',
+            breathing_reminder INTEGER DEFAULT 0,
+            daily_challenge_type TEXT DEFAULT 'default',
+            auto_summarize INTEGER DEFAULT 1,
+            ai_tags INTEGER DEFAULT 1,
+            insight_tone TEXT DEFAULT 'supportive',
+            enable_ai_image INTEGER DEFAULT 0,
+            enable_voice_mood INTEGER DEFAULT 0,
+            enable_smart_prompts INTEGER DEFAULT 1,
+            auto_save_timer INTEGER DEFAULT 30,
+            journal_streaks INTEGER DEFAULT 1,
+            weekly_summary_email INTEGER DEFAULT 1,
+            journaling_goal INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS journal_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT,
+            content TEXT NOT NULL,
+            mood_score INTEGER,
+            sentiment_score REAL,
+            mood_tags TEXT,
+            image_key TEXT,
+            audio_key TEXT,
+            content_summary TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync Columns --
+            is_deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        -- This table is likely read-only from the server, but we add sync columns for completeness
+        CREATE TABLE IF NOT EXISTS daily_challenges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT,
+            challenge_date TEXT NOT NULL UNIQUE,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS user_challenges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            challenge_id INTEGER,
+            accepted INTEGER DEFAULT 0,
+            completed INTEGER DEFAULT 0,
+            image_key TEXT,
+            accepted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            completed_at TEXT,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync Columns --
+            is_deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (challenge_id) REFERENCES daily_challenges(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            title TEXT NOT NULL,
+            body TEXT,
+            read INTEGER DEFAULT 0,
+            type TEXT DEFAULT 'insight',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync Columns --
+            is_deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        -- This table is typically managed by the online backend and may not need sync columns
+        CREATE TABLE IF NOT EXISTS refresh_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT,
+            is_revoked INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        -- AI-generated tables are likely read-only offline, but we add sync columns
+        -- in case the user can interact with them (e.g., dismiss a nudge).
+
+        CREATE TABLE IF NOT EXISTS journal_summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            summary_type TEXT NOT NULL,
+            period_start TEXT NOT NULL,
+            period_end TEXT NOT NULL,
+            average_mood_score REAL,
+            average_sentiment_score REAL,
+            dominant_mood_tags TEXT,
+            insights TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync Columns --
+            is_deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, summary_type, period_start)
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_insights (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            pattern_type TEXT NOT NULL,
+            pattern_description TEXT NOT NULL,
+            recurring_day TEXT,
+            detected_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            source_journal_ids TEXT,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync Columns --
+            is_deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_interventions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            insight_id INTEGER,
+            title TEXT NOT NULL,
+            description TEXT,
+            recommended_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            type TEXT NOT NULL,
+            status TEXT DEFAULT 'suggested',
+            completed_at TEXT,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync Columns --
+            is_deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (insight_id) REFERENCES ai_insights(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_nudges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT,
+            message TEXT NOT NULL,
+            nudge_type TEXT,
+            related_insight_id INTEGER,
+            read INTEGER DEFAULT 0,
+            action_taken INTEGER DEFAULT 0,
+            action_description TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync Columns --
+            is_deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (related_insight_id) REFERENCES ai_insights(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS user_emotion_patterns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            day_of_week TEXT NOT NULL,
+            emotion TEXT NOT NULL,
+            frequency INTEGER DEFAULT 1,
+            last_detected TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync Columns --
+            is_deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS journal_analysis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            journal_id INTEGER NOT NULL UNIQUE,
+            sentiment TEXT,
+            mood TEXT,
+            topics TEXT,
+            recurring_thoughts TEXT,
+            cognitive_distortions TEXT,
+            suggested_therapy_technique TEXT,
+            analyzed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync Columns --
+            is_deleted INTEGER DEFAULT 0,
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (journal_id) REFERENCES journal_entries(id) ON DELETE CASCADE
+        );
+    `);
+    console.log('Local database with sync columns initialized successfully.');
+}

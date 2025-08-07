@@ -1,46 +1,56 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api/axios";
-import { useAuth } from "../hooks/useAuth";
-import GoogleLoginButton from "../components/GoogleLoginButton";
-import { AuthLayout } from "../layouts/AuthLayout";
+import api from "../../api/axios";
+import { useAuth } from "../../hooks/useAuth";
+import { AuthLayout } from "../../layouts/AuthLayout";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
+import GoogleLoginElectron from "../../components/googleLoginElectron";
+import { authService } from "../../api/authService";
 
 export default function Login() {
-  const [form, setForm] = useState({ identifier: "", password: "", rememberMe: false });
+  const [form, setForm] = useState({
+    identifier: "",
+    password: "",
+    rememberMe: false,
+  });
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [authMode, setAuthMode] = useState<"online" | "offline">("offline");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
     try {
-      const payload = { ...form, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
-      const res = await api.post("/auth/login", payload);
-      login(res.data.accessToken, res.data.userInfo);
+      // Using the authService we defined earlier
+      const res = await authService.login(authMode, {
+        identifier: form.identifier,
+        password: form.password,
+      });
+      console.log(res.userInfo)
+      login(res.accessToken, res.userInfo, authMode);
       navigate("/");
-    } catch (err) {
+    } catch (err: any) {
       console.log(err, "error");
-      setError("Invalid username or password");
+      setError(err.message || "Invalid username or password");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSuccess = async (
-    response: google.accounts.id.CredentialResponse
-  ) => {
+  const handleGoogleSuccess = async (response: any) => {
+    console.log(response);
     setError("");
     setIsLoading(true);
     try {
       const res = await api.post("/auth/google-login", {
-        credential: response.credential,
+        response,
       });
-      login(res.data.accessToken, res.data.refreshToken);
+      console.log(res);
+      login(res.data.accessToken, res.data.userInfo, authMode);
       navigate("/");
     } catch (err) {
       console.error("Google login failed:", err);
@@ -53,7 +63,8 @@ export default function Login() {
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Sign in to continue to your journal"
+      authMode={authMode}
+      setAuthMode={setAuthMode}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
@@ -145,16 +156,23 @@ export default function Login() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+              authMode === "offline"
+                ? "bg-blue-50 text-blue-700 border border-blue-300 rounded-l-lg hover:bg-blue-100"
+                : "bg-purple-50 text-purple-700 border border-purple-300 rounded-r-lg hover:bg-purple-100"
+            }`}
           >
             {isLoading ? "Signing in..." : "Sign in"}
           </button>
         </div>
       </form>
-      <GoogleLoginButton
-        clientId={import.meta.env.VITE_O_AUTH_CLIENT_ID}
-        onSuccess={handleGoogleSuccess}
-      />
+      {authMode === "online" && (
+        <GoogleLoginElectron
+          onError={() => console.log("Error in google login")}
+          onSuccess={handleGoogleSuccess}
+        />
+      )}
+
       <div className="mt-6 text-center text-sm">
         <span className="text-gray-600">Don't have an account?</span>{" "}
         <Link

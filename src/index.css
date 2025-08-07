@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+@theme {
+  /* light mode */
+  --color-light1: #ADB2D4;
+  --color-light2: #C7D9DD;
+  --color-light3: #D5E5D5;
+  --color-light4: #EEF1DA;
+  /* dark mode */
+  --color-dark1: #35374B;
+  --color-dark2: #344955;
+  --color-dark3: #50727B;
+  --color-dark4: #78A083;
+}

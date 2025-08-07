@@ -1,0 +1,72 @@
+POST http://localhost:4000/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "demoUser2",
+  "email": "demo2@example.com",
+  "password": "securepass123"
+}
+
+###
+
+POST http://localhost:4000/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "arinaymay",
+  "password": "password"
+}
+
+###
+
+{
+  "accessToken": "<REDACTED_ACCESS_TOKEN>",
+  "refreshToken": "<REDACTED_REFRESH_TOKEN>"
+}
+
+###
+
+POST http://localhost:4000/api/journals/
+Authorization: Bearer <REDACTED_ACCESS_TOKEN>
+Content-Type: application/json
+
+{
+  "title": "A rainy day",
+  "content": "I felt really calm and relaxed today while watching the rain.",
+  "mood_score": 4,
+  "mood_tags": ["calm", "relaxed"]
+}
+
+###
+
+GET http://localhost:4000/api/journals/
+Authorization: Bearer <REDACTED_ACCESS_TOKEN>
+
+###
+
+POST http://localhost:4000/api/auth/token
+Content-Type: application/json
+
+{
+  "token": "<REDACTED_REFRESH_TOKEN>"
+}
+
+###
+
+DELETE http://localhost:4000/api/auth/logout
+Content-Type: application/json
+
+{
+  "token": "<REDACTED_REFRESH_TOKEN>"
+}
+
+###
+
+GET http://localhost:4000/api/users/me
+Authorization: Bearer <REDACTED_ACCESS_TOKEN>
+Content-Type: application/json
+
+###
+
+GET http://localhost:4000/api/journals/mood_score/7
+Authorization: Bearer <REDACTED_ACCESS_TOKEN>

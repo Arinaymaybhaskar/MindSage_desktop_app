@@ -5,6 +5,8 @@ import dayjs from "dayjs";
 import WeeklyMoodStrip from "../components/weeklyMoodStrip";
 import { MoodCalendar } from "../components/moodCalender";
 import { PencilIcon, Trash2 } from "lucide-react";
+import { formatTimeAgo } from "../utils/DateFormatter";
+import { useAuth } from "../hooks/useAuth";
 
 export default function JournalList() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -12,13 +14,18 @@ export default function JournalList() {
   const location = useLocation();
   const searchTerm = new URLSearchParams(location.search).get("search") || "";
   const moodMap = ["😢", "😐", "🙂", "😄", "🤩"];
+    const { accessToken } = useAuth();
+  
+    const authMode = (localStorage.getItem("authMode") || "offline") as
+      | "offline"
+      | "online";
 
   useEffect(() => {
-    journalService.getAll().then((res) => setEntries(res.data));
+    journalService.getAll(authMode, accessToken!).then((res) => setEntries(res));
   }, []);
 
   const handleDelete = async (id: number) => {
-    await journalService.remove(id);
+    await journalService.remove(authMode, accessToken!, id);
     setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
@@ -96,8 +103,11 @@ export default function JournalList() {
                   >
                     {entry.title}
                   </Link>
+                  <p className="text-gray-500 text-xs mb-2">
+                    {formatTimeAgo(entry.created_at!)}
+                  </p>
                   <div className="flex gap-2">
-                    {entry.mood_tags!.map((tag, idx) => (
+                    {JSON.parse(entry.mood_tags!).map((tag, idx) => (
                       <span
                         key={idx}
                         className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700"
@@ -119,14 +129,14 @@ export default function JournalList() {
                   to={`/journal/edit/${entry.id}`}
                   className="text-indigo-600 hover:text-indigo-800"
                 >
-                  <PencilIcon/>
+                  <PencilIcon />
                 </Link>
                 <button
                   onClick={() => handleDelete(entry.id!)}
                   type="button"
                   className="text-red-600 hover:text-red-800"
                 >
-                  <Trash2/>
+                  <Trash2 />
                 </button>
               </div>
             </div>

@@ -1,10 +1,16 @@
 import { useState } from "react";
-import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { userService } from "../../api/userService";
+import { useAuth } from "../../hooks/useAuth";
 
 const ChangePassword = () => {
   const navigate = useNavigate();
+  const {accessToken} = useAuth();
+
+  const authMode = (localStorage.getItem("authMode") || "offline") as
+    | "offline"
+    | "online";
 
   const [form, setForm] = useState({
     oldPassword: "",
@@ -37,10 +43,11 @@ const ChangePassword = () => {
     }
 
     try {
-      await api.put("/users/me/change-password", {
+      const payload = {
         old_password: form.oldPassword,
         new_password: form.newPassword,
-      });
+      };
+      await userService.changePassword(authMode, accessToken!, payload)
 
       alert("Password updated successfully.");
       navigate("/settings");

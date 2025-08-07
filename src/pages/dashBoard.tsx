@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import api from "../api/axios";
 import { useAuth } from "../hooks/useAuth";
+import { formatTimeAgo } from "../utils/DateFormatter";
+import { userService } from "../api/userService";
+import journalService from "../api/journalService";
 
 interface User {
   username: string;
@@ -8,6 +10,7 @@ interface User {
   created_at: string;
   entriesCount: number;
   lastEntryDate: string;
+  full_name: string;
 }
 
 interface JournalEntry {
@@ -16,7 +19,7 @@ interface JournalEntry {
   content: string;
   created_at: string;
   mood_score: number;
-  mood_tags: string[];
+  mood_tags: string;
 }
 
 const moodMap: Record<number, { emoji: string; label: string }> = {
@@ -31,7 +34,7 @@ const moodMap: Record<number, { emoji: string; label: string }> = {
 export default function Dashboard() {
   const { accessToken, logout } = useAuth();
   const [user, setUser] = useState<User | null>(null);
-  const [currentStreak, setCurrentStreak] = useState<number>(5); // Replace 5 with API data when available
+  // const [currentStreak, setCurrentStreak] = useState<number>(5); // Replace 5 with API data when available
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
 
   useEffect(() => {
@@ -40,15 +43,31 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  const authMode = (localStorage.getItem("authMode") || "offline") as
+    | "offline"
+    | "online";
   useEffect(() => {
     if (!accessToken) return;
 
     const fetchUser = async () => {
       try {
-        const res = await api.get("/users/me");
-        setUser(res.data);
-        if (res.data.currentStreak !== undefined)
-          setCurrentStreak(res.data.currentStreak);
+        const res = await userService.getMe(authMode, accessToken);
+        console.log(res);
+        const user = {
+          username: res.username!,
+          email: res.email!,
+          created_at: res.created_at!,
+          entriesCount: res.entriesCount!,
+          lastEntryDate: res.lastEntryDate!,
+          full_name: res.full_name!,
+        };
+        setUser(user);
+        console.log(user);
+        // if (res.currentStreak !== undefined) {
+        //   setCurrentStreak(res.data.currentStreak);
+        // }
+        // if (res.data.currentStreak !== undefined)
+        //   setCurrentStreak(res.data.currentStreak);
       } catch (err) {
         console.error("Failed to fetch user", err);
         logout();
@@ -63,8 +82,13 @@ export default function Dashboard() {
 
     const fetchRecentEntries = async () => {
       try {
-        const res = await api.get("/journals/recent");
-        setRecentEntries(res.data);
+        console.log(
+          "Fetching recent journal entries...",
+          accessToken,
+          authMode
+        );
+        const res = await journalService.getRecent(authMode, accessToken);
+        setRecentEntries(res);
       } catch (err) {
         console.error("Failed to fetch recent journal entries:", err);
       }
@@ -80,6 +104,28 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  function parseMoodTags(input: string | string[]): string[] {
+  if (Array.isArray(input)) {
+    // Already an array of tags
+    return input.map(tag => tag.trim());
+  }
+
+  try {
+    // Try parsing as JSON array string
+    const parsed = JSON.parse(input);
+    if (Array.isArray(parsed)) {
+      return parsed.map(tag => tag.trim());
+    }
+  } catch (e) {
+    // Not a JSON array string, fall back to comma-separated
+  }
+
+  return input
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(tag => tag.length > 0);
+}
 
   return (
     <div className="min-h-screen bg-gray-50 px-6 py-10">
@@ -106,7 +152,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Current streak</p>
-              <p className="text-xl font-semibold">{currentStreak} days</p>
+              <p className="text-xl font-semibold">{} days</p>
             </div>
           </div>
 
@@ -118,10 +164,7 @@ export default function Dashboard() {
               <p className="text-sm text-gray-500">Last entry</p>
               <p className="text-xl font-semibold">
                 {user.lastEntryDate
-                  ? new Date(user.lastEntryDate).toDateString() ===
-                    new Date().toDateString()
-                    ? "Today"
-                    : new Date(user.lastEntryDate).toLocaleDateString()
+                  ? formatTimeAgo(user.lastEntryDate)
                   : "No entries yet"}
               </p>
             </div>
@@ -140,9 +183,9 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {recentEntries.length > 0 ? (
               recentEntries.map((entry) => {
+                const moodTags = parseMoodTags(entry.mood_tags);
                 const mood = moodMap[entry.mood_score] || {
                   emoji: "📝",
-                  label: "Unknown",
                 };
                 return (
                   <div
@@ -150,7 +193,7 @@ export default function Dashboard() {
                     className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
                   >
                     <p className="text-sm text-gray-500 mb-1">
-                      {new Date(entry.created_at).toLocaleDateString()}
+                      {formatTimeAgo(entry.created_at)}
                     </p>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-800">
@@ -174,14 +217,15 @@ export default function Dashboard() {
                       {entry.content}
                     </p>
                     <div className="mt-3 flex gap-2 flex-wrap">
-                      {entry.mood_tags.map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      {moodTags &&
+                        moodTags.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
                     </div>
                   </div>
                 );

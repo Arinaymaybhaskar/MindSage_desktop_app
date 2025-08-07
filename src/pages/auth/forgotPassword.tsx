@@ -1,7 +1,10 @@
 import React, { useState } from "react";
-import api from "../api/axios";
-import { AuthLayout } from "../layouts/AuthLayout";
-import OTPInput from "../components/ui/OTPInput";
+import api from "../../api/axios";
+import { AuthLayout } from "../../layouts/AuthLayout";
+import OTPInput from "../../components/ui/OTPInput";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
+import { ArrowLeftIcon } from "lucide-react";
 
 const ForgotPassword = () => {
   const [form, setForm] = useState({ identifier: "" });
@@ -9,6 +12,9 @@ const ForgotPassword = () => {
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [otp, setOtp] = useState<number | null>();
+
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +34,9 @@ const ForgotPassword = () => {
   const handleOTPSubmit = async () => {
     setIsLoading(true);
     try {
-      await api.post("/auth/verify-otp", otp);
+      const res = await api.post("/auth/verify-otp", { otp: otp, identifier: form.identifier });
+      login(res.data.accessToken, res.data.userInfo);
+      navigate("/");
       setError("");
     } catch (error) {
       setError("Wrong OTP");
@@ -51,9 +59,13 @@ const ForgotPassword = () => {
         )}
         {success && (
           <div className="p-3 rounded-md bg-green-50 text-green-700 text-sm">
-            A password reset link has been sent to your email.
+            An OTP has been sent to your email.
           </div>
         )}
+        <Link to={"/login"} className="text-sm flex justify-start items-center">
+          <ArrowLeftIcon size={16} className="mr-2" />
+          Back to Login
+        </Link>
         <div>
           {success ? (
             <>
@@ -75,7 +87,7 @@ const ForgotPassword = () => {
               >
                 Didn't receive the OTP?{" "}
                 <span className="ml-2 underline italic cursor-pointer">
-                    Resend
+                  Resend
                 </span>
               </button>
             </>
