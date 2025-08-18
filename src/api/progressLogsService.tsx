@@ -1,0 +1,28 @@
+const checkElectron = () => {
+  if (!window.electron?.ipcRenderer) {
+    throw new Error("Not in an Electron environment.");
+  }
+};
+
+export const progressLogsService = {
+  getProgressLogs: async (authMode: string, token: string, goalId: number) => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke(
+      "logs:getAll",
+      authMode,
+      token,
+      goalId
+    );
+  },
+  addProgress: async (authMode: string, token: string, goalId: number, value: number, description: string) => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke(
+      "logs:add",
+      authMode,
+      token,
+      goalId,
+      value,
+      description
+    );
+  }
+};

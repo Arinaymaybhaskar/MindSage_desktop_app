@@ -1,7 +1,16 @@
-import { useEffect, useState } from "react";
-import { SearchIcon, BellIcon } from "lucide-react";
-import api from "../api/axios";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useContext, useEffect, useState, useRef } from "react";
+import {
+  Search,
+  Bell,
+  CheckCheck,
+  Goal as GoalIcon,
+  Rocket,
+} from "lucide-react"; // Added Rocket
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { ProfileDropdown } from "./profileDropdown";
+import { motion, AnimatePresence } from "framer-motion";
+import { formatTimeAgo } from "../utils/DateFormatter"; // Adjust path if necessary
+import EmptyState from "./EmptyState"; // Adjust path if necessary
 
 interface Notification {
   id: number;
@@ -10,141 +19,211 @@ interface Notification {
   body: string;
   created_at: string;
   read: boolean;
-  type: string;
+  type: string; // e.g., 'goal_completed', 'reminder'
 }
 
 const Header = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [open, setOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const res = await api.get("/notifications");
-        setNotifications(res.data);
-      } catch (err) {
-        console.error("Failed to load notifications", err);
+    // Mock data for demonstration
+    const mockNotifications: Notification[] = [
+      {
+        id: 1,
+        user_id: 1,
+        title: "Goal Achieved!",
+        body: "You've completed 'Read 12 books'.",
+        created_at: new Date().toISOString(),
+        read: false,
+        type: "goal_completed",
+      },
+      {
+        id: 2,
+        user_id: 1,
+        title: "New Feature",
+        body: "Check out the new AI-powered insights.",
+        created_at: new Date(Date.now() - 3600000).toISOString(),
+        read: false,
+        type: "announcement",
+      },
+      {
+        id: 3,
+        user_id: 1,
+        title: "Weekly Summary",
+        body: "Your weekly progress report is ready.",
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        read: true,
+        type: "report",
+      },
+    ];
+    setNotifications(mockNotifications);
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target as Node)
+      ) {
+        setIsNotificationsOpen(false);
       }
     };
-    fetchNotifications();
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
-
-    const params = new URLSearchParams();
-    if (value) params.set("search", value);
-
-    // If not already on journal list page, navigate there
-    if (!location.pathname.startsWith("/journals")) {
-      navigate({
-        pathname: "/journals",
-        search: params.toString(),
-      });
+    const params = new URLSearchParams(location.search);
+    if (value) {
+      params.set("search", value);
     } else {
-      // If already there, just update the URL
-      navigate({
-        pathname: location.pathname,
-        search: params.toString(),
-      });
+      params.delete("search");
     }
-  };
-
-  const markAsRead = async (id: number) => {
-    try {
-      await api.put(`/notifications/${id}/read`);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-      );
-    } catch (err) {
-      console.error("Failed to mark notification as read", err);
-    }
+    navigate({ pathname: "/journals", search: params.toString() });
   };
 
   const markAllAsRead = async () => {
-    try {
-      await api.put("/notifications/read-all");
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch (err) {
-      console.error("Failed to mark all as read", err);
-    }
+    // Mock API call
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const getNotificationIcon = (type: string) => {
+    if (type.includes("goal"))
+      return <GoalIcon className="w-5 h-5 text-green-500" />;
+    return <Bell className="w-5 h-5 text-indigo-500" />;
   };
 
   return (
-    <header className="flex items-center bg-white dark:bg-dark2 border-b border-light2 dark:border-dark3 px-6 py-3 sticky top-0 z-50 h-[80px] justify-end">
-      {/* Search */}
-      <div className="relative w-full max-w-md flex items-center justify-end">
-        <SearchIcon className="w-5 h-5 text-dark3 dark:text-light1 absolute left-3 top-1/2 transform -translate-y-1/2" />
-        <input
-          type="text"
-          value={query}
-          onChange={handleSearch}
-          placeholder="Search entries..."
-          className="pl-10 pr-4 py-2 w-full bg-white dark:bg-dark1 text-dark2 dark:text-white placeholder:text-dark3 dark:placeholder:text-light1 border border-light2 dark:border-dark3 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-dark1 focus:border-dark1 dark:focus:ring-light2 dark:focus:border-light2"
+    <header className="flex items-center justify-between bg-white dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 px-6 h-20 sticky top-0 z-50">
+      {/* Logo and Branding */}
+      <Link to="/" className="flex items-center gap-3">
+        <img
+          src="/assets/iconDark.png"
+          alt="MindSage Logo"
+          className="w-8 h-8 dark:hidden"
         />
-      </div>
+        <img
+          src="/assets/iconLight.png"
+          alt="MindSage Logo"
+          className="w-8 h-8 hidden dark:block"
+        />
+        <h1 className="text-xl hidden md:block">
+          <span className="font-bold text-gray-900 dark:text-white">Mind</span>
+          <span className="text-gray-500 dark:text-gray-400">Sage</span>
+        </h1>
+      </Link>
 
-      {/* Notification */}
-      <div className="relative ml-4">
-        <button
-          onClick={() => setOpen((prev) => !prev)}
-          className="text-dark3 hover:text-dark1 dark:text-light1 dark:hover:text-white relative"
+      {/* Search and User Actions */}
+      <div className="flex items-center gap-4">
+        <div className="relative w-64 lg:w-96">
+          <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={query}
+            onChange={handleSearch}
+            placeholder="Search journal entries..."
+            className="pl-10 focus:outline-none pr-4 py-2 w-full bg-gray-100 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 border border-transparent focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg text-sm transition"
+          />
+        </div>
+
+        {/* --- NEW: Get Started with Ollama Button --- */}
+        <Link
+          to="/ollama-tutorial"
+          className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-900/50 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         >
-          <BellIcon className="w-6 h-6" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1 rounded-full">
-              {unreadCount}
-            </span>
-          )}
-        </button>
+          <Rocket size={16} />
+          <span className="hidden lg:block">Get Started</span>
+        </Link>
 
-        {open && (
-          <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-dark2 border border-light2 dark:border-dark3 shadow-lg rounded-md z-50 max-h-96 overflow-y-auto">
-            <div className="p-3 font-semibold text-dark1 dark:text-white border-b border-light2 dark:border-dark3 flex justify-between items-center">
-              <span>Notifications</span>
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="text-sm text-dark1 hover:underline dark:text-light2"
-                >
-                  Mark all as read
-                </button>
-              )}
-            </div>
+        <div className="h-8 w-px bg-gray-200 dark:bg-gray-700" />
 
-            {notifications.filter((n) => !n.read).length === 0 ? (
-              <div className="p-4 text-dark3 dark:text-light1 text-sm">
-                No unread notifications
-              </div>
-            ) : (
-              notifications
-                .filter((n) => !n.read)
-                .map((n) => (
-                  <div
-                    key={n.id}
-                    className="p-3 hover:bg-light4 dark:hover:bg-dark1 border-b border-light2 dark:border-dark3 cursor-pointer"
-                    onClick={() => markAsRead(n.id)}
-                  >
-                    <div className="text-sm font-semibold text-dark1 dark:text-white">
-                      {n.title}
-                    </div>
-                    <div className="text-sm text-dark2 dark:text-light2">
-                      {n.body}
-                    </div>
-                    <div className="text-xs text-dark3 dark:text-light1 mt-1">
-                      {new Date(n.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                ))
+        {/* Notifications */}
+        <div className="relative" ref={notificationsRef}>
+          <button
+            onClick={() => setIsNotificationsOpen((prev) => !prev)}
+            className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+          >
+            <Bell className="w-6 h-6" />
+            {unreadCount > 0 && (
+              <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-800/50" />
             )}
-          </div>
-        )}
+          </button>
+
+          <AnimatePresence>
+            {isNotificationsOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="absolute top-full right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 origin-top-right z-10"
+              >
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Notifications
+                  </h3>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline"
+                    >
+                      <CheckCheck size={14} /> Mark all as read
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`flex items-start gap-4 p-4 border-b border-gray-100 dark:border-gray-700/50 ${
+                          !n.read ? "bg-indigo-50/50 dark:bg-indigo-500/10" : ""
+                        }`}
+                      >
+                        <div className="flex-shrink-0">
+                          {getNotificationIcon(n.type)}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                            {n.title}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            {n.body}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {formatTimeAgo(n.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-4">
+                      <EmptyState
+                        Icon={Bell}
+                        title="No Notifications"
+                        message="You're all caught up!"
+                      />
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="h-8 w-px bg-gray-200 dark:bg-gray-700" />
+
+        <ProfileDropdown />
       </div>
     </header>
   );

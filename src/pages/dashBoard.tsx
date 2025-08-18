@@ -1,8 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense, useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { userService } from "../api/userService";
 import journalService from "../api/journalService";
+import { Link } from "react-router-dom";
+import {
+  BookOpen,
+  TrendingUp,
+  Edit,
+  Pin,
+  ArrowUpRightIcon,
+} from "lucide-react";
+
+// Import new components
+import RecentEntryCard from "../components/RecentEntryCard";
+import MasonrySkeleton from "../components/Skeletons/MasonrySkeleton";
+import DashboardSkeleton from "../components/Skeletons/DashBoardSkeleton";
+import StatCard from "../components/StatCard";
+import { goalService } from "../api/goalService";
+import MoodSentimentChart from "../components/MoodSentimentChart";
+
+// Dynamically import the Masonry component for code splitting
+const Masonry = lazy(() => import("../components/masonry"));
 
 interface User {
   username: string;
@@ -19,233 +38,246 @@ interface JournalEntry {
   content: string;
   created_at: string;
   mood_score: number;
-  mood_tags: string;
+  mood_tags: string | string[];
+  image_key?: string;
 }
 
-const moodMap: Record<number, { emoji: string; label: string }> = {
-  0: { emoji: "😐", label: "Neutral" },
-  1: { emoji: "😞", label: "Sad" },
-  2: { emoji: "😰", label: "Anxious" },
-  3: { emoji: "🙂", label: "Calm" },
-  4: { emoji: "😊", label: "Happy" },
-  5: { emoji: "😁", label: "Joyful" },
-};
+interface PinnedGoal {
+  id: number;
+  title: string;
+  current_value: number;
+  target_value: number;
+  unit: string;
+}
 
 export default function Dashboard() {
   const { accessToken, logout } = useAuth();
   const [user, setUser] = useState<User | null>(null);
-  // const [currentStreak, setCurrentStreak] = useState<number>(5); // Replace 5 with API data when available
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem("userInfo", JSON.stringify(user));
-    }
-  }, [user]);
+  const [images, setImages] = useState<any[]>([]);
+  const [pinnedGoals, setPinnedGoals] = useState<PinnedGoal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [chartData, setChartData] = useState();
+  const [lastEntryId, setLastEntryId] = useState<number | null>(null);
 
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
-  useEffect(() => {
-    if (!accessToken) return;
 
-    const fetchUser = async () => {
-      try {
-        const res = await userService.getMe(authMode, accessToken);
-        console.log(res);
-        const user = {
-          username: res.username!,
-          email: res.email!,
-          created_at: res.created_at!,
-          entriesCount: res.entriesCount!,
-          lastEntryDate: res.lastEntryDate!,
-          full_name: res.full_name!,
-        };
-        setUser(user);
-        console.log(user);
-        // if (res.currentStreak !== undefined) {
-        //   setCurrentStreak(res.data.currentStreak);
-        // }
-        // if (res.data.currentStreak !== undefined)
-        //   setCurrentStreak(res.data.currentStreak);
-      } catch (err) {
-        console.error("Failed to fetch user", err);
-        logout();
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!accessToken) {
+        setIsLoading(false);
+        return;
       }
-    };
-
-    fetchUser();
-  }, [accessToken]);
-
-  useEffect(() => {
-    if (!accessToken) return;
-
-    const fetchRecentEntries = async () => {
       try {
-        console.log(
-          "Fetching recent journal entries...",
-          accessToken,
-          authMode
+        // Fetch all data concurrently for faster loading
+        const [
+          userData,
+          recentEntriesData,
+          imageData,
+          pinnedGoalsData,
+          chartData,
+        ] = await Promise.all([
+          userService.getMe(authMode, accessToken),
+          journalService.getRecent(authMode, accessToken),
+          journalService.getImages(authMode, accessToken, "random"),
+          goalService.getPinned(authMode, accessToken),
+          journalService.getChartData(authMode, accessToken, 30),
+        ]);
+
+        setLastEntryId(recentEntriesData[0].id);
+
+        console.log(chartData, "ChartData");
+        setChartData(chartData);
+        setUser(userData);
+        localStorage.setItem("userInfo", JSON.stringify(userData));
+        setPinnedGoals(pinnedGoalsData);
+
+        // Safely parse mood_tags for each entry
+        const parsedEntries = recentEntriesData.map((entry) => ({
+          ...entry,
+          mood_tags: Array.isArray(entry.mood_tags) ? entry.mood_tags : [],
+        }));
+        setRecentEntries(parsedEntries);
+
+        // Process images with their sources
+        const imgsWithSrc = await Promise.all(
+          imageData.map(async (entry) => {
+            const imageSrc = await window.electron.ipcRenderer.invoke(
+              "media:getImage",
+              entry.image_key.toString()
+            );
+            return { ...entry, image_key: imageSrc };
+          })
         );
-        const res = await journalService.getRecent(authMode, accessToken);
-        setRecentEntries(res);
+        setImages(imgsWithSrc);
       } catch (err) {
-        console.error("Failed to fetch recent journal entries:", err);
+        console.error("Failed to fetch dashboard data:", err);
+        logout(); // Logout on critical data fetch failure
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchRecentEntries();
-  }, [accessToken]);
+    fetchDashboardData();
+  }, [accessToken, authMode, logout]);
+
+  const masonryItems = useMemo(() => {
+    return images.map((entry) => ({
+      id: entry.id,
+      title: entry.title,
+      img: entry.image_key,
+      url: `/journal/view/${entry.id}`,
+      height: Math.floor(Math.random() * (500 - 250 + 1)) + 250,
+    }));
+  }, [images]);
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500 text-xl">
-        Loading...
+      <div className="min-h-screen flex flex-col items-center justify-center text-gray-500 text-xl bg-gray-100 dark:bg-slate-900">
+        <p>Could not load user data.</p>
+        <Link to="/login" className="mt-4 text-indigo-600 hover:underline">
+          Go to Login
+        </Link>
       </div>
     );
   }
 
-  function parseMoodTags(input: string | string[]): string[] {
-  if (Array.isArray(input)) {
-    // Already an array of tags
-    return input.map(tag => tag.trim());
-  }
-
-  try {
-    // Try parsing as JSON array string
-    const parsed = JSON.parse(input);
-    if (Array.isArray(parsed)) {
-      return parsed.map(tag => tag.trim());
-    }
-  } catch (e) {
-    // Not a JSON array string, fall back to comma-separated
-  }
-
-  return input
-    .split(',')
-    .map(tag => tag.trim())
-    .filter(tag => tag.length > 0);
-}
-
   return (
-    <div className="min-h-screen bg-gray-50 px-6 py-10">
-      <div className="mx-auto bg-white p-8">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          Welcome back, {user.username}
-        </h1>
-        <p className="text-gray-600 mt-1">Continue your journaling journey</p>
+    <div className="bg-gray-100 dark:bg-slate-900 min-h-screen">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header className="mb-8">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+            Welcome back, {user.full_name?.split(" ")[0] || user.username}
+          </h1>
+          <p className="text-lg text-gray-500 dark:text-gray-400 mt-1">
+            Here's a look at your recent activity and memories.
+          </p>
+        </header>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-4">
-            <div className="bg-indigo-100 text-indigo-600 p-2 rounded-full">
-              📖
+        {/* Stats Section */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <StatCard
+            icon={BookOpen}
+            label="Entries this month"
+            value={user.entriesCount}
+            color="indigo"
+          />
+          <StatCard
+            icon={TrendingUp}
+            label="Current streak"
+            value={`${0} days`} // Placeholder for streak
+            color="green"
+          />
+          <Link to={`/journal/view/${lastEntryId}`}>
+            <StatCard
+              icon={Edit}
+              label="Last entry"
+              value={
+                user.lastEntryDate ? formatTimeAgo(user.lastEntryDate) : "N/A"
+              }
+              color="purple"
+            />
+          </Link>
+        </section>
+        <div className="flex w-full h-full justify-center gap-6 items-center">
+          {chartData && <MoodSentimentChart data={chartData} />}
+          <section className="h-[500px] dark:bg-gray-800/50 border bg-white border-gray-200 dark:border-gray-700 rounded-xl p-6 pb-0 w-1/4 mt-6  shadow">
+            <h3 className="text-xl flex font-bold w-full items-center mb-4 text-text-light dark:text-text-dark">
+              Goal Progress{" "}
+              <Link
+                to={"/goals"}
+                className="text-indigo-500 hover:text-white mb-2 rounded-full text-sm text-end ml-5 justify-end flex mt-2"
+              >
+                <ArrowUpRightIcon size={20} />
+              </Link>
+            </h3>
+            <div className="space-y-4 overflow-y-scroll h-[423px] no-scrollbar ">
+              {[...pinnedGoals] // create a shallow copy so we don't mutate original
+                .sort(
+                  (a, b) =>
+                    b.current_value / b.target_value -
+                    a.current_value / a.target_value
+                )
+                .map((goal) => {
+                  const progressPercentage = Math.min(
+                    100,
+                    Math.round((goal.current_value / goal.target_value) * 100)
+                  );
+                  return (
+                    <div className="pb-2" key={goal.id}>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm text-text-light dark:text-text-dark">
+                          {goal.title}
+                        </span>
+                        <span className="text-xs font-semibold text-indigo-500 ml-3 dark:text-indigo-400">
+                          {progressPercentage}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                        <div
+                          className="h-1.5 rounded-full bg-indigo-500"
+                          style={{ width: `${progressPercentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Entries this month</p>
-              <p className="text-xl font-semibold">{user.entriesCount}</p>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-4">
-            <div className="bg-green-100 text-green-600 p-2 rounded-full">
-              📈
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Current streak</p>
-              <p className="text-xl font-semibold">{} days</p>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-4">
-            <div className="bg-purple-100 text-purple-600 p-2 rounded-full">
-              ✏️
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Last entry</p>
-              <p className="text-xl font-semibold">
-                {user.lastEntryDate
-                  ? formatTimeAgo(user.lastEntryDate)
-                  : "No entries yet"}
-              </p>
-            </div>
-          </div>
+          </section>
         </div>
-
-        {/* <div className="mt-10 bg-white shadow-md rounded-xl p-6">
-          <MoodChart />
-        </div> */}
 
         {/* Recent Entries Section */}
-        <div className="mt-10">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-            Recent Entries
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {recentEntries.length > 0 ? (
-              recentEntries.map((entry) => {
-                const moodTags = parseMoodTags(entry.mood_tags);
-                const mood = moodMap[entry.mood_score] || {
-                  emoji: "📝",
-                };
-                return (
-                  <div
-                    key={entry.id}
-                    className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
-                  >
-                    <p className="text-sm text-gray-500 mb-1">
-                      {formatTimeAgo(entry.created_at)}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-gray-800">
-                        {entry.title}
-                      </h3>
-                      <span
-                        className={`text-sm px-2 py-1 rounded-full ${
-                          mood.label === "Happy"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : mood.label === "Anxious"
-                            ? "bg-red-100 text-red-700"
-                            : mood.label === "Calm"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {mood.emoji} {mood.label}
-                      </span>
-                    </div>
-                    <p className="text-gray-600 mt-2 text-sm line-clamp-3">
-                      {entry.content}
-                    </p>
-                    <div className="mt-3 flex gap-2 flex-wrap">
-                      {moodTags &&
-                        moodTags.map((tag, idx) => (
-                          <span
-                            key={idx}
-                            className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="col-span-3 text-center text-gray-500">
-                No recent entries found.
-              </div>
-            )}
-          </div>
-          <div className="mt-4 text-right">
-            <a
-              href="/journals"
-              className="text-indigo-600 hover:underline font-medium"
+        <section className="my-12">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Recent Entries
+            </h2>
+            <Link
+              to="/journals"
+              className="text-sm font-semibold text-indigo-600 hover:underline"
             >
               View all
-            </a>
+            </Link>
           </div>
-        </div>
-      </div>
+          {recentEntries.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recentEntries.map((entry) => (
+                <RecentEntryCard key={entry.id} entry={entry} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700">
+              <p className="text-gray-500">No recent entries found.</p>
+            </div>
+          )}
+        </section>
+
+        {/* Memories / Image Gallery */}
+        <section>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            Memories
+          </h2>
+          <div className="w-full min-h-[600px] bg-white dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+            <Suspense fallback={<MasonrySkeleton />}>
+              <Masonry
+                items={masonryItems}
+                ease="power3.out"
+                duration={0.6}
+                stagger={0.05}
+                animateFrom="bottom"
+                scaleOnHover={true}
+                hoverScale={0.95}
+              />
+            </Suspense>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

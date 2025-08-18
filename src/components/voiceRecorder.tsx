@@ -1,9 +1,9 @@
-// src/components/VoiceRecorder.tsx
-
-import React, { useRef } from 'react';
-import { Mic, StopCircle, Pause, Play } from 'lucide-react';
-import LiveWaveformVisualizer from './liveWaveformVisualizer'; // Assuming you have this component
-import PlaybackWaveformVisualizer from './playbackWaveformVisualizer'; // Assuming you have this component
+import React from "react";
+import { Mic, StopCircle, Pause, Play, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import LiveWaveformVisualizer from "./liveWaveformVisualizer";
+// Import the new playback visualizer
+import PlaybackWaveformVisualizer from "./PlaybackWaveformVisualizer";
 
 // --- Define the props type to match the hook's return value ---
 type VoiceRecorderProps = {
@@ -18,79 +18,143 @@ type VoiceRecorderProps = {
   resetRecording: () => void;
 };
 
-const VoiceRecorder: React.FC<VoiceRecorderProps> = (props) => {
-  const {
-    isRecording,
-    isPaused,
-    recordingTime,
-    recordingBlob,
-    waveformHistory,
-    startRecording,
-    stopRecording,
-    togglePauseResume,
-  } = props;
-  
-  const audioRef = useRef<HTMLAudioElement>(null);
+const formatTime = (time: number): string => {
+  const minutes = Math.floor(time / 60)
+    .toString()
+    .padStart(2, "0");
+  const seconds = Math.floor(time % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${minutes}:${seconds}`;
+};
 
-  const formatTime = (time: number): string => {
-    const minutes = Math.floor(time / 60).toString().padStart(2, '0');
-    const seconds = Math.floor(time % 60).toString().padStart(2, '0');
-    return `${minutes}:${seconds}`;
+const VoiceRecorderUI: React.FC<VoiceRecorderProps> = ({
+  isRecording,
+  isPaused,
+  recordingTime,
+  recordingBlob,
+  waveformHistory,
+  startRecording,
+  stopRecording,
+  togglePauseResume,
+  resetRecording,
+}) => {
+  const hasRecording = recordingBlob !== null;
+
+  const renderPrimaryButton = () => {
+    if (isRecording || isPaused) {
+      return (
+        <button
+          type="button"
+          onClick={togglePauseResume}
+          className="flex items-center justify-center w-14 h-14 bg-white dark:bg-gray-200 text-gray-900 rounded-full shadow-lg transform transition-transform hover:scale-105"
+          aria-label={isPaused ? "Resume recording" : "Pause recording"}
+        >
+          {isPaused ? <Play size={28} className="ml-1" /> : <Pause size={28} />}
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={startRecording}
+        className="flex items-center justify-center w-14 h-14 bg-red-600 text-white rounded-full shadow-lg transform transition-transform hover:scale-105"
+        aria-label="Start recording"
+      >
+        <Mic size={28} />
+      </button>
+    );
   };
 
-  let heading;
-  if(isRecording) {
-    heading = 'Recording...';
-  } else if(isPaused) {
-    heading = 'Paused';
-  } else if (recordingBlob) {
-    heading = "Playback";
-  } else {
-    heading = "Voice Recorder";
-  }
-
   return (
-    <div className="w-full max-w-md p-6 text-white bg-gray-900 rounded-2xl shadow-lg flex flex-col items-center space-y-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">{heading}</h1>
-      </div>
-
-      {/* Conditionally render the correct visualizer */}
-      {isRecording || isPaused ? (
-        <LiveWaveformVisualizer waveformHistory={waveformHistory} />
-      ) : (
-        recordingBlob && <PlaybackWaveformVisualizer waveformHistory={waveformHistory} audioRef={audioRef} />
-      )}
-
-      <p className="text-5xl font-mono tracking-tighter">
-        {formatTime(recordingTime)}
-      </p>
-
-      <div className="flex items-center justify-center space-x-8 w-full">
-        <button type='button' onClick={stopRecording} disabled={!isRecording && !isPaused} className="text-gray-400 disabled:text-gray-700 transition-colors">
-          <StopCircle size={32} />
-        </button>
-        
-        {!isRecording && !isPaused ? (
-          <button type='button' onClick={startRecording} className="p-4 bg-red-600 rounded-full text-white shadow-lg hover:bg-red-700 transition-all duration-200 ease-in-out transform hover:scale-105">
-            <Mic size={40} />
-          </button>
-        ) : (
-          <button type='button' onClick={togglePauseResume} className="p-4 bg-white rounded-full text-black shadow-lg hover:bg-gray-200 transition-all duration-200 ease-in-out transform hover:scale-105">
-            {isPaused ? <Play size={40} className="ml-1"/> : <Pause size={40} />}
-          </button>
-        )}
-      </div>
-
-      {/* {recordingBlob && !isRecording && (
-        <div className="w-full pt-4 mt-4 border-t border-gray-700">
-          <audio ref={audioRef} controls src={URL.createObjectURL(recordingBlob)} className="w-full">
-            Your browser does not support the audio element.
-          </audio>
+    <div className="w-full bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-4">
+      {/* Top Row: Controls and Timer */}
+      <div className="w-full flex items-center justify-between">
+        {/* Left-side secondary button (Stop/Delete) */}
+        <div className="w-14 flex justify-start">
+          <AnimatePresence>
+            {(isRecording || isPaused) && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                type="button"
+                onClick={stopRecording}
+                className="p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                aria-label="Stop recording"
+              >
+                <StopCircle size={28} />
+              </motion.button>
+            )}
+            {hasRecording && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                type="button"
+                onClick={resetRecording}
+                className="p-2 rounded-full text-gray-500 hover:bg-red-100 dark:hover:bg-red-500/10 hover:text-red-500"
+                aria-label="Delete recording"
+              >
+                <Trash2 size={28} />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
-      )} */}
+
+        {/* Center Primary Button */}
+        <div className="flex-shrink-0">{renderPrimaryButton()}</div>
+
+        {/* Right-side Timer / Status */}
+        <div className="w-14 flex justify-end">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={isRecording || isPaused ? "time" : "idle"}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="text-right"
+            >
+              {isRecording || isPaused ? (
+                <div className="text-xl font-mono text-gray-900 dark:text-gray-100">
+                  {formatTime(recordingTime)}
+                </div>
+              ) : (
+                <div className="w-14 h-7" /> // Placeholder to prevent layout shift
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Bottom Row: Waveform Visualizer */}
+      <div className="w-full h-16 flex items-center justify-center">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={hasRecording ? "playback" : "live"}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="w-full h-full"
+          >
+            {isRecording || isPaused ? (
+              <LiveWaveformVisualizer waveformHistory={waveformHistory} />
+            ) : hasRecording ? (
+              // Use the new PlaybackWaveformVisualizer here
+              <PlaybackWaveformVisualizer audioBlob={recordingBlob} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-sm text-gray-400 dark:text-gray-500">
+                Click the mic to start recording
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
-}
+};
 
-export default VoiceRecorder;
+export default VoiceRecorderUI;

@@ -33,6 +33,20 @@ export async function handleCreateJournal(event, mode, token, payload) {
     }
 }
 
+export async function handleGettingImages(event, mode, token, getMode) {
+    const userId = getUserIdFromToken(token).id;
+    if (!userId) throw new Error("Invalid token");
+    if (mode === 'online') {
+        const response = await axios.get('http://localhost:4000/api/journals/images', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    } else {
+        // Offline
+        return localDB.getImageKeysAndIds(userId, getMode);
+    }
+}
+
 export async function handleGetRecentJournals(event, mode, token) {
     const userId = getUserIdFromToken(token).id;
     if (!userId) throw new Error("Invalid token");
@@ -47,7 +61,7 @@ export async function handleGetRecentJournals(event, mode, token) {
     }
 }
 
-export async function handleGetAllJournals(event, mode, token) {
+export async function handleGetAllJournals(event, mode, token, page, limit) {
     console.log("Getting all entries", mode, token);
     const userId = getUserIdFromToken(token).id;
     if (!userId) throw new Error("Invalid token");
@@ -59,7 +73,9 @@ export async function handleGetAllJournals(event, mode, token) {
         return response.data;
     } else { // Offline
         console.log("Getting all entries offline");
-        return localDB.getAllEntries(userId);
+        const ans = localDB.getAllEntries(userId, page, limit);
+        console.log(ans);
+        return ans
     }
 }
 
@@ -116,5 +132,15 @@ export async function handleChat(event, mode, token, payload) {
     } else { // Offline
         // AI chat is not available offline. Return a helpful message.
         return { answer: "I can only answer questions when you are online. Please connect to the internet to use the chat feature." };
+    }
+}
+
+export async function handleGetChartData(event, mode, token, range) {
+    const userId = getUserIdFromToken(token).id;
+    if (!userId) throw new Error("Invalid token");
+    if (mode === 'online') {
+        console.log("later")
+    } else { // Offline
+        return localDB.getMoodScores(userId, range);
     }
 }

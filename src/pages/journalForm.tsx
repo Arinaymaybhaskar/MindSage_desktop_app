@@ -2,29 +2,79 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
 import {
-  ArrowLeftIcon,
-  BrainIcon,
-  MicIcon,
-  PaperclipIcon,
-  XIcon,
+  ArrowLeft,
+  BrainCircuit,
+  Paperclip,
+  Save,
+  Smile,
+  ChevronDown,
+  X,
+  Loader2,
+  UploadCloud,
+  Mic,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoodTagSelector } from "../components/moodOptions";
 import { MoodSlider } from "../components/moodSlider";
 import { FollowUpQuestions } from "../components/followUpQuestions";
-import api from "../api/axios";
-// import { AudioPlayer } from "../components/ui/AudioPlayer";
 import { useAuth } from "../hooks/useAuth";
 import { mediaService } from "../api/mediaService";
 import VoiceRecorderUI from "../components/voiceRecorder";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
+import { ollamaService } from "../api/ollamaService";
+import {
+  getAutoPopulateValues,
+  getFollowUpQuestionsPrompt,
+} from "../utils/prompts/Journal";
 
 const emptyJournal: JournalEntry = {
   title: "",
   content: "",
   mood_score: 0,
   sentiment_score: 0,
-  mood_tags: [],
+  mood_tags: "",
+};
+
+// A reusable panel component for the sidebar
+const SidebarPanel = ({ title, icon: Icon, children }) => {
+  const [isOpen, setIsOpen] = useState(true);
+  return (
+    <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+      <button
+        type="button"
+        className="w-full flex justify-between items-center p-4"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="flex items-center gap-3">
+          <Icon size={18} className="text-indigo-500 dark:text-indigo-400" />
+          <h3 className="font-semibold text-gray-800 dark:text-gray-200">
+            {title}
+          </h3>
+        </div>
+        <ChevronDown
+          size={20}
+          className={`text-gray-500 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 export default function JournalForm() {
@@ -41,131 +91,99 @@ export default function JournalForm() {
   const voiceRecorderState = useVoiceRecorder();
   const { recordingBlob, resetRecording } = voiceRecorderState;
   const { accessToken } = useAuth();
-
+  const selectedModel = localStorage.getItem("selectedModel");
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
 
-  // const handleImageUpload = (file: File) => {
-  //   setImageFile(file);
-  // };
+  // --- NEW: State for submission loading ---
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // --- State for Drag-and-Drop ---
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Load draft or fetch entry
   useEffect(() => {
-    const savedDraft = localStorage.getItem(DRAFT_KEY);
-    if (savedDraft && !id) {
-      setEntry(JSON.parse(savedDraft));
+    if (isEdit && id) {
+      journalService.getOne(authMode, accessToken!, +id).then(setEntry);
+    } else {
+      const savedDraft = localStorage.getItem(DRAFT_KEY);
+      if (savedDraft) {
+        setEntry(JSON.parse(savedDraft));
+      }
     }
-  }, []);
+  }, [id, isEdit, authMode, accessToken, DRAFT_KEY]);
 
+  // Auto-save draft
   useEffect(() => {
-    if (!isEdit) return;
-    // get user settings for auto-save interval
-    const userSettings = localStorage.getItem("userSettings");
-    const autoSaveInterval = userSettings
-      ? JSON.parse(userSettings).auto_save_interval
-      : 1500;
+    if (isEdit) return; // Don't auto-save for existing entries
     const timer = setTimeout(() => {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(entry));
       setShowSaved(true);
       setTimeout(() => setShowSaved(false), 2000);
-    }, autoSaveInterval);
+    }, 1500);
     return () => clearTimeout(timer);
-  }, [entry]);
-
-  useEffect(() => {
-    if (isEdit && id) {
-      journalService
-        .getOne(authMode, accessToken!, +id)
-        .then((res) => setEntry(res));
-    }
-  }, [id]);
-
-  // const uploadToS3 = async (
-  //   file: File | Blob,
-  //   type: string,
-  //   userId: string,
-  //   journalId: string
-  // ) => {
-  //   const urlRes = await journalService.getUploadUrl(type, userId, journalId);
-  //   await fetch(urlRes.data.uploadUrl, {
-  //     method: "PUT",
-  //     headers: { "Content-Type": type },
-  //     body: file,
-  //   });
-  //   return urlRes.data.key;
-  // };
+  }, [entry, isEdit, DRAFT_KEY]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!entry.content || isSubmitting) return;
+
+    setIsSubmitting(true);
 
     try {
+      let aiRes: any = {};
+
+      // Only call AI if title, mood_score, or mood_tags are missing
+      if (
+        !entry.title?.trim() ||
+        entry.mood_score === undefined ||
+        !entry.mood_tags?.length
+      ) {
+        const prompt = getAutoPopulateValues(entry.content);
+        const res2 = await ollamaService.getResponse(
+          accessToken!,
+          selectedModel!,
+          prompt,
+          true
+        );
+        aiRes = JSON.parse(res2);
+      }
+
+      // Merge AI data only if missing
+      const mergedEntry: JournalEntry = {
+        ...entry,
+        title: entry.title?.trim() ? entry.title : aiRes.title,
+        mood_score:
+          entry.mood_score !== undefined && entry.mood_score !== 0
+            ? entry.mood_score
+            : aiRes.mood_score,
+        mood_tags:
+          entry.mood_tags && entry.mood_tags.length > 0
+            ? entry.mood_tags
+            : aiRes.mood_tags?.toString(),
+      };
+
+      setEntry(mergedEntry);
+      console.log("Final entry to save:", mergedEntry);
+
+      // Save to backend
       let res;
       if (isEdit && id) {
-        console.log(id);
-        res = await journalService.update(authMode, accessToken!, +id, {
-          title: entry.title,
-          content: entry.content,
-          mood_score: entry.mood_score,
-          sentiment_score: entry.sentiment_score,
-          mood_tags: entry.mood_tags,
-        });
+        res = await journalService.update(
+          authMode,
+          accessToken!,
+          +Number(id),
+          mergedEntry
+        );
       } else {
-        res = await journalService.create(authMode, accessToken!, {
-          title: entry.title,
-          content: entry.content,
-          mood_score: entry.mood_score,
-          sentiment_score: entry.sentiment_score,
-          mood_tags: entry.mood_tags,
-        });
-      }
-      console.log(res);
-
-      // const journalId = res.journalId;
-      // const userId = res.user_id;
-
-      // let imageKey: string | undefined;
-      // let audioKey: string | undefined;
-      // if(!imageKey && !audioKey) {
-      //   navigate("/");
-      //   return;
-      // }
-      // if (imageFile) {
-      //   imageKey = await uploadToS3(
-      //     imageFile,
-      //     imageFile.type,
-      //     userId,
-      //     journalId
-      //   );
-      // }
-
-      // if (audioBlob) {
-      //   audioKey = await uploadToS3(
-      //     audioBlob,
-      //     audioBlob.type || "audio/webm",
-      //     userId,
-      //     journalId
-      //   );
-      // }
-      // console.log("Image key:", imageKey);
-      // console.log("Audio key:", audioKey);
-
-      // const payload = {
-      //   ...entry,
-      //   image_key: imageKey,
-      //   audio_key: audioKey,
-      // };
-      // console.log("Submitting entry", payload);
-
-      // await journalService.update(journalId, payload);
-      if (authMode === "online") {
-        localStorage.removeItem(DRAFT_KEY);
-        navigate("/");
-        return;
+        res = await journalService.create(authMode, accessToken!, mergedEntry);
       }
 
-      const journalId = res.journalId;
-      let imageKey: string | undefined;
-      let audioKey: string | undefined;
+      const journalId = isEdit ? id : res.journalId;
+      let imageKey, audioKey;
+
+      // Image upload
       if (imageFile) {
         const arrayBuffer = await imageFile.arrayBuffer();
         const result = await mediaService.saveFileForJournal(
@@ -174,86 +192,73 @@ export default function JournalForm() {
           arrayBuffer,
           imageFile.name
         );
-        if (result.success) {
-          imageKey = result.key;
-        }
+        if (result.success) imageKey = result.key;
       }
+
+      // Audio upload
       if (recordingBlob) {
-        console.log(recordingBlob.type);
         const arrayBuffer = await recordingBlob.arrayBuffer();
-        const filename = `audio-${Date.now()}.webm`;
         const result = await mediaService.saveFileForJournal(
           journalId,
           "audio",
           arrayBuffer,
-          filename
+          `audio-${Date.now()}.webm`
         );
         if (result.success) {
-          resetRecording();
           audioKey = result.key;
+          resetRecording();
         }
       }
-      const finalEntry = {
-        ...entry,
-        audio_key: audioKey,
-        image_key: imageKey,
-      };
-      // Step 3: Update the journal entry with the new image key
+
+      // Update entry with media keys if needed
       if (imageKey || audioKey) {
-        finalEntry.image_key = imageKey;
-        await journalService.update(
-          authMode,
-          accessToken!,
-          journalId,
-          finalEntry
-        );
+        await journalService.update(authMode, accessToken!, journalId, {
+          ...mergedEntry,
+          image_key: imageKey,
+          audio_key: audioKey,
+        });
       }
 
+      // Clean up
       localStorage.removeItem(DRAFT_KEY);
       navigate("/");
     } catch (error) {
       console.error("❌ Submission error", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleGenerateQuestions = async () => {
     setIsGeneratingQuestions(true);
-    const prompt = `You are a compassionate and emotionally intelligent journaling assistant. A user has written the following journal entry. Based on it, generate 3 short, thoughtful follow-up questions that invites further reflection or emotional insight. Keep the questions concise — no more than one line.
-                    Journal Entry: ${entry.content}
-                    Your output should be a JSON array of strings, like this: ["Question 1", "Question 2", "Question 3"]`;
-
+    const prompt = getFollowUpQuestionsPrompt(entry.content);
     try {
-      const { data } = await api.post("/ai/gemini/text", { prompt });
-
-      // Remove Markdown code block formatting if present
-      let result = data.data.result?.trim() || "Couldn’t generate a question.";
-      if (result.startsWith("```")) {
-        result = result.replace(/```json|```/g, "").trim();
-      }
-      let questions: string[] = [];
-      try {
-        questions = JSON.parse(result);
-      } catch {
-        questions = [result];
-      }
-      setFollowUpQuestions(questions);
+      const res = await ollamaService.getResponse(
+        accessToken!,
+        selectedModel!,
+        prompt
+      );
+      const cleaned = (res as string).replace(/```json|```/g, "").trim();
+      setFollowUpQuestions(JSON.parse(cleaned));
     } catch (error) {
       console.error("Error fetching AI question:", error);
-      setFollowUpQuestions(["Error fetching question."]);
+      setFollowUpQuestions(["Could not generate questions. Please try again."]);
     } finally {
       setIsGeneratingQuestions(false);
     }
   };
 
-  const handleImageChange = (e: any) => {
-    const file = e.target.files[0];
+  const processImageFile = (file: File) => {
     if (file && file.type.startsWith("image/")) {
       setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImageFile(file);
     }
   };
 
@@ -262,230 +267,225 @@ export default function JournalForm() {
     setImagePreview(null);
   };
 
+  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
+  };
+
   return (
-    <div className="flex w-full overflow-hidden ">
-      <div className="h-full w-full flex flex-col p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            {isEdit ? "Edit Entry" : "New Journal Entry"}
-          </h1>
-          <Link
-            to="/"
-            className="flex items-center px-4 py-2 text-gray-600 hover:text-indigo-600 rounded-lg transition-all duration-200 hover:bg-gray-50 group"
-          >
-            <ArrowLeftIcon
-              size={16}
-              className="mr-2 transition-transform duration-200 group-hover:-translate-x-1"
-            />
-            <span className="text-sm font-medium">Back to Dashboard</span>
-          </Link>
-        </div>
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col lg:flex-row gap-6 h-full"
-        >
-          {/* Left column */}
-          <div className=" flex-1 bg-white rounded-xl shadow-md p-6 overflow-auto">
-            <div className="mb-4 group">
-              <label
-                htmlFor="title"
-                className="block text-xl font-medium text-gray-700 mb-1 transition-colors duration-200 group-focus-within:text-indigo-600"
-              >
-                Title
-              </label>
-              <input
-                id="title"
-                type="text"
-                placeholder="Today's thoughts..."
-                value={entry.title}
-                onChange={(e) => setEntry({ ...entry, title: e.target.value })}
-                className="w-full p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
-              />
-            </div>
-            <div className="mb-4 group flex-1">
-              <div className="flex items-center justify-between mb-1">
-                <label
-                  htmlFor="content"
-                  className="block text-xl font-medium text-gray-700 transition-colors duration-200 group-focus-within:text-indigo-600"
-                >
-                  Content
-                </label>
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    className="flex items-center px-2 py-1 text-xs text-indigo-700 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-all duration-200 hover:shadow-sm"
-                    onClick={() => console.log("Speak")}
-                  >
-                    <MicIcon size={14} className="mr-1" />
-                    Speak
-                  </button>
-                  <button
-                    className={`flex items-center px-2 py-1 text-xs rounded-full transition-all duration-300 ${
-                      isGeneratingQuestions
-                        ? "text-indigo-700 bg-indigo-100 animate-pulse"
-                        : "text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:shadow-sm"
-                    }`}
-                    type="button"
-                    onClick={handleGenerateQuestions}
-                    disabled={isGeneratingQuestions || !entry.content.trim()}
-                  >
-                    <BrainIcon
-                      size={14}
-                      className={`mr-1 ${
-                        isGeneratingQuestions ? "animate-spin" : ""
-                      }`}
-                    />
-                    {isGeneratingQuestions
-                      ? "Generating..."
-                      : "Get Follow-up Questions"}
-                  </button>
-                </div>
-              </div>
-              <textarea
-                id="content"
-                placeholder="Write freely..."
-                value={entry.content}
-                onChange={(e) =>
-                  setEntry({ ...entry, content: e.target.value })
-                }
-                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm h-full min-h-[200px]"
-              />
-            </div>
-            {followUpQuestions.length > 0 && (
-              <FollowUpQuestions questions={followUpQuestions} />
-            )}
+    <div className="w-full h-screen overflow-hidden bg-gray-100 dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+      <form onSubmit={handleSubmit} className="flex flex-col h-full">
+        {/* Header */}
+        <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+          <div className="flex items-center gap-4">
+            <Link
+              to="/"
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </Link>
+            <h1 className="text-xl font-bold">
+              {isEdit ? "Edit Entry" : "New Journal Entry"}
+            </h1>
           </div>
-          {/* Right column - Mood tracking and additional inputs */}
-          <div className="lg:w-1/3 space-y-4 overflow-auto">
-            <div className="bg-white rounded-xl shadow-md p-6 ">
-              <h2 className="text-lg font-semibold text-gray-800 mb-3">
-                Mood Tracking
-              </h2>
-              <div className="flex items-center flex-col space-x-2 mb-3">
-                <MoodSlider
-                  value={entry.mood_score ?? 0}
-                  onChange={(score) =>
-                    setEntry({ ...entry, mood_score: score })
-                  }
-                />
-                <MoodTagSelector
-                  selected={entry.mood_tags ?? []}
-                  onChange={(tags) => setEntry({ ...entry, mood_tags: tags })}
-                />
-                <div className="w-full mt-2">
-                  <label className="text-gray-700 font-semibold">
-                    Mood Tags
-                  </label>
-                  <input
-                    name="mood_tags"
-                    value={entry.mood_tags?.join(",")}
-                    onChange={(e) =>
-                      setEntry({
-                        ...entry,
-                        mood_tags: e.target.value.split(","),
-                      })
-                    }
-                    placeholder="e.g., happy, stressed, motivated"
-                    className="w-full mt-1 border border-gray-300 px-2 py-1 text-xs rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-300"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Separate tags with commas
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Attachments
-                </label>
-                <div className="flex items-center space-x-2">
-                  <label className="flex items-center px-3 py-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-all duration-200 hover:border-indigo-300 group">
-                    <PaperclipIcon
-                      size={16}
-                      className="mr-2 text-gray-500 group-hover:text-indigo-500 transition-colors duration-200"
-                    />
-                    <span className="text-sm text-gray-700 group-hover:text-indigo-700 transition-colors duration-200">
-                      Choose file
-                    </span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={handleImageChange}
-                    />
-                  </label>
-                  <span className="text-sm text-gray-500">
-                    {imageFile ? imageFile.name : "No file chosen"}
-                  </span>
-                </div>
-                {/* Image Preview Section */}
-                {imagePreview && (
-                  <div className="relative w-24 h-24">
+          <div className="flex items-center gap-4">
+            <AnimatePresence>
+              {showSaved && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  className="text-sm text-gray-500"
+                >
+                  Draft saved
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {/* --- NEW: Updated Clear button with framer-motion and better styling --- */}
+            <motion.button
+              type="button"
+              onClick={() => setEntry(emptyJournal)}
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 font-semibold rounded-lg border border-gray-300 dark:border-gray-700 hover:border-red-500 dark:hover:border-red-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Trash2 size={16} />
+              <span>Clear</span>
+            </motion.button>
+            {/* --- NEW: Updated Create/Save button with loading state --- */}
+            <motion.button
+              type="submit"
+              disabled={isSubmitting || !entry.content.trim()}
+              className="flex items-center justify-center gap-2 px-4 py-2 w-40 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={18} />
+                  <span>{isEdit ? "Save Changes" : "Create Entry"}</span>
+                </>
+              )}
+            </motion.button>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <div className="flex-grow flex overflow-hidden">
+          {/* Left Column: Editor */}
+          <div className="flex-grow flex flex-col p-6 overflow-y-auto">
+            <input
+              id="title"
+              type="text"
+              placeholder="A Title for Your Thoughts..."
+              value={entry.title}
+              onChange={(e) => setEntry({ ...entry, title: e.target.value })}
+              className="text-3xl font-bold bg-transparent focus:outline-none mb-4"
+            />
+            <textarea
+              id="content"
+              placeholder="Write freely..."
+              value={entry.content}
+              onChange={(e) => setEntry({ ...entry, content: e.target.value })}
+              className="flex-grow w-full text-lg bg-transparent focus:outline-none resize-none leading-relaxed"
+            />
+          </div>
+
+          {/* Right Column: Sidebar */}
+          <aside className="w-96 flex-shrink-0 no-scrollbar border-l border-gray-200 dark:border-gray-800 p-6  space-y-6">
+            <SidebarPanel title="Mood & Sentiment" icon={Smile}>
+              <MoodSlider
+                value={entry.mood_score ?? 50}
+                onChange={(score) => setEntry({ ...entry, mood_score: score })}
+              />
+              <MoodTagSelector
+                selected={entry.mood_tags ?? []}
+                onChange={(tags) => setEntry({ ...entry, mood_tags: tags })}
+              />
+            </SidebarPanel>
+
+            <SidebarPanel title="Attachments" icon={Paperclip}>
+              <div className="space-y-4">
+                {imagePreview ? (
+                  <div className="relative group">
                     <img
                       src={imagePreview}
                       alt="Preview"
-                      className="w-full h-full object-cover rounded-lg border border-gray-300"
+                      className="w-full h-40 object-cover rounded-lg"
                     />
                     <button
+                      type="button"
                       onClick={handleRemoveImage}
-                      className="absolute top-0 right-0 bg-white border border-gray-300 rounded-full p-0.5 hover:bg-red-100 hover:text-red-600 transition-colors"
-                      title="Remove image"
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      <XIcon size={14} />
+                      <X size={16} />
                     </button>
                   </div>
+                ) : (
+                  <label
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                      isDragging
+                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                        : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    }`}
+                  >
+                    <div className="text-center">
+                      <UploadCloud
+                        size={32}
+                        className={`mx-auto mb-2 transition-transform ${
+                          isDragging
+                            ? "text-indigo-500 scale-110"
+                            : "text-gray-400"
+                        }`}
+                      />
+                      <span className="text-sm font-semibold">
+                        {isDragging ? "Drop image to upload" : "Add Image"}
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        or click to browse
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                    />
+                  </label>
                 )}
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Audio Journal
-                </label>
                 <VoiceRecorderUI {...voiceRecorderState} />
                 {recordingBlob && (
-                  <div className="relative mt-4 w-full bg-gray-50 border border-gray-200 rounded-lg p-2">
+                  <div className="relative w-full">
                     <audio
                       controls
                       src={URL.createObjectURL(recordingBlob)}
                       className="w-full"
                     />
                     <button
+                      type="button"
                       onClick={resetRecording}
-                      className="absolute top-1 right-1 bg-white border border-gray-300 rounded-full p-0.5 hover:bg-red-100 hover:text-red-600 transition-colors"
-                      title="Remove audio"
+                      className="absolute -top-2 -right-2 p-1 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-full text-gray-500 hover:text-red-500"
                     >
-                      <XIcon size={14} />
+                      <X size={14} />
                     </button>
                   </div>
                 )}
               </div>
+            </SidebarPanel>
+
+            <SidebarPanel title="AI Tools" icon={BrainCircuit}>
               <button
-                type="submit"
-                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-sm hover:shadow transform hover:-translate-y-0.5"
-                onClick={() => console.log("Create entry")}
+                type="button"
+                onClick={handleGenerateQuestions}
+                disabled={isGeneratingQuestions || !entry.content.trim()}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-500/20 disabled:opacity-50 transition-colors"
               >
-                Create Entry
+                {isGeneratingQuestions ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Mic size={18} />
+                )}
+                <span>
+                  {isGeneratingQuestions
+                    ? "Generating..."
+                    : "Follow-up Questions"}
+                </span>
               </button>
-            </div>
-          </div>
-        </form>
-
-        {/* Follow-up Questions */}
-
-        {/* ✅ Auto-Save Toast Notification */}
-        <AnimatePresence>
-          {showSaved && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.3 }}
-              className="fixed bottom-6 right-6 bg-white border border-gray-200 shadow-md px-4 py-2 rounded-md text-gray-700 text-sm z-50"
-            >
-              ✅ Draft auto-saved
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>{" "}
+              {followUpQuestions.length > 0 && (
+                <div className="mt-4">
+                  <FollowUpQuestions questions={followUpQuestions} />
+                </div>
+              )}
+            </SidebarPanel>
+          </aside>
+        </div>
+      </form>
     </div>
   );
 }

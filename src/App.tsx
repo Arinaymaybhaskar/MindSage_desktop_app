@@ -1,4 +1,11 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+  useNavigate,
+  HashRouter,
+} from "react-router-dom";
 import Login from "./pages/auth/login";
 import PrivateRoute from "./routes/privateRoute";
 import Dashboard from "./pages/dashBoard";
@@ -8,157 +15,190 @@ import JournalList from "./pages/journalList";
 import JournalForm from "./pages/journalForm";
 import JournalDetail from "./pages/journalDetails";
 import DailyChallenge from "./pages/dailyChallenge";
-import Sidebar from "./components/sidebar";
 import Settings from "./pages/settings";
 import ChangePassword from "./pages/auth/changePassword";
 import { DeleteAccount } from "./pages/auth/deleteAccount";
 import ForgotPassword from "./pages/auth/forgotPassword";
 import DataExport from "./pages/dataExport";
 import { ChatComponent } from "./pages/chat";
+import TitleBar from "./TitleBar";
+import {
+  BookOpenIcon,
+  HomeIcon,
+  MessageSquareDot,
+  PenIcon,
+  Target,
+  TrophyIcon,
+} from "lucide-react";
+import Dock from "./components/dock";
+import GoalsPage from "./pages/goals";
+import OllamaTutorialPage from "./pages/OllamaTutorial";
 function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const isAuthPage =
     location.pathname === "/login" ||
     location.pathname === "/register" ||
     location.pathname === "/forgot-password" ||
     location.pathname === "/reset-password";
-
-  // const settings = localStorage.getItem("userSettings");
-  // let fontSize = "text-base";
-  // let theme = "light";
-  // if (settings) {
-  //   const parsedSettings = JSON.parse(settings);
-  //   switch (parsedSettings.font_size) {
-  //     case "small":
-  //       fontSize = "text-sm";
-  //       break;
-  //     case "medium":
-  //       fontSize = "text-base";
-  //       break;
-  //     case "large":
-  //       fontSize = "text-lg";
-  //       break;
-  //     case "x-large":
-  //       fontSize = "text-xl";
-  //       break;
-  //     default:
-  //       fontSize = "text-base";
-  //   }
-  //   theme = parsedSettings.theme || "light";
-  // }
+  const items = [
+    { path: "/", icon: <HomeIcon size={18} />, label: "Dashboard" },
+    { path: "/journal/new", icon: <PenIcon size={18} />, label: "Write" },
+    { path: "/journals", icon: <BookOpenIcon size={18} />, label: "Journals" },
+    {
+      path: "/daily-challenge",
+      icon: <TrophyIcon size={18} />,
+      label: "Daily Challenge",
+    },
+    // { path: "/settings", icon: <SettingsIcon size={18} />, label: "Settings" },
+    { path: "/chat", icon: <MessageSquareDot size={18} />, label: "Chat" },
+    { path: "/goals", icon: <Target size={18} />, label: "Goals" },
+  ].map((item) => ({
+    ...item,
+    onClick: () => navigate(item.path),
+  }));
 
   return (
-    <div className={`flex h-screen font-[fraunces] bg-gray-50`}>
-      {!isAuthPage && <Sidebar />}
+    <>
+      {/* <TitleBar /> */}
       <div
-        className={`flex flex-col h-screen  w-full overflow-hidden`}
+        className={`flex h-screen font-[fraunces] bg-base-light dark:bg-base-dark `}
       >
-        {!isAuthPage && <Navbar />}
-        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100">
-          <Routes>
-            <Route
-              path="/journals"
-              element={
-                <PrivateRoute>
-                  <JournalList />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/journal/new"
-              element={
-                <PrivateRoute>
-                  <JournalForm />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/journal/edit/:id"
-              element={
-                <PrivateRoute>
-                  <JournalForm />
-                </PrivateRoute>
-              }
-            />
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route
-              path="/"
-              element={
-                <PrivateRoute>
-                  <Dashboard />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/journal/view/:id"
-              element={
-                <PrivateRoute>
-                  <JournalDetail />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <PrivateRoute>
-                  <Settings />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/daily-challenge"
-              element={
-                <PrivateRoute>
-                  <DailyChallenge />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/change-password"
-              element={
-                <PrivateRoute>
-                  <ChangePassword />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/delete-account"
-              element={
-                <PrivateRoute>
-                  <DeleteAccount />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/data-export"
-              element={
-                <PrivateRoute>
-                  <DataExport />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/chat"
-              element={
-                <PrivateRoute>
-                  <ChatComponent />
-                </PrivateRoute>
-              }
-            />
-          </Routes>
-        </main>
+        {!isAuthPage && (
+          <Dock
+            items={items}
+            panelHeight={30}
+            baseItemSize={40}
+            magnification={80}
+          />
+        )}
+        <div className={`flex flex-col h-screen  w-full overflow-hidden`}>
+          {!isAuthPage && <Navbar />}
+          <main className="flex-1 overflow-y-auto bg-base-light dark:bg-base-dark no-scrollbar">
+            <Routes>
+              <Route
+                path="/journals"
+                element={
+                  <PrivateRoute>
+                    <JournalList />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/journal/new"
+                element={
+                  <PrivateRoute>
+                    <JournalForm />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/journal/edit/:id"
+                element={
+                  <PrivateRoute>
+                    <JournalForm />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="/register" element={<Register />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route
+                path="/"
+                element={
+                  <PrivateRoute>
+                    <Dashboard />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/journal/view/:id"
+                element={
+                  <PrivateRoute>
+                    <JournalDetail />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <PrivateRoute>
+                    <Settings />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/daily-challenge"
+                element={
+                  <PrivateRoute>
+                    <DailyChallenge />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/change-password"
+                element={
+                  <PrivateRoute>
+                    <ChangePassword />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/delete-account"
+                element={
+                  <PrivateRoute>
+                    <DeleteAccount />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/data-export"
+                element={
+                  <PrivateRoute>
+                    <DataExport />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/chat"
+                element={
+                  <PrivateRoute>
+                    <ChatComponent />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/ollama-tutorial"
+                element={
+                  <PrivateRoute>
+                    <OllamaTutorialPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/goals"
+                element={
+                  <PrivateRoute>
+                    <GoalsPage />
+                  </PrivateRoute>
+                }
+              />
+            </Routes>
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
 function App() {
+  const Router =
+    process.env.NODE_ENV === "production" ? HashRouter : BrowserRouter;
+
   return (
-    <BrowserRouter>
+    <Router>
       <AppLayout />
-    </BrowserRouter>
+    </Router>
   );
 }
 

@@ -1,56 +1,77 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from "react";
 
 interface LiveWaveformVisualizerProps {
-    waveformHistory: number[];
+  waveformHistory: number[];
 }
 
-// --- Component: LiveWaveformVisualizer ---
-// This component renders the audio waveform as it's being recorded.
-const LiveWaveformVisualizer: React.FC<LiveWaveformVisualizerProps> = ({ waveformHistory }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+const LiveWaveformVisualizer: React.FC<LiveWaveformVisualizerProps> = ({
+  waveformHistory,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
 
-        const context = canvas.getContext('2d');
-        if (!context) return;
-        
-        const width = canvas.width;
-        const height = canvas.height;
-        const centerY = height / 2;
-        const sliceWidth = 3;
+    // --- Drawing logic, now fully dynamic ---
+    const draw = () => {
+      const { width, height } = canvas;
+      const centerY = height / 2;
+      const barWidth = 3; // Width of each waveform bar
+      const gap = 2; // Gap between bars
+      const sliceWidth = barWidth + gap;
 
-        context.clearRect(0, 0, width, height);
-        
-        context.beginPath();
-        context.lineWidth = 2;
-        context.strokeStyle = '#ef4444';
+      context.clearRect(0, 0, width, height);
+      context.lineWidth = barWidth;
+      context.strokeStyle = "#f87171"; // A slightly softer red for the waveform
 
-        const maxPointsToShow = Math.floor((width / 2) / sliceWidth);
-        const historyToDraw = waveformHistory.slice(-maxPointsToShow);
+      // Determine how many bars can fit on the canvas
+      const maxPointsToShow = Math.floor(width / sliceWidth);
+      const historyToDraw = waveformHistory.slice(-maxPointsToShow);
 
-        for (let i = 0; i < historyToDraw.length; i++) {
-            const amplitude = historyToDraw[i];
-            const lineHeight = Math.min(amplitude, height);
-            const x = (width / 2) - (historyToDraw.length - i) * sliceWidth;
-            const y1 = centerY - lineHeight / 2;
-            const y2 = centerY + lineHeight / 2;
-            context.moveTo(x, y1);
-            context.lineTo(x, y2);
-        }
-        context.stroke();
+      // Draw each bar of the waveform
+      for (let i = 0; i < historyToDraw.length; i++) {
+        const amplitude = historyToDraw[i] * (height / 256); // Scale amplitude to canvas height
+        const lineHeight = Math.max(2, amplitude); // Ensure a minimum line height
+
+        const x = width - (historyToDraw.length - i) * sliceWidth;
+        const y1 = centerY - lineHeight / 2;
 
         context.beginPath();
-        context.moveTo(width / 2, 0);
-        context.lineTo(width / 2, height);
-        context.strokeStyle = '#dc2626';
-        context.lineWidth = 1;
+        context.moveTo(x, y1);
+        context.lineTo(x, y1 + lineHeight);
         context.stroke();
+      }
+    };
 
-    }, [waveformHistory]);
+    // --- Resize observer to make canvas responsive ---
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const { width, height } = entry.contentRect;
+      canvas.width = width;
+      canvas.height = height;
+      draw(); // Redraw on resize
+    });
 
-    return <canvas ref={canvasRef} width="600" height="150" className="w-full h-36 rounded-lg bg-gray-800" />;
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    draw(); // Initial draw
+
+    // Cleanup observer on component unmount
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [waveformHistory]); // Rerun effect when waveform data changes
+
+  return (
+    <div ref={containerRef} className="w-full h-full">
+      <canvas ref={canvasRef} className="w-full h-full" />
+    </div>
+  );
 };
 
 export default LiveWaveformVisualizer;

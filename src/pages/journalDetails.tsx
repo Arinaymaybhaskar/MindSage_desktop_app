@@ -1,187 +1,239 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
-  PencilIcon,
-  Trash2Icon,
-  CalendarIcon,
-  SmileIcon,
-  AudioLinesIcon,
-  ImageIcon,
+  Pencil,
+  Trash2,
+  Calendar,
+  Smile,
+  AudioLines,
+  Tags,
+  ArrowLeft,
+  X,
 } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
 import { formatTimeAgo } from "../utils/DateFormatter";
+import { motion, AnimatePresence } from "framer-motion";
+import DeleteConfirmationModal from "../components/goals/modals/DeleteConfirmationModal"; // Assuming path
+
+// Safely parse mood tags, returning an empty array on failure
+const parseMoodTags = (tags: string | string[] | undefined): string[] => {
+  if (Array.isArray(tags)) return tags;
+  if (typeof tags !== "string" || !tags.trim()) return [];
+  try {
+    const parsed = JSON.parse(tags);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    // Fallback for comma-separated strings that are not valid JSON arrays
+    return tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+  }
+};
 
 export default function JournalDetail() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [showImageModal, setShowImageModal] = useState(false);
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
   const { accessToken } = useAuth();
-
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
 
   useEffect(() => {
+    if (!id) return;
     const fetchEntry = async () => {
-      const res = await journalService.getOne(authMode, accessToken!, +id!);
-      setEntry(res);
-      console.log("calling getImage with: ", res.image_key);
-      if (res.image_key) {
-        await window.electron.ipcRenderer
-          .invoke("media:getImage", res.image_key.toString())
-          .then((res) => {
-            setImageUrl(res);
-          });
+      try {
+        const res = await journalService.getOne(authMode, accessToken!, +id);
+        setEntry(res);
+        if (res.image_key) {
+          const url = await window.electron.ipcRenderer.invoke(
+            "media:getImage",
+            res.image_key.toString()
+          );
+          setImageUrl(url);
+        }
+        if (res.audio_key) {
+          const url = await window.electron.ipcRenderer.invoke(
+            "media:getAudio",
+            res.audio_key.toString()
+          );
+          setAudioUrl(url);
+        }
+      } catch (error) {
+        console.error("Failed to fetch journal entry:", error);
+        setEntry(null); // Handle error case
       }
-      if(res.audio_key) {
-        await window.electron.ipcRenderer
-          .invoke("media:getAudio", res.audio_key.toString())
-          .then((res) => {
-            setAudioUrl(res);
-          });
-      }
-      //   const imageRes = await journalService.getMediaUrl(res.data.image_key);
-      //   setImageUrl(imageRes.url);
-      // }
-      // if (res.audio_key) {
-      //   const audioRes = await journalService.getMediaUrl(res.data.audio_key);
-      //   setAudioUrl(audioRes.url);
-      // }
     };
-
     fetchEntry();
-  }, [id]);
+  }, [id, authMode, accessToken]);
 
-  const handleEdit = () => {
-    navigate(`/journal/edit/${id}`);
+  const handleDeleteConfirm = async () => {
+    if (!id) return;
+    await journalService.remove(authMode, accessToken!, +id);
+    setIsDeleteModalOpen(false);
+    navigate("/journals");
   };
 
-  const handleDelete = async () => {
-    const confirm = window.confirm(
-      "Are you sure you want to delete this entry?"
+  if (!entry) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-slate-900 text-gray-500">
+        Loading entry...
+      </div>
     );
-    if (confirm) {
-      await journalService.remove(authMode, accessToken!, +id!);
-      navigate("/journals");
-    }
-  };
+  }
 
-  if (!entry) return <div className="p-6 text-gray-600">Loading...</div>;
+  const moodTags = parseMoodTags(entry.mood_tags);
 
   return (
-    <div className="max-w-3xl mx-auto p-6 mt-6 bg-white shadow-xl rounded-2xl">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">
-            {entry.title}
-          </h1>
-          <div className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
-            <CalendarIcon className="w-4 h-4" />
-            {formatTimeAgo(entry.created_at!)}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleEdit}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-md text-sm text-blue-600 hover:bg-blue-50 border border-blue-600"
-          >
-            <PencilIcon className="w-4 h-4" />
-            Edit
-          </button>
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-md text-sm text-red-600 hover:bg-red-50 border border-red-600"
-          >
-            <Trash2Icon className="w-4 h-4" />
-            Delete
-          </button>
-        </div>
-      </div>
-
-      {/* Image with modal preview */}
-      {entry.image_key && (
-        <>
-          <div className="mb-4">
-            <img
-              src={imageUrl}
-              alt="Journal visual"
-              className="w-[300px] h-[200px] object-cover rounded-xl cursor-pointer"
-              onClick={() => setShowImageModal(true)}
-            />
-          </div>
-
-          {showImageModal && (
-            <div
-              className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
-              onClick={() => setShowImageModal(false)} // Close on background click
+    <>
+      <div className="bg-gray-100 dark:bg-slate-900 min-h-screen p-4 sm:p-6 lg:p-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Header Navigation */}
+          <div className="flex justify-between items-center mb-6">
+            <Link
+              to="/journals"
+              className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold transition-colors"
             >
-              <div
-                className="relative"
-                onClick={(e) => e.stopPropagation()} // Prevent close on image click
+              <ArrowLeft size={18} />
+              Back to Journals
+            </Link>
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigate(`/journal/edit/${id}`)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                <button
-                  className="absolute top-2 right-2 text-white text-2xl font-bold hover:text-red-400"
-                  onClick={() => setShowImageModal(false)}
-                >
-                  ×
-                </button>
+                <Pencil size={14} />
+                <span>Edit</span>
+              </button>
+              <button
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-red-600 dark:text-red-500 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+              >
+                <Trash2 size={14} />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Main Article */}
+          <article className="bg-white dark:bg-gray-800/50 shadow-lg rounded-2xl p-6 sm:p-10">
+            <header className="mb-8 border-b border-gray-200 dark:border-gray-700 pb-8">
+              <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-4">
+                {entry.title}
+              </h1>
+              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                <Calendar size={16} />
+                <span>{formatTimeAgo(entry.created_at!)}</span>
+              </div>
+            </header>
+
+            {/* Media Section */}
+            {imageUrl && (
+              <div className="mb-8">
                 <img
                   src={imageUrl}
-                  alt="Full View"
-                  className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-lg"
+                  alt="Journal visual"
+                  className="w-full max-h-96 object-cover rounded-xl cursor-pointer shadow-md"
+                  onClick={() => setShowImageModal(true)}
                 />
               </div>
+            )}
+            {audioUrl && (
+              <div className="mb-8 bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg">
+                <audio controls className="w-full">
+                  <source src={audioUrl} type="audio/webm" />
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            )}
+
+            {/* Content Section */}
+            <div className="prose prose-lg dark:prose-invert text-text-light dark:text-text-dark max-w-none leading-relaxed whitespace-pre-wrap">
+              {entry.content}
             </div>
-          )}
-        </>
-      )}
 
-      {/* Audio */}
-      {audioUrl && (
-        <div className="mb-4">
-          <audio controls className="w-full">
-            <source src={audioUrl} type="audio/mpeg" />
-            Your browser does not support the audio element.
-          </audio>
+            {/* Metadata Footer */}
+            <footer className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-4 text-sm text-gray-600 dark:text-gray-300">
+                <div className="flex items-center gap-2 font-medium">
+                  <Smile size={16} className="text-indigo-500" />
+                  <span>Mood Score:</span>
+                  <span className="text-gray-900 dark:text-white">
+                    {entry.mood_score}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 font-medium">
+                  <AudioLines size={16} className="text-indigo-500" />
+                  <span>Sentiment:</span>
+                  <span className="text-gray-900 dark:text-white">
+                    {entry.sentiment_score?.toFixed(2)}
+                  </span>
+                </div>
+                {moodTags.length > 0 && (
+                  <div className="flex items-center gap-2 font-medium">
+                    <Tags size={16} className="text-indigo-500" />
+                    <span>Tags:</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {moodTags.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 px-2.5 py-1 rounded-full text-xs font-semibold"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </footer>
+          </article>
         </div>
-      )}
-
-      {/* Content */}
-      <div className="prose dark:prose-invert max-w-none mb-6 text-zinc-800">
-        <p>{entry.content}</p>
       </div>
 
-      {/* Metadata */}
-      <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-600">
-        <div className="flex items-center gap-1">
-          <SmileIcon className="w-4 h-4" />
-          Mood Score:{" "}
-          <span className="font-medium ml-1">{entry.mood_score}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <AudioLinesIcon className="w-4 h-4" />
-          Sentiment Score:{" "}
-          <span className="font-medium ml-1">{entry.sentiment_score}</span>
-        </div>
-        {JSON.parse(entry.mood_tags!).length > 0 && (
-          <div className="flex items-center gap-1">
-            <ImageIcon className="w-4 h-4" />
-            Tags:
-            {JSON.parse(entry.mood_tags!).map((tag, idx) => (
-              <span
-                key={idx}
-                className="bg-zinc-200 text-zinc-800 px-2 py-0.5 rounded-full text-xs ml-1"
+      {/* Modals */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        type="goal"
+      />
+      <AnimatePresence>
+        {showImageModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowImageModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              className="relative"
+            >
+              <button
+                className="absolute -top-4 -right-4 text-white bg-black/50 rounded-full p-1.5 z-10"
+                onClick={() => setShowImageModal(false)}
               >
-                {tag}
-              </span>
-            ))}
-          </div>
+                <X size={24} />
+              </button>
+              <img
+                src={imageUrl}
+                alt="Full View"
+                className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
+              />
+            </motion.div>
+          </motion.div>
         )}
-      </div>
-    </div>
+      </AnimatePresence>
+    </>
   );
 }

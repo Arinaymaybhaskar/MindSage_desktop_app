@@ -1,14 +1,30 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electron', {
+  minimize: () => ipcRenderer.send('minimize-window'),
+  maximize: () => ipcRenderer.send('maximize-window'),
+  close: () => ipcRenderer.send('close-window'),
+  // Function to subscribe to window state changes
+  onWindowStateChange: (callback) => {
+    // Create a listener function that wraps the callback
+    const listener = (_event, value) => callback(value);
+
+    // Add the listener for the 'window-maximized' channel
+    ipcRenderer.on('window-maximized', listener);
+
+    // Return a cleanup function that removes the *specific* listener
+    return () => {
+      ipcRenderer.removeListener('window-maximized', listener);
+    };
+  },
   ipcRenderer: {
     // Expose a safe subset of ipcRenderer methods
     invoke: (channel, ...args) => {
       // --- UPDATED: Added auth channels to the whitelist ---
       const validChannels = [
-        'login:google', 
-        'db:upsertJournalEntry', 
-        'db:getAllEntries', 
+        'login:google',
+        'db:upsertJournalEntry',
+        'db:getAllEntries',
         'dialog:saveFile',
         'auth:login',       // <-- Added for standard login
         'auth:register',     // <-- Added for standard registration
@@ -25,9 +41,33 @@ contextBridge.exposeInMainWorld('electron', {
         'journal:update',
         'journal:delete',
         'journal:get-mood-scores',
+        'journal:get-images',
+        "journal:get-chart-data",
         'media:getImage',
         'media:save',
-        "media:getAudio"
+        "media:getAudio",
+        'category:get-all',
+        'category:delete',
+        'category:add',
+        "category:update",
+        'goal:get-active-goals',
+        "goal:get-completed-goals",
+        'goal:add',
+        'goal:update',
+        'goal:delete',
+        'goal:toggle-pin',
+        'goal:complete',
+        'goal:update-progress',
+        'goal:getPinned',
+        'logs:getAll',
+        'logs:add',
+        'ollama:models',
+        "ollama:get-response",
+        "qdrant:start",
+        "qdrant:createCollection",
+        "qdrant:insertVector",
+        "qdrant:searchVector",
+        "qdrant:stop",
       ];
 
       if (validChannels.includes(channel)) {
@@ -45,7 +85,7 @@ contextBridge.exposeInMainWorld('electron', {
       }
     },
     removeAllListeners: (channel) => {
-        ipcRenderer.removeAllListeners(channel);
+      ipcRenderer.removeAllListeners(channel);
     }
   },
 });

@@ -1,0 +1,44 @@
+/* This makes the entire bar draggable */
+.title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 32px; /* Standard title bar height */
+  background-color: #2e2e2e;
+  color: white;
+  padding: 0 10px;
+  user-select: none; /* Prevents text selection */
+  -webkit-app-region: drag; /* THE KEY TO DRAGGING */
+  position: fixed; /* Or sticky */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+}
+
+.title-bar-text {
+  font-family: sans-serif;
+  font-size: 14px;
+}
+
+/* This makes sure the buttons are clickable */
+.title-bar-controls {
+  -webkit-app-region: no-drag; /* VERY IMPORTANT */
+}
+
+.title-bar-button {
+  background: none;
+  border: none;
+  color: white;
+  padding: 5px 12px;
+  cursor: pointer;
+  -webkit-app-region: no-drag; /* Just in case */
+}
+
+.title-bar-button:hover {
+  background-color: #4a4a4a;
+}
+
+.close-button:hover {
+  background-color: #e81123; /* Standard Windows close button hover color */
+}

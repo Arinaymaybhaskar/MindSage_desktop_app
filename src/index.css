@@ -1,14 +1,75 @@
 @import "tailwindcss";
 
 @theme {
+  /* ─── Base Neutral Colors ─── */
+  --color-base-light: #ffffff; /* Light mode background */
+  --color-base-dark: #1c1c1b; /* Dark mode background */
+  --color-secondary-light: #f2f2f2;
+  --color-secondary-dark: #262626;
+
+  --color-surface-light: #f9f9f9; /* Light mode surface (cards, panels) */
+  --color-surface-dark: #1a1a1a; /* Dark mode surface (cards, panels) */
+
+  --color-text-light: #111111; /* Light mode text */
+  --color-text-dark: #f5f5f5; /* Dark mode text */
+
+  --color-border-light: #e5e5e5; /* Light mode borders */
+  --color-border-dark: #333333; /* Dark mode borders */
+
+  /* ─── Brand Accent Colors ─── */
   /* light mode */
-  --color-light1: #ADB2D4;
-  --color-light2: #C7D9DD;
-  --color-light3: #D5E5D5;
-  --color-light4: #EEF1DA;
+  --color-light1: #adb2d4;
+  --color-light2: #c7d9dd;
+  --color-light3: #d5e5d5;
+  --color-light4: #eef1da;
+
   /* dark mode */
-  --color-dark1: #35374B;
+  --color-dark1: #35374b;
   --color-dark2: #344955;
-  --color-dark3: #50727B;
-  --color-dark4: #78A083;
+  --color-dark3: #50727b;
+  --color-dark4: #78a083;
+}
+
+.mood-slider {
+  background: var(--gradient);
+}
+
+.dark .mood-slider {
+  background: var(--dark-gradient);
+}
+
+/* --- Webkit (Chrome, Safari) --- */
+.mood-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--thumb-color);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  margin-top: -7px; /* Center thumb on the track */
+}
+
+/* --- Firefox --- */
+.mood-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--thumb-color);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+/* Hide scrollbar in Chrome, Safari, and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar in IE, Edge, and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }

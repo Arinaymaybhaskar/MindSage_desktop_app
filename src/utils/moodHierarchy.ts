@@ -70,3 +70,14 @@ export const moodHierarchy: MoodHierarchy = {
     Repelled: ["Horrified", "Hesitant"],
   },
 };
+
+// Define corresponding colors for each primary mood
+export const moodColors = {
+  Happy: "#FBBF24", // Amber 400
+  Sad: "#60A5FA", // Blue 400
+  Angry: "#F87171", // Red 400
+  Fearful: "#A78BFA", // Violet 400
+  Bad: "#94A3B8", // Slate 400
+  Surprised: "#4ADE80", // Green 400
+  Disgusted: "#F472B6", // Pink 400
+};

@@ -45,6 +45,11 @@ interface RegistrationDetails {
  * via the preload script. This gives us type safety for our IPC calls.
  */
 interface IElectronAPI {
+    minimize: () => void;
+    maximize: () => void;
+    close: () => void;
+    onWindowStateChange: any;
+    
     auth: {
         login: (mode: 'online' | 'offline', credentials: LoginCredentials) => Promise<AuthResponse>;
         register: (mode: 'online' | 'offline', details: RegistrationDetails) => Promise<{ user: UserInfo }>;

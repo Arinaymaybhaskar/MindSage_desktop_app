@@ -6,6 +6,7 @@ import {
   TrophyIcon,
   SettingsIcon,
   LogOutIcon,
+  MessageSquareDot,
 } from "lucide-react";
 import { useContext, useEffect, useState } from "react";
 import AuthContext from "../context/AuthContext";
@@ -69,6 +70,12 @@ const Sidebar = () => {
       icon: SettingsIcon,
       label: "Settings",
     },
+    {
+      path: "/chat",
+      icon: MessageSquareDot,
+      label: "Chat",
+    },
+    
   ];
 
   const displayName = user?.full_name || user?.username;

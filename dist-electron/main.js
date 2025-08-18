@@ -1,6 +1,5 @@
 import { shell as shell$1, app as app$1, ipcMain, BrowserWindow } from "electron";
 import path$1 from "node:path";
-import fs$1 from "node:fs";
 import { fileURLToPath as fileURLToPath$1 } from "node:url";
 import express from "express";
 import cors from "cors";
@@ -21,8 +20,10 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import axios from "axios";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
-import http from "http";
 import Database from "better-sqlite3";
+import fs$1 from "node:fs";
+import http from "http";
+import { execSync } from "child_process";
 dotenv.config();
 const pool = new Pool({
   host: process.env.MINDSAGE_DB_URL || process.env.DATABASE_URL || "localhost",
@@ -4241,7 +4242,71 @@ function initDatabase() {
             sync_action TEXT,
             FOREIGN KEY (journal_id) REFERENCES journal_entries(id) ON DELETE CASCADE
         );
+        -- Categories Table
+        CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, name)
+        );
+
+        -- Goals Table
+        CREATE TABLE IF NOT EXISTS goals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            category_id INTEGER,
+            title TEXT NOT NULL,
+            description TEXT,
+            parent_goal_title TEXT,
+            current_value REAL NOT NULL DEFAULT 0,
+            target_value REAL NOT NULL,
+            unit TEXT NOT NULL,
+            is_pinned INTEGER NOT NULL DEFAULT 0, -- Using 0 for FALSE
+            is_completed INTEGER NOT NULL DEFAULT 0, -- Using 0 for FALSE
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_date TEXT, -- 'YYYY-MM-DD'
+            target_date TEXT, -- 'YYYY-MM-DD'
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+        );
+
+        -- Progress Logs Table
+        CREATE TABLE IF NOT EXISTS progress_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            goal_id INTEGER NOT NULL,
+            value REAL NOT NULL,
+            description TEXT,
+            logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+        );
+
+        -- Add indexes for faster lookups
+        CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
+        CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
+        CREATE INDEX IF NOT EXISTS idx_progress_logs_goal_id ON progress_logs(goal_id);
     `);
+  const insertSystemUser = db.prepare(`
+        INSERT OR IGNORE INTO users (id, username, email, password_hash, full_name)
+        VALUES (0, 'System', 'system@mindsage.app', 'N/A', 'System User')
+    `);
+  insertSystemUser.run();
+  const categories = [
+    { name: "Health", color: "#FF6B6B" },
+    { name: "Work", color: "#4ECDC4" },
+    { name: "Finance", color: "#FFD93D" },
+    { name: "Personal Growth", color: "#6A4C93" },
+    { name: "Leisure", color: "#1A535C" }
+  ];
+  const insertCategory = db.prepare(`
+        INSERT OR IGNORE INTO categories (user_id, name, color)
+        VALUES (0, ?, ?)
+    `);
+  for (const cat of categories) {
+    insertCategory.run(cat.name, cat.color);
+  }
   console.log("Local database with sync columns initialized successfully.");
 }
 const db$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
@@ -4413,8 +4478,73 @@ function getRecentEntries(userId) {
   const stmt = db.prepare("SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 3");
   return stmt.all(userId);
 }
-function getAllEntries(userId) {
-  const stmt = db.prepare("SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC");
+function getAllEntries(userId, limit = 10, offset = 0, fromDate, toDate) {
+  console.log(userId, limit, offset, fromDate, toDate);
+  let sql = `
+    SELECT *
+    FROM journal_entries
+    WHERE user_id = ?
+      AND is_deleted = 0
+  `;
+  const params = [userId];
+  if (fromDate && toDate) {
+    sql += ` AND DATE(created_at) BETWEEN DATE(?) AND DATE(?)`;
+    params.push(fromDate, toDate);
+  } else if (fromDate) {
+    sql += ` AND DATE(created_at) >= DATE(?)`;
+    params.push(fromDate);
+  } else if (toDate) {
+    sql += ` AND DATE(created_at) <= DATE(?)`;
+    params.push(toDate);
+  }
+  sql += `
+    ORDER BY DATETIME(created_at) DESC
+    LIMIT ? OFFSET ?
+  `;
+  params.push(offset, limit);
+  console.log(sql);
+  const stmt = db.prepare(sql);
+  return stmt.all(...params);
+}
+function getImageKeysAndIds(userId, mode = "top") {
+  if (mode === "random") {
+    const countStmt = db.prepare(
+      `SELECT COUNT(*) AS total
+       FROM journal_entries
+       WHERE user_id = ?
+         AND is_deleted = 0
+         AND image_key IS NOT NULL`
+    );
+    const { total } = countStmt.get(userId);
+    if (total === 0) return [];
+    const numToFetch = Math.min(10, total);
+    const offsets = /* @__PURE__ */ new Set();
+    while (offsets.size < numToFetch) {
+      offsets.add(Math.floor(Math.random() * total));
+    }
+    const fetchStmt = db.prepare(
+      `SELECT id, image_key, title
+       FROM journal_entries
+       WHERE user_id = ?
+         AND is_deleted = 0
+         AND image_key IS NOT NULL
+       LIMIT 1 OFFSET ?`
+    );
+    const results = [];
+    for (const offset of offsets) {
+      results.push(fetchStmt.get(userId, offset));
+    }
+    return results;
+  }
+  const stmt = db.prepare(
+    `SELECT id, image_key, title
+     FROM journal_entries
+     WHERE user_id = ?
+       AND is_deleted = 0
+       AND image_key IS NOT NULL
+     ORDER BY created_at DESC
+     LIMIT 10`
+  );
   return stmt.all(userId);
 }
 function getJournalById(userId, journalId) {
@@ -4424,7 +4554,7 @@ function getJournalById(userId, journalId) {
 function getMoodScores(userId, range) {
   const safeRange = parseInt(range, 10) || 7;
   const stmt = db.prepare(`
-        SELECT mood_score, created_at FROM journal_entries
+        SELECT mood_score, created_at, sentiment_score FROM journal_entries
         WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-' || ? || ' days')
         ORDER BY created_at ASC
     `);
@@ -4475,6 +4605,7 @@ const journal = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePrope
   createJournalEntry,
   deleteJournalEntry,
   getAllEntries,
+  getImageKeysAndIds,
   getJournalById,
   getMoodScores,
   getRecentEntries,
@@ -4501,12 +4632,183 @@ const media = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePropert
   __proto__: null,
   linkMediaToJournal
 }, Symbol.toStringTag, { value: "Module" }));
+const getCategories = async (userId) => {
+  const stmt = db.prepare("SELECT * FROM categories WHERE user_id = ? OR user_id = 0");
+  return stmt.all(userId);
+};
+const addCategory = async (userId, category2) => {
+  let { name, color } = category2;
+  if (name === void 0) {
+    return { error: "Name is required" };
+  }
+  if (color === void 0) {
+    color = "#000000";
+  }
+  const stmt = db.prepare("INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)");
+  return stmt.run(userId, name, color);
+};
+const editCategory = async (userId, category2) => {
+  let { name, color, id } = category2;
+  if (name === void 0) {
+    return { error: "Name is required" };
+  }
+  if (color === void 0) {
+    color = "#000000";
+  }
+  const stmt = db.prepare("UPDATE categories SET name = ?, color = ? WHERE user_id = ? AND categoryId = ?");
+  return stmt.run(userId, name, color, id);
+};
+const deleteCategory = async (userId, categoryId) => {
+  const stmt = db.prepare("DELETE FROM categories WHERE user_id = ? AND categoryId = ?");
+  return stmt.run(userId, categoryId);
+};
+const category = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  addCategory,
+  deleteCategory,
+  editCategory,
+  getCategories
+}, Symbol.toStringTag, { value: "Module" }));
+const getActiveGoals = async (userId) => {
+  const stmt = db.prepare(`
+        SELECT * FROM goals WHERE user_id = ? AND is_completed = 0
+    `);
+  const goals = stmt.all(userId);
+  return goals;
+};
+const getCompletedGoals = async (userId) => {
+  console.log("USING .all() version of getCompletedGoals");
+  const stmt = db.prepare(`
+        SELECT * FROM goals WHERE user_id = ? AND is_completed = 1
+    `);
+  const goals = stmt.all(userId);
+  return goals;
+};
+const AddGoal = async (userId, goalData) => {
+  console.log("goalData", goalData);
+  const {
+    category_id,
+    title,
+    description,
+    parent_goal,
+    target_value,
+    unit,
+    target_date
+  } = goalData;
+  if (category_id !== null && category_id !== void 0) {
+    const categoryExists = db.prepare(`
+            SELECT id FROM categories
+            WHERE id = ? AND (user_id = ? OR user_id = 0)
+        `).get(category_id, userId);
+    if (!categoryExists) {
+      throw new Error("Invalid category_id: Must belong to user or be a system category.");
+    }
+  }
+  const stmt = db.prepare(`
+        INSERT INTO goals (
+            user_id, category_id, title, description, parent_goal_title,
+             target_value, unit, target_date
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+  const result = stmt.run(
+    userId,
+    category_id,
+    title,
+    description,
+    parent_goal,
+    target_value,
+    unit,
+    target_date
+  );
+  return result;
+};
+const updateGoal = async (userId, goal_id, goalData) => {
+  console.log(goalData, "goalData");
+  const { category_id, title, description, parent_goal, current_value, target_value, unit, is_pinned, is_completed } = goalData;
+  const stmt = db.prepare(`
+        UPDATE goals SET category_id = ?, title = ?, description = ?, parent_goal_title = ?, current_value = ?, target_value = ?, unit = ?, is_pinned = ?, is_completed = ? WHERE id = ? AND user_id = ?
+    `);
+  const result = stmt.run(category_id, title, description, parent_goal, current_value, target_value, unit, is_pinned, is_completed, goal_id, userId);
+  return result;
+};
+const deleteGoal = async (userId, goal_id) => {
+  const logsStmt = db.prepare("DELETE FROM progress_logs WHERE goal_id = ?");
+  logsStmt.run(goal_id);
+  const stmt = db.prepare(`
+        DELETE FROM goals WHERE id = ? AND user_id = ?
+    `);
+  const result = stmt.run(goal_id, userId);
+  return result;
+};
+const togglePinGoal = async (userId, goal_id) => {
+  const stmt = db.prepare(`
+    UPDATE goals
+    SET is_pinned = CASE is_pinned WHEN 1 THEN 0 ELSE 1 END
+    WHERE user_id = ? AND id = ?
+  `);
+  const result = stmt.run(userId, goal_id);
+  return result;
+};
+const completeGoal = async (userId, goal_id) => {
+  const stmt = db.prepare(`
+        UPDATE goals 
+        SET is_completed = 1, completed_date = DATE('now'), is_pinned = 0 
+        WHERE user_id = ? AND id = ?
+    `);
+  const result = stmt.run(userId, goal_id);
+  return result;
+};
+const updateProgress = async (userId, goal_id, value) => {
+  const updateStmt = db.prepare(
+    "UPDATE goals SET current_value = ? WHERE id = ? AND user_id = ?"
+  );
+  updateStmt.run(value, goal_id, userId);
+  const getGoalStmt = db.prepare("SELECT * FROM goals WHERE id = ? AND user_id = ?");
+  return getGoalStmt.get(goal_id, userId);
+};
+const getPinnedGoals = async (userId) => {
+  const stmt = db.prepare("SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1");
+  return stmt.all(userId);
+};
+const goal = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  AddGoal,
+  completeGoal,
+  deleteGoal,
+  getActiveGoals,
+  getCompletedGoals,
+  getPinnedGoals,
+  togglePinGoal,
+  updateGoal,
+  updateProgress
+}, Symbol.toStringTag, { value: "Module" }));
+async function getProgressLogs(goalId) {
+  const stmt = db.prepare(`
+        SELECT * FROM progress_logs WHERE goal_id = ?
+    `);
+  return stmt.all(goalId);
+}
+async function logProgress(goalId, progress, description) {
+  const stmt = db.prepare(`
+        INSERT INTO progress_logs (goal_id, value, description) VALUES (?, ?, ?)
+    `);
+  return stmt.run(goalId, progress, description);
+}
+const logs = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  getProgressLogs,
+  logProgress
+}, Symbol.toStringTag, { value: "Module" }));
 const localDB = {
   ...db$1,
   ...auth,
   ...user,
   ...journal,
-  ...media
+  ...media,
+  ...category,
+  ...goal,
+  ...logs
 };
 const generateAccessToken = (user2) => {
   return jwt.sign(user2, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
@@ -4618,7 +4920,7 @@ async function handleGoogleLogin() {
     });
   });
 }
-function getUserIdFromToken$1(token) {
+function getUserIdFromToken$5(token) {
   try {
     if (!token) {
       return null;
@@ -4637,7 +4939,7 @@ const userGetMe = async (event, mode, token) => {
     });
     return response.data;
   } else {
-    const userId = getUserIdFromToken$1(token).id;
+    const userId = getUserIdFromToken$5(token).id;
     if (!userId) throw new Error("Invalid token for offline mode");
     return localDB.getUserById(userId);
   }
@@ -4649,7 +4951,7 @@ const userUpdateProfile = async (event, mode, token, payload) => {
     });
     return response.data;
   } else {
-    const userId = getUserIdFromToken$1(token).id;
+    const userId = getUserIdFromToken$5(token).id;
     if (!userId) throw new Error("Invalid token");
     const user2 = localDB.updateUserProfile(userId, payload);
     return { user: user2 };
@@ -4662,7 +4964,7 @@ const userGetSettings = async (event, mode, token) => {
     });
     return response.data;
   } else {
-    const userId = getUserIdFromToken$1(token).id;
+    const userId = getUserIdFromToken$5(token).id;
     if (!userId) throw new Error("Invalid token");
     return localDB.getUserSettings(userId);
   }
@@ -4674,7 +4976,7 @@ const userUpdateSettings = async (event, mode, token, payload) => {
     });
     return response.data;
   } else {
-    const userId = getUserIdFromToken$1(token).id;
+    const userId = getUserIdFromToken$5(token).id;
     if (!userId) throw new Error("Invalid token");
     localDB.updateUserSettings(userId, payload);
     return localDB.getUserSettings(userId);
@@ -4688,7 +4990,7 @@ const userChangePassword = async (event, mode, token, payload) => {
     });
     return response.data;
   } else {
-    const userToken = getUserIdFromToken$1(token);
+    const userToken = getUserIdFromToken$5(token);
     if (!userToken) throw new Error("Invalid token");
     const user2 = localDB.findUserByIdentifier(userToken.username);
     if (!user2) throw new Error("User not found");
@@ -4707,7 +5009,7 @@ const userDeleteAccount = async (event, mode, token, payload) => {
     });
     return response.data;
   } else {
-    const userToken = getUserIdFromToken$1(token);
+    const userToken = getUserIdFromToken$5(token);
     if (!userToken) throw new Error("Invalid token");
     const user2 = localDB.findUserByIdentifier(userToken.username);
     if (!user2) throw new Error("User not found");
@@ -4717,7 +5019,7 @@ const userDeleteAccount = async (event, mode, token, payload) => {
     return { message: "User account deleted successfully" };
   }
 };
-function getUserIdFromToken(token) {
+function getUserIdFromToken$4(token) {
   try {
     if (!token) {
       return null;
@@ -4731,7 +5033,7 @@ function getUserIdFromToken(token) {
   }
 }
 async function handleCreateJournal(event, mode, token, payload) {
-  const userId = getUserIdFromToken(token).id;
+  const userId = getUserIdFromToken$4(token).id;
   if (!userId) throw new Error("Invalid token");
   console.log(mode, payload);
   if (mode === "online") {
@@ -4743,8 +5045,20 @@ async function handleCreateJournal(event, mode, token, payload) {
     return localDB.createJournalEntry(userId, payload);
   }
 }
+async function handleGettingImages(event, mode, token, getMode) {
+  const userId = getUserIdFromToken$4(token).id;
+  if (!userId) throw new Error("Invalid token");
+  if (mode === "online") {
+    const response = await axios.get("http://localhost:4000/api/journals/images", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  } else {
+    return localDB.getImageKeysAndIds(userId, getMode);
+  }
+}
 async function handleGetRecentJournals(event, mode, token) {
-  const userId = getUserIdFromToken(token).id;
+  const userId = getUserIdFromToken$4(token).id;
   if (!userId) throw new Error("Invalid token");
   if (mode === "online") {
     const response = await axios.get("http://localhost:4000/api/journals/recent", {
@@ -4755,9 +5069,9 @@ async function handleGetRecentJournals(event, mode, token) {
     return localDB.getRecentEntries(userId);
   }
 }
-async function handleGetAllJournals(event, mode, token) {
+async function handleGetAllJournals(event, mode, token, page, limit) {
   console.log("Getting all entries", mode, token);
-  const userId = getUserIdFromToken(token).id;
+  const userId = getUserIdFromToken$4(token).id;
   if (!userId) throw new Error("Invalid token");
   if (mode === "online") {
     const response = await axios.get("http://localhost:4000/api/journals", {
@@ -4766,11 +5080,13 @@ async function handleGetAllJournals(event, mode, token) {
     return response.data;
   } else {
     console.log("Getting all entries offline");
-    return localDB.getAllEntries(userId);
+    const ans = localDB.getAllEntries(userId, page, limit);
+    console.log(ans);
+    return ans;
   }
 }
 async function handleGetJournalById(event, mode, token, journalId) {
-  const userId = getUserIdFromToken(token).id;
+  const userId = getUserIdFromToken$4(token).id;
   if (!userId) throw new Error("Invalid token");
   if (mode === "online") {
     const response = await axios.get(`http://localhost:4000/api/journals/${journalId}`, {
@@ -4782,7 +5098,7 @@ async function handleGetJournalById(event, mode, token, journalId) {
   }
 }
 async function handleUpdateJournal(event, mode, token, journalId, payload) {
-  const userId = getUserIdFromToken(token).id;
+  const userId = getUserIdFromToken$4(token).id;
   if (!userId) throw new Error("Invalid token");
   if (mode === "online") {
     const response = await axios.put(`http://localhost:4000/api/journals/${journalId}`, payload, {
@@ -4794,7 +5110,7 @@ async function handleUpdateJournal(event, mode, token, journalId, payload) {
   }
 }
 async function handleDeleteJournal(event, mode, token, journalId) {
-  const userId = getUserIdFromToken(token).id;
+  const userId = getUserIdFromToken$4(token).id;
   if (!userId) throw new Error("Invalid token");
   if (mode === "online") {
     const response = await axios.delete(`http://localhost:4000/api/journals/${journalId}`, {
@@ -4815,6 +5131,15 @@ async function handleChat(event, mode, token, payload) {
     return response.data;
   } else {
     return { answer: "I can only answer questions when you are online. Please connect to the internet to use the chat feature." };
+  }
+}
+async function handleGetChartData(event, mode, token, range) {
+  const userId = getUserIdFromToken$4(token).id;
+  if (!userId) throw new Error("Invalid token");
+  if (mode === "online") {
+    console.log("later");
+  } else {
+    return localDB.getMoodScores(userId, range);
   }
 }
 async function getImageBase64(imagePath) {
@@ -4877,13 +5202,292 @@ async function handleOpenMedia(event, filePath) {
     throw error;
   }
 }
+function getUserIdFromToken$3(token) {
+  try {
+    if (!token) {
+      return null;
+    }
+    const decoded = jwt.decode(token);
+    console.log(decoded);
+    return decoded.id;
+  } catch (e) {
+    console.error("Error decoding token:", e);
+    return null;
+  }
+}
+const handleGetCategories = async (event, authMode, token) => {
+  const userId = getUserIdFromToken$3(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    console.log("userId in handleGetCategories:", userId);
+    return localDB.getCategories(userId);
+  }
+};
+const handleAddCategory = async (event, authMode, token, category2) => {
+  const userId = getUserIdFromToken$3(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online")
+    console.log("online mode");
+  else
+    return localDB.addCategory(userId, category2);
+};
+const handleUpdateCategory = async (event, authMode, token, category2) => {
+  const userId = getUserIdFromToken$3(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online")
+    console.log("online mode");
+  else
+    return localDB.updateCategory(userId, category2);
+};
+const handleDeleteCategory = async (event, authMode, token, categoryId) => {
+  const userId = getUserIdFromToken$3(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online")
+    console.log("online mode");
+  else
+    return localDB.deleteCategory(userId, categoryId);
+};
+function getUserIdFromToken$2(token) {
+  try {
+    if (!token) {
+      return null;
+    }
+    const decoded = jwt.decode(token);
+    console.log(decoded, "decoded");
+    return decoded.id;
+  } catch (e) {
+    console.error("Error decoding token:", e);
+    return null;
+  }
+}
+const handleGetActiveGoals = async (event, authMode, token) => {
+  const userId = getUserIdFromToken$2(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.getActiveGoals(userId);
+  }
+};
+const handleGetCompletedGoals = async (event, authMode, token) => {
+  console.log("calling completed goals");
+  const userId = getUserIdFromToken$2(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.getCompletedGoals(userId);
+  }
+};
+const handleCreateGoal = async (event, authMode, token, goal2) => {
+  console.log("create goal in methods.js", goal2);
+  console.log("authMode", authMode);
+  console.log("token", token);
+  const userId = getUserIdFromToken$2(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.AddGoal(userId, goal2);
+  }
+};
+const handleUpdateGoal = async (event, authMode, token, goalId, goalData) => {
+  const userId = getUserIdFromToken$2(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.updateGoal(userId, goalId, goalData);
+  }
+};
+const handleDeleteGoal = async (event, authMode, token, goalId) => {
+  const userId = getUserIdFromToken$2(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.deleteGoal(userId, goalId);
+  }
+};
+const handleTogglePin = async (event, authMode, token, goalId) => {
+  console.log("+++++++++++", authMode, token, goalId, "++++++++++++++");
+  const userId = getUserIdFromToken$2(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    console.log("-----", userId);
+    return localDB.togglePinGoal(userId, goalId);
+  }
+};
+const handleCompleteGoal = async (event, authMode, token, goalId) => {
+  const userId = getUserIdFromToken$2(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.completeGoal(userId, goalId);
+  }
+};
+const handleUpdateProgress = async (event, authMode, token, goalId, value) => {
+  const userId = getUserIdFromToken$2(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.updateProgress(userId, goalId, value);
+  }
+};
+const handleGetPinnedGoals = (event, authMode, token) => {
+  const userId = getUserIdFromToken$2(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.getPinnedGoals(userId);
+  }
+};
+function getUserIdFromToken$1(token) {
+  try {
+    if (!token) {
+      return null;
+    }
+    const decoded = jwt.decode(token);
+    console.log(decoded);
+    return decoded.id;
+  } catch (e) {
+    console.error("Error decoding token:", e);
+    return null;
+  }
+}
+const handleGetProgressLogs = async (event, authMode, token, goalId) => {
+  const userId = getUserIdFromToken$1(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.getProgressLogs(goalId);
+  }
+};
+const handleAddProgressLog = async (event, authMode, token, goalId, value, description) => {
+  const userId = getUserIdFromToken$1(token);
+  console.log(userId, "userID in profgesslofg");
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (authMode === "online") {
+    console.log("online mode");
+  } else {
+    return localDB.logProgress(goalId, value, description);
+  }
+};
+function getUserIdFromToken(token) {
+  try {
+    if (!token) {
+      return null;
+    }
+    const decoded = jwt.decode(token);
+    console.log(decoded, "decoded");
+    return decoded.id;
+  } catch (e) {
+    console.error("Error decoding token:", e);
+    return null;
+  }
+}
+const handleGetOllamaModels = (event, token) => {
+  const userId = getUserIdFromToken(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  try {
+    const output = execSync("ollama list", { encoding: "utf-8" });
+    const lines = output.trim().split("\n").slice(1);
+    const models = lines.map((line) => {
+      const parts = line.trim().split(/\s{2,}/);
+      return {
+        name: parts[0],
+        size: parts[1],
+        modified: parts[2]
+      };
+    });
+    return models;
+  } catch (error) {
+    console.error("Error fetching Ollama models:", error);
+    return [];
+  }
+};
+const handleOllamaPrompt = async (event, token, model, prompt, jsonMode = false) => {
+  const userId = getUserIdFromToken(token);
+  if (!userId) {
+    return { error: "Invalid token" };
+  }
+  if (!model || !prompt) {
+    return { error: "Model name and prompt are required." };
+  }
+  try {
+    const requestBody = {
+      model,
+      prompt,
+      stream: false,
+      // full output as one JSON
+      num_predict: 300
+      // limit tokens for speed
+    };
+    if (jsonMode) {
+      requestBody.format = "json";
+    }
+    const res = await fetch("http://localhost:11434/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody)
+    });
+    if (!res.ok) {
+      throw new Error(`Ollama HTTP error: ${res.status} ${res.statusText}`);
+    }
+    const data = await res.json();
+    return data.response;
+  } catch (err) {
+    console.error("Ollama error:", err);
+    return { error: err.message };
+  }
+};
 const __filename = fileURLToPath$1(import.meta.url);
 const __dirname = path$1.dirname(__filename);
 process.env.DIST = path$1.join(__dirname, "../dist");
 process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL ? path$1.join(__dirname, "../public") : process.env.DIST;
 let win;
 function createWindow() {
-  win = new BrowserWindow({
+  const win2 = new BrowserWindow({
     width: 800,
     height: 600,
     show: false,
@@ -4895,18 +5499,36 @@ function createWindow() {
       nodeIntegration: false
     }
   });
-  win.maximize();
-  win.show();
-  win.webContents.on("did-finish-load", () => {
-    if (!win.isDestroyed()) {
-      win.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
+  win2.once("ready-to-show", () => {
+    if (!win2.isDestroyed()) {
+      win2.show();
     }
   });
+  win2.webContents.on("did-finish-load", () => {
+    if (!win2.isDestroyed()) {
+      win2.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
+    }
+  });
+  ipcMain.on("minimize-window", () => {
+    win2.minimize();
+  });
+  ipcMain.on("maximize-window", () => {
+    if (win2.isMaximized()) {
+      win2.unmaximize();
+    } else {
+      win2.maximize();
+    }
+  });
+  ipcMain.on("close-window", () => {
+    win2.close();
+  });
+  win2.on("maximize", () => win2.webContents.send("window-maximized", true));
+  win2.on("unmaximize", () => win2.webContents.send("window-maximized", false));
   if (process.env.VITE_DEV_SERVER_URL) {
-    win.loadURL(process.env.VITE_DEV_SERVER_URL);
-    win.webContents.openDevTools();
+    win2.loadURL(process.env.VITE_DEV_SERVER_URL);
+    win2.webContents.openDevTools();
   } else {
-    win.loadFile(path$1.join(process.env.DIST, "index.html"));
+    win2.loadFile(path$1.join(process.env.DIST, "index.html"));
   }
 }
 app$1.whenReady().then(() => {
@@ -4918,6 +5540,11 @@ app$1.whenReady().then(() => {
   });
   ipcMain.handle("media:getAudio", async (event, audioPath) => {
     return await getAudioBase64(audioPath);
+  });
+  ipcMain.on("screen:maximize", () => {
+    if (win && !win.isDestroyed()) {
+      win.maximize();
+    }
   });
   ipcMain.handle("auth:register", handleRegister);
   ipcMain.handle("auth:login", handleLogin);
@@ -4934,7 +5561,26 @@ app$1.whenReady().then(() => {
   ipcMain.handle("journal:get-by-id", handleGetJournalById);
   ipcMain.handle("journal:update", handleUpdateJournal);
   ipcMain.handle("journal:delete", handleDeleteJournal);
+  ipcMain.handle("journal:get-images", handleGettingImages);
+  ipcMain.handle("journal:get-chart-data", handleGetChartData);
   ipcMain.handle("chat:send", handleChat);
+  ipcMain.handle("category:get-all", handleGetCategories);
+  ipcMain.handle("category:delete", handleDeleteCategory);
+  ipcMain.handle("category:add", handleAddCategory);
+  ipcMain.handle("category:update", handleUpdateCategory);
+  ipcMain.handle("goal:get-active-goals", handleGetActiveGoals);
+  ipcMain.handle("goal:get-completed-goals", handleGetCompletedGoals);
+  ipcMain.handle("goal:add", handleCreateGoal);
+  ipcMain.handle("goal:update", handleUpdateGoal);
+  ipcMain.handle("goal:delete", handleDeleteGoal);
+  ipcMain.handle("goal:toggle-pin", handleTogglePin);
+  ipcMain.handle("goal:complete", handleCompleteGoal);
+  ipcMain.handle("goal:update-progress", handleUpdateProgress);
+  ipcMain.handle("goal:getPinned", handleGetPinnedGoals);
+  ipcMain.handle("logs:getAll", handleGetProgressLogs);
+  ipcMain.handle("logs:add", handleAddProgressLog);
+  ipcMain.handle("ollama:models", handleGetOllamaModels);
+  ipcMain.handle("ollama:get-response", handleOllamaPrompt);
   startServer();
   createWindow();
   app$1.on("activate", () => {

@@ -1,26 +1,26 @@
 // --- Type Definitions ---
 
 export interface JournalEntry {
-    id?: number;
-    title: string;
-    content: string;
-    mood_score?: number;
-    sentiment_score?: number;
-    mood_tags?: string | string[];
-    created_at?: string;
-    image_key?: string;
-    audio_key?: string;
+  id?: number;
+  title: string;
+  content: string;
+  mood_score?: number;
+  sentiment_score?: number;
+  mood_tags?: string;
+  created_at?: string;
+  image_key?: string;
+  audio_key?: string;
 }
 
 interface MoodScoreData {
-    mood_score: number;
-    created_at: string;
+  mood_score: number;
+  created_at: string;
 }
 
 const checkElectron = () => {
-    if (!window.electron?.ipcRenderer) {
-        throw new Error("Not in an Electron environment.");
-    }
+  if (!window.electron?.ipcRenderer) {
+    throw new Error("Not in an Electron environment.");
+  }
 };
 
 /**
@@ -32,13 +32,18 @@ export const journalService = {
    */
   getAll: async (
     mode: "online" | "offline",
-    token: string
+    token: string,
+    page: number = 0,
+    limit: number = 10
   ): Promise<JournalEntry[]> => {
     checkElectron();
+    console.log("called get all");
     return await window.electron.ipcRenderer.invoke(
       "journal:get-all",
       mode,
-      token
+      token,
+      page,
+      limit
     );
   },
 
@@ -134,7 +139,17 @@ export const journalService = {
     return await window.electron.ipcRenderer.invoke(
       "journal:get-recent",
       authMode,
+      token
+    );
+  },
+
+  getImages: async (authMode: string, token: string, mode: string) => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke(
+      "journal:get-images",
+      authMode,
       token,
+      mode
     );
   },
 
@@ -180,6 +195,15 @@ export const journalService = {
     return Promise.resolve({
       url: `https://s3-media-url.com/${encodeURIComponent(key)}`,
     });
+  },
+  getChartData: async (authMode: string, token: string, range: number) => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke(
+      "journal:get-chart-data",
+      authMode,
+      token,
+      range
+    );
   },
 };
 

@@ -241,6 +241,76 @@ export function initDatabase() {
             sync_action TEXT,
             FOREIGN KEY (journal_id) REFERENCES journal_entries(id) ON DELETE CASCADE
         );
+        -- Categories Table
+        CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            color TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, name)
+        );
+
+        -- Goals Table
+        CREATE TABLE IF NOT EXISTS goals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            category_id INTEGER,
+            title TEXT NOT NULL,
+            description TEXT,
+            parent_goal_title TEXT,
+            current_value REAL NOT NULL DEFAULT 0,
+            target_value REAL NOT NULL,
+            unit TEXT NOT NULL,
+            is_pinned INTEGER NOT NULL DEFAULT 0, -- Using 0 for FALSE
+            is_completed INTEGER NOT NULL DEFAULT 0, -- Using 0 for FALSE
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_date TEXT, -- 'YYYY-MM-DD'
+            target_date TEXT, -- 'YYYY-MM-DD'
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+        );
+
+        -- Progress Logs Table
+        CREATE TABLE IF NOT EXISTS progress_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            goal_id INTEGER NOT NULL,
+            value REAL NOT NULL,
+            description TEXT,
+            logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+        );
+
+        -- Add indexes for faster lookups
+        CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
+        CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
+        CREATE INDEX IF NOT EXISTS idx_progress_logs_goal_id ON progress_logs(goal_id);
     `);
+    // Insert a system user if it doesn't exist
+    const insertSystemUser = db.prepare(`
+        INSERT OR IGNORE INTO users (id, username, email, password_hash, full_name)
+        VALUES (0, 'System', 'system@mindsage.app', 'N/A', 'System User')
+    `);
+    insertSystemUser.run();
+
+    // Seed global categories for the system user
+    const categories = [
+        { name: 'Health', color: '#FF6B6B' },
+        { name: 'Work', color: '#4ECDC4' },
+        { name: 'Finance', color: '#FFD93D' },
+        { name: 'Personal Growth', color: '#6A4C93' },
+        { name: 'Leisure', color: '#1A535C' }
+    ];
+
+    const insertCategory = db.prepare(`
+        INSERT OR IGNORE INTO categories (user_id, name, color)
+        VALUES (0, ?, ?)
+    `);
+
+    for (const cat of categories) {
+        insertCategory.run(cat.name, cat.color);
+    }
+
     console.log('Local database with sync columns initialized successfully.');
 }

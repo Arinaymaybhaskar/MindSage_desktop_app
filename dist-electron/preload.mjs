@@ -1,6 +1,17 @@
 "use strict";
 const electron = require("electron");
 electron.contextBridge.exposeInMainWorld("electron", {
+  minimize: () => electron.ipcRenderer.send("minimize-window"),
+  maximize: () => electron.ipcRenderer.send("maximize-window"),
+  close: () => electron.ipcRenderer.send("close-window"),
+  // Function to subscribe to window state changes
+  onWindowStateChange: (callback) => {
+    const listener = (_event, value) => callback(value);
+    electron.ipcRenderer.on("window-maximized", listener);
+    return () => {
+      electron.ipcRenderer.removeListener("window-maximized", listener);
+    };
+  },
   ipcRenderer: {
     // Expose a safe subset of ipcRenderer methods
     invoke: (channel, ...args) => {
@@ -27,9 +38,33 @@ electron.contextBridge.exposeInMainWorld("electron", {
         "journal:update",
         "journal:delete",
         "journal:get-mood-scores",
+        "journal:get-images",
+        "journal:get-chart-data",
         "media:getImage",
         "media:save",
-        "media:getAudio"
+        "media:getAudio",
+        "category:get-all",
+        "category:delete",
+        "category:add",
+        "category:update",
+        "goal:get-active-goals",
+        "goal:get-completed-goals",
+        "goal:add",
+        "goal:update",
+        "goal:delete",
+        "goal:toggle-pin",
+        "goal:complete",
+        "goal:update-progress",
+        "goal:getPinned",
+        "logs:getAll",
+        "logs:add",
+        "ollama:models",
+        "ollama:get-response",
+        "qdrant:start",
+        "qdrant:createCollection",
+        "qdrant:insertVector",
+        "qdrant:searchVector",
+        "qdrant:stop"
       ];
       if (validChannels.includes(channel)) {
         return electron.ipcRenderer.invoke(channel, ...args);

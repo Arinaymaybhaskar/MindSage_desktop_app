@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import api from "../api/axios";
+import { motion, AnimatePresence } from "framer-motion";
+import { Bot, User, Send, Sparkles, Info, Trash2 } from "lucide-react";
+import TextareaAutosize from "react-textarea-autosize";
 
 // --- TYPE DEFINITIONS ---
 interface Message {
@@ -7,91 +9,121 @@ interface Message {
   text: string;
   sender: "user" | "ai";
 }
-
 type Provider = "ollama" | "gemini";
 
-// --- NEW: Affirming Messages ---
-// A list of messages to cycle through during the loading state.
+// --- MOCK API & DATA ---
 const loadingMessages = [
-  "Connecting with your digital consciousness...",
-  "Scanning your journal for relevant memories...",
-  "Consulting the AI for deep insights...",
-  "Analyzing your entries...",
-  "Finding patterns in your thoughts...",
-  "Just a moment, great insights take time...",
+  "Consulting the digital consciousness...",
+  "Analyzing your entries for patterns...",
+  "Crafting a thoughtful response...",
+  "Connecting insights from your journal...",
 ];
 
-// --- API HELPER FUNCTION ---
 const fetchAiResponse = async (
-  endpoint: string,
   userInput: string,
   provider: Provider
-) => {
-
-  const response = await api.post(endpoint, {
-    query: userInput,
-    provider: provider,
-  });
-  return response.data;
+): Promise<{ answer: string }> => {
+  console.log(`Fetching response for "${userInput}" from ${provider}`);
+  // Simulate API delay
+  await new Promise((resolve) =>
+    setTimeout(resolve, 2000 + Math.random() * 2000)
+  );
+  return {
+    answer: `This is a simulated response from ${provider} regarding "${userInput}". In a real application, this would contain meaningful insights based on your journal entries.`,
+  };
 };
 
-// --- CHAT BUBBLE SUB-COMPONENT ---
+// --- SUB-COMPONENTS ---
 const ChatBubble: React.FC<{ message: Message }> = ({ message }) => {
   const isUser = message.sender === "user";
   return (
-    <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      className={`flex items-start gap-3 ${isUser ? "justify-end" : ""}`}
+    >
+      {!isUser && (
+        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-full">
+          <Bot size={18} className="text-gray-600 dark:text-gray-300" />
+        </div>
+      )}
       <div
-        className={`max-w-xs md:max-w-md lg:max-w-xl px-4 py-3 rounded-2xl shadow-md ${
+        className={`max-w-xs md:max-w-md lg:max-w-2xl px-4 py-3 rounded-2xl shadow-sm ${
           isUser
-            ? "bg-blue-600 text-white rounded-br-none"
-            : "bg-white text-gray-800 rounded-bl-none"
+            ? "bg-indigo-600 text-white rounded-br-lg"
+            : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-lg"
         }`}
       >
-        <p className="text-sm break-words">{message.text}</p>
+        <p className="text-sm break-words leading-relaxed">{message.text}</p>
       </div>
-    </div>
+      {isUser && (
+        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-full">
+          <User size={18} className="text-gray-600 dark:text-gray-300" />
+        </div>
+      )}
+    </motion.div>
   );
 };
 
-// --- REUSABLE CHAT COMPONENT ---
+const LoadingBubble: React.FC<{ message: string }> = ({ message }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    className="flex items-start gap-3"
+  >
+    <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-full">
+      <Bot size={18} className="text-gray-600 dark:text-gray-300" />
+    </div>
+    <div className="bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-4 py-3 rounded-2xl rounded-bl-lg shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1">
+          <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.3s]"></span>
+          <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.15s]"></span>
+          <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse"></span>
+        </div>
+        <span className="text-sm italic">{message}</span>
+      </div>
+    </div>
+  </motion.div>
+);
+
+// --- MAIN CHAT COMPONENT ---
 export const ChatComponent: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
-      text: "Hello! How can I help you reflect on your journal entries today?",
+      text: "Hello! I'm your AI assistant. Ask me anything about your journal entries to discover patterns, insights, or summaries.",
       sender: "ai",
     },
   ]);
-  const [inputValue, setInputValue] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [loadingMessage, setLoadingMessage] = useState<string>(
-    loadingMessages[0]
-  );
-  const [provider, setProvider] = useState<Provider>("ollama"); // State for the selected provider
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
+  const [provider, setProvider] = useState<Provider>("gemini");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Effect to scroll to the bottom of the chat on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isLoading]);
 
-  // Effect to cycle through loading messages
   useEffect(() => {
-    let interval: any;
-    if (isLoading) {
-      let currentIndex = 0;
-      setLoadingMessage(loadingMessages[currentIndex]);
-
-      interval = setInterval(() => {
-        currentIndex = (currentIndex + 1) % loadingMessages.length;
-        setLoadingMessage(loadingMessages[currentIndex]);
-      }, 3000);
-    }
+    if (!isLoading) return;
+    const interval = setInterval(() => {
+      setLoadingMessage((prev) => {
+        const nextIndex =
+          (loadingMessages.indexOf(prev) + 1) % loadingMessages.length;
+        return loadingMessages[nextIndex];
+      });
+    }, 2500);
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const trimmedInput = inputValue.trim();
     if (!trimmedInput || isLoading) return;
 
@@ -105,22 +137,17 @@ export const ChatComponent: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const apiEndpoint = `/journals/chat`;
-      // Use the selected provider from the component's state
-      const aiText = await fetchAiResponse(apiEndpoint, trimmedInput, provider);
+      const { answer } = await fetchAiResponse(trimmedInput, provider);
       const aiMessage: Message = {
         id: Date.now() + 1,
-        text: aiText.answer,
+        text: answer,
         sender: "ai",
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
-      console.error("Failed to fetch AI response:", error);
       const errorMessage: Message = {
         id: Date.now() + 1,
-        text: `Sorry, an error occurred: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }. Please try again.`,
+        text: "Sorry, I encountered an error. Please try again.",
         sender: "ai",
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -129,151 +156,84 @@ export const ChatComponent: React.FC = () => {
     }
   };
 
-  const topHeight = provider === "ollama" ? "110px" : "67vh";
+  const handleClearChat = () => {
+    setMessages([
+      {
+        id: 1,
+        text: "Chat cleared. How can I help you reflect today?",
+        sender: "ai",
+      },
+    ]);
+  };
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className={`h-[${topHeight}] flex-shrink-0`}>
-        {/* Header */}
-        <div className="border-b border-gray-200 p-4 flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-800">
-            MindSage AI Chat
-          </h2>
-          {/* --- NEW: Model Selector --- */}
-          <div className="flex items-center space-x-2">
-            <label
-              htmlFor="provider-select"
-              className="text-sm font-medium text-gray-600"
-            >
-              Model:
-            </label>
-            <div className="relative">
-              <select
-                id="provider-select"
-                value={provider}
-                onChange={(e) => setProvider(e.target.value as Provider)}
-                className="pl-8 pr-4 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none"
-              >
-                <option value="ollama" className="p-2">
-                  <img src="ollama.png" alt="ollama icon" className="w-6 h-6" />
-                  Ollama
-                </option>
-                <option value="gemini">
-                  {" "}
-                  <img
-                    src="gemini-color.png"
-                    alt="gemini-icon"
-                    className="w-6 h-6"
-                  />
-                  Gemini
-                </option>
-              </select>
-              <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
-                {provider === "ollama" ? (
-                  <img src="ollama.png" alt="ollama icon" className="w-6 h-6" />
-                ) : (
-                  <img
-                    src="gemini-color.png"
-                    alt="gemini-icon"
-                    className="w-6 h-6"
-                  />
-                )}
-              </div>
-            </div>
-          </div>
+    <div className="w-full h-full flex flex-col bg-gray-100 dark:bg-slate-900 text-gray-900 dark:text-gray-100 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
+      {/* Header */}
+      <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center gap-3">
+          <Sparkles className="text-indigo-500" />
+          <h2 className="text-lg font-bold">MindSage AI Chat</h2>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleClearChat}
+            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
+            title="Clear chat"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
+      </header>
 
-        {provider === "ollama" && (
-          <div className="p-3 bg-blue-50 border-b border-blue-200 text-blue-800 text-xs flex items-start space-x-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="flex-shrink-0 mt-0.5"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 16v-4" />
-              <path d="M12 8h.01" />
-            </svg>
-            <p>
-              You're using a local model. Performance depends on your system's
-              hardware. The first query may take a minute to warm up the model.
-            </p>
-          </div>
-        )}
-      </div>
-      <div className="py-6 my-0 mx-10 flex-grow overflow-y-auto">
-        {/* Chat Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="space-y-4">
+      {provider === "ollama" && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-500/10 border-b border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-200 text-xs flex items-start gap-2">
+          <Info size={16} className="flex-shrink-0 mt-0.5" />
+          <p>
+            You're using a local model. Performance depends on your hardware.
+            The first query may take a moment to load the model.
+          </p>
+        </div>
+      )}
+
+      {/* Chat Messages */}
+      {/* Added pb-20 to the main container and pb-4 to the inner div */}
+      <div className="flex-grow p-4 md:p-6 overflow-y-auto pb-20">
+        <div className="space-y-6 pb-4">
+          <AnimatePresence>
             {messages.map((msg) => (
               <ChatBubble key={msg.id} message={msg} />
             ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white text-gray-500 px-4 py-3 rounded-2xl rounded-bl-none shadow-md">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-1">
-                      <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.3s]"></span>
-                      <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.15s]"></span>
-                      <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse"></span>
-                    </div>
-                    <span className="text-sm text-gray-600 italic">
-                      {loadingMessage}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
+          </AnimatePresence>
+          {isLoading && <LoadingBubble message={loadingMessage} />}
+          <div ref={chatEndRef} />
         </div>
       </div>
-      <div className="border-t flex-shrink-0 border-gray-200 p-3 px-10 bg-white rounded-b-lg h-[69px] bottom-0 w-full ">
-        <form
-          onSubmit={handleSendMessage}
-          className="flex items-center space-x-3"
-        >
-          <textarea
+
+      {/* Input Form */}
+      <div className="flex-shrink-0 pb-16 border-t border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-800/50">
+        <form onSubmit={handleSendMessage} className="flex items-start gap-3">
+          <TextareaAutosize
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSendMessage(e);
+                handleSendMessage();
               }
             }}
             placeholder="Ask about your journal entries..."
-            className="flex-1 p-3 border border-gray-300 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+            className="flex-1 p-3 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-xl resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
             rows={1}
+            maxRows={5}
             disabled={isLoading}
           />
           <button
             type="submit"
-            className="p-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            className="p-3 bg-indigo-600 text-white font-semibold rounded-full hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-all transform hover:scale-105"
             disabled={isLoading || !inputValue.trim()}
+            aria-label="Send message"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="lucide lucide-send-horizontal"
-            >
-              <path d="m3 3 3 9-3 9 19-9Z" />
-              <path d="M6 12h16" />
-            </svg>
+            <Send size={20} />
           </button>
         </form>
       </div>

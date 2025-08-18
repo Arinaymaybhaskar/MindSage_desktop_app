@@ -1,117 +1,110 @@
-import { useState } from "react";
-import { moodHierarchy } from "../utils/moodHierarchy";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { moodHierarchy, moodColors } from "../utils/moodHierarchy";
 
 interface Props {
   onChange: (tags: string[]) => void;
   selected: string[];
 }
 
-export function MoodTagSelector({ onChange }: Props) {
-  const [level1, setLevel1] = useState<string | null>(null);
-  const [level2, setLevel2] = useState<string | null>(null);
-  const [level3, setLevel3] = useState<string | null>(null);
+// Utility to get a contrasting text color (black or white) for any background color
+const getContrastingTextColor = (hexColor: string) => {
+  const r = parseInt(hexColor.slice(1, 3), 16);
+  const g = parseInt(hexColor.slice(3, 5), 16);
+  const b = parseInt(hexColor.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? "text-black" : "text-white";
+};
+
+// Reusable MoodButton sub-component
+const MoodButton = ({ mood, onClick, isSelected, color }) => (
+  <motion.button
+    type="button"
+    onClick={onClick}
+    className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 transform hover:-translate-y-0.5 shadow-sm border
+      ${
+        isSelected
+          ? `${getContrastingTextColor(color)} border-transparent`
+          : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400"
+      }`}
+    style={{ backgroundColor: isSelected ? color : undefined }}
+    whileTap={{ scale: 0.95 }}
+  >
+    {mood}
+  </motion.button>
+);
+
+export function MoodTagSelector({ onChange, selected }: Props) {
+  const [selection, setSelection] = useState({
+    level1: selected[0] || null,
+    level2: selected.slice(1),
+  });
+
+  useEffect(() => {
+    const newTags = [selection.level1, ...selection.level2].filter(
+      Boolean
+    ) as string[];
+    onChange(newTags);
+  }, [selection]);
 
   const handleLevel1 = (mood: string) => {
-    if (level1 === mood) {
-      setLevel1(null);
-      setLevel2(null);
-      setLevel3(null);
-      onChange([]);
-    } else {
-      setLevel1(mood);
-      setLevel2(null);
-      setLevel3(null);
-      onChange([mood]);
-    }
+    setSelection((prev) => ({
+      level1: prev.level1 === mood ? null : mood,
+      level2: [], // Reset deeper selections when primary mood changes
+    }));
   };
 
   const handleLevel2 = (subMood: string) => {
-    if (level2 === subMood) {
-      setLevel2(null);
-      setLevel3(null);
-      onChange([level1!]);
-    } else {
-      setLevel2(subMood);
-      setLevel3(null);
-      onChange([level1!, subMood]);
-    }
+    setSelection((prev) => {
+      const currentLevel2 = prev.level2 || [];
+      const newLevel2 = currentLevel2.includes(subMood)
+        ? currentLevel2.filter((m) => m !== subMood) // Toggle off
+        : [...currentLevel2, subMood]; // Toggle on
+      return { ...prev, level2: newLevel2 };
+    });
   };
 
-  const handleLevel3 = (finalTag: string) => {
-    if (level3 === finalTag) {
-      setLevel3(null);
-      onChange([level1!, level2!]);
-    } else {
-      setLevel3(finalTag);
-      onChange([level1!, level2!, finalTag]);
-    }
-  };
+  const level1Data = Object.keys(moodHierarchy);
+  const level2Data = selection.level1
+    ? Object.keys(moodHierarchy[selection.level1])
+    : null;
 
   return (
-    <div className="space-y-2 w-full mx-1">
-      <label className="font-semibold text-gray-700">Mood Hierarchy</label>
-      {/* Level 1: Core */}
+    <div className="space-y-4 w-full">
+      {/* Level 1: Core Moods */}
       <div className="flex flex-wrap gap-2">
-        {Object.keys(moodHierarchy).map((mood) => (
-          <button
-            type="button"
+        {level1Data.map((mood) => (
+          <MoodButton
             key={mood}
+            mood={mood}
             onClick={() => handleLevel1(mood)}
-            className={`px-2 py-1 text-xs rounded-full border  transition-all duration-200 transform hover:-translate-y-0.5 ${
-              level1 === mood
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-100 text-gray-800"
-            }`}
-          >
-            {mood}
-          </button>
+            isSelected={selection.level1 === mood}
+            color={moodColors[mood]}
+          />
         ))}
       </div>
 
-      {/* Level 2: Secondary */}
-      {level1 && (
-        <div className="flex flex-wrap gap-2">
-          {Object.keys(moodHierarchy[level1 as keyof typeof moodHierarchy]).map(
-            (subMood) => (
-              <button
-                type="button"
+      {/* Level 2: Secondary Moods (allows multi-select) */}
+      <AnimatePresence>
+        {selection.level1 && level2Data && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex flex-wrap gap-2 p-3 bg-gray-100 dark:bg-gray-800/50 rounded-lg"
+          >
+            {level2Data.map((subMood) => (
+              <MoodButton
                 key={subMood}
+                mood={subMood}
                 onClick={() => handleLevel2(subMood)}
-                className={`px-2 py-1 text-xs rounded-full border  transition-all duration-200 transform hover:-translate-y-0.5 ${
-                  level2 === subMood
-                    ? "bg-indigo-400 text-white"
-                    : "bg-gray-100 text-gray-800"
-                }`}
-              >
-                {subMood}
-              </button>
-            )
-          )}
-        </div>
-      )}
-
-      {/* Level 3: Final Tags */}
-      {level1 && level2 && (
-        <div className="flex flex-wrap gap-2">
-          {moodHierarchy[level1 as keyof typeof moodHierarchy][level2].map(
-            (finalTag) => (
-              <button
-                type="button"
-                key={finalTag}
-                onClick={() => handleLevel3(finalTag)}
-                className={`px-2 py-1 text-xs rounded-full border transition-all duration-200 transform hover:-translate-y-0.5 ${
-                  level3 === finalTag
-                    ? "bg-indigo-200 text-white"
-                    : "bg-gray-100 text-gray-800"
-                }`}
-              >
-                {finalTag}
-              </button>
-            )
-          )}
-        </div>
-      )}
-     
+                isSelected={selection.level2.includes(subMood)}
+                color={moodColors[selection.level1!]}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
