@@ -22,22 +22,18 @@ const ActiveGoalsList: React.FC<ActiveGoalsListProps> = (props) => {
   const pinnedGoals = goals.filter((g) => g.is_pinned);
   const unpinnedGoals = goals.filter((g) => !g.is_pinned);
 
-  // Group unpinned goals by their parent ambition title
   const groupedGoals = unpinnedGoals.reduce((acc, goal) => {
-    const key = goal.parent_goal_title || "Your Goals";
+    const key = goal.parent_goal_title || "General Goals";
     if (!acc[key]) acc[key] = [];
     acc[key].push(goal);
     return acc;
   }, {} as Record<string, Goal[]>);
 
-  // Animation variants for the grid and cards
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
+      transition: { staggerChildren: 0.05 },
     },
   };
 
@@ -69,7 +65,6 @@ const ActiveGoalsList: React.FC<ActiveGoalsListProps> = (props) => {
     </motion.div>
   );
 
-  // If there are no goals at all, show the polished empty state
   if (goals.length === 0) {
     return (
       <EmptyState
@@ -77,9 +72,10 @@ const ActiveGoalsList: React.FC<ActiveGoalsListProps> = (props) => {
         title="No Active Goals"
         message="Ready to achieve something great? Add your first goal to get started."
         action={
+          // --- CHANGE: Themed action button ---
           <button
             onClick={onAddGoalClick}
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all"
           >
             <span>Add Your First Goal</span>
           </button>
@@ -89,19 +85,30 @@ const ActiveGoalsList: React.FC<ActiveGoalsListProps> = (props) => {
   }
 
   return (
-    <section id="active-goals-section" className="space-y-12">
-      {/* Render pinned goals first, without a header */}
-      {pinnedGoals.length > 0 && <div>{renderGrid(pinnedGoals)}</div>}
+    <section id="active-goals-section" className="space-y-12 mt-8">
+      {/* --- CHANGE: Added a clear header for Pinned Goals --- */}
+      {pinnedGoals.length > 0 && (
+        <div>
+          <h3 className="flex items-center gap-2 text-2xl font-semibold mb-4 px-2 text-text-light dark:text-text-dark">
+            <Pin size={22} className="text-info" />
+            Pinned
+          </h3>
+          {renderGrid(pinnedGoals)}
+        </div>
+      )}
 
       {/* Grouped Goals Section */}
       {Object.entries(groupedGoals).map(([groupName, groupGoals]) => (
         <div key={groupName}>
-          <h3 className="text-2xl font-semibold mb-4 text-gray-200">
-            {groupName === "Your Goals" ? (
+          {/* --- CHANGE: Themed group headers --- */}
+          <h3 className="text-2xl font-semibold mb-4 px-2 text-text-light dark:text-text-dark">
+            {groupName === "General Goals" ? (
               groupName
             ) : (
               <>
-                <span className="font-normal text-gray-400">Ambition: </span>
+                <span className="font-normal text-text-light-sub dark:text-text-dark-sub">
+                  Ambition:{" "}
+                </span>
                 {groupName}
               </>
             )}

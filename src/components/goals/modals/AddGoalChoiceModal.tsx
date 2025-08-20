@@ -1,5 +1,5 @@
 import React from "react";
-import Modal from "../../Modal";
+import Modal from "../../Modal"; // Assuming Modal component is in this path
 import { Wand2, Edit3 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -25,15 +25,17 @@ const AddGoalChoiceModal: React.FC<AddGoalChoiceModalProps> = ({
     },
   };
 
+  // --- CHANGE: Themed base and hover classes ---
   const cardBaseClasses =
-    "p-8 text-center bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 cursor-pointer flex flex-col items-center gap-4 transition-all duration-300 ease-in-out";
+    "p-8 text-center bg-secondary-light dark:bg-secondary-dark rounded-2xl border border-border-light dark:border-border-dark cursor-pointer flex flex-col items-center gap-4 transition-all duration-300 ease-in-out";
   const cardHoverClasses =
-    "hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-2xl hover:-translate-y-2";
+    "hover:border-info dark:hover:border-info hover:shadow-2xl hover:-translate-y-2";
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add a New Goal">
       <div className="text-center mb-8">
-        <p className="text-gray-600 dark:text-gray-400">
+        {/* --- CHANGE: Themed text --- */}
+        <p className="text-text-light-sub dark:text-text-dark-sub">
           How would you like to get started?
         </p>
       </div>
@@ -51,14 +53,16 @@ const AddGoalChoiceModal: React.FC<AddGoalChoiceModalProps> = ({
           variants={cardVariants}
           whileTap={{ scale: 0.98 }}
         >
-          <div className="p-4 bg-indigo-100 dark:bg-indigo-500/10 rounded-full">
-            <Wand2 size={32} className="text-indigo-600 dark:text-indigo-400" />
+          {/* --- CHANGE: Themed icon container and color --- */}
+          <div className="p-4 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
+            <Wand2 size={32} className="text-info" />
           </div>
           <div className="text-content">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            {/* --- CHANGE: Themed text --- */}
+            <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
               AI Assistant
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">
               Let our assistant help you craft well-defined, achievable goals.
             </p>
           </div>
@@ -71,14 +75,19 @@ const AddGoalChoiceModal: React.FC<AddGoalChoiceModalProps> = ({
           variants={cardVariants}
           whileTap={{ scale: 0.98 }}
         >
-          <div className="p-4 bg-gray-100 dark:bg-gray-700/60 rounded-full">
-            <Edit3 size={32} className="text-gray-700 dark:text-gray-300" />
+          {/* --- CHANGE: Themed icon container and color --- */}
+          <div className="p-4 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
+            <Edit3
+              size={32}
+              className="text-text-light-sub dark:text-text-dark-sub"
+            />
           </div>
           <div className="text-content">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            {/* --- CHANGE: Themed text --- */}
+            <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
               Create Manually
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">
               For when you know exactly what you want. Take control of every
               detail.
             </p>

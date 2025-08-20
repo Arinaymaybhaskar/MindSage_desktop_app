@@ -6,19 +6,6 @@ const config = {
   darkMode: "class", // Use 'media' for automatic system theme, or 'class' for manual
   theme: {
     extend: {
-      colors: {
-        // Light theme colors
-        light1: "#ADB2D4",
-        light2: "#C7D9DD",
-        light3: "#D5E5D5",
-        light4: "#EEF1DA",
-
-        // Dark theme colors
-        dark1: "#35374B",
-        dark2: "#344955",
-        dark3: "#50727B",
-        dark4: "#78A083",
-      },
       fontFamily: {
         fraunces: ["Fraunces", "serif"],
       },

@@ -221,7 +221,7 @@ export default function JournalForm() {
 
       // Clean up
       localStorage.removeItem(DRAFT_KEY);
-      navigate("/");
+      navigate("/dashboard");
     } catch (error) {
       console.error("❌ Submission error", error);
     } finally {
@@ -290,18 +290,18 @@ export default function JournalForm() {
   };
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-gray-100 dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+    <div className="w-full h-screen overflow-hidden  text-gray-900 dark:text-gray-100">
       <form onSubmit={handleSubmit} className="flex flex-col h-full">
         {/* Header */}
         <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-4">
             <Link
-              to="/"
+              to="/dashboard"
               className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             >
               <ArrowLeft size={20} />
             </Link>
-            <h1 className="text-xl font-bold">
+            <h1 className="text-xl font-bold font-[fraunces]">
               {isEdit ? "Edit Entry" : "New Journal Entry"}
             </h1>
           </div>
@@ -346,7 +346,9 @@ export default function JournalForm() {
               ) : (
                 <>
                   <Save size={18} />
-                  <span>{isEdit ? "Save Changes" : "Create Entry"}</span>
+                  <span className="font-[fraunces]">
+                    {isEdit ? "Save Changes" : "Create Entry"}
+                  </span>
                 </>
               )}
             </motion.button>
@@ -363,19 +365,19 @@ export default function JournalForm() {
               placeholder="A Title for Your Thoughts..."
               value={entry.title}
               onChange={(e) => setEntry({ ...entry, title: e.target.value })}
-              className="text-3xl font-bold bg-transparent focus:outline-none mb-4"
+              className="text-3xl font-[fraunces] font-bold bg-transparent focus:outline-none mb-4"
             />
             <textarea
               id="content"
               placeholder="Write freely..."
               value={entry.content}
               onChange={(e) => setEntry({ ...entry, content: e.target.value })}
-              className="flex-grow w-full text-lg bg-transparent focus:outline-none resize-none leading-relaxed"
+              className="flex-grow font-inter w-full text-lg bg-transparent focus:outline-none resize-none leading-relaxed"
             />
           </div>
 
           {/* Right Column: Sidebar */}
-          <aside className="w-96 flex-shrink-0 no-scrollbar border-l border-gray-200 dark:border-gray-800 p-6  space-y-6">
+          <aside className="w-100 overflow-scroll flex-shrink-0 no-scrollbar border-l border-gray-200 dark:border-gray-800 p-6  space-y-6">
             <SidebarPanel title="Mood & Sentiment" icon={Smile}>
               <MoodSlider
                 value={entry.mood_score ?? 50}

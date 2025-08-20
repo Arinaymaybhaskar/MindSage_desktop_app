@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { Eye, EyeOff, Save, AlertTriangle, ArrowLeft } from "lucide-react";
 import { userService } from "../../api/userService";
 import { useAuth } from "../../hooks/useAuth";
+import { Toaster, toast } from "react-hot-toast";
+import clsx from "clsx";
 
 const ChangePassword = () => {
   const navigate = useNavigate();
-  const {accessToken} = useAuth();
+  const { accessToken } = useAuth();
 
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
@@ -25,173 +27,190 @@ const ChangePassword = () => {
   });
 
   const [error, setError] = useState("");
-  const [showDialog, setShowDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [invalidOldPassword, setInvalidOldPassword] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(""); // Clear general error on any change
+    setInvalidOldPassword(false); // Clear specific old password error
     setForm({ ...form, [e.target.name]: e.target.value });
-    setInvalidOldPassword(false); // reset on change
   };
 
   const toggleVisibility = (field: "old" | "new" | "confirm") => {
-    setShowPassword({ ...showPassword, [field]: !showPassword[field] });
+    setShowPassword((prev) => ({ ...prev, [field]: !showPassword[field] }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (form.newPassword !== form.confirmPassword) {
-      return setError("New passwords do not match");
+      setError("New passwords do not match.");
+      return;
     }
+    if (form.newPassword.length < 8) {
+      setError("New password must be at least 8 characters long.");
+      return;
+    }
+
+    setIsLoading(true);
+    const toastId = toast.loading("Updating password...");
 
     try {
       const payload = {
         old_password: form.oldPassword,
         new_password: form.newPassword,
       };
-      await userService.changePassword(authMode, accessToken!, payload)
+      await userService.changePassword(authMode, accessToken!, payload);
 
-      alert("Password updated successfully.");
-      navigate("/settings");
+      toast.success("Password updated successfully.", { id: toastId });
+      navigate("/settings#security");
     } catch (err) {
       console.error(err);
-      setError("Failed to change password. Please check your old password.");
+      toast.error(
+        "Failed to change password. Please check your old password.",
+        { id: toastId }
+      );
       setInvalidOldPassword(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const inputClasses =
+    "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg text-text-light dark:text-text-dark focus:ring-2 focus:ring-info focus:border-info outline-none transition";
+  const labelClasses =
+    "block text-sm font-medium text-text-light dark:text-text-dark mb-1.5";
+  const passwordsMismatch =
+    form.newPassword &&
+    form.confirmPassword &&
+    form.newPassword !== form.confirmPassword;
+
   return (
-    <div className="max-w-md mx-auto mt-20 px-4">
-      <h1 className="text-2xl font-semibold mb-6 text-center text-gray-800">
-        Change Password
-      </h1>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setShowDialog(true);
+    <>
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          className:
+            "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark border border-border-light dark:border-border-dark",
         }}
-        className="space-y-6 bg-white p-6 rounded-xl shadow-md border border-gray-200"
-      >
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+      />
+      <div className="bg-base-light dark:bg-base-dark min-h-screen py-12 px-4">
+        <div className="max-w-md mx-auto">
+          <Link
+            to="/settings#security"
+            className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-info dark:hover:text-info font-semibold transition-colors mb-6"
+          >
+            <ArrowLeft size={18} />
+            Back to Settings
+          </Link>
+          <h1 className="text-3xl font-bold text-center text-text-light dark:text-text-dark mb-2">
+            Change Password
+          </h1>
+          <p className="text-center text-text-light-sub dark:text-text-dark-sub mb-8">
+            Choose a strong, new password to keep your account secure.
+          </p>
 
-        {/* Old Password */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Old Password
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword.old ? "text" : "password"}
-              name="oldPassword"
-              value={form.oldPassword}
-              onChange={handleChange}
-              required
-              className={`w-full border ${
-                invalidOldPassword ? "border-red-500" : "border-gray-300"
-              } rounded-md p-2 pr-10 focus:ring-indigo-500 focus:border-indigo-500`}
-            />
-            <button
-              type="button"
-              className="absolute right-2 top-2"
-              onClick={() => toggleVisibility("old")}
-              tabIndex={-1}
-            >
-              {showPassword.old ? <EyeOffIcon size={20} /> : <EyeIcon size={20} />}
-            </button>
-          </div>
-        </div>
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-6 bg-secondary-light dark:bg-secondary-dark p-8 rounded-2xl shadow-lg border border-border-light dark:border-border-dark"
+          >
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-md bg-danger/10 text-danger text-sm border border-danger/20">
+                <AlertTriangle size={16} />
+                {error}
+              </div>
+            )}
 
-        {/* New Password */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            New Password
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword.new ? "text" : "password"}
-              name="newPassword"
-              value={form.newPassword}
-              onChange={handleChange}
-              required
-              className="w-full border border-gray-300 rounded-md p-2 pr-10 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            <button
-              type="button"
-              className="absolute right-2 top-2"
-              onClick={() => toggleVisibility("new")}
-              tabIndex={-1}
-            >
-              {showPassword.new ? <EyeOffIcon size={20} /> : <EyeIcon size={20} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Confirm Password */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Confirm New Password
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword.confirm ? "text" : "password"}
-              name="confirmPassword"
-              value={form.confirmPassword}
-              onChange={handleChange}
-              required
-              className={`w-full border ${
-            form.newPassword && form.confirmPassword && form.newPassword !== form.confirmPassword
-              ? "border-red-500"
-              : "border-gray-300"
-              } rounded-md p-2 pr-10 focus:ring-indigo-500 focus:border-indigo-500`}
-            />
-            <button
-              type="button"
-              className="absolute right-2 top-2"
-              onClick={() => toggleVisibility("confirm")}
-              tabIndex={-1}
-            >
-              {showPassword.confirm ? <EyeOffIcon size={20} /> : <EyeIcon size={20} />}
-            </button>
-          </div>
-          {form.newPassword && form.confirmPassword && form.newPassword !== form.confirmPassword && (
-            <p className="text-red-600 text-xs mt-1">Passwords do not match</p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-md font-medium"
-        >
-          Update Password
-        </button>
-      </form>
-
-      {/* Confirmation Dialog */}
-      {showDialog && (
-        <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm">
-            <h2 className="text-lg font-semibold mb-4">Confirm Change</h2>
-            <p className="mb-6">Are you sure you want to change your password?</p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setShowDialog(false)}
-                className="px-4 py-2 rounded-md border border-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowDialog(false);
-                  handleSubmit();
-                }}
-                className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
-              >
-                Confirm
-              </button>
+            {/* Old Password */}
+            <div>
+              <label className={labelClasses}>Old Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword.old ? "text" : "password"}
+                  name="oldPassword"
+                  value={form.oldPassword}
+                  onChange={handleChange}
+                  required
+                  className={clsx(inputClasses, {
+                    "border-danger": invalidOldPassword,
+                  })}
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-light-sub dark:text-text-dark-sub"
+                  onClick={() => toggleVisibility("old")}
+                >
+                  {showPassword.old ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
-          </div>
+
+            {/* New Password */}
+            <div>
+              <label className={labelClasses}>New Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword.new ? "text" : "password"}
+                  name="newPassword"
+                  value={form.newPassword}
+                  onChange={handleChange}
+                  required
+                  className={inputClasses}
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-light-sub dark:text-text-dark-sub"
+                  onClick={() => toggleVisibility("new")}
+                >
+                  {showPassword.new ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label className={labelClasses}>Confirm New Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword.confirm ? "text" : "password"}
+                  name="confirmPassword"
+                  value={form.confirmPassword}
+                  onChange={handleChange}
+                  required
+                  className={clsx(inputClasses, {
+                    "border-danger": passwordsMismatch,
+                  })}
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-light-sub dark:text-text-dark-sub"
+                  onClick={() => toggleVisibility("confirm")}
+                >
+                  {showPassword.confirm ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
+                </button>
+              </div>
+              {passwordsMismatch && (
+                <p className="text-danger text-xs mt-1">
+                  Passwords do not match
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-info hover:bg-info/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+              <Save size={16} />
+              {isLoading ? "Updating..." : "Update Password"}
+            </button>
+          </form>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 };
 

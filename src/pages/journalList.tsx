@@ -8,13 +8,12 @@ import { MoodCalendar } from "../components/moodCalender";
 import { Pencil, Trash2, Plus, Search, BookOpen } from "lucide-react";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { useAuth } from "../hooks/useAuth";
-import { motion, AnimatePresence } from "framer-motion"; // Adjust path if necessary
+import { motion, AnimatePresence } from "framer-motion";
 import EmptyState from "../components/EmptyState";
 
 dayjs.extend(isBetween);
 
-// A new, self-contained component for each journal entry card
-// This component remains unchanged.
+// --- JournalEntryCard Component ---
 const JournalEntryCard = ({ entry, onDelete }) => {
   const moodTags = useMemo(() => {
     if (Array.isArray(entry.mood_tags)) return entry.mood_tags;
@@ -36,36 +35,38 @@ const JournalEntryCard = ({ entry, onDelete }) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
-      className="bg-white dark:bg-gray-800/50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-1"
+      className="bg-secondary-light dark:bg-secondary-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark transition-all hover:shadow-lg hover:-translate-y-1"
     >
       <div className="p-6">
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
             <Link to={`/journal/view/${entry.id}`}>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+              <h2 className="text-xl font-bold text-text-light dark:text-text-dark hover:text-info dark:hover:text-info transition-colors">
                 {entry.title}
               </h2>
             </Link>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-text-light-sub dark:text-text-dark-sub mt-1">
               {formatTimeAgo(entry.created_at)}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Link
               to={`/journal/edit/${entry.id}`}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-indigo-500"
+              className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-info dark:hover:text-info transition-colors"
+              aria-label="Edit Entry"
             >
               <Pencil size={16} />
             </Link>
             <button
               onClick={onDelete}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-red-500"
+              className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-danger dark:hover:text-danger transition-colors"
+              aria-label="Delete Entry"
             >
               <Trash2 size={16} />
             </button>
           </div>
         </div>
-        <p className="text-gray-600 dark:text-gray-300 line-clamp-3 leading-relaxed">
+        <p className="text-text-light-sub dark:text-text-dark-sub line-clamp-3 leading-relaxed">
           {entry.content}
         </p>
         {moodTags.length > 0 && (
@@ -73,7 +74,7 @@ const JournalEntryCard = ({ entry, onDelete }) => {
             {moodTags.map((tag, idx) => (
               <span
                 key={idx}
-                className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 px-2.5 py-1 rounded-full text-xs font-semibold"
+                className="bg-tertiary-light dark:bg-tertiary-dark text-info px-2.5 py-1 rounded-full text-xs font-semibold"
               >
                 {tag}
               </span>
@@ -85,6 +86,7 @@ const JournalEntryCard = ({ entry, onDelete }) => {
   );
 };
 
+// --- JournalList Page Component ---
 export default function JournalList() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -95,33 +97,27 @@ export default function JournalList() {
     | "offline"
     | "online";
 
-  // State for infinite scroll
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
-  const PAGE_LIMIT = 10; // Number of entries to fetch per page
+  const PAGE_LIMIT = 10;
 
-  // Effect to reset entries and pagination when auth changes (e.g., user logs out/in)
   useEffect(() => {
     setEntries([]);
     setPage(0);
     setHasMore(true);
-  }, [authMode, accessToken]);
+  }, []);
 
-  // Effect to fetch entries when the page number changes
   useEffect(() => {
-    // Don't fetch if we know there are no more entries
     if (!hasMore && page > 0) return;
 
     setLoading(true);
     journalService
       .getAll(authMode, accessToken!, page, PAGE_LIMIT)
       .then((newEntries) => {
-        // If it's the first page, replace the entries. Otherwise, append them.
         setEntries((prev) =>
           page === 0 ? newEntries : [...prev, ...newEntries]
         );
-        // If the number of new entries is less than the limit, we've reached the end
         setHasMore(newEntries.length === PAGE_LIMIT);
         setLoading(false);
       })
@@ -129,25 +125,25 @@ export default function JournalList() {
         console.error("Failed to load journal entries:", error);
         setLoading(false);
       });
-  }, [page, authMode, accessToken]); // Re-fetches when page or auth state changes
+  }, [page]);
 
-  // Intersection Observer setup to detect when user scrolls to the last entry
   const observer = useRef<IntersectionObserver>();
   const lastEntryRef = useCallback(
     (node) => {
-      if (loading) return; // Don't trigger while loading new data
-      if (observer.current) observer.current.disconnect(); // Disconnect previous observer
+      // THIS IS THE FIX: If we are already loading, do nothing.
+      if (loading) return;
+
+      if (observer.current) observer.current.disconnect();
 
       observer.current = new IntersectionObserver((entries) => {
-        // If the last element is visible and there are more entries to load, increment the page
         if (entries[0].isIntersecting && hasMore) {
           setPage((prevPage) => prevPage + 1);
         }
       });
 
-      if (node) observer.current.observe(node); // Observe the new last element
+      if (node) observer.current.observe(node);
     },
-    [loading, hasMore]
+    [loading, hasMore] // Add 'loading' to the dependency array
   );
 
   const handleDelete = async (id: number) => {
@@ -172,7 +168,6 @@ export default function JournalList() {
           e.content.toLowerCase().includes(lower)
       );
     }
-    // The sort is applied client-side to the currently loaded entries
     return result.sort((a, b) => dayjs(b.created_at).diff(dayjs(a.created_at)));
   }, [entries, selectedDate, searchTerm]);
 
@@ -186,15 +181,15 @@ export default function JournalList() {
   );
 
   return (
-    <div className="bg-gray-100 dark:bg-slate-900 min-h-screen">
+    <div className="bg-base-light dark:bg-base-dark min-h-screen">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-            My Journal
+          <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
+            My Journals
           </h1>
           <Link
             to="/journal/new"
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-all duration-200 hover:scale-105"
+            className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
           >
             <Plus size={20} />
             <span>New Entry</span>
@@ -202,24 +197,23 @@ export default function JournalList() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          {/* Main content: Entries list */}
           <div className="lg:col-span-2 space-y-6">
             {selectedDate && (
-              <div className="bg-white dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+              <div className="bg-secondary-light dark:bg-secondary-dark p-4 rounded-xl border border-border-light dark:border-border-dark">
                 <WeeklyMoodStrip
                   moodData={moodDataForCalendar}
                   selectedDate={selectedDate}
                 />
                 <div className="flex justify-between items-center mt-2">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                  <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
                     Showing entries for:{" "}
-                    <strong>
+                    <strong className="text-text-light dark:text-text-dark">
                       {dayjs(selectedDate).format("MMMM D, YYYY")}
                     </strong>
                   </p>
                   <button
                     onClick={() => setSelectedDate(null)}
-                    className="text-xs font-semibold text-indigo-600 hover:underline"
+                    className="text-xs font-semibold text-info hover:underline"
                   >
                     Show all
                   </button>
@@ -228,32 +222,26 @@ export default function JournalList() {
             )}
             <AnimatePresence>
               {filteredEntries.map((entry, index) => {
-                // Attach the ref to the very last element in the list
+                const cardProps = {
+                  key: entry.id,
+                  entry: entry,
+                  onDelete: () => handleDelete(entry.id!),
+                };
                 if (filteredEntries.length === index + 1) {
                   return (
-                    <div ref={lastEntryRef} key={entry.id}>
-                      <JournalEntryCard
-                        entry={entry}
-                        onDelete={() => handleDelete(entry.id!)}
-                      />
+                    <div ref={lastEntryRef}>
+                      <JournalEntryCard {...cardProps} />
                     </div>
                   );
                 }
-                return (
-                  <JournalEntryCard
-                    key={entry.id}
-                    entry={entry}
-                    onDelete={() => handleDelete(entry.id!)}
-                  />
-                );
+                return <JournalEntryCard {...cardProps} />;
               })}
             </AnimatePresence>
 
-            {/* Show loading indicator at the bottom while fetching more entries */}
             {loading && (
               <div className="flex justify-center items-center p-4">
                 <svg
-                  className="animate-spin h-8 w-8 text-indigo-600"
+                  className="animate-spin h-8 w-8 text-info"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -272,20 +260,18 @@ export default function JournalList() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                <p className="ml-2 text-gray-600 dark:text-gray-300">
+                <p className="ml-2 text-text-light-sub dark:text-text-dark-sub">
                   Loading more entries...
                 </p>
               </div>
             )}
 
-            {/* Show "end of list" message when all entries are loaded */}
             {!hasMore && entries.length > 0 && (
-              <div className="text-center p-4 text-gray-500 dark:text-gray-400">
+              <div className="text-center p-4 text-text-light-sub dark:text-text-dark-sub">
                 <p>You've seen it all!</p>
               </div>
             )}
 
-            {/* Show EmptyState only if not loading and the final list is empty */}
             {!loading && filteredEntries.length === 0 && (
               <div className="mt-8">
                 <EmptyState
@@ -301,9 +287,8 @@ export default function JournalList() {
             )}
           </div>
 
-          {/* Sidebar: Mood Calendar */}
           <aside className="sticky top-8 h-fit">
-            <div className="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="bg-secondary-light dark:bg-secondary-dark p-4 rounded-xl shadow-sm border border-border-light dark:border-border-dark">
               <MoodCalendar
                 moodData={moodDataForCalendar}
                 onDateSelect={(date) => setSelectedDate(date)}

@@ -7,7 +7,6 @@ interface LogProgressModalProps {
   isOpen: boolean;
   onClose: () => void;
   goal: Goal;
-  // Pass the category to use its color for theming
   category: Category | undefined;
   onSubmit: (
     goalId: number,
@@ -26,13 +25,13 @@ const LogProgressModal: React.FC<LogProgressModalProps> = ({
   const [currentValue, setCurrentValue] = useState(goal.current_value);
   const [description, setDescription] = useState("");
 
-  const themeColor = category?.color || "#6366F1"; // Default to indigo
+  // --- CHANGE: Default to the theme's 'info' color variable ---
+  const themeColor = category?.color || "var(--color-info)";
   const progressPercentage = Math.max(
     0,
     Math.min(100, (currentValue / goal.target_value) * 100)
   );
 
-  // Reset state when the goal changes or modal opens
   useEffect(() => {
     if (isOpen) {
       setCurrentValue(goal.current_value);
@@ -46,28 +45,25 @@ const LogProgressModal: React.FC<LogProgressModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={goal.title}>
-      <div className="text-gray-800 dark:text-gray-100">
-        {/* Themed Header */}
-        {/* <div
-          className="p-4 rounded-t-lg mb-6 -m-6"
-          style={{ backgroundColor: themeColor }}
-        >
-          <h2 className="text-xl font-bold text-white text-center">
-            {goal.title}
-          </h2>
-        </div> */}
-
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Log Progress for "${goal.title}"`}
+    >
+      <div className="text-text-light dark:text-text-dark">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Animated Progress Bar */}
           <div>
             <div className="flex justify-between text-sm font-medium mb-1">
-              <span className="text-gray-600 dark:text-gray-300">Progress</span>
+              <span className="text-text-light-sub dark:text-text-dark-sub">
+                Progress
+              </span>
               <span style={{ color: themeColor }}>
                 {progressPercentage.toFixed(0)}%
               </span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+            {/* --- CHANGE: Themed progress bar track --- */}
+            <div className="w-full bg-tertiary-light dark:bg-tertiary-dark rounded-full h-2.5">
               <div
                 className="h-2.5 rounded-full transition-all duration-300 ease-out"
                 style={{
@@ -88,7 +84,8 @@ const LogProgressModal: React.FC<LogProgressModalProps> = ({
                 max={goal.target_value}
                 min={0}
                 step="1"
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 slider-thumb"
+                // --- CHANGE: Themed slider ---
+                className="w-full h-2 bg-tertiary-light dark:bg-tertiary-dark rounded-lg appearance-none cursor-pointer slider-thumb"
                 style={{ "--thumb-color": themeColor } as React.CSSProperties}
               />
               <div className="relative">
@@ -99,12 +96,14 @@ const LogProgressModal: React.FC<LogProgressModalProps> = ({
                   onChange={(e) => setCurrentValue(Number(e.target.value))}
                   max={goal.target_value}
                   min={0}
-                  className="w-28 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 text-center focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  // --- CHANGE: Themed number input ---
+                  className="w-28 rounded-lg border border-border-light dark:border-border-dark bg-tertiary-light dark:bg-tertiary-dark px-3 py-2 text-center focus:border-info focus:ring-2 focus:ring-info focus:outline-none"
                   required
                 />
               </div>
             </div>
-            <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            {/* --- CHANGE: Themed target text --- */}
+            <div className="flex items-center justify-center gap-2 text-xs text-text-light-sub dark:text-text-dark-sub">
               <Target size={14} />
               <span>
                 Target: {goal.target_value} {goal.unit}
@@ -116,7 +115,8 @@ const LogProgressModal: React.FC<LogProgressModalProps> = ({
           <div>
             <label
               htmlFor="description"
-              className="flex items-center gap-2 mb-2 text-sm font-medium text-gray-700 dark:text-gray-300"
+              // --- CHANGE: Themed label text ---
+              className="flex items-center gap-2 mb-2 text-sm font-medium text-text-light dark:text-text-dark"
             >
               <NotebookText size={16} />
               <span>Comments (Optional)</span>
@@ -127,7 +127,8 @@ const LogProgressModal: React.FC<LogProgressModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Any thoughts on your progress?"
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              // --- CHANGE: Themed textarea ---
+              className="w-full rounded-lg border border-border-light dark:border-border-dark bg-tertiary-light dark:bg-tertiary-dark px-3 py-2 shadow-sm focus:border-info focus:ring-2 focus:ring-info focus:outline-none"
             />
           </div>
 
@@ -136,7 +137,8 @@ const LogProgressModal: React.FC<LogProgressModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex items-center gap-2 rounded-lg bg-gray-200 dark:bg-gray-600 px-4 py-2 font-semibold text-gray-700 dark:text-gray-200 transition-transform duration-200 hover:scale-105"
+              // --- CHANGE: Themed cancel button ---
+              className="flex items-center gap-2 rounded-lg bg-tertiary-light dark:bg-tertiary-dark px-4 py-2 font-semibold text-text-light dark:text-text-dark transition-all duration-200 hover:scale-105"
             >
               <X size={18} />
               <span>Cancel</span>

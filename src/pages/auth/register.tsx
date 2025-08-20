@@ -1,27 +1,36 @@
-import { useEffect, useState, useMemo, use } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { AuthLayout } from "../../layouts/AuthLayout";
-import { CloudIcon, ShieldIcon, InfoIcon, X } from "lucide-react";
+import {
+  Cloud,
+  Shield,
+  Info,
+  X,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+} from "lucide-react";
 import zxcvbn from "zxcvbn";
 import { useAuth } from "../../hooks/useAuth";
 import GoogleLoginElectron from "../../components/googleLoginElectron";
 import { authService } from "../../api/authService";
 import Stepper, { Step } from "../../components/ui/Stepper";
-import { Eye, EyeOff } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion"; // Import motion components
 
-// === PasswordStrengthMeter Component ===
+// === Themed PasswordStrengthMeter Component ===
 interface PasswordStrengthMeterProps {
   onChange?: (value: string) => void;
   password?: string;
 }
 
+// --- CHANGE: Themed strength levels ---
 const strengthLevels = [
-  { text: "Too Weak", color: "bg-red-500", textColor: "text-red-500" },
-  { text: "Weak", color: "bg-orange-500", textColor: "text-orange-500" },
-  { text: "Fair", color: "bg-yellow-500", textColor: "text-yellow-500" },
-  { text: "Good", color: "bg-green-500", textColor: "text-green-500" },
-  { text: "Strong", color: "bg-emerald-600", textColor: "text-emerald-600" },
+  { text: "Too Weak", color: "bg-danger", textColor: "text-danger" },
+  { text: "Weak", color: "bg-warning", textColor: "text-warning" },
+  { text: "Fair", color: "bg-info/60", textColor: "text-info/60" },
+  { text: "Good", color: "bg-success/80", textColor: "text-success/80" },
+  { text: "Strong", color: "bg-success", textColor: "text-success" },
 ];
 
 function PasswordStrengthMeter({
@@ -31,13 +40,6 @@ function PasswordStrengthMeter({
   const [score, setScore] = useState(-1);
   const [feedback, setFeedback] = useState<string[]>([]);
   const [showPassword, setShowPassword] = useState(false);
-
-  const strengthResult = useMemo(() => {
-    if (!password) {
-      return null;
-    }
-    return zxcvbn(password);
-  }, [password]);
 
   useEffect(() => {
     if (password) {
@@ -51,9 +53,11 @@ function PasswordStrengthMeter({
   }, [password]);
 
   const currentStrengthLevel = score >= 0 ? strengthLevels[score] : null;
+  const inputClasses =
+    "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg text-text-light dark:text-text-dark focus:ring-2 focus:ring-info focus:border-info outline-none transition";
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="relative">
         <input
           type={showPassword ? "text" : "password"}
@@ -61,35 +65,35 @@ function PasswordStrengthMeter({
           onChange={(e) => onChange?.(e.target.value)}
           placeholder="Create a password"
           aria-label="Enter password"
-          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+          className={inputClasses}
         />
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
           aria-label={showPassword ? "Hide password" : "Show password"}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
+          className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-light-sub dark:text-text-dark-sub"
         >
-          {showPassword ? (
-            <EyeOff className="h-5 w-5" />
-          ) : (
-            <Eye className="h-5 w-5" />
-          )}
+          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
         </button>
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between text-sm font-medium">
-          <span className="text-gray-600">Password Strength:</span>
+          <span className="text-text-light-sub dark:text-text-dark-sub">
+            Password Strength:
+          </span>
           {currentStrengthLevel && (
             <span className={`font-semibold ${currentStrengthLevel.textColor}`}>
               {currentStrengthLevel.text}
             </span>
           )}
         </div>
-        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+        <div className="h-2 w-full bg-tertiary-light dark:bg-tertiary-dark rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              currentStrengthLevel ? currentStrengthLevel.color : "bg-gray-300"
+              currentStrengthLevel
+                ? currentStrengthLevel.color
+                : "bg-transparent"
             }`}
             style={{
               width: currentStrengthLevel ? `${(score + 1) * 20}%` : "0%",
@@ -100,10 +104,10 @@ function PasswordStrengthMeter({
 
       {feedback.length > 0 && (
         <div role="status" aria-live="polite">
-          <p className="text-sm font-medium text-gray-600 mb-2">
+          <p className="text-sm font-medium text-text-light-sub dark:text-text-dark-sub mb-2">
             Suggestions to improve:
           </p>
-          <ul className="text-sm text-gray-700 space-y-1 list-disc pl-5">
+          <ul className="text-sm text-text-light-sub dark:text-text-dark-sub space-y-1 list-disc pl-5">
             {feedback.map((tip, i) => (
               <li key={i}>{tip}</li>
             ))}
@@ -114,7 +118,7 @@ function PasswordStrengthMeter({
   );
 }
 
-// === Register Component ===
+// === Themed Register Component ===
 export default function Register() {
   const [form, setForm] = useState({
     username: "",
@@ -135,6 +139,7 @@ export default function Register() {
   const [currentStep, setCurrentStep] = useState(1);
   const [infoBadge, setInfoBadge] = useState<boolean>(true);
 
+  // All logic (handleChange, handleSubmit, etc.) remains the same...
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -228,11 +233,10 @@ export default function Register() {
     }
   };
 
-  useEffect(()=>{
+  useEffect(() => {
     setInfoBadge(true);
-  }, [authMode])
+  }, [authMode]); // --- Step-specific validation logic ---
 
-  // --- Step-specific validation logic ---
   const isStep1Valid =
     form.username.trim() &&
     !usernameError &&
@@ -267,207 +271,230 @@ export default function Register() {
     form.password,
   ]);
 
+  const inputClasses =
+    "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg text-text-light dark:text-text-dark focus:ring-2 focus:ring-info focus:border-info outline-none transition";
+  const labelClasses =
+    "block text-sm font-medium text-text-light dark:text-text-dark mb-1.5";
+
   return (
-    <AuthLayout title="Register" authMode={authMode} setAuthMode={setAuthMode}>
-      <Stepper
-        initialStep={1}
-        onStepChange={(step) => {
-          setCurrentStep(step);
-        }}
-        onFinalStepCompleted={handleSubmit}
-        backButtonText="Previous"
-        nextButtonText="Next"
-        completeButtonText={isLoading ? "Creating Profile" : "Complete"}
-        className="my-3"
-        nextButtonProps={{
-          disabled: shouldDisableNext,
-        }}
-      >
-        <Step>
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Let's hook you up with a username!
-            </h2>
-            <div>
-              <label
-                htmlFor="username"
-                className=" text-sm font-medium items-center flex text-gray-700"
-              >
-                Username
-                <div className="relative group">
-                  <InfoIcon size={14} className="ml-1" />
-                  <div className="absolute z-20 hidden group-hover:block bottom-full mb-1 w-max bg-white text-gray-700 text-xs rounded px-3 py-3 shadow-2xl">
-                    <p className="font-semibold mb-1">Username can include:</p>
-                    <ul className="list-disc list-inside space-y-0.5">
-                      <li>Letters (A–Z, a–z)</li>
-                      <li>Numbers (0–9)</li>
-                      <li>Underscores (_)</li>
-                    </ul>
+    <AuthLayout
+      title="Create your account"
+      authMode={authMode}
+      setAuthMode={setAuthMode}
+    >
+      <motion.div layout transition={{ type: "spring", duration: 0.5 }}>
+        <Stepper
+          initialStep={1}
+          onStepChange={setCurrentStep}
+          onFinalStepCompleted={handleSubmit}
+          className="my-3"
+          // Stepper button styling can be customized further if Stepper component is updated
+          nextButtonProps={{ disabled: shouldDisableNext }}
+        >
+          <Step>
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Choose your username
+              </h2>
+              <div>
+                <label
+                  htmlFor="username"
+                  className={`${labelClasses} items-center flex`}
+                >
+                  Username
+                  <div className="relative group">
+                    <Info
+                      size={14}
+                      className="ml-1 text-text-light-sub dark:text-text-dark-sub"
+                    />
+                    <div className="absolute z-20 hidden group-hover:block bottom-full mb-2 w-max bg-surface-light dark:bg-surface-dark text-text-light-sub dark:text-text-dark-sub text-xs rounded-lg px-3 py-2 shadow-lg border border-border-light dark:border-border-dark">
+                      <p className="font-semibold mb-1 text-text-light dark:text-text-dark">
+                        Username can include:
+                      </p>
+                      <ul className="list-disc list-inside space-y-0.5">
+                        <li>Letters (A–Z, a–z)</li>
+                        <li>Numbers (0–9)</li>
+                        <li>Underscores (_)</li>
+                      </ul>
+                    </div>
                   </div>
-                </div>
-              </label>
-              <input
-                name="username"
-                id="username"
-                type="text"
-                required
-                placeholder="Enter a username"
-                onChange={handleUserNameChange}
-                value={form.username}
-                className="appearance-none mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-              />
-              {form.username && (
-                <div className="mt-1 text-sm">
-                  {usernameError ? (
-                    <span className="text-red-600">{usernameError}</span>
-                  ) : null}
-                  {authMode === "online" &&
-                    (usernameChecking ? (
-                      <span className="text-gray-500">
-                        Checking availability...
-                      </span>
-                    ) : usernameAvailable === true ? (
-                      <span className="text-green-600">
-                        Username is available
-                      </span>
-                    ) : usernameAvailable === false ? (
-                      <span className="text-red-600">
-                        Username already taken
-                      </span>
-                    ) : null)}
-                </div>
-              )}
+                </label>
+                <input
+                  name="username"
+                  id="username"
+                  type="text"
+                  required
+                  placeholder="Enter a username"
+                  onChange={handleUserNameChange}
+                  value={form.username}
+                  className={inputClasses}
+                />
+                {form.username && (
+                  <div className="mt-2 text-sm">
+                    {usernameError && (
+                      <span className="text-danger">{usernameError}</span>
+                    )}
+                    {authMode === "online" &&
+                      !usernameError &&
+                      (usernameChecking ? (
+                        <span className="text-text-light-sub dark:text-text-dark-sub">
+                          Checking...
+                        </span>
+                      ) : usernameAvailable === true ? (
+                        <span className="text-success">
+                          Username is available
+                        </span>
+                      ) : usernameAvailable === false ? (
+                        <span className="text-danger">
+                          Username already taken
+                        </span>
+                      ) : null)}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </Step>
-        <Step>
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              How should we contact you?
-            </h2>
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email
-              </label>
-              <input
-                name="email"
-                id="email"
-                type="text"
-                required
-                placeholder="Enter your email"
-                onChange={handleChange}
-                value={form.email}
-                className="appearance-none mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-              />
+          </Step>
+          <Step>
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                What's your email address?
+              </h2>
+              <div>
+                <label htmlFor="email" className={labelClasses}>
+                  Email
+                </label>
+                <input
+                  name="email"
+                  id="email"
+                  type="email"
+                  required
+                  placeholder="Enter your email"
+                  onChange={handleChange}
+                  value={form.email}
+                  className={inputClasses}
+                />
+              </div>
             </div>
-          </div>
-        </Step>
-        <Step>
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              How about your name?
-            </h2>
-            <div>
-              <label
-                htmlFor="full_name"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Full Name
-              </label>
-              <input
-                name="full_name"
-                id="full_name"
-                type="text"
-                required
-                className="appearance-none mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none sm:text-sm"
-                placeholder="Enter your full name"
-                onChange={handleChange}
-                value={form.full_name}
-              />
+          </Step>
+          <Step>
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                What should we call you?
+              </h2>
+              <div>
+                <label htmlFor="full_name" className={labelClasses}>
+                  Full Name
+                </label>
+                <input
+                  name="full_name"
+                  id="full_name"
+                  type="text"
+                  required
+                  className={inputClasses}
+                  placeholder="Enter your full name"
+                  onChange={handleChange}
+                  value={form.full_name}
+                />
+              </div>
             </div>
-          </div>
-        </Step>
-        <Step>
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Finally, a secure password for your account
-            </h2>
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Password
-              </label>
-              <PasswordStrengthMeter
-                password={form.password}
-                onChange={handlePasswordChange}
-              />
+          </Step>
+          <Step>
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Secure your account
+              </h2>
+              <div>
+                <label htmlFor="password" className={labelClasses}>
+                  Password
+                </label>
+                <PasswordStrengthMeter
+                  password={form.password}
+                  onChange={handlePasswordChange}
+                />
+              </div>
             </div>
-          </div>
-        </Step>
-      </Stepper>
+          </Step>
+        </Stepper>
 
-      {error && (
-        <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm mt-4">
-          {error}
-        </div>
-      )}
-      {infoBadge && (
-        <div
-          className={`${
-            authMode === "offline"
-              ? "bg-yellow-50 border-yellow-400"
-              : "bg-purple-50 border-purple-400"
-          } border-l-4 p-4 mt-6 rounded-md pr-6 pt-6 relative`}
-        >
-          <button
-            onClick={() => setInfoBadge(false)}
-            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+        {error && (
+          <div className="flex items-center gap-2 p-3 rounded-md bg-danger/10 text-danger text-sm border border-danger/20 mt-4">
+            <AlertTriangle size={16} />
+            {error}
+          </div>
+        )}
+
+        <AnimatePresence>
+          {infoBadge && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className={`border-l-4 p-4 mt-6 rounded-r-lg relative ${
+                authMode === "offline"
+                  ? "bg-warning/10 border-warning"
+                  : "bg-info/10 border-info"
+              }`}
+            >
+              <button
+                onClick={() => setInfoBadge(false)}
+                className="absolute cursor-pointer top-2 right-2 text-text-light-sub dark:text-text-dark-sub"
+              >
+                <X size={15} />
+              </button>
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  {authMode === "offline" ? (
+                    <Shield className="h-5 w-5 text-warning" />
+                  ) : (
+                    <Cloud className="h-5 w-5 text-info" />
+                  )}
+                </div>
+                <div className="ml-3">
+                  <p
+                    className={`text-sm ${
+                      authMode === "offline"
+                        ? "text-yellow-800 dark:text-yellow-200"
+                        : "text-blue-800 dark:text-blue-200"
+                    }`}
+                  >
+                    {authMode === "offline"
+                      ? "Your information is stored locally and is 100% private."
+                      : "Your information is securely stored in the cloud."}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {authMode === "online" && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <GoogleLoginElectron
+                onError={() => console.log("Error in google login")}
+                onSuccess={handleGoogleSuccess}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="mt-6 text-center text-sm">
+          <span className="text-text-light-sub dark:text-text-dark-sub">
+            Already have an account?{" "}
+          </span>
+          <Link
+            to="/login"
+            className="font-medium text-info hover:text-info/90"
           >
-            <X size={15} />
-          </button>
-          <div className="flex">
-            <div className="flex-shrink-0">
-              {authMode === "offline" ? (
-                <ShieldIcon className="h-5 w-5 text-yellow-400" />
-              ) : (
-                <CloudIcon className="h-5 w-5 text-purple-400" />
-              )}
-            </div>
-            <div className="ml-3">
-              <p
-                className={`text-sm ${
-                  authMode === "offline" ? "text-yellow-700" : "text-purple-700"
-                }`}
-              >
-                {authMode === "offline"
-                  ? "This is a 100% offline app. Your information is stored locally on this device and will not be sent to any server unless you choose to."
-                  : "Your information will be securely stored in the cloud and accessible from any device you log in from."}
-              </p>
-            </div>
-          </div>
+            Login
+          </Link>
         </div>
-      )}
-
-      {authMode === "online" && (
-        <GoogleLoginElectron
-          onError={() => console.log("Error in google login")}
-          onSuccess={handleGoogleSuccess}
-        />
-      )}
-      <div className="mt-6 text-center text-sm">
-        <span className="text-gray-600">Already have an account? </span>
-        <Link
-          to="/login"
-          className="font-medium text-emerald-600 hover:text-emerald-500"
-        >
-          Login
-        </Link>
-      </div>
+      </motion.div>
     </AuthLayout>
   );
 }

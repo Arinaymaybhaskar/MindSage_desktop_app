@@ -4,7 +4,7 @@ import { goalService } from "../api/goalService";
 import { categoryService } from "../api/categoryService";
 import type { Category, Goal, ProgressLog } from "../types/Goals";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronUp, ChevronDown, Plus } from "lucide-react";
+import { ChevronUp, Plus } from "lucide-react";
 
 // Import all the polished components
 import ManualGoalModal from "../components/goals/modals/ManualGoalModal";
@@ -18,9 +18,10 @@ import GoalGeneratorModal from "../components/goals/modals/AIGenerationModal";
 import { progressLogsService } from "../api/progressLogsService";
 import LogProgressModal from "../components/goals/modals/logProgressModal";
 import GoalCardSkeleton from "../components/goals/GoalCardSkeleton";
-import ActiveGoalsList from "../components/goals/ActiveGoalsList"; // Import the list component
+import ActiveGoalsList from "../components/goals/ActiveGoalsList";
 
 const GoalsPage: React.FC = () => {
+  // All state, data fetching, and handler logic remains the same...
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
@@ -183,15 +184,15 @@ const GoalsPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-slate-900 text-gray-200 min-h-screen">
+    <div className="bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark min-h-screen">
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-4xl font-bold tracking-tight text-white">
+          <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
             Your Goals
           </h1>
           <button
             onClick={() => openModal("addChoice")}
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-all duration-200 hover:scale-105"
+            className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
           >
             <Plus size={20} />
             <span>Add Goal</span>
@@ -203,7 +204,6 @@ const GoalsPage: React.FC = () => {
           selectedCategory={selectedCategory}
           onCategorySelect={setSelectedCategory}
         />
-
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-8">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -223,22 +223,24 @@ const GoalsPage: React.FC = () => {
               onAddGoalClick={() => openModal("addChoice")}
             />
 
-            {/* Completed Goals */}
-            <section className="mt-12">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-2xl font-semibold">Completed Goals</h2>
+            {/* Completed Goals Section */}
+            <section className="mt-12 mb-10">
+              <div className="flex justify-between items-center mb-2 px-2">
+                <h2 className="text-2xl font-semibold text-text-light dark:text-text-dark">
+                  Completed Goals
+                </h2>
                 {filteredCompletedGoals.length > 0 && (
                   <button
                     onClick={() =>
                       setIsCompletedGoalsOpen(!isCompletedGoalsOpen)
                     }
-                    className="p-1 rounded-full text-gray-400 hover:bg-gray-700 transition-colors"
+                    className="p-1.5 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
                   >
-                    {isCompletedGoalsOpen ? (
+                    <motion.div
+                      animate={{ rotate: isCompletedGoalsOpen ? 0 : 180 }}
+                    >
                       <ChevronUp size={20} />
-                    ) : (
-                      <ChevronDown size={20} />
-                    )}
+                    </motion.div>
                   </button>
                 )}
               </div>
@@ -253,7 +255,7 @@ const GoalsPage: React.FC = () => {
                     style={{ overflow: "hidden" }}
                   >
                     {filteredCompletedGoals.length === 0 ? (
-                      <p className="text-gray-500 mt-2 italic">
+                      <p className="text-text-light-sub dark:text-text-dark-sub mt-2 italic px-2">
                         No completed goals yet. Keep going!
                       </p>
                     ) : (
@@ -276,7 +278,6 @@ const GoalsPage: React.FC = () => {
         )}
       </main>
 
-      {/* --- Modals --- */}
       <AnimatePresence>
         {modalType === "manualCreate" && (
           <ManualGoalModal

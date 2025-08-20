@@ -29,10 +29,7 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
         <label className="text-sm font-semibold text-gray-800 dark:text-gray-200">
           How are you feeling?
         </label>
-        <span
-          className="text-sm font-bold"
-          style={{ color: selectedMood.color }}
-        >
+        <span className="text-sm " style={{ color: selectedMood.color }}>
           {selectedMood.label}
         </span>
       </div>
@@ -48,7 +45,7 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
           onChange={(e) => onChange(parseInt(e.target.value))}
           className="w-full h-2 rounded-lg appearance-none cursor-pointer mood-slider"
           style={{
-            // @ts-ignore
+            // @ts-expect-error
             "--gradient": gradient,
             "--dark-gradient": darkGradient,
             "--thumb-color": selectedMood.color,
@@ -62,7 +59,7 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
           <motion.button
             type="button"
             key={mood.value}
-            onClick={() => onChange(mood.value)}
+            onClick={() => onChange(value)}
             className="text-2xl transition-opacity duration-200"
             animate={{
               scale: value === mood.value ? 1.4 : 1,

@@ -1,6 +1,6 @@
 import React from "react";
 
-// Define the structure of the data returned from the main process
+// Interfaces remain the same
 interface GoogleProfile {
   id: string;
   email: string;
@@ -17,10 +17,9 @@ export interface GoogleLoginResult {
   response: { profile: GoogleProfile; tokens: GoogleTokens };
 }
 
-// Define the types for the component's props
 interface GoogleLoginElectronProps {
-  onSuccess: any;
-  onError: any;
+  onSuccess: (result: GoogleLoginResult) => void;
+  onError: (error: Error) => void;
 }
 
 const GoogleLoginElectron: React.FC<GoogleLoginElectronProps> = ({
@@ -29,11 +28,9 @@ const GoogleLoginElectron: React.FC<GoogleLoginElectronProps> = ({
 }) => {
   const handleLogin = async () => {
     try {
-      // This 'login:google' channel must be exposed in your preload script
       const result: GoogleLoginResult =
         await window.electron.ipcRenderer.invoke("login:google");
       if (onSuccess) {
-        // You can now pass the user profile and tokens to your app's state
         onSuccess(result);
       }
     } catch (error) {
@@ -47,19 +44,35 @@ const GoogleLoginElectron: React.FC<GoogleLoginElectronProps> = ({
   };
 
   return (
-    <div className="flex items-center justify-center mt-4">
-      <button
-        onClick={handleLogin}
-        className="font-sans font-medium text-sm text-gray-800 flex items-center justify-center rounded-full
-          shadow-sm hover:bg-gray-200 gap-3 w-[200px] h-[40px]  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
-      >
-        <img
-          src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg"
-          alt="Google logo"
-          className="mr-[10px] w-5 h-5"
-        />
-        Sign in with Google
-      </button>
+    <div className="mt-6">
+      {/* --- REVAMP: Added a divider for better UI separation --- */}
+      <div className="relative flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border-light dark:border-border-dark" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-secondary-light dark:bg-secondary-dark px-2 text-text-light-sub dark:text-text-dark-sub">
+            OR
+          </span>
+        </div>
+      </div>
+
+      {/* --- CHANGE: Themed Google login button --- */}
+      <div className="flex items-center justify-center mt-6">
+        <button
+          onClick={handleLogin}
+          className="font-sans font-medium text-sm text-text-light dark:text-text-dark flex items-center justify-center px-6 py-2.5 rounded-lg
+           border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark
+           shadow-sm hover:bg-tertiary-light dark:hover:bg-tertiary-dark w-full transition-colors focus:outline-none"
+        >
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg"
+            alt="Google logo"
+            className="w-5 h-5 mr-3"
+          />
+          Sign in with Google
+        </button>
+      </div>
     </div>
   );
 };

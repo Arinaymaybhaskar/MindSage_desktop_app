@@ -116,7 +116,7 @@ const Masonry: React.FC<MasonryProps> = ({
   const getInitialPosition = (item: GridItem) => {
     const containerRect = containerRef.current?.getBoundingClientRect();
     if (!containerRect) return { x: item.x, y: item.y };
-  
+
     let direction = animateFrom;
     if (animateFrom === "random") {
       const dirs = ["top", "bottom", "left", "right"];
@@ -214,7 +214,7 @@ const Masonry: React.FC<MasonryProps> = ({
       gsap.to(`[data-key="${id}"]`, {
         scale: hoverScale,
         duration: 0.3,
-        ease: "power2.out"
+        ease: "power2.out",
       });
     }
     if (colorShiftOnHover) {
@@ -228,7 +228,7 @@ const Masonry: React.FC<MasonryProps> = ({
       gsap.to(`[data-key="${id}"]`, {
         scale: 1,
         duration: 0.3,
-        ease: "power2.out"
+        ease: "power2.out",
       });
     }
     if (colorShiftOnHover) {
@@ -259,7 +259,7 @@ const Masonry: React.FC<MasonryProps> = ({
               <div className="color-overlay absolute inset-0 rounded-[10px] bg-gradient-to-tr from-pink-500/50 to-sky-500/50 opacity-0 pointer-events-none" />
             )}
             {/* New title overlay at the bottom */}
-           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/40 to-transparent text-white p-4 rounded-b-[10px] flex items-end">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/40 to-transparent text-white p-4 rounded-b-[10px] flex items-end">
               <div className="text-sm truncate w-full">{item.title}</div>
             </div>
           </div>

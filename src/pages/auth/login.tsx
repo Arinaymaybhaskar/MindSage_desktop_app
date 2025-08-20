@@ -3,9 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthLayout } from "../../layouts/AuthLayout";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { Eye, EyeOff, AlertTriangle } from "lucide-react";
 import GoogleLoginElectron from "../../components/googleLoginElectron";
 import { authService } from "../../api/authService";
+import { motion, AnimatePresence } from "framer-motion"; // Import motion components
 
 export default function Login() {
   const [form, setForm] = useState({
@@ -20,6 +21,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<"online" | "offline">("offline");
 
+  // All logic (handleSubmit, handleGoogleSuccess) remains the same...
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -30,7 +32,7 @@ export default function Login() {
         identifier: form.identifier,
         password: form.password,
       });
-      console.log(res.userInfo)
+      console.log(res.userInfo);
       login(res.accessToken, res.userInfo, authMode);
       navigate("/");
     } catch (err: any) {
@@ -60,26 +62,30 @@ export default function Login() {
     }
   };
 
+  const inputClasses =
+    "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg text-text-light dark:text-text-dark focus:ring-2 focus:ring-info focus:border-info outline-none transition";
+  const labelClasses =
+    "block text-sm font-medium text-text-light dark:text-text-dark mb-1.5";
+
   return (
     <AuthLayout
       title="Welcome back"
       authMode={authMode}
       setAuthMode={setAuthMode}
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {error && (
-          <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
-        <div>
-          <label
-            htmlFor="identifier"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Username or Email
-          </label>
-          <div className="mt-1">
+      {/* --- CHANGE: Added motion.div with layout to animate height changes --- */}
+      <motion.div layout transition={{ type: "spring", duration: 0.5 }}>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-danger/10 text-danger text-sm border border-danger/20">
+              <AlertTriangle size={16} />
+              {error}
+            </div>
+          )}
+          <div>
+            <label htmlFor="identifier" className={labelClasses}>
+              Username or Email
+            </label>
             <input
               id="identifier"
               name="identifier"
@@ -87,101 +93,103 @@ export default function Login() {
               required
               value={form.identifier}
               onChange={(e) => setForm({ ...form, identifier: e.target.value })}
-              className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+              className={inputClasses}
               placeholder="Enter your username or email"
             />
           </div>
-        </div>
-        <div>
-          <label
-            htmlFor="password"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Password
-          </label>
-          <div className="mt-1 relative">
-            <input
-              id="password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              required
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-              placeholder="••••••••"
-            />
+          <div>
+            <label htmlFor="password" className={labelClasses}>
+              Password
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                required
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className={inputClasses}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-light-sub dark:text-text-dark-sub"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                checked={form.rememberMe}
+                onChange={(e) =>
+                  setForm({ ...form, rememberMe: e.target.checked })
+                }
+                className="h-4 w-4 text-info bg-tertiary-light dark:bg-tertiary-dark border-border-light rounded focus:ring-info"
+              />
+              <label
+                htmlFor="remember-me"
+                className="ml-2 block text-sm text-text-light-sub dark:text-text-dark-sub"
+              >
+                Remember me
+              </label>
+            </div>
+            <div className="text-sm">
+              <Link
+                to="/forgot-password"
+                className="font-medium text-info hover:text-info/90"
+              >
+                Forgot your password?
+              </Link>
+            </div>
+          </div>
+          <div>
             <button
-              type="button"
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              onClick={() => setShowPassword(!showPassword)}
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-info hover:bg-info/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {showPassword ? (
-                <EyeOffIcon className="h-5 w-5 text-gray-400" />
-              ) : (
-                <EyeIcon className="h-5 w-5 text-gray-400" />
-              )}
+              {isLoading ? "Signing in..." : "Sign in"}
             </button>
           </div>
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <input
-              id="remember-me"
-              name="remember-me"
-              type="checkbox"
-              checked={form.rememberMe}
-              onChange={(e) =>
-                setForm({ ...form, rememberMe: e.target.checked })
-              }
-              className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
-            />
-            <label
-              htmlFor="remember-me"
-              className="ml-2 block text-sm text-gray-900"
-            >
-              Remember me
-            </label>
-          </div>
-          <div className="text-sm">
-            <Link
-              to="/forgot-password"
-              className="font-medium text-teal-600 hover:text-teal-500"
-            >
-              Forgot your password?
-            </Link>
-          </div>
-        </div>
-        <div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-              authMode === "offline"
-                ? "bg-blue-50 text-blue-700 border border-blue-300 rounded-l-lg hover:bg-blue-100"
-                : "bg-purple-50 text-purple-700 border border-purple-300 rounded-r-lg hover:bg-purple-100"
-            }`}
-          >
-            {isLoading ? "Signing in..." : "Sign in"}
-          </button>
-        </div>
-      </form>
-      {authMode === "online" && (
-        <GoogleLoginElectron
-          onError={() => console.log("Error in google login")}
-          onSuccess={handleGoogleSuccess}
-        />
-      )}
+        </form>
 
-      <div className="mt-6 text-center text-sm">
-        <span className="text-gray-600">Don't have an account?</span>{" "}
-        <Link
-          to="/register"
-          className="font-medium text-teal-600 hover:text-teal-500"
-        >
-          Sign up
-        </Link>
-      </div>
+        {/* --- CHANGE: Wrapped Google login in AnimatePresence for smooth entry/exit --- */}
+        <AnimatePresence>
+          {authMode === "online" && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <GoogleLoginElectron
+                onError={() => console.log("Error in google login")}
+                onSuccess={handleGoogleSuccess}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="mt-6 text-center text-sm">
+          <span className="text-text-light-sub dark:text-text-dark-sub">
+            Don't have an account?
+          </span>{" "}
+          <Link
+            to="/register"
+            className="font-medium text-info hover:text-info/90"
+          >
+            Sign up
+          </Link>
+        </div>
+      </motion.div>
     </AuthLayout>
   );
 }

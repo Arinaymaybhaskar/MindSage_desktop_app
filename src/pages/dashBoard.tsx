@@ -8,11 +8,11 @@ import {
   BookOpen,
   TrendingUp,
   Edit,
-  Pin,
   ArrowUpRightIcon,
+  ArrowRight,
 } from "lucide-react";
 
-// Import new components
+// Components
 import RecentEntryCard from "../components/RecentEntryCard";
 import MasonrySkeleton from "../components/Skeletons/MasonrySkeleton";
 import DashboardSkeleton from "../components/Skeletons/DashBoardSkeleton";
@@ -23,6 +23,7 @@ import MoodSentimentChart from "../components/MoodSentimentChart";
 // Dynamically import the Masonry component for code splitting
 const Masonry = lazy(() => import("../components/masonry"));
 
+// Interface Definitions
 interface User {
   username: string;
   email: string;
@@ -50,32 +51,46 @@ interface PinnedGoal {
   unit: string;
 }
 
+interface ImageKeyEntry {
+  id: number;
+  title: string;
+  image_key: string;
+}
+
 export default function Dashboard() {
   const { accessToken, logout } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
-  const [images, setImages] = useState<any[]>([]);
   const [pinnedGoals, setPinnedGoals] = useState<PinnedGoal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [chartData, setChartData] = useState();
   const [lastEntryId, setLastEntryId] = useState<number | null>(null);
+
+  // State to hold just the image keys fetched initially
+  const [imageKeys, setImageKeys] = useState<ImageKeyEntry[]>([]);
+  // State for the fully processed images with data URIs
+  const [processedImages, setProcessedImages] = useState<any[]>([]);
+
+  // Separate loading states for the main dashboard and the masonry gallery
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [isMasonryLoading, setIsMasonryLoading] = useState(true);
 
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
 
+  // EFFECT 1: Fetch core dashboard data (fast)
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchCoreData = async () => {
       if (!accessToken) {
-        setIsLoading(false);
+        setIsDashboardLoading(false);
         return;
       }
       try {
-        // Fetch all data concurrently for faster loading
+        // Fetch only the essential data first. Image keys are fetched but not processed.
         const [
           userData,
           recentEntriesData,
-          imageData,
+          imageData, // This now just gets the keys, which is fast
           pinnedGoalsData,
           chartData,
         ] = await Promise.all([
@@ -86,24 +101,44 @@ export default function Dashboard() {
           journalService.getChartData(authMode, accessToken, 30),
         ]);
 
-        setLastEntryId(recentEntriesData[0].id);
+        if (recentEntriesData && recentEntriesData.length > 0) {
+          setLastEntryId(recentEntriesData[0].id);
+        }
 
-        console.log(chartData, "ChartData");
         setChartData(chartData);
         setUser(userData);
         localStorage.setItem("userInfo", JSON.stringify(userData));
         setPinnedGoals(pinnedGoalsData);
+        setImageKeys(imageData); // Store the keys to be processed later
 
-        // Safely parse mood_tags for each entry
         const parsedEntries = recentEntriesData.map((entry) => ({
           ...entry,
           mood_tags: Array.isArray(entry.mood_tags) ? entry.mood_tags : [],
         }));
         setRecentEntries(parsedEntries);
+      } catch (err) {
+        console.error("Failed to fetch core dashboard data:", err);
+        logout();
+      } finally {
+        // Render the main dashboard immediately
+        setIsDashboardLoading(false);
+      }
+    };
 
-        // Process images with their sources
+    fetchCoreData();
+  }, [accessToken, authMode, logout]);
+
+  // EFFECT 2: Process images in the background (slower)
+  useEffect(() => {
+    if (imageKeys.length === 0) {
+      setIsMasonryLoading(false); // No images to load
+      return;
+    }
+
+    const processImages = async () => {
+      try {
         const imgsWithSrc = await Promise.all(
-          imageData.map(async (entry) => {
+          imageKeys.map(async (entry) => {
             const imageSrc = await window.electron.ipcRenderer.invoke(
               "media:getImage",
               entry.image_key.toString()
@@ -111,35 +146,48 @@ export default function Dashboard() {
             return { ...entry, image_key: imageSrc };
           })
         );
-        setImages(imgsWithSrc);
-      } catch (err) {
-        console.error("Failed to fetch dashboard data:", err);
-        logout(); // Logout on critical data fetch failure
+        setProcessedImages(imgsWithSrc);
+      } catch (error) {
+        console.error("Failed to process images:", error);
       } finally {
-        setIsLoading(false);
+        // Once images are done, hide the masonry skeleton
+        setIsMasonryLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, [accessToken, authMode, logout]);
+    processImages();
+  }, [imageKeys]); // This effect runs only when imageKeys are fetched
+
+  const getProgressColors = (
+    percentage: number
+  ): { bar: string; text: string } => {
+    if (percentage >= 95) {
+      return { bar: "bg-success", text: "text-success" };
+    }
+    if (percentage >= 50) {
+      return { bar: "bg-info", text: "text-info" };
+    }
+    return { bar: "bg-warning", text: "text-warning" };
+  };
 
   const masonryItems = useMemo(() => {
-    return images.map((entry) => ({
+    // Depend on the new 'processedImages' state
+    return processedImages.map((entry) => ({
       id: entry.id,
       title: entry.title,
       img: entry.image_key,
       url: `/journal/view/${entry.id}`,
       height: Math.floor(Math.random() * (500 - 250 + 1)) + 250,
     }));
-  }, [images]);
+  }, [processedImages]);
 
-  if (isLoading) {
+  if (isDashboardLoading) {
     return <DashboardSkeleton />;
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-gray-500 text-xl bg-gray-100 dark:bg-slate-900">
+      <div className="min-h-screen flex flex-col items-center justify-center text-gray-500 text-xl">
         <p>Could not load user data.</p>
         <Link to="/login" className="mt-4 text-indigo-600 hover:underline">
           Go to Login
@@ -149,13 +197,13 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="bg-gray-100 dark:bg-slate-900 min-h-screen">
+    <div className="">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="text-4xl font-[fraunces] font-bold tracking-tight text-gray-900 dark:text-white">
             Welcome back, {user.full_name?.split(" ")[0] || user.username}
           </h1>
-          <p className="text-lg text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-lg text-text-light-sub dark:text-text-dark-sub mt-1">
             Here's a look at your recent activity and memories.
           </p>
         </header>
@@ -174,7 +222,7 @@ export default function Dashboard() {
             value={`${0} days`} // Placeholder for streak
             color="green"
           />
-          <Link to={`/journal/view/${lastEntryId}`}>
+          <Link to={lastEntryId ? `/journal/view/${lastEntryId}` : "#"}>
             <StatCard
               icon={Edit}
               label="Last entry"
@@ -185,20 +233,27 @@ export default function Dashboard() {
             />
           </Link>
         </section>
-        <div className="flex w-full h-full justify-center gap-6 items-center">
+
+        <div className="flex w-full h-full justify-center gap-6 items-center mt-6">
           {chartData && <MoodSentimentChart data={chartData} />}
-          <section className="h-[500px] dark:bg-gray-800/50 border bg-white border-gray-200 dark:border-gray-700 rounded-xl p-6 pb-0 w-1/4 mt-6  shadow">
-            <h3 className="text-xl flex font-bold w-full items-center mb-4 text-text-light dark:text-text-dark">
-              Goal Progress{" "}
+          <section className="h-[500px] bg-secondary-light dark:bg-secondary-dark border border-border-light dark:border-border-dark rounded-xl w-1/4 flex flex-col">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 pb-4">
+              <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
+                Goal Progress
+              </h3>
               <Link
                 to={"/goals"}
-                className="text-indigo-500 hover:text-white mb-2 rounded-full text-sm text-end ml-5 justify-end flex mt-2"
+                className="text-text-light-sub dark:text-text-dark-sub p-1.5 rounded-full hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
+                aria-label="View all goals"
               >
-                <ArrowUpRightIcon size={20} />
+                <ArrowUpRightIcon size={18} />
               </Link>
-            </h3>
-            <div className="space-y-4 overflow-y-scroll h-[423px] no-scrollbar ">
-              {[...pinnedGoals] // create a shallow copy so we don't mutate original
+            </div>
+
+            {/* Scrollable Goal List */}
+            <div className="flex-grow space-y-1 overflow-y-auto no-scrollbar px-6 pb-6">
+              {[...pinnedGoals]
                 .sort(
                   (a, b) =>
                     b.current_value / b.target_value -
@@ -209,19 +264,25 @@ export default function Dashboard() {
                     100,
                     Math.round((goal.current_value / goal.target_value) * 100)
                   );
+                  const { bar: barColor, text: textColor } =
+                    getProgressColors(progressPercentage);
+
                   return (
-                    <div className="pb-2" key={goal.id}>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-sm text-text-light dark:text-text-dark">
+                    <div
+                      className="p-3 rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
+                      key={goal.id}
+                    >
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-sm font-medium text-text-light dark:text-text-dark truncate pr-2">
                           {goal.title}
                         </span>
-                        <span className="text-xs font-semibold text-indigo-500 ml-3 dark:text-indigo-400">
+                        <span className={`text-xs font-bold ${textColor}`}>
                           {progressPercentage}%
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                      <div className="w-full bg-tertiary-dark dark:bg-base-dark rounded-full h-1.5">
                         <div
-                          className="h-1.5 rounded-full bg-indigo-500"
+                          className={`h-1.5 rounded-full ${barColor} transition-all duration-500 ease-out`}
                           style={{ width: `${progressPercentage}%` }}
                         ></div>
                       </div>
@@ -234,17 +295,21 @@ export default function Dashboard() {
 
         {/* Recent Entries Section */}
         <section className="my-12">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          {/* Section Header */}
+          <div className="flex justify-between items-center mb-6 px-2">
+            <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">
               Recent Entries
             </h2>
             <Link
               to="/journals"
-              className="text-sm font-semibold text-indigo-600 hover:underline"
+              className="flex items-center gap-1 text-sm font-semibold text-text-light-sub dark:text-text-dark-sub hover:text-info dark:hover:text-info transition-colors"
             >
               View all
+              <ArrowRight size={16} />
             </Link>
           </div>
+
+          {/* Entries Grid or Empty State */}
           {recentEntries.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recentEntries.map((entry) => (
@@ -252,29 +317,34 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-white dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700">
-              <p className="text-gray-500">No recent entries found.</p>
+            <div className="text-center py-16 bg-secondary-light dark:bg-secondary-dark rounded-xl border border-dashed border-border-light dark:border-border-dark">
+              <p className="text-text-light-sub dark:text-text-dark-sub">
+                No recent entries found.
+              </p>
             </div>
           )}
         </section>
 
         {/* Memories / Image Gallery */}
         <section>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+          <h2 className="text-2xl font-bold text-text-light dark:text-text-dark mb-6 px-2">
             Memories
           </h2>
-          <div className="w-full min-h-[600px] bg-white dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-            <Suspense fallback={<MasonrySkeleton />}>
-              <Masonry
-                items={masonryItems}
-                ease="power3.out"
-                duration={0.6}
-                stagger={0.05}
-                animateFrom="bottom"
-                scaleOnHover={true}
-                hoverScale={0.95}
-              />
-            </Suspense>
+
+          <div className="w-full min-h-[600px] ">
+            {isMasonryLoading ? (
+              <MasonrySkeleton />
+            ) : (
+              <Suspense fallback={<MasonrySkeleton />}>
+                <Masonry
+                  items={masonryItems}
+                  ease="power3.out"
+                  duration={0.6}
+                  stagger={0.05}
+                  animateFrom="bottom"
+                />
+              </Suspense>
+            )}
           </div>
         </section>
       </main>

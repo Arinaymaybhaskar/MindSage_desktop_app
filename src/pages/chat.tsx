@@ -167,7 +167,7 @@ export const ChatComponent: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-gray-100 dark:bg-slate-900 text-gray-900 dark:text-gray-100 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
+    <div className="w-full h-full flex flex-col  text-gray-900 dark:text-gray-100 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
       {/* Header */}
       <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
         <div className="flex items-center gap-3">
@@ -210,7 +210,7 @@ export const ChatComponent: React.FC = () => {
       </div>
 
       {/* Input Form */}
-      <div className="flex-shrink-0 pb-16 border-t border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-800/50">
+      <div className="flex-shrink-0 pb-8 border-t border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-800/50">
         <form onSubmit={handleSendMessage} className="flex items-start gap-3">
           <TextareaAutosize
             value={inputValue}

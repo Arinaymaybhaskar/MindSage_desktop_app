@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Modal from "../../Modal";
 import ColorPalette from "../ColorPalette";
 import type { Category, Goal } from "../../../types/Goals";
@@ -15,6 +15,7 @@ import {
   Save,
   X,
 } from "lucide-react";
+import { Dropdown } from "../../ui/Dropdown"; // Import your custom Dropdown
 
 interface ManualGoalModalProps {
   isOpen: boolean;
@@ -42,7 +43,7 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
 
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryColor, setNewCategoryColor] = useState("#4ade80"); // Default to a nice green
+  const [newCategoryColor, setNewCategoryColor] = useState("#4ade80");
 
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
@@ -50,8 +51,9 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
     | "online";
 
   const themeColor =
-    categories.find((c) => c.id === categoryId)?.color || "#6366F1";
+    categories.find((c) => c.id === categoryId)?.color || "var(--color-info)";
 
+  // All logic (useEffect, handleSubmit) remains the same...
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
@@ -121,10 +123,21 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
     onClose();
   };
 
+  // --- CHANGE: Themed input styling ---
   const inputClasses =
-    "w-full p-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition";
+    "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-info focus:border-info outline-none transition";
   const labelClasses =
-    "flex items-center gap-2 mb-2 text-sm font-medium text-gray-700 dark:text-gray-300";
+    "flex items-center gap-2 mb-2 text-sm font-medium text-text-light dark:text-text-dark";
+
+  // Prepare options for the custom dropdown
+  const categoryOptions = useMemo(() => {
+    const options = categories.map((cat) => ({
+      value: cat.id,
+      label: cat.name,
+    }));
+    options.push({ value: "add_new", label: "✨ Add New Category..." });
+    return options;
+  }, [categories]);
 
   return (
     <Modal
@@ -132,15 +145,7 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
       onClose={onClose}
       title={mode === "edit" ? "Edit Goal" : "Create a New Goal"}
     >
-      <div className="text-gray-800 dark:text-gray-100">
-        {/* <div
-          className="p-4 rounded-t-lg mb-6 -m-6 text-white"
-          style={{ backgroundColor: themeColor }}
-        >
-          <h2 className="text-xl font-bold text-center">
-            {mode === "edit" ? "Edit Goal" : "Create a New Goal"}
-          </h2>
-        </div> */}
+      <div className="text-text-light dark:text-text-dark">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Goal Title */}
           <div>
@@ -173,24 +178,17 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
             ></textarea>
           </div>
 
-          {/* Category Selection */}
+          {/* --- CHANGE: Replaced <select> with <Dropdown> --- */}
           <div>
-            <label htmlFor="manual-goal-category" className={labelClasses}>
+            <label className={labelClasses}>
               <Tag size={16} /> Category
             </label>
-            <select
-              id="manual-goal-category"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className={inputClasses}
-            >
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-              <option value="add_new">✨ Add New Category...</option>
-            </select>
+            <Dropdown
+              options={categoryOptions}
+              selectedValue={categoryId}
+              onSelect={(value) => setCategoryId(value)}
+              placeholder="Select a category..."
+            />
           </div>
 
           {/* New Category Form (Animated) */}
@@ -200,7 +198,8 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+                // --- CHANGE: Themed container ---
+                className="space-y-4 p-4 bg-secondary-light dark:bg-secondary-dark rounded-lg border border-border-light dark:border-border-dark overflow-hidden"
               >
                 <div>
                   <label htmlFor="new-category-name" className={labelClasses}>
@@ -268,17 +267,18 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
                 type="date"
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
-                className={`${inputClasses} text-gray-500`}
+                className={`${inputClasses} text-text-light-sub dark:text-text-dark-sub`}
               />
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex justify-end space-x-3 pt-4">
+            {/* --- CHANGE: Themed cancel button --- */}
             <button
               type="button"
               onClick={onClose}
-              className="flex items-center gap-2 rounded-lg bg-gray-200 dark:bg-gray-600 px-4 py-2 font-semibold text-gray-700 dark:text-gray-200 transition-transform duration-200 hover:scale-105"
+              className="flex items-center gap-2 rounded-lg bg-tertiary-light dark:bg-tertiary-dark px-4 py-2 font-semibold text-text-light dark:text-text-dark transition-all duration-200 hover:scale-105"
             >
               <X size={18} /> Cancel
             </button>

@@ -32,7 +32,7 @@ export function DeleteAccount() {
       });
       localStorage.clear();
       alert("Your account has been deleted.");
-      window.location.href = "/"; // Redirect to homepage/login
+      window.location.href = "/login"; // Redirect to homepage/login
     } catch (error) {
       alert("Something went wrong. Please try again.");
       console.error(error);

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { PartyPopper } from "lucide-react";
+import Modal from "../../Modal"; // Using the themed base Modal
 
 interface GoalCompletedModalProps {
   isOpen: boolean;
@@ -26,7 +26,13 @@ const GoalCompletedModal: React.FC<GoalCompletedModalProps> = ({
     let animationFrameId: number;
     const confetti: any[] = [];
     const confettiCount = 100;
-    const colors = ["#EF4444", "#F97316", "#84CC16", "#3B82F6", "#A855F7"];
+    // --- CHANGE: Themed colors for confetti ---
+    const colors = [
+      "hsl(120, 50%, 60%)", // success
+      "hsl(238, 52%, 70%)", // info
+      "hsl(61, 50%, 60%)", // warning
+      "hsl(0, 50%, 60%)", // danger
+    ];
 
     const resizeCanvas = () => {
       canvas.width = canvas.offsetWidth;
@@ -50,7 +56,7 @@ const GoalCompletedModal: React.FC<GoalCompletedModalProps> = ({
       context.clearRect(0, 0, canvas.width, canvas.height);
 
       confetti.forEach((p, i) => {
-        p.vy += 0.4; // Gravity
+        p.vy += 0.4;
         p.x += p.vx;
         p.y += p.vy;
         p.alpha -= 0.01;
@@ -81,52 +87,35 @@ const GoalCompletedModal: React.FC<GoalCompletedModalProps> = ({
   }, [isOpen]);
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-200 dark:border-gray-700 text-center overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
+    // --- CHANGE: Using the base Modal component ---
+    <Modal isOpen={isOpen} onClose={onClose} title="Goal Completed!" size="sm">
+      <div className="relative text-center overflow-hidden">
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+        />
+        <div className="relative z-10">
+          {/* --- CHANGE: Themed icon container --- */}
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10 mb-4">
+            <PartyPopper className="h-10 w-10 text-success" />
+          </div>
+          {/* --- CHANGE: Themed text --- */}
+          <p className="text-text-light-sub dark:text-text-dark-sub my-4">
+            You've successfully completed your goal: <br />
+            <strong className="text-text-light dark:text-text-dark">
+              "{goalTitle}"
+            </strong>
+          </p>
+          {/* --- CHANGE: Themed button --- */}
+          <button
+            onClick={onClose}
+            className="mt-4 w-full bg-success text-white font-bold py-3 px-4 rounded-lg hover:bg-success/90 transition-all transform hover:scale-105"
           >
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full pointer-events-none"
-            />
-
-            <div className="relative z-10">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/10 mb-4">
-                <PartyPopper className="h-10 w-10 text-green-600 dark:text-green-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Goal Completed!
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 my-4">
-                You've successfully completed your goal: <br />
-                <strong className="text-gray-800 dark:text-gray-200">
-                  "{goalTitle}"
-                </strong>
-              </p>
-              <button
-                onClick={onClose}
-                className="mt-4 w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105"
-              >
-                Awesome!
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            Awesome!
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 };
 

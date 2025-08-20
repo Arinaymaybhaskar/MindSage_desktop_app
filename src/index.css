@@ -1,33 +1,44 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 @import "tailwindcss";
 
 @theme {
+  --font-inter: "Inter", "sans-serif";
   /* ─── Base Neutral Colors ─── */
-  --color-base-light: #ffffff; /* Light mode background */
-  --color-base-dark: #1c1c1b; /* Dark mode background */
-  --color-secondary-light: #f2f2f2;
-  --color-secondary-dark: #262626;
+  --color-base-light: hsl(0, 0%, 88%);
+  --color-secondary-light: hsl(0, 0%, 92%);
+  --color-tertiary-light: hsl(0, 0%, 96%);
+  --color-base-dark: hsl(0, 0%, 5%);
+  --color-secondary-dark: hsl(0, 0%, 9%);
+  --color-tertiary-dark: hsl(0, 0%, 15%);
 
-  --color-surface-light: #f9f9f9; /* Light mode surface (cards, panels) */
-  --color-surface-dark: #1a1a1a; /* Dark mode surface (cards, panels) */
+  --color-surface-light: hsl(0, 0%, 98%);
+  --color-surface-dark: hsl(0, 0%, 10%);
 
-  --color-text-light: #111111; /* Light mode text */
-  --color-text-dark: #f5f5f5; /* Dark mode text */
+  --color-text-light: hsl(0, 0%, 5%);
+  --color-text-light-sub: hsl(0, 0%, 30%);
+  --color-text-dark: hsl(0, 0%, 95%);
+  --color-text-dark-sub: hsl(0, 0%, 70%);
 
-  --color-border-light: #e5e5e5; /* Light mode borders */
-  --color-border-dark: #333333; /* Dark mode borders */
+  --color-border-light: hsl(0, 0%, 70%);
+  --color-border-dark: hsl(0, 0%, 30%);
+
+  --color-danger: hsl(0, 50%, 60%);
+  --color-warning: hsl(61, 50%, 60%);
+  --color-success: hsl(120, 50%, 60%);
+  --color-info: hsl(238, 52%, 70%);
 
   /* ─── Brand Accent Colors ─── */
   /* light mode */
-  --color-light1: #adb2d4;
-  --color-light2: #c7d9dd;
-  --color-light3: #d5e5d5;
-  --color-light4: #eef1da;
+  --color-light1: hsl(232, 33%, 75%);
+  --color-light2: hsl(191, 26%, 82%);
+  --color-light3: hsl(120, 24%, 87%);
+  --color-light4: hsl(68, 48%, 90%);
 
   /* dark mode */
-  --color-dark1: #35374b;
-  --color-dark2: #344955;
-  --color-dark3: #50727b;
-  --color-dark4: #78a083;
+  --color-dark1: hsl(235, 17%, 25%);
+  --color-dark2: hsl(202, 25%, 27%);
+  --color-dark3: hsl(193, 21%, 40%);
+  --color-dark4: hsl(136, 17%, 55%);
 }
 
 .mood-slider {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import Modal from "../../Modal";
 import { AmbitionNamePrompt, getGoalPrompt } from "../../../utils/prompts/goal";
 import { ollamaService } from "../../../api/ollamaService";
@@ -12,7 +12,10 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Dropdown } from "../../ui/Dropdown";
 
+// --- GoalGeneratorModal Component ---
+// (The rest of the component is provided below)
 type GeneratedGoal = {
   title: string;
   description?: string;
@@ -29,7 +32,6 @@ interface GoalGeneratorModalProps {
   onSubmit: (goalData: any) => void;
 }
 
-// A simple spinner component for loading states
 const Loader = () => (
   <motion.div
     className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
@@ -52,6 +54,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   const selectedModel =
     typeof window !== "undefined" ? localStorage.getItem("selectedModel") : "";
 
+  // All logic (useMemo, handlers, etc.) remains the same...
   const categoryIndexByName = useMemo(() => {
     const map = new Map<string, Category>();
     categories.forEach((c) => map.set(c.name.toLowerCase(), c));
@@ -176,31 +179,36 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
       "#6B7280"
     );
   };
-
-  // Common input styling
   const inputClasses =
-    "w-full p-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition";
+    "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-info focus:border-info outline-none transition";
+
+  const categoryOptions = useMemo(() => {
+    return categories.map((cat) => ({ value: cat.id, label: cat.name }));
+  }, [categories]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size={goals.length ? "3xl" : "lg"}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        goals.length
+          ? "Review Your AI-Generated Goals"
+          : "Describe Your Ambition"
+      }
+    >
       {!goals.length ? (
-        // Step 1: Ambition Input
         <div className="flex flex-col items-center text-center gap-4 p-4">
-          <div className="p-4 bg-indigo-100 dark:bg-indigo-500/10 rounded-full">
-            <BrainCircuit
-              size={40}
-              className="text-indigo-600 dark:text-indigo-400"
-            />
+          <div className="p-4 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
+            <BrainCircuit size={40} className="text-info" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">
             Describe Your Ambition
           </h2>
-          <p className="text-gray-500 dark:text-gray-400">
-            Tell the AI what you want to achieve, and it will break it down into
-            smaller, actionable goals for you.
+          <p className="text-text-light-sub dark:text-text-dark-sub">
+            Tell the AI what you want to achieve...
           </p>
           {error && (
-            <div className="w-full flex gap-2 text-start text-sm text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 rounded-lg p-3">
+            <div className="w-full flex gap-2 text-start text-sm text-danger bg-danger/10 border border-danger/20 rounded-lg p-3">
               <AlertTriangle size={20} /> {error}
             </div>
           )}
@@ -214,22 +222,18 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
           <button
             onClick={handleGenerateGoals}
             disabled={isLoading || !ambition.trim()}
-            className="w-full flex items-center justify-center gap-3 mt-2 px-4 py-3 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300"
+            className="w-full flex items-center justify-center gap-3 mt-2 px-4 py-3 rounded-lg bg-info text-white font-semibold hover:bg-info/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300"
           >
             {isLoading ? <Loader /> : <Sparkles size={20} />}
             <span>{isLoading ? "Generating..." : "Generate Goals"}</span>
           </button>
         </div>
       ) : (
-        // Step 2: Review Suggestions
         <div className="flex flex-col gap-4">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Review Your AI-Generated Goals
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-text-light-sub dark:text-text-dark-sub">
               For your ambition:{" "}
-              <span className="font-semibold text-indigo-500">{ambition}</span>
+              <span className="font-semibold text-info">{ambition}</span>
             </p>
           </div>
           <motion.div
@@ -244,7 +248,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -50, transition: { duration: 0.2 } }}
-                  className="relative rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 pl-6 shadow-sm"
+                  className="relative rounded-lg border border-border-light dark:border-border-dark bg-secondary-light dark:bg-secondary-dark p-4 pl-6 shadow-sm"
                 >
                   <div
                     className="absolute left-0 top-0 h-full w-1.5 rounded-l-lg"
@@ -254,7 +258,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
                   />
                   <button
                     onClick={() => handleRemoveGoal(idx)}
-                    className="absolute right-2 top-2 p-1.5 rounded-full text-gray-400 hover:bg-red-100 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-500 transition-colors"
+                    className="absolute right-2 top-2 p-1.5 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-danger dark:hover:text-danger transition-colors"
                     aria-label="Remove goal"
                   >
                     <Trash2 size={16} />
@@ -277,20 +281,15 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
                       <label className="block text-sm font-medium mb-1">
                         Category
                       </label>
-                      <select
-                        value={goal.category_id}
-                        onChange={(e) =>
-                          handleFieldChange(idx, "category_id", e.target.value)
+                      {/* --- CHANGE: Replaced <select> with <CustomDropdown> --- */}
+                      <Dropdown
+                        options={categoryOptions}
+                        selectedValue={goal.category_id}
+                        onSelect={(value) =>
+                          handleFieldChange(idx, "category_id", value)
                         }
-                        className={inputClasses}
-                      >
-                        <option value="">Select...</option>
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="Select..."
+                      />
                     </div>
                   </div>
                   <div className="mt-4">
@@ -345,7 +344,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
                         onChange={(e) =>
                           handleFieldChange(idx, "target_date", e.target.value)
                         }
-                        className={`${inputClasses} text-gray-500`}
+                        className={`${inputClasses} text-text-light-sub`}
                       />
                     </div>
                   </div>
@@ -355,7 +354,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
           </motion.div>
           <button
             onClick={handleSubmitAll}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-success text-white font-semibold hover:bg-success/90 transition"
           >
             <Check size={20} />
             Add These Goals

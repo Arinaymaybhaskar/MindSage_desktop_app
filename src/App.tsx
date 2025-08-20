@@ -33,6 +33,7 @@ import {
 import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
 import OllamaTutorialPage from "./pages/OllamaTutorial";
+
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -41,16 +42,18 @@ function AppLayout() {
     location.pathname === "/register" ||
     location.pathname === "/forgot-password" ||
     location.pathname === "/reset-password";
+
+  // CHANGED: Updated the paths for the dock items.
+  // "Write" now points to the root "/" and "Dashboard" points to "/dashboard".
   const items = [
-    { path: "/", icon: <HomeIcon size={18} />, label: "Dashboard" },
-    { path: "/journal/new", icon: <PenIcon size={18} />, label: "Write" },
+    { path: "/dashboard", icon: <HomeIcon size={18} />, label: "Dashboard" },
+    { path: "/", icon: <PenIcon size={18} />, label: "Write" },
     { path: "/journals", icon: <BookOpenIcon size={18} />, label: "Journals" },
     {
       path: "/daily-challenge",
       icon: <TrophyIcon size={18} />,
       label: "Daily Challenge",
     },
-    // { path: "/settings", icon: <SettingsIcon size={18} />, label: "Settings" },
     { path: "/chat", icon: <MessageSquareDot size={18} />, label: "Chat" },
     { path: "/goals", icon: <Target size={18} />, label: "Goals" },
   ].map((item) => ({
@@ -62,7 +65,9 @@ function AppLayout() {
     <>
       {/* <TitleBar /> */}
       <div
-        className={`flex h-screen font-[fraunces] bg-base-light dark:bg-base-dark `}
+        className={`flex h-screen font-inter 
+  bg-gradient-to-b from-base-light to-white 
+  dark:from-base-dark dark:to-[hsl(0,0%,12%)]`}
       >
         {!isAuthPage && (
           <Dock
@@ -72,9 +77,9 @@ function AppLayout() {
             magnification={80}
           />
         )}
-        <div className={`flex flex-col h-screen  w-full overflow-hidden`}>
+        <div className={`flex flex-col h-screen w-full overflow-hidden `}>
           {!isAuthPage && <Navbar />}
-          <main className="flex-1 overflow-y-auto bg-base-light dark:bg-base-dark no-scrollbar">
+          <main className="flex-1 overflow-y-auto  no-scrollbar">
             <Routes>
               <Route
                 path="/journals"
@@ -84,14 +89,7 @@ function AppLayout() {
                   </PrivateRoute>
                 }
               />
-              <Route
-                path="/journal/new"
-                element={
-                  <PrivateRoute>
-                    <JournalForm />
-                  </PrivateRoute>
-                }
-              />
+              {/* REMOVED: The old "/journal/new" route is no longer needed as "/" now handles it. */}
               <Route
                 path="/journal/edit/:id"
                 element={
@@ -103,8 +101,18 @@ function AppLayout() {
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              {/* CHANGED: The root path "/" now renders JournalForm. */}
               <Route
                 path="/"
+                element={
+                  <PrivateRoute>
+                    <JournalForm />
+                  </PrivateRoute>
+                }
+              />
+              {/* ADDED: A new route for the Dashboard. */}
+              <Route
+                path="/dashboard"
                 element={
                   <PrivateRoute>
                     <Dashboard />

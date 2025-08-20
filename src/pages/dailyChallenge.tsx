@@ -2,51 +2,48 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 import {
   AlertTriangle,
-  Camera,
+  Award,
   CheckCircle,
   Clock,
-  XCircle,
-  Award,
   UploadCloud,
   X,
-  Target,
-  WifiOff, // Added for offline state
+  XCircle,
+  WifiOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import ChallengeSkeleton from "../components/Skeletons/ChallengeSkeleton"; // Adjust path if necessary
+import ChallengeSkeleton from "../components/Skeletons/ChallengeSkeleton";
 
 interface ChallengeData {
   id: number;
   title: string;
   description: string;
-  challenge_date: string;
   benefits: string[];
 }
 
-// --- NEW: Offline State Component ---
+// --- Themed Offline State Component ---
 const OfflineState = () => (
-  <div className="lg:col-span-3">
+  <div className="lg:w-3/5">
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="bg-white dark:bg-gray-800/50 shadow-lg rounded-2xl border border-gray-200 dark:border-gray-700 p-6 min-h-[24rem] flex flex-col items-center justify-center text-center"
+      className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark p-6 min-h-[24rem] flex flex-col items-center justify-center text-center h-full"
     >
       <motion.div
-        animate={{ scale: [1, 1.1, 1] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        animate={{ scale: [1, 1.05, 1] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
       >
         <WifiOff
           size={64}
-          className="mx-auto text-gray-400 dark:text-gray-500 mb-4"
+          className="mx-auto text-text-light-sub dark:text-text-dark-sub mb-4"
         />
       </motion.div>
-      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+      <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
         Feature is Offline
       </h3>
-      <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-sm">
-        Daily Challenges are updated each day and require an internet connection
-        to sync. Please connect to the internet to participate.
+      <p className="text-text-light-sub dark:text-text-dark-sub mt-2 max-w-sm">
+        Daily Challenges require an internet connection to sync. Please connect
+        to the internet to participate.
       </p>
     </motion.div>
   </div>
@@ -67,12 +64,11 @@ const DailyChallenge = () => {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
-
-  // --- Check for authMode ---
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
 
+  // All component logic (useEffect, handlers) remains the same
   useEffect(() => {
     // Only fetch data if in online mode
     if (authMode === "online") {
@@ -222,11 +218,11 @@ const DailyChallenge = () => {
       case "expired":
         return (
           <div className="text-center">
-            <XCircle size={64} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <XCircle size={64} className="mx-auto text-danger mb-4" />
+            <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
               Challenge Expired
             </h3>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">
+            <p className="text-text-light-sub dark:text-text-dark-sub mt-2">
               You missed today's challenge. Come back tomorrow for a new one!
             </p>
           </div>
@@ -234,11 +230,11 @@ const DailyChallenge = () => {
       case "completed":
         return (
           <div className="text-center">
-            <CheckCircle size={64} className="mx-auto text-green-500 mb-4" />
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <CheckCircle size={64} className="mx-auto text-success mb-4" />
+            <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
               Challenge Completed!
             </h3>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">
+            <p className="text-text-light-sub dark:text-text-dark-sub mt-2">
               Great job! Come back tomorrow for your next challenge.
             </p>
             {submittedImageUrl && (
@@ -253,10 +249,10 @@ const DailyChallenge = () => {
       case "accepted":
         return (
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-2xl font-bold text-text-light dark:text-text-dark mb-2">
               {challengeData?.title}
             </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-text-light-sub dark:text-text-dark-sub mb-6">
               {challengeData?.description}
             </p>
             {previewUrl ? (
@@ -272,14 +268,14 @@ const DailyChallenge = () => {
                       setSelectedImage(null);
                       setPreviewUrl(null);
                     }}
-                    className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full"
+                    className="absolute top-2 right-2 p-1.5 bg-base-dark/60 text-text-dark rounded-full hover:bg-base-dark/80 transition-colors"
                   >
                     <X size={16} />
                   </button>
                 </div>
                 <button
                   onClick={handleSubmitProof}
-                  className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                  className="w-full px-6 py-3 bg-success text-white font-semibold rounded-lg hover:bg-success/90 transition-colors"
                 >
                   Submit Proof
                 </button>
@@ -294,20 +290,24 @@ const DailyChallenge = () => {
                 onDrop={handleDrop}
                 className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
                   isDragging
-                    ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-                    : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    ? "border-info bg-info/10"
+                    : "border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
                 }`}
               >
                 <UploadCloud
                   size={32}
-                  className={`mb-2 ${
-                    isDragging ? "text-indigo-500" : "text-gray-400"
+                  className={`mb-2 transition-colors ${
+                    isDragging
+                      ? "text-info"
+                      : "text-text-light-sub dark:text-text-dark-sub"
                   }`}
                 />
-                <span className="text-sm font-semibold">
+                <span className="text-sm font-semibold text-text-light dark:text-text-dark">
                   {isDragging ? "Drop image here" : "Upload Proof"}
                 </span>
-                <p className="text-xs text-gray-500">Click or drag & drop</p>
+                <p className="text-xs text-text-light-sub dark:text-text-dark-sub">
+                  Click or drag & drop
+                </p>
                 <input
                   type="file"
                   accept="image/*"
@@ -322,17 +322,17 @@ const DailyChallenge = () => {
       default:
         return (
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-2xl font-bold text-text-light dark:text-text-dark mb-2">
               {challengeData?.title}
             </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-text-light-sub dark:text-text-dark-sub mb-6">
               {challengeData?.description}
             </p>
-            <div className="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-lg p-4 mb-6 text-left">
-              <h4 className="font-semibold text-indigo-800 dark:text-indigo-200 mb-2 flex items-center gap-2">
+            <div className="bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg p-4 mb-6 text-left">
+              <h4 className="font-semibold text-info mb-2 flex items-center gap-2">
                 <Award size={18} /> Benefits
               </h4>
-              <ul className="space-y-1 text-sm text-indigo-700 dark:text-indigo-300">
+              <ul className="space-y-1 text-sm text-info/90">
                 {challengeData?.benefits.map((benefit, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <CheckCircle size={16} className="mt-0.5 flex-shrink-0" />
@@ -343,7 +343,7 @@ const DailyChallenge = () => {
             </div>
             <button
               onClick={handleAccept}
-              className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+              className="w-full px-6 py-3 bg-info text-white font-semibold rounded-lg hover:bg-info/90 transition-colors"
             >
               Accept Challenge
             </button>
@@ -353,39 +353,38 @@ const DailyChallenge = () => {
   };
 
   return (
-    <div className="bg-gray-100 dark:bg-slate-900 min-h-screen">
+    <div className="bg-base-light dark:bg-base-dark min-h-screen">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
             Daily Challenge
           </h1>
-          <p className="text-lg text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-lg text-text-light-sub dark:text-text-dark-sub mt-1">
             A new challenge each day to promote well-being.
           </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-          {/* --- Conditional Rendering based on authMode --- */}
+        <div className="flex flex-col lg:flex-row gap-8">
           {authMode === "offline" ? (
             <OfflineState />
           ) : (
-            <div className="lg:col-span-3">
-              <div className="bg-white dark:bg-gray-800/50 shadow-lg rounded-2xl border border-gray-200 dark:border-gray-700">
-                <div className="p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-                  <h2 className="font-semibold text-gray-900 dark:text-white">
+            <div className="w-full lg:w-3/5">
+              <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark h-full flex flex-col">
+                <div className="p-4 flex justify-between items-center border-b border-border-light dark:border-border-dark">
+                  <h2 className="font-semibold text-text-light dark:text-text-dark">
                     Today's Challenge
                   </h2>
-                  <div className="flex items-center gap-2 text-sm font-mono px-3 py-1.5 bg-gray-100 dark:bg-gray-900/50 rounded-full">
-                    <Clock size={16} className="text-indigo-500" />
-                    <span className="text-gray-800 dark:text-gray-200">
+                  <div className="flex items-center gap-2 text-sm font-mono px-3 py-1.5 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
+                    <Clock size={16} className="text-info" />
+                    <span className="text-text-light dark:text-text-dark">
                       {timeLeft}
                     </span>
-                    <span className="text-gray-500 dark:text-gray-400">
+                    <span className="text-text-light-sub dark:text-text-dark-sub">
                       left
                     </span>
                   </div>
                 </div>
-                <div className="p-6 min-h-[24rem] flex items-center justify-center">
+                <div className="p-6 flex-grow flex items-center justify-center">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={challengeState}
@@ -403,10 +402,9 @@ const DailyChallenge = () => {
             </div>
           )}
 
-          {/* How It Works Panel */}
-          <aside className="lg:col-span-2">
-            <div className="bg-white dark:bg-gray-800/50 shadow-lg rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+          <aside className="w-full lg:w-2/5">
+            <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark p-6 h-full">
+              <h2 className="text-xl font-bold text-text-light dark:text-text-dark mb-4">
                 How It Works
               </h2>
               <ul className="space-y-4">
@@ -428,24 +426,24 @@ const DailyChallenge = () => {
                   },
                 ].map((step) => (
                   <li key={step.num} className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full font-bold">
+                    <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-tertiary-light dark:bg-tertiary-dark text-info rounded-full font-bold">
                       {step.num}
                     </div>
                     <div>
-                      <h4 className="font-semibold text-gray-800 dark:text-gray-200">
+                      <h4 className="font-semibold text-text-light dark:text-text-dark">
                         {step.title}
                       </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
                         {step.desc}
                       </p>
                     </div>
                   </li>
                 ))}
               </ul>
-              <div className="mt-6 bg-yellow-50 dark:bg-yellow-500/10 border-l-4 border-yellow-400 dark:border-yellow-500 p-4 rounded-r-lg">
+              <div className="mt-6 bg-warning/10 border-l-4 border-warning p-4 rounded-r-lg">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                    <AlertTriangle className="h-5 w-5 text-warning" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">

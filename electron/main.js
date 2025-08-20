@@ -25,8 +25,9 @@ let win;
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 800,
+    width: 1024,
     height: 600,
+    minWidth: 1024,
     show: false, // Don't show until maximized
     icon: path.join(__dirname, '../assets/icon.png'),
     webPreferences: {

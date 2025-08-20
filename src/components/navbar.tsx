@@ -1,16 +1,16 @@
 import { useContext, useEffect, useState, useRef } from "react";
 import {
   Search,
-  Bell,
-  CheckCheck,
-  Goal as GoalIcon,
+  // Bell,
+  // CheckCheck,
+  // Goal as GoalIcon,
   Rocket,
 } from "lucide-react"; // Added Rocket
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { ProfileDropdown } from "./profileDropdown";
-import { motion, AnimatePresence } from "framer-motion";
-import { formatTimeAgo } from "../utils/DateFormatter"; // Adjust path if necessary
-import EmptyState from "./EmptyState"; // Adjust path if necessary
+// import { motion, AnimatePresence } from "framer-motion";
+// import { formatTimeAgo } from "../utils/DateFormatter"; // Adjust path if necessary
+// import EmptyState from "./EmptyState"; // Adjust path if necessary
 
 interface Notification {
   id: number;
@@ -23,14 +23,14 @@ interface Notification {
 }
 
 const Header = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  // const [notifications, setNotifications] = useState<Notification[]>([]);
+  // const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const notificationsRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     // Mock data for demonstration
@@ -63,22 +63,22 @@ const Header = () => {
         type: "report",
       },
     ];
-    setNotifications(mockNotifications);
+    // setNotifications(mockNotifications);
   }, []);
 
   // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        notificationsRef.current &&
-        !notificationsRef.current.contains(event.target as Node)
-      ) {
-        setIsNotificationsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // useEffect(() => {
+  //   const handleClickOutside = (event: MouseEvent) => {
+  //     if (
+  //       notificationsRef.current &&
+  //       !notificationsRef.current.contains(event.target as Node)
+  //     ) {
+  //       setIsNotificationsOpen(false);
+  //     }
+  //   };
+  //   document.addEventListener("mousedown", handleClickOutside);
+  //   return () => document.removeEventListener("mousedown", handleClickOutside);
+  // }, []);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -92,21 +92,21 @@ const Header = () => {
     navigate({ pathname: "/journals", search: params.toString() });
   };
 
-  const markAllAsRead = async () => {
-    // Mock API call
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
+  // const markAllAsRead = async () => {
+  //   // Mock API call
+  //   setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  // };
 
-  const getNotificationIcon = (type: string) => {
-    if (type.includes("goal"))
-      return <GoalIcon className="w-5 h-5 text-green-500" />;
-    return <Bell className="w-5 h-5 text-indigo-500" />;
-  };
+  // const getNotificationIcon = (type: string) => {
+  //   if (type.includes("goal"))
+  //     return <GoalIcon className="w-5 h-5 text-success" />;
+  //   return <Bell className="w-5 h-5 text-info" />;
+  // };
 
   return (
-    <header className="flex items-center justify-between bg-white dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 px-6 h-20 sticky top-0 z-50">
+    <header className="flex bg-tertiary-light dark:bg-secondary-dark items-center justify-between  border-b border-border-light dark:border-border-dark px-6 h-20 sticky top-0 z-50">
       {/* Logo and Branding */}
-      <Link to="/" className="flex items-center gap-3">
+      <Link to="/dashboard" className="flex items-center gap-3">
         <img
           src="/assets/iconDark.png"
           alt="MindSage Logo"
@@ -117,7 +117,7 @@ const Header = () => {
           alt="MindSage Logo"
           className="w-8 h-8 hidden dark:block"
         />
-        <h1 className="text-xl hidden md:block">
+        <h1 className="text-xl hidden md:block font-[fraunces]">
           <span className="font-bold text-gray-900 dark:text-white">Mind</span>
           <span className="text-gray-500 dark:text-gray-400">Sage</span>
         </h1>
@@ -125,6 +125,13 @@ const Header = () => {
 
       {/* Search and User Actions */}
       <div className="flex items-center gap-4">
+        <Link
+          to="/ollama-tutorial"
+          className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-text-light-sub dark:text-text-dark-sub  rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
+        >
+          <Rocket size={16} />
+          <span className="hidden lg:block">Get Started</span>
+        </Link>
         <div className="relative w-64 lg:w-96">
           <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -132,30 +139,23 @@ const Header = () => {
             value={query}
             onChange={handleSearch}
             placeholder="Search journal entries..."
-            className="pl-10 focus:outline-none pr-4 py-2 w-full bg-gray-100 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 border border-transparent focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg text-sm transition"
+            className="pl-10 focus:outline-none pr-4 py-2 w-full bg-tertiary-light dark:bg-tertiary-dark text-gray-900 dark:text-gray-100 placeholder:text-text-dark dark:placeholder:text-text-dark-sub border border-border-light dark:border-border-dark rounded-lg text-sm transition"
           />
         </div>
 
         {/* --- NEW: Get Started with Ollama Button --- */}
-        <Link
-          to="/ollama-tutorial"
-          className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-900/50 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-        >
-          <Rocket size={16} />
-          <span className="hidden lg:block">Get Started</span>
-        </Link>
 
-        <div className="h-8 w-px bg-gray-200 dark:bg-gray-700" />
+        {/* <div className="h-8 w-px bg-gray-200 dark:bg-gray-700" /> */}
 
         {/* Notifications */}
-        <div className="relative" ref={notificationsRef}>
+        {/* <div className="relative" ref={notificationsRef}>
           <button
             onClick={() => setIsNotificationsOpen((prev) => !prev)}
-            className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+            className="relative p-2 rounded-full hover:bg-tertiary-light dark:hover:bg-tertiary-dark text-text-light-sub dark:text-text-dark-sub transition-colors"
           >
-            <Bell className="w-6 h-6" />
+            <Bell size={18} />
             {unreadCount > 0 && (
-              <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-800/50" />
+              <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-white dark:ring-gray-800/50" />
             )}
           </button>
 
@@ -166,16 +166,16 @@ const Header = () => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
-                className="absolute top-full right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 origin-top-right z-10"
+                className="absolute top-full right-0 mt-3 w-80 sm:w-96 bg-secondary-light dark:bg-secondary-dark rounded-xl shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-10"
               >
-                <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                <div className="flex justify-between items-center p-4 border-b border-border-light dark:border-border-dark">
+                  <h3 className="font-semibold text-text-light dark:text-text-dark">
                     Notifications
                   </h3>
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline"
+                      className="flex items-center gap-1.5 text-xs font-semibold text-text-light-sub dark:text-text-dark-sub hover:underline"
                     >
                       <CheckCheck size={14} /> Mark all as read
                     </button>
@@ -187,20 +187,22 @@ const Header = () => {
                       <div
                         key={n.id}
                         className={`flex items-start gap-4 p-4 border-b border-gray-100 dark:border-gray-700/50 ${
-                          !n.read ? "bg-indigo-50/50 dark:bg-indigo-500/10" : ""
+                          !n.read
+                            ? "bg-tertiary-light dark:bg-tertiary-dark"
+                            : ""
                         }`}
                       >
                         <div className="flex-shrink-0">
                           {getNotificationIcon(n.type)}
                         </div>
                         <div>
-                          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                          <p className="font-semibold  text-sm mb-1 text-text-light dark:text-text-dark">
                             {n.title}
                           </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                          <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
                             {n.body}
                           </p>
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-text-light-sub dark:text-text-dark-sub mt-1">
                             {formatTimeAgo(n.created_at)}
                           </p>
                         </div>
@@ -219,9 +221,9 @@ const Header = () => {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </div> */}
 
-        <div className="h-8 w-px bg-gray-200 dark:bg-gray-700" />
+        {/* <div className="h-8 w-px bg-gray-200 dark:bg-gray-700" /> */}
 
         <ProfileDropdown />
       </div>

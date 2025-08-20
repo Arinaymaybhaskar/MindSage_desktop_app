@@ -2,9 +2,8 @@ import React, { useState, useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { Copy, Check, Download } from "lucide-react";
 
-// --- Reusable Components ---
+// --- Reusable Themed Components ---
 
-// Wrapper for sections to handle the fade-in animation on scroll
 const TutorialSection = ({ children }: { children: React.ReactNode }) => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px 0px" });
@@ -21,7 +20,6 @@ const TutorialSection = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-// Terminal command block with a functional copy button
 const TerminalCommand = ({
   command,
   description,
@@ -38,32 +36,32 @@ const TerminalCommand = ({
   };
 
   return (
-    <div className="bg-slate-950 rounded-xl p-6 border border-slate-800 relative">
-      <div className="flex items-center pb-4 border-b border-slate-800 mb-4">
-        <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-        <div className="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>
-        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+    // --- CHANGE: Themed terminal ---
+    <div className="bg-base-dark rounded-xl p-6 border border-border-dark relative">
+      <div className="flex items-center pb-4 border-b border-border-dark mb-4">
+        <div className="w-3 h-3 rounded-full bg-danger mr-2"></div>
+        <div className="w-3 h-3 rounded-full bg-warning mr-2"></div>
+        <div className="w-3 h-3 rounded-full bg-success"></div>
       </div>
       <button
         onClick={copyToClipboard}
-        className="absolute top-5 right-5 p-2 bg-slate-700 text-slate-200 rounded-lg hover:bg-slate-600 transition-colors"
+        className="absolute top-5 right-5 p-2 bg-tertiary-dark text-text-dark-sub rounded-lg hover:bg-secondary-dark transition-colors"
         aria-label="Copy command"
       >
         {hasCopied ? (
-          <Check size={16} className="text-green-400" />
+          <Check size={16} className="text-success" />
         ) : (
           <Copy size={16} />
         )}
       </button>
       <pre>
-        <code className="text-green-400 text-sm">$ {command}</code>
+        <code className="text-success text-sm">$ {command}</code>
       </pre>
-      <p className="text-slate-400 mt-4 text-sm">// {description}</p>
+      <p className="text-text-dark-sub mt-4 text-sm">// {description}</p>
     </div>
   );
 };
 
-// Card for OS-specific download links
 const DownloadCard = ({
   os,
   description,
@@ -73,14 +71,19 @@ const DownloadCard = ({
   description: string;
   url: string;
 }) => (
-  <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 text-center flex flex-col items-center">
-    <h3 className="text-xl font-semibold text-white mb-2">{os}</h3>
-    <p className="text-slate-400 mb-4 text-sm flex-grow">{description}</p>
+  // --- CHANGE: Themed download card ---
+  <div className="bg-secondary-light dark:bg-secondary-dark p-6 rounded-xl border border-border-light dark:border-border-dark text-center flex flex-col items-center">
+    <h3 className="text-xl font-semibold text-text-light dark:text-text-dark mb-2">
+      {os}
+    </h3>
+    <p className="text-text-light-sub dark:text-text-dark-sub mb-4 text-sm flex-grow">
+      {description}
+    </p>
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 bg-indigo-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+      className="inline-flex items-center gap-2 bg-info text-white font-semibold px-6 py-2 rounded-lg hover:bg-info/90 transition-colors"
     >
       <Download size={16} />
       Download
@@ -91,14 +94,15 @@ const DownloadCard = ({
 // --- Main Tutorial Page Component ---
 const OllamaTutorialPage = () => {
   return (
-    <div className="bg-slate-900 text-slate-300 font-sans">
+    // --- CHANGE: Themed page container ---
+    <div className="bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark font-sans">
       <div className="max-w-4xl mx-auto px-4 py-12 sm:py-20">
         <header className="text-center mb-20">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-5xl font-extrabold tracking-tight text-white mb-4"
+            className="text-5xl font-[fraunces] font-extrabold tracking-tight text-text-light dark:text-text-dark mb-4"
           >
             Run AI Locally with Ollama
           </motion.h1>
@@ -106,7 +110,7 @@ const OllamaTutorialPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-xl text-slate-400 max-w-3xl mx-auto"
+            className="text-xl text-text-light-sub dark:text-text-dark-sub max-w-3xl mx-auto"
           >
             A complete guide to setting up and using powerful open-source AI
             models on your own machine for use in MindSage.
@@ -117,10 +121,10 @@ const OllamaTutorialPage = () => {
           <TutorialSection>
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl font-bold text-white mb-4">
+                <h2 className="font-[fraunces] text-3xl font-bold text-text-light dark:text-text-dark mb-4">
                   What is Ollama?
                 </h2>
-                <div className="prose prose-lg text-slate-300 space-y-4">
+                <div className="prose prose-lg dark:prose-invert text-text-light-sub dark:text-text-dark-sub max-w-none space-y-4">
                   <p>
                     Ollama is a powerful tool that allows you to download, run,
                     and manage large language models (like Llama 3, Mistral, and
@@ -141,19 +145,19 @@ const OllamaTutorialPage = () => {
                 transition={{ type: "spring", stiffness: 200 }}
               >
                 <img
-                  src="https://images.unsplash.com/photo-1677756119517-756a188d2d94?q=80&w=2070&auto=format&fit=crop"
+                  src="ollama.png"
                   alt="Abstract AI visualization"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full bg-secondary-light p-10 px-20 object-cover"
                 />
               </motion.div>
             </div>
           </TutorialSection>
 
           <TutorialSection>
-            <h2 className="text-3xl font-bold text-white text-center mb-6">
+            <h2 className="text-3xl font-[fraunces] font-bold text-text-light dark:text-text-dark text-center mb-6">
               Step 1: Install Ollama
             </h2>
-            <p className="text-lg text-slate-400 text-center max-w-2xl mx-auto mb-12">
+            <p className="text-lg text-text-light-sub dark:text-text-dark-sub text-center max-w-2xl mx-auto mb-12">
               Download and install Ollama for your operating system. It's a
               straightforward process that sets up everything you need.
             </p>
@@ -174,13 +178,13 @@ const OllamaTutorialPage = () => {
                 url="https://ollama.com/download/ollama-linux-amd64"
               />
             </div>
-            <p className="text-center text-slate-400 mt-8">
+            <p className="text-center text-text-light-sub dark:text-text-dark-sub mt-8">
               For detailed instructions, visit the official{" "}
               <a
                 href="https://ollama.com/download"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 font-semibold"
+                className="text-info hover:text-info/90 font-semibold"
               >
                 Ollama Download Page
               </a>
@@ -189,30 +193,29 @@ const OllamaTutorialPage = () => {
           </TutorialSection>
 
           <TutorialSection>
-            <h2 className="text-3xl font-bold text-white text-center mb-6">
+            <h2 className="font-[fraunces] text-3xl font-bold text-text-light dark:text-text-dark text-center mb-6">
               Step 2: Download an AI Model
             </h2>
-            <p className="text-lg text-slate-400 text-center max-w-2xl mx-auto mb-12">
-              Once Ollama is installed, open your terminal (Terminal on Mac,
-              PowerShell on Windows) and run a command to download your first
-              model. We recommend starting with a smaller, efficient model.
+            <p className="text-lg text-text-light-sub dark:text-text-dark-sub text-center max-w-2xl mx-auto mb-12">
+              Once Ollama is installed, open your terminal and run a command to
+              download your first model. We recommend starting with a smaller,
+              efficient model.
             </p>
             <TerminalCommand
               command="ollama run llama3:8b"
               description="This will download and run the Llama 3 8B model. The first download may take several minutes."
             />
-            <p className="text-slate-400 mt-8 max-w-2xl mx-auto">
+            <p className="text-text-light-sub dark:text-text-dark-sub mt-8 max-w-2xl mx-auto">
               You can find many other models to try on the{" "}
               <a
                 href="https://ollama.com/library"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 font-semibold"
+                className="text-info hover:text-info/90 font-semibold"
               >
                 Ollama Library
               </a>
-              . Simply replace `llama3:8b` with the name of any other model,
-              like `mistral` or `phi3`.
+              . Simply replace `llama3:8b` with any other model name.
             </p>
           </TutorialSection>
 
@@ -224,16 +227,16 @@ const OllamaTutorialPage = () => {
                 transition={{ type: "spring", stiffness: 200 }}
               >
                 <img
-                  src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop"
+                  src="../../public/tutorial.png"
                   alt="Dashboard with settings"
                   className="w-full h-full object-cover"
                 />
               </motion.div>
               <div>
-                <h2 className="text-3xl font-bold text-white mb-4">
+                <h2 className="font-[fraunces] text-3xl font-bold text-text-light dark:text-text-dark mb-4">
                   Step 3: Connect to MindSage
                 </h2>
-                <div className="prose prose-lg text-slate-300 space-y-4">
+                <div className="prose prose-lg dark:prose-invert text-text-light-sub dark:text-text-dark-sub max-w-none space-y-4">
                   <p>
                     The final step is to tell MindSage to use your new local
                     model. After running a model with Ollama, it will appear in

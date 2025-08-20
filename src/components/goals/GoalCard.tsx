@@ -9,6 +9,7 @@ import {
   Trash2,
   CheckCircle,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface GoalCardProps {
   goal: Goal;
@@ -32,14 +33,13 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const bgColor = category?.color || "#4B5563"; // Default to a neutral gray
+  const bgColor = category?.color || "var(--color-info)";
   const textColor = getContrastingTextColor(bgColor);
   const progressPercentage = Math.min(
     100,
     Math.round((goal.current_value / goal.target_value) * 100)
   );
 
-  // Effect to close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -56,8 +56,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   };
 
   return (
-    <div className="goal-card bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded-xl shadow-md flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-transparent dark:border-gray-700 w-80 h-96">
-      {/* This new wrapper allows the content to grow and scroll if it exceeds the available space */}
+    <div className="goal-card bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark p-4 rounded-xl shadow-md flex flex-col transition-all duration-300  hover:shadow-xl border border-border-light dark:border-border-dark w-80 h-96">
       <div className="flex-grow overflow-y-auto custom-scrollbar">
         {/* Card Header */}
         <div className="flex justify-between items-start mb-3">
@@ -74,80 +73,95 @@ const GoalCard: React.FC<GoalCardProps> = ({
           {/* Menu Dropdown */}
           <div className="relative" ref={menuRef}>
             <div className="flex justify-center items-center">
-              {goal.is_pinned ? <Pin size={20} /> : ""}
+              {goal.is_pinned ? (
+                <Pin
+                  size={20}
+                  className="text-text-light-sub dark:text-text-dark-sub mr-1"
+                />
+              ) : (
+                ""
+              )}
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-1.5 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
               >
                 <MoreVertical size={20} />
               </button>
             </div>
-            {menuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 z-10 border border-gray-200 dark:border-gray-700">
-                {[
-                  {
-                    label: goal.is_pinned ? "Unpin" : "Pin",
-                    icon: goal.is_pinned ? (
-                      <PinOff size={16} />
-                    ) : (
-                      <Pin size={16} />
-                    ),
-                    action: () => onTogglePin(goal.id),
-                  },
-                  {
-                    label: "Edit",
-                    icon: <Edit size={16} />,
-                    action: onEdit,
-                  },
-                  {
-                    label: "Mark as Complete",
-                    icon: <CheckCircle size={16} />,
-                    action: () => onMarkComplete(goal.id),
-                  },
-                  {
-                    label: "Delete",
-                    icon: <Trash2 size={16} />,
-                    action: () => onDelete(goal.id),
-                    isDestructive: true,
-                  },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => handleMenuAction(item.action)}
-                    className={`flex items-center gap-3 w-full text-left px-4 py-2 text-sm ${
-                      item.isDestructive
-                        ? "text-red-600 dark:text-red-500"
-                        : "text-gray-700 dark:text-gray-300"
-                    } hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <AnimatePresence>
+              {menuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="absolute right-0 mt-2 w-48 bg-surface-light dark:bg-surface-dark rounded-lg shadow-lg py-2 z-10 border border-border-light dark:border-border-dark"
+                >
+                  {[
+                    {
+                      label: goal.is_pinned ? "Unpin" : "Pin",
+                      icon: goal.is_pinned ? (
+                        <PinOff size={16} />
+                      ) : (
+                        <Pin size={16} />
+                      ),
+                      action: () => onTogglePin(goal.id),
+                    },
+                    {
+                      label: "Edit",
+                      icon: <Edit size={16} />,
+                      action: onEdit,
+                    },
+                    {
+                      label: "Mark as Complete",
+                      icon: <CheckCircle size={16} />,
+                      action: () => onMarkComplete(goal.id),
+                    },
+                    {
+                      label: "Delete",
+                      icon: <Trash2 size={16} />,
+                      action: () => onDelete(goal.id),
+                      isDestructive: true,
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={() => handleMenuAction(item.action)}
+                      className={`flex items-center gap-3 w-full text-left px-4 py-2 text-sm ${
+                        item.isDestructive
+                          ? "text-danger"
+                          : "text-text-light dark:text-text-dark"
+                      } hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors`}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
         {/* Description */}
         {goal.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg whitespace-pre-wrap">
+          <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1 mb-4 p-3 bg-tertiary-light dark:bg-tertiary-dark rounded-lg whitespace-pre-wrap">
             {goal.description}
           </p>
         )}
       </div>
 
       {/* Progress Section */}
-      <div className="pt-4">
+      <div className="pt-4 border-t border-border-light dark:border-border-dark mt-auto">
         <div className="flex justify-between items-center mb-1">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          <span className="text-xs font-medium text-text-light-sub dark:text-text-dark-sub">
             Progress
           </span>
           <span className="text-xs font-semibold" style={{ color: bgColor }}>
             {`${goal.current_value} / ${goal.target_value} ${goal.unit || ""}`}
           </span>
         </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+        <div className="w-full bg-tertiary-light dark:bg-tertiary-dark rounded-full h-2">
           <div
             className="h-2 rounded-full transition-all duration-500 ease-out"
             style={{

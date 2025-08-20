@@ -18,24 +18,18 @@ type Props = {
   selectedDate?: string | null;
 };
 
-// A 5-step color scale for the heatmap
-const MOOD_COLOR_SCALE = [
-  "#ef4444", // Mood 1 (Worst)
-  "#f97316", // Mood 2
-  "#eab308", // Mood 3 (Neutral)
-  "#84cc16", // Mood 4
-  "#22c55e", // Mood 5 (Best)
+const MOOD_COLOR_CLASSES = [
+  "bg-danger", // Mood 1 (Worst)
+  "bg-warning", // Mood 2
+  "bg-info", // Mood 3 (Neutral)
+  "bg-success/80", // Mood 4 (A slightly lighter success)
+  "bg-success", // Mood 5 (Best)
 ];
 
-/**
- * Maps a mood score (1-5) to its corresponding heatmap color.
- * It rounds an average score and clamps it to ensure it's a valid index.
- */
-const getMoodColor = (score: number): string => {
+const getMoodColorClass = (score: number): string => {
   const roundedScore = Math.round(score);
-  // Clamp the score between 1 and 5 to safely use it as an index.
   const clampedScore = Math.max(1, Math.min(5, roundedScore));
-  return MOOD_COLOR_SCALE[clampedScore - 1];
+  return MOOD_COLOR_CLASSES[clampedScore - 1];
 };
 
 export const MoodCalendar: React.FC<Props> = ({
@@ -45,7 +39,7 @@ export const MoodCalendar: React.FC<Props> = ({
 }) => {
   const [currentMonth, setCurrentMonth] = useState<Dayjs>(dayjs());
 
-  // Averages the mood scores for each day in case of multiple entries
+  // Logic for averaging moods by date remains the same...
   const moodByDate = useMemo(() => {
     const map = new Map<string, number[]>();
     moodData.forEach(({ date, mood_score }) => {
@@ -66,7 +60,6 @@ export const MoodCalendar: React.FC<Props> = ({
 
   const handleDateClick = (dateStr: string) => {
     if (onDateSelect) {
-      // Allow unselecting a date by clicking it again
       onDateSelect(selectedDate === dateStr ? null : dateStr);
     }
   };
@@ -87,8 +80,8 @@ export const MoodCalendar: React.FC<Props> = ({
       const isTodaysDate = day.isToday();
       const isSelectedDate = selectedDate === dateStr;
 
-      const bgColor =
-        moodScore !== undefined ? getMoodColor(moodScore) : undefined;
+      const bgColorClass =
+        moodScore !== undefined ? getMoodColorClass(moodScore) : "";
 
       days.push(
         <div
@@ -98,31 +91,33 @@ export const MoodCalendar: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => handleDateClick(dateStr)}
+            // --- MODIFICATION: Updated clsx logic for backgrounds ---
             className={clsx(
               "w-full h-full rounded-lg text-sm transition-all duration-200",
               isCurrentMonth
-                ? "text-gray-700 dark:text-gray-200"
-                : "text-gray-400 dark:text-gray-600",
+                ? "text-text-light dark:text-text-dark"
+                : "text-text-light-sub/50 dark:text-text-dark-sub/50",
+              bgColorClass,
               {
-                "bg-gray-100 dark:bg-gray-800/50": !bgColor,
-                "hover:bg-gray-200 dark:hover:bg-gray-700": !isSelectedDate,
-                "font-semibold ring-2 ring-offset-2 dark:ring-offset-gray-800 ring-indigo-500":
+                // In-month empty days have a tertiary background
+                "bg-tertiary-light dark:bg-tertiary-dark":
+                  !bgColorClass && isCurrentMonth,
+                // Out-of-month days blend into the main background
+                "bg-secondary-light dark:bg-secondary-dark": !isCurrentMonth,
+                "hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80":
+                  !isSelectedDate && !bgColorClass && isCurrentMonth,
+                "font-semibold ring-2 ring-offset-2 ring-offset-secondary-light dark:ring-offset-secondary-dark ring-info":
                   isSelectedDate,
-                "ring-2 ring-pink-500": isTodaysDate && !isSelectedDate,
+                "ring-2 ring-info/50": isTodaysDate && !isSelectedDate,
+                "text-white font-bold":
+                  (isSelectedDate || isTodaysDate) && bgColorClass,
               }
             )}
-            style={{ backgroundColor: bgColor }}
           >
-            <span
-              className={clsx("z-10 relative", {
-                "text-white font-bold": isSelectedDate && bgColor,
-              })}
-            >
-              {day.date()}
-            </span>
+            {day.date()}
           </button>
           {moodScore !== undefined && (
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-base-dark text-text-dark text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
               Mood: {moodScore.toFixed(1)} / 5
             </div>
           )}
@@ -134,36 +129,33 @@ export const MoodCalendar: React.FC<Props> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-      {/* Header with navigation */}
+    <div className="bg-secondary-light dark:bg-secondary-dark p-4 rounded-xl">
       <div className="flex justify-between items-center mb-4">
         <button
           onClick={() => setCurrentMonth((prev) => prev.subtract(1, "month"))}
-          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+          className="p-2 rounded-full hover:bg-tertiary-light dark:hover:bg-tertiary-dark text-text-light-sub dark:text-text-dark-sub transition-colors"
           aria-label="Previous month"
         >
           <ChevronLeft size={20} />
         </button>
-        <h2 className="font-semibold text-gray-800 dark:text-gray-200 text-center text-lg">
+        <h2 className="font-semibold text-text-light dark:text-text-dark text-center text-lg">
           {currentMonth.format("MMMM YYYY")}
         </h2>
         <button
           onClick={() => setCurrentMonth((prev) => prev.add(1, "month"))}
-          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+          className="p-2 rounded-full hover:bg-tertiary-light dark:hover:bg-tertiary-dark text-text-light-sub dark:text-text-dark-sub transition-colors"
           aria-label="Next month"
         >
           <ChevronRight size={20} />
         </button>
       </div>
 
-      {/* Weekdays */}
-      <div className="grid grid-cols-7 text-xs font-semibold text-center text-gray-500 dark:text-gray-400 mb-2">
+      <div className="grid grid-cols-7 text-xs font-semibold text-center text-text-light-sub dark:text-text-dark-sub mb-2">
         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
           <div key={i}>{d}</div>
         ))}
       </div>
 
-      {/* Calendar Grid with Animation */}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentMonth.format("YYYY-MM")}

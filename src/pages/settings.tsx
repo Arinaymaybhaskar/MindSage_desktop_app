@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import SettingsSkeleton from "../components/Skeletons/SettingsSkeleton";
+import { motion } from "framer-motion";
 
-// Lazy load all the setting sections for better performance
 const ProfileSettings = lazy(
   () => import("../components/settings/ProfileSettings")
 );
@@ -38,7 +38,6 @@ const ExportSettings = lazy(
   () => import("../components/settings/ExportSettings")
 );
 
-// Map all sections to their corresponding components
 const settingsSections = {
   profile: { label: "Profile", icon: User, component: ProfileSettings },
   appearance: {
@@ -72,8 +71,8 @@ const Settings = () => {
     const fetchInitialData = async () => {
       try {
         const [userResponse, settingsResponse] = await Promise.all([
-          userService.getMe(authMode, accessToken),
-          userService.getSettings(authMode, accessToken),
+          userService.getMe(authMode, accessToken!),
+          userService.getSettings(authMode, accessToken!),
         ]);
         setUser(userResponse);
         setSettings(settingsResponse);
@@ -93,11 +92,11 @@ const Settings = () => {
       if (settingsSections[hash]) {
         setActiveTab(hash);
       } else {
-        setActiveTab("profile"); // Default to profile if hash is invalid
+        setActiveTab("profile");
       }
     };
     window.addEventListener("hashchange", handleHashChange);
-    handleHashChange(); // Set initial tab based on current URL hash
+    handleHashChange();
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
@@ -106,7 +105,7 @@ const Settings = () => {
     try {
       const updatedSettings = await userService.updateSettings(
         authMode,
-        accessToken,
+        accessToken!,
         newSettings
       );
       setSettings(updatedSettings);
@@ -121,7 +120,7 @@ const Settings = () => {
     try {
       const updatedUser = await userService.updateProfile(
         authMode,
-        accessToken,
+        accessToken!,
         newProfile
       );
       setUser(updatedUser.user);
@@ -143,49 +142,64 @@ const Settings = () => {
       <Toaster
         position="bottom-center"
         toastOptions={{
-          className: "dark:bg-gray-700 dark:text-white",
+          className:
+            "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark border border-border-light dark:border-border-dark",
         }}
       />
-      <div className="bg-gray-100 dark:bg-slate-900 min-h-screen">
+      <div className="bg-base-light dark:bg-base-dark min-h-screen">
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <header className="mb-8">
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+            <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
               Settings
             </h1>
-            <p className="text-lg text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-lg text-text-light-sub dark:text-text-dark-sub mt-1">
               Manage your account and preferences.
             </p>
           </header>
 
-          <div className="flex flex-col lg:flex-row gap-8 items-start">
-            {/* Sidebar Navigation */}
-            <aside className="lg:w-1/4 w-full sticky top-24">
-              <nav className="space-y-1">
+          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
+            <aside className="lg:w-1/4 w-full lg:sticky top-24">
+              <nav className="space-y-1 relative">
                 {Object.entries(settingsSections).map(
                   ([key, { label, icon: Icon }]) => (
                     <a
                       key={key}
                       href={`#${key}`}
-                      onClick={() => setActiveTab(key)}
-                      className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                      onClick={(e) => {
+                        e.preventDefault();
+                        window.location.hash = key;
+                      }}
+                      className={`relative flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors z-10 ${
                         activeTab === key
-                          ? "bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
-                          : "text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800"
+                          ? "text-info"
+                          : "text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
                       }`}
                     >
-                      <Icon size={20} />
-                      <span>{label}</span>
+                      {activeTab === key && (
+                        <motion.div
+                          layoutId="active-settings-pill"
+                          className="absolute inset-0 bg-tertiary-light dark:bg-tertiary-dark rounded-lg z-0"
+                          transition={{
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 30,
+                          }}
+                        />
+                      )}
+                      <span className="relative z-10">
+                        <Icon size={20} />
+                      </span>
+                      <span className="relative z-10">{label}</span>
                     </a>
                   )
                 )}
               </nav>
             </aside>
 
-            {/* Main Content Area */}
             <div className="lg:w-3/4 w-full">
               <Suspense
                 fallback={
-                  <div className="bg-white dark:bg-gray-800/50 p-6 rounded-2xl h-96 animate-pulse" />
+                  <div className="bg-secondary-light dark:bg-secondary-dark p-6 rounded-2xl h-96 animate-pulse border border-border-light dark:border-border-dark" />
                 }
               >
                 {ActiveComponent && (

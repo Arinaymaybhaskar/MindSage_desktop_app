@@ -1,10 +1,10 @@
-import { useState } from "react"
+import { useState } from "react";
 
 interface FollowUpQuestionProps {
-  questions: string[]
+  questions: string[];
 }
 export function FollowUpQuestions({ questions }: FollowUpQuestionProps) {
-  const [selectedQuestion, setSelectedQuestion] = useState<number | null>(null)
+  const [selectedQuestion, setSelectedQuestion] = useState<number | null>(null);
   return (
     <div
       className="mb-3 bg-gradient-to-r 

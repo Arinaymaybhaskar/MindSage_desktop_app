@@ -1,35 +1,32 @@
-// src/components/settings/SecuritySettings.tsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Switch } from "../ui/Switch";
 
 const SecuritySettings = ({ settings, onSettingsSave }) => {
-  const [localSettings, setLocalSettings] = React.useState(settings);
+  const [localSettings, setLocalSettings] = useState(settings);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
 
-  // This component might not need a save button if actions are immediate
-  // or handled on other pages (like password change).
-
   return (
-    <div className="bg-white dark:bg-gray-800/50 shadow-lg rounded-2xl border border-gray-200 dark:border-gray-700">
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+    <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
+      <div className="p-6 border-b border-border-light dark:border-border-dark">
+        <h2 className="text-xl font-bold text-text-light dark:text-text-dark">
           Security & Privacy
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">
           Manage your account security and data privacy.
         </p>
       </div>
-      <div className="p-6 divide-y divide-gray-200 dark:divide-gray-700">
+      <div className="p-6 divide-y divide-border-light dark:divide-border-dark">
+        {/* Biometric Lock Setting */}
         <div className="py-4 flex justify-between items-center">
           <div>
-            <label className="font-medium text-gray-900 dark:text-gray-100">
+            <label className="font-medium text-text-light dark:text-text-dark">
               Biometric Lock
             </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
               Require biometrics to access the app.
             </p>
           </div>
@@ -40,34 +37,36 @@ const SecuritySettings = ({ settings, onSettingsSave }) => {
             }
           />
         </div>
+
+        {/* Change Password Setting */}
         <div className="py-4 flex justify-between items-center">
           <div>
-            <label className="font-medium text-gray-900 dark:text-gray-100">
+            <label className="font-medium text-text-light dark:text-text-dark">
               Change Password
             </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
               Update your account password.
             </p>
           </div>
           <Link
             to="/change-password"
-            className="text-sm font-semibold text-indigo-600 hover:underline"
+            className="text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 px-4 py-2 rounded-lg transition-colors"
           >
             Change
           </Link>
         </div>
+
+        {/* Delete Account Setting */}
         <div className="py-4 flex justify-between items-center">
           <div>
-            <label className="font-medium text-red-600 dark:text-red-500">
-              Delete Account
-            </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <label className="font-medium text-danger">Delete Account</label>
+            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
               Permanently delete your account and all data.
             </p>
           </div>
           <Link
             to="/delete-account"
-            className="text-sm font-semibold text-red-600 hover:underline"
+            className="text-sm font-semibold text-danger bg-danger/10 hover:bg-danger/20 px-4 py-2 rounded-lg transition-colors"
           >
             Delete
           </Link>

@@ -25,16 +25,18 @@ const StatCard: React.FC<StatCardProps> = ({
 
   return (
     <motion.div
-      className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center gap-4"
-      whileHover={{ scale: 1.03 }}
+      className="bg-secondary-light dark:bg-secondary-dark border border-border-light dark:border-border-dark rounded-xl p-4 flex items-center gap-4"
+      whileHover={{ scale: 1.005 }}
       transition={{ type: "spring", stiffness: 300 }}
     >
       <div className={`p-3 rounded-full ${colorClasses[color]}`}>
         <Icon size={24} />
       </div>
       <div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+        <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+          {label}
+        </p>
+        <p className=" text-2xl font-bold text-text-light dark:text-text-dark">
           {value}
         </p>
       </div>

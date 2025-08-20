@@ -20,6 +20,73 @@ interface User {
   timezone: string;
 }
 
+// --- NEW: Reusable Custom Dropdown Component ---
+const Dropdown = ({ options, selectedValue, onChange, placeholder }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedLabel =
+    options.find((opt) => opt.value === selectedValue)?.label || placeholder;
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full p-2 flex items-center justify-between text-left bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-info focus:border-info outline-none transition text-sm"
+      >
+        <span className="truncate text-text-light dark:text-text-dark">
+          {selectedLabel}
+        </span>
+        <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
+          <ChevronDown
+            size={16}
+            className="text-text-light-sub dark:text-text-dark-sub"
+          />
+        </motion.div>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 5 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="absolute top-full right-0 mt-1 w-full bg-surface-light dark:bg-surface-dark rounded-lg shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-20 p-2 max-h-48 overflow-y-auto"
+          >
+            {options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
+              >
+                {option.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 export const ProfileDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -31,6 +98,7 @@ export const ProfileDropdown: React.FC = () => {
   const { accessToken } = useAuth();
   const navigate = useNavigate();
 
+  // All logic (useEffect, handlers) remains the same...
   useEffect(() => {
     const fetchModels = async () => {
       try {
@@ -91,23 +159,27 @@ export const ProfileDropdown: React.FC = () => {
     <UserIcon size={20} />
   );
 
+  const modelOptions = models.map((model) => ({ value: model, label: model }));
+
   return (
     <>
-      <div className="relative mx-3" ref={dropdownRef}>
+      <div className="relative " ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 p-1.5 bg-white dark:bg-gray-800 rounded-full transition-colors duration-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="flex items-center gap-2 p-1.5 rounded-full transition-colors duration-200 border border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
         >
-          <div className="flex items-center justify-center w-8 h-8 bg-indigo-100 dark:bg-indigo-500/20 rounded-full text-indigo-600 dark:text-indigo-300 font-semibold">
+          {/* --- CHANGE: Themed avatar --- */}
+          <div className="flex items-center justify-center w-8 h-8 bg-info/10 rounded-full text-info font-semibold">
             {displayInitial}
           </div>
-          <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 hidden sm:block">
+          {/* --- CHANGE: Themed display name --- */}
+          <span className="text-sm font-semibold text-text-light dark:text-text-dark hidden sm:block">
             {displayName}
           </span>
           <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
             <ChevronDown
               size={18}
-              className="text-gray-500 dark:text-gray-400"
+              className="text-text-light-sub dark:text-text-dark-sub"
             />
           </motion.div>
         </button>
@@ -119,48 +191,38 @@ export const ProfileDropdown: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 origin-top-right z-10"
+              className="absolute top-full right-0 mt-2 w-72 bg-secondary-light dark:bg-secondary-dark rounded-xl shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-10"
             >
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <p className="font-semibold text-gray-900 dark:text-gray-100">
+              <div className="p-4 border-b border-border-light dark:border-border-dark">
+                <p className="font-semibold text-text-light dark:text-text-dark">
                   {displayName}
                 </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
                   {user?.email}
                 </p>
               </div>
               <div className="p-2">
-                <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                <div className="px-2 py-1.5 text-xs font-semibold text-text-light-sub dark:text-text-dark-sub">
                   AI Model
                 </div>
-                <div className="relative">
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => handleModelChange(e.target.value)}
-                    className="w-full appearance-none bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    {models.length > 0 ? (
-                      models.map((model) => (
-                        <option key={model} value={model}>
-                          {model}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>No models found</option>
-                    )}
-                  </select>
-                  <ChevronDown
-                    size={16}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                {/* --- CHANGE: Replaced <select> with <Dropdown> --- */}
+                <div className="px-2">
+                  <Dropdown
+                    options={modelOptions}
+                    selectedValue={selectedModel}
+                    onChange={handleModelChange}
+                    placeholder={
+                      models.length > 0 ? "Select a model" : "No models found"
+                    }
                   />
                 </div>
               </div>
-              <hr className="border-gray-200 dark:border-gray-700" />
-              <div className="p-2">
+              <hr className="border-border-light dark:border-border-dark my-1" />
+              <div className="p-2 gap-1 flex flex-col">
                 <Link
                   to="/settings"
                   onClick={() => setIsOpen(false)}
-                  className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
                 >
                   <Settings size={16} className="mr-3" />
                   Settings
@@ -170,7 +232,7 @@ export const ProfileDropdown: React.FC = () => {
                     setIsOpen(false);
                     setShowLogoutModal(true);
                   }}
-                  className="flex items-center w-full px-3 py-2 text-sm text-left text-red-600 dark:text-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                  className="flex items-center w-full px-3 py-2 text-sm text-left text-danger rounded-md hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
                 >
                   <LogOut size={16} className="mr-3" />
                   Logout
@@ -183,35 +245,36 @@ export const ProfileDropdown: React.FC = () => {
 
       <AnimatePresence>
         {showLogoutModal && (
+          // --- CHANGE: Themed Logout Modal ---
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-base-dark/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl w-full max-w-sm border border-gray-200 dark:border-gray-700"
+              className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl shadow-xl w-full max-w-sm border border-border-light dark:border-border-dark"
             >
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 text-center">
+              <h2 className="text-lg font-bold text-text-light dark:text-text-dark text-center">
                 Confirm Logout
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-2 mb-6">
+              <p className="text-sm text-text-light-sub dark:text-text-dark-sub text-center mt-2 mb-6">
                 Are you sure you want to sign out of your account?
               </p>
               <div className="flex justify-center space-x-4">
                 <button
                   onClick={() => setShowLogoutModal(false)}
-                  className="px-6 py-2 text-sm font-semibold text-gray-800 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  className="px-6 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="px-6 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  className="px-6 py-2 text-sm font-semibold text-white bg-danger hover:bg-danger/90 rounded-lg transition-colors"
                 >
                   Logout
                 </button>

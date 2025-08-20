@@ -9,6 +9,7 @@ interface Props {
 
 // Utility to get a contrasting text color (black or white) for any background color
 const getContrastingTextColor = (hexColor: string) => {
+  if (!hexColor) return "text-black";
   const r = parseInt(hexColor.slice(1, 3), 16);
   const g = parseInt(hexColor.slice(3, 5), 16);
   const b = parseInt(hexColor.slice(5, 7), 16);
@@ -64,6 +65,13 @@ export function MoodTagSelector({ onChange, selected }: Props) {
     });
   };
 
+  const handleClear = () => {
+    setSelection({
+      level1: null,
+      level2: [],
+    });
+  };
+
   const level1Data = Object.keys(moodHierarchy);
   const level2Data = selection.level1
     ? Object.keys(moodHierarchy[selection.level1])
@@ -72,7 +80,23 @@ export function MoodTagSelector({ onChange, selected }: Props) {
   return (
     <div className="space-y-4 w-full">
       {/* Level 1: Core Moods */}
-      <div className="flex flex-wrap gap-2">
+      <AnimatePresence>
+        {selection.level1 && (
+          <motion.button
+            key="clear-button"
+            type="button"
+            onClick={handleClear}
+            className="px-3 underline text-xs flex w-full justify-end items-center text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Clear
+          </motion.button>
+        )}
+      </AnimatePresence>
+      <div className="flex flex-wrap items-center gap-2">
         {level1Data.map((mood) => (
           <MoodButton
             key={mood}

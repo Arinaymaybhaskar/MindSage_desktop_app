@@ -1,5 +1,6 @@
-import { CloudIcon, WifiOffIcon } from "lucide-react";
+import { Cloud, WifiOff } from "lucide-react";
 import { type ReactNode } from "react";
+import { motion } from "framer-motion";
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -7,90 +8,116 @@ interface AuthLayoutProps {
   authMode: string;
   setAuthMode: (authMode: "offline" | "online") => void;
 }
+
 export function AuthLayout({
   children,
   title,
   authMode,
   setAuthMode,
 }: AuthLayoutProps) {
-  const toggleAuthMode = () => {
-    setAuthMode(authMode === "offline" ? "online" : "offline");
-  };
+  const toggleOptions = [
+    { id: "offline", label: "Offline", icon: WifiOff },
+    { id: "online", label: "Cloud", icon: Cloud },
+  ];
+
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row">
-      {/* Left side - decorative */}
-      <div className="hidden w-1/2 md:flex md:w-1/2 bg-dark2 p-8 flex-col justify-between">
-        <img
-          src="../../assets/iconLight.png"
-          alt="MindSage Logo"
-          className="w-12 h-12 p-2 hidden lg:flex md:flex rounded-4xl"
-        />
-        <div className="text-light2 space-y-6 max-w-md">
-          <h1 className="text-3xl font-bold font-fraunces">
-            Capture your thoughts, one day at a time
+    <div className="min-h-screen w-full flex flex-col md:flex-row bg-base-light dark:bg-base-dark">
+      {/* --- CHANGE: Themed decorative panel --- */}
+      <div className="hidden w-1/2 md:flex bg-secondary-light dark:bg-secondary-dark p-8 flex-col justify-between">
+        <div className="flex items-center gap-2 font-bold text-lg text-text-light font-[fraunces] dark:text-text-dark">
+          <img
+            src="../../assets/iconLight.png" // Ensure this path is correct
+            alt="MindSage Logo"
+            className="w-8 h-8 hidden dark:block"
+          />
+          <img
+            src="../../assets/iconDark.png" // Ensure this path is correct
+            alt="MindSage Logo"
+            className="w-8 h-8 dark:hidden "
+          />
+          <span className="flex">
+            Mind<p className="font-medium">Sage</p>
+          </span>
+        </div>
+        <div className="text-text-light dark:text-text-dark space-y-6 max-w-md">
+          <h1 className="text-4xl font-bold font-[fraunces]">
+            Capture your thoughts, one day at a time.
           </h1>
-          <p className="text-dark4">
+          <p className="text-text-light-sub dark:text-text-dark-sub">
             Your personal space to reflect, grow, and document your journey
             through life.
           </p>
-          <div className="flex gap-4">
-            <div className="h-1 w-12 bg-light1 rounded-full"></div>
-            <div className="h-1 w-12 bg-light2 rounded-full"></div>
-            <div className="h-1 w-12 bg-light3 rounded-full"></div>
+          <div className="flex gap-4 pt-2">
+            <div className="h-1 w-12 bg-info rounded-full"></div>
+            <div className="h-1 w-12 bg-success rounded-full"></div>
+            <div className="h-1 w-12 bg-warning rounded-full"></div>
           </div>
         </div>
-        <div className="text-light4 text-sm">
+        <div className="text-text-light dark:text-text-dark-sub text-sm">
           © {new Date().getFullYear()} MindSage. All rights reserved.
         </div>
       </div>
-      {/* Right side - form */}
-      <div className="w-full lg:w-1/2 md:w-1/2 min-h-screen flex items-center justify-center px-4 py-12 bg-gray-50">
-        <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-md">
-          <div className="flex lg:hidden md:hidden justify-center items-center gap-3">
-            <img src="../../assets/iconDark.png" alt="" className="w-8 h-8" />
-            <p
-              className="text-2xl text-[#314754] font-medium"
-            ><span className="font-bold text-[#32344a]">Mind</span>Sage</p>
-          </div>
-          <div className="mt-6">
-            <div className="flex">
-              <h2 className=" text-lg font-bold text-gray-600">{title}</h2>
-            </div>
-            <p className="mt-2 text-xs text-gray-500">
-              {authMode === "offline"
-                ? "Your data stays on this device and is never sent to the cloud"
-                : "Your data is securely stored in the cloud and accessible from any device"}
+
+      {/* --- CHANGE: Themed form panel --- */}
+      <div className="w-full lg:w-1/2 md:w-1/2 min-h-screen flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full">
+          <div className="flex lg:hidden md:hidden justify-center items-center gap-2 mb-8">
+            <img
+              src="../../assets/iconDark.png"
+              alt="MindSage Logo"
+              className="w-8 h-8"
+            />
+            <p className="text-2xl font-[fraunces] text-text-light dark:text-text-dark font-medium">
+              <span className="font-bold">Mind</span>Sage
             </p>
           </div>
-          <div className="flex justify-center mt-3 mb-4">
-            <div className="inline-flex rounded-md shadow-sm mt-2" role="group">
-              <button
-                type="button"
-                onClick={toggleAuthMode}
-                className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
-                  authMode === "offline"
-                    ? "bg-blue-50 text-blue-700 border border-blue-300 rounded-l-lg hover:bg-blue-100"
-                    : "bg-gray-100 text-gray-500 border border-gray-300 rounded-l-lg hover:bg-gray-200"
-                }`}
-              >
-                <WifiOffIcon size={16} className="mr-2" />
-                Offline
-              </button>
-              <button
-                type="button"
-                onClick={toggleAuthMode}
-                className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
-                  authMode === "online"
-                    ? "bg-purple-50 text-purple-700 border border-purple-300 rounded-r-lg hover:bg-purple-100"
-                    : "bg-gray-100 text-gray-500 border border-gray-300 rounded-r-lg hover:bg-gray-200"
-                }`}
-              >
-                <CloudIcon size={16} className="mr-2" />
-                Cloud
-              </button>
+
+          <div className=" bg-secondary-light dark:bg-secondary-dark p-8 rounded-2xl shadow-lg border border-border-light dark:border-border-dark">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">
+                {title}
+              </h2>
+              <p className="mt-2 text-sm text-text-light-sub dark:text-text-dark-sub">
+                {authMode === "offline"
+                  ? "Your data stays on this device, secure and private."
+                  : "Your data is synced securely to the cloud."}
+              </p>
             </div>
+
+            {/* --- REVAMP: Animated Auth Mode Toggle --- */}
+            <div className="flex justify-center mb-6">
+              <div className="relative flex w-full p-1 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
+                {toggleOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setAuthMode(opt.id as "offline" | "online")}
+                    className={`relative flex-1 flex items-center cursor-pointer justify-center gap-2 px-4 py-2 text-sm font-medium rounded-full z-10 transition-colors ${
+                      authMode === opt.id
+                        ? "text-text-light dark:text-text-dark"
+                        : "text-text-light-sub dark:text-text-dark-sub"
+                    }`}
+                  >
+                    {authMode === opt.id && (
+                      <motion.div
+                        layoutId="auth-mode-pill"
+                        className="absolute inset-0 bg-surface-light dark:bg-surface-dark rounded-full shadow-md"
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 30,
+                        }}
+                      />
+                    )}
+                    <span className="relative">
+                      <opt.icon size={16} />
+                    </span>
+                    <span className="relative">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {children}
           </div>
-          {children}
         </div>
       </div>
     </div>
