@@ -1,40 +1,44 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { Sparkles } from "lucide-react"; // Using a theme-consistent icon
+import clsx from "clsx";
 
 interface FollowUpQuestionProps {
   questions: string[];
 }
+
 export function FollowUpQuestions({ questions }: FollowUpQuestionProps) {
   const [selectedQuestion, setSelectedQuestion] = useState<number | null>(null);
+
   return (
-    <div
-      className="mb-3 bg-gradient-to-r 
-            from-indigo-50 via-pink-50 to-purple-50 
-            dark:from-indigo-950 dark:via-pink-950 dark:to-purple-950 rounded-xl p-3 shadow-sm animate-fadeIn"
-    >
-      <h3 className="text-sm font-medium mb-2 text-white flex items-center">
-        <img src="../../public/ai.png" className="mr-2 w-4 h-4 dark:hidden" />
-        <img
-          src="../../public/ai-white.png"
-          alt=""
-          className="mr-2 w-4 h-4  dark:block"
-        />
+    // --- CHANGE: Themed main container ---
+    <div className="bg-tertiary-light dark:bg-tertiary-dark rounded-xl p-4 border border-border-light dark:border-border-dark">
+      <h3 className="text-sm font-semibold mb-3 text-text-light dark:text-text-dark flex items-center gap-2">
+        <Sparkles size={16} className="text-info" />
         Follow-up Questions
       </h3>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {questions.map((question, index) => (
-          <div
+          <motion.div
             key={index}
+            // --- CHANGE: Themed question items with cleaner styling and animation ---
+            className={clsx(
+              "bg-surface-light dark:bg-surface-dark p-2.5 rounded-lg transition-all duration-200 border cursor-pointer",
+              {
+                "border-info shadow-md": selectedQuestion === index,
+                "border-border-light dark:border-border-dark hover:border-border-light/70 dark:hover:border-border-dark/70":
+                  selectedQuestion !== index,
+              }
+            )}
+            whileTap={{ scale: 0.98 }}
             onClick={() =>
               setSelectedQuestion(selectedQuestion === index ? null : index)
             }
-            className={`bg-base-light dark:bg-base-dark  p-2.5 rounded-lg transition-all duration-300 border border-border-light dark:border-border-dark ${
-              selectedQuestion === index
-                ? "border-indigo-300 shadow-md transform-gpu -translate-y-0.5"
-                : "border-indigo-50 shadow-sm"
-            }`}
           >
-            <p className="text-sm ">{question}</p>
-          </div>
+            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+              {question}
+            </p>
+          </motion.div>
         ))}
       </div>
     </div>

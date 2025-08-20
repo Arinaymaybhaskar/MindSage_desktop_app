@@ -40,24 +40,24 @@ const emptyJournal: JournalEntry = {
 const SidebarPanel = ({ title, icon: Icon, children }) => {
   const [isOpen, setIsOpen] = useState(true);
   return (
-    <div className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+    <div className="bg-secondary-light dark:bg-secondary-dark border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
       <button
         type="button"
         className="w-full flex justify-between items-center p-4"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-3">
-          <Icon size={18} className="text-indigo-500 dark:text-indigo-400" />
-          <h3 className="font-semibold text-gray-800 dark:text-gray-200">
+          <Icon size={18} className="text-info" />
+          <h3 className="font-semibold text-text-light dark:text-text-dark">
             {title}
           </h3>
         </div>
-        <ChevronDown
-          size={20}
-          className={`text-gray-500 transition-transform ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
+        <motion.div animate={{ rotate: isOpen ? 0 : -90 }}>
+          <ChevronDown
+            size={20}
+            className="text-text-light-sub dark:text-text-dark-sub transition-transform"
+          />
+        </motion.div>
       </button>
       <AnimatePresence>
         {isOpen && (
@@ -67,7 +67,7 @@ const SidebarPanel = ({ title, icon: Icon, children }) => {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="p-4 border-t border-border-light dark:border-border-dark">
               {children}
             </div>
           </motion.div>
@@ -290,18 +290,18 @@ export default function JournalForm() {
   };
 
   return (
-    <div className="w-full h-screen overflow-hidden  text-gray-900 dark:text-gray-100">
+    <div className="w-full h-screen overflow-hidden bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark">
       <form onSubmit={handleSubmit} className="flex flex-col h-full">
         {/* Header */}
-        <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+        <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark">
           <div className="flex items-center gap-4">
             <Link
               to="/dashboard"
-              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              className="p-2 rounded-full hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
             >
               <ArrowLeft size={20} />
             </Link>
-            <h1 className="text-xl font-bold font-[fraunces]">
+            <h1 className="text-xl font-bold ">
               {isEdit ? "Edit Entry" : "New Journal Entry"}
             </h1>
           </div>
@@ -312,31 +312,25 @@ export default function JournalForm() {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 5 }}
-                  className="text-sm text-gray-500"
+                  className="text-sm text-text-light-sub dark:text-text-dark-sub"
                 >
                   Draft saved
                 </motion.div>
               )}
             </AnimatePresence>
-            {/* --- NEW: Updated Clear button with framer-motion and better styling --- */}
-            <motion.button
+            <button
               type="button"
               onClick={() => setEntry(emptyJournal)}
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 font-semibold rounded-lg border border-gray-300 dark:border-gray-700 hover:border-red-500 dark:hover:border-red-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-danger bg-danger/10 rounded-lg hover:bg-danger/20 transition-all disabled:opacity-50"
             >
               <Trash2 size={16} />
               <span>Clear</span>
-            </motion.button>
-            {/* --- NEW: Updated Create/Save button with loading state --- */}
-            <motion.button
+            </button>
+            <button
               type="submit"
               disabled={isSubmitting || !entry.content.trim()}
-              className="flex items-center justify-center gap-2 px-4 py-2 w-40 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              className="flex items-center justify-center gap-2 px-4 py-2 w-40 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
@@ -346,18 +340,18 @@ export default function JournalForm() {
               ) : (
                 <>
                   <Save size={18} />
-                  <span className="font-[fraunces]">
+                  <span className="">
                     {isEdit ? "Save Changes" : "Create Entry"}
                   </span>
                 </>
               )}
-            </motion.button>
+            </button>
           </div>
         </header>
 
         {/* Main Content */}
         <div className="flex-grow flex overflow-hidden">
-          {/* Left Column: Editor */}
+          {/* Editor Column */}
           <div className="flex-grow flex flex-col p-6 overflow-y-auto">
             <input
               id="title"
@@ -365,19 +359,19 @@ export default function JournalForm() {
               placeholder="A Title for Your Thoughts..."
               value={entry.title}
               onChange={(e) => setEntry({ ...entry, title: e.target.value })}
-              className="text-3xl font-[fraunces] font-bold bg-transparent focus:outline-none mb-4"
+              className="text-3xl font-[fraunces] font-bold bg-transparent focus:outline-none mb-4 placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
             />
             <textarea
               id="content"
               placeholder="Write freely..."
               value={entry.content}
               onChange={(e) => setEntry({ ...entry, content: e.target.value })}
-              className="flex-grow font-inter w-full text-lg bg-transparent focus:outline-none resize-none leading-relaxed"
+              className="flex-grow font-inter w-full text-lg bg-transparent focus:outline-none resize-none leading-relaxed placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
             />
           </div>
 
-          {/* Right Column: Sidebar */}
-          <aside className="w-100 overflow-scroll flex-shrink-0 no-scrollbar border-l border-gray-200 dark:border-gray-800 p-6  space-y-6">
+          {/* Sidebar Column */}
+          <aside className="w-96 overflow-y-auto flex-shrink-0 no-scrollbar border-l border-border-light dark:border-border-dark p-6 space-y-6">
             <SidebarPanel title="Mood & Sentiment" icon={Smile}>
               <MoodSlider
                 value={entry.mood_score ?? 50}
@@ -401,7 +395,7 @@ export default function JournalForm() {
                     <button
                       type="button"
                       onClick={handleRemoveImage}
-                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 p-1.5 bg-base-dark/60 text-text-dark rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X size={16} />
                     </button>
@@ -413,8 +407,8 @@ export default function JournalForm() {
                     onDrop={handleDrop}
                     className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
                       isDragging
-                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-                        : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        ? "border-info bg-info/10"
+                        : "border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
                     }`}
                   >
                     <div className="text-center">
@@ -422,14 +416,14 @@ export default function JournalForm() {
                         size={32}
                         className={`mx-auto mb-2 transition-transform ${
                           isDragging
-                            ? "text-indigo-500 scale-110"
-                            : "text-gray-400"
+                            ? "text-info scale-110"
+                            : "text-text-light-sub dark:text-text-dark-sub"
                         }`}
                       />
                       <span className="text-sm font-semibold">
                         {isDragging ? "Drop image to upload" : "Add Image"}
                       </span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-text-light-sub dark:text-text-dark-sub">
                         or click to browse
                       </p>
                     </div>
@@ -452,7 +446,7 @@ export default function JournalForm() {
                     <button
                       type="button"
                       onClick={resetRecording}
-                      className="absolute -top-2 -right-2 p-1 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded-full text-gray-500 hover:text-red-500"
+                      className="absolute -top-2 -right-2 p-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-full text-text-light-sub hover:text-danger"
                     >
                       <X size={14} />
                     </button>
@@ -466,7 +460,7 @@ export default function JournalForm() {
                 type="button"
                 onClick={handleGenerateQuestions}
                 disabled={isGeneratingQuestions || !entry.content.trim()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-500/20 disabled:opacity-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-info font-semibold rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 disabled:opacity-50 transition-colors"
               >
                 {isGeneratingQuestions ? (
                   <Loader2 size={18} className="animate-spin" />

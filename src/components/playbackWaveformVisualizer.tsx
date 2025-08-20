@@ -11,25 +11,27 @@ const PlaybackWaveformVisualizer: React.FC<PlaybackWaveformVisualizerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [waveform, setWaveform] = useState<Float32Array | null>(null);
 
-  // 1. Process the audio blob to extract waveform data
   useEffect(() => {
     const processAudio = async () => {
       const audioContext = new AudioContext();
       const arrayBuffer = await audioBlob.arrayBuffer();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      // We use the raw channel data as our waveform
       setWaveform(audioBuffer.getChannelData(0));
     };
     processAudio();
   }, [audioBlob]);
 
-  // 2. Draw the extracted waveform data onto the canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context || !waveform) return;
 
     const draw = () => {
+      if (containerRef.current) {
+        canvas.width = containerRef.current.offsetWidth;
+        canvas.height = containerRef.current.offsetHeight;
+      }
+
       const { width, height } = canvas;
       const centerY = height / 2;
       const barWidth = 2;
@@ -38,7 +40,7 @@ const PlaybackWaveformVisualizer: React.FC<PlaybackWaveformVisualizerProps> = ({
 
       context.clearRect(0, 0, width, height);
       context.lineWidth = barWidth;
-      context.strokeStyle = "#a78bfa"; // A nice purple for playback
+      context.strokeStyle = "hsl(238, 52%, 70%)"; // --color-info
 
       const samples = Math.floor(width / sliceWidth);
       const step = Math.floor(waveform.length / samples);
@@ -71,12 +73,16 @@ const PlaybackWaveformVisualizer: React.FC<PlaybackWaveformVisualizerProps> = ({
 
     draw();
 
-    return () => resizeObserver.disconnect();
+    return () => {
+      if (containerRef.current) {
+        resizeObserver.unobserve(containerRef.current);
+      }
+    };
   }, [waveform]);
 
   return (
     <div ref={containerRef} className="w-full h-full">
-      <canvas ref={canvasRef} className="w-full h-full" />
+      <canvas ref={canvasRef} />
     </div>
   );
 };

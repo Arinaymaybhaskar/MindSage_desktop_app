@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { moodHierarchy, moodColors } from "../utils/moodHierarchy";
+import { X } from "lucide-react"; // Using an icon for the clear button
 
 interface Props {
   onChange: (tags: string[]) => void;
   selected: string[];
 }
 
-// Utility to get a contrasting text color (black or white) for any background color
 const getContrastingTextColor = (hexColor: string) => {
-  if (!hexColor) return "text-black";
+  if (!hexColor) return "text-text-light dark:text-text-dark";
   const r = parseInt(hexColor.slice(1, 3), 16);
   const g = parseInt(hexColor.slice(3, 5), 16);
   const b = parseInt(hexColor.slice(5, 7), 16);
@@ -17,7 +17,7 @@ const getContrastingTextColor = (hexColor: string) => {
   return luminance > 0.5 ? "text-black" : "text-white";
 };
 
-// Reusable MoodButton sub-component
+// --- CHANGE: Themed MoodButton sub-component ---
 const MoodButton = ({ mood, onClick, isSelected, color }) => (
   <motion.button
     type="button"
@@ -26,7 +26,7 @@ const MoodButton = ({ mood, onClick, isSelected, color }) => (
       ${
         isSelected
           ? `${getContrastingTextColor(color)} border-transparent`
-          : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400"
+          : "bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark border-border-light dark:border-border-dark hover:border-border-light/70 dark:hover:border-border-dark/70"
       }`}
     style={{ backgroundColor: isSelected ? color : undefined }}
     whileTap={{ scale: 0.95 }}
@@ -51,7 +51,7 @@ export function MoodTagSelector({ onChange, selected }: Props) {
   const handleLevel1 = (mood: string) => {
     setSelection((prev) => ({
       level1: prev.level1 === mood ? null : mood,
-      level2: [], // Reset deeper selections when primary mood changes
+      level2: [],
     }));
   };
 
@@ -59,8 +59,8 @@ export function MoodTagSelector({ onChange, selected }: Props) {
     setSelection((prev) => {
       const currentLevel2 = prev.level2 || [];
       const newLevel2 = currentLevel2.includes(subMood)
-        ? currentLevel2.filter((m) => m !== subMood) // Toggle off
-        : [...currentLevel2, subMood]; // Toggle on
+        ? currentLevel2.filter((m) => m !== subMood)
+        : [...currentLevel2, subMood];
       return { ...prev, level2: newLevel2 };
     });
   };
@@ -79,20 +79,20 @@ export function MoodTagSelector({ onChange, selected }: Props) {
 
   return (
     <div className="space-y-4 w-full">
-      {/* Level 1: Core Moods */}
       <AnimatePresence>
         {selection.level1 && (
+          // --- CHANGE: Themed clear button ---
           <motion.button
             key="clear-button"
             type="button"
             onClick={handleClear}
-            className="px-3 underline text-xs flex w-full justify-end items-center text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
+            className="text-xs flex w-full justify-end items-center gap-1 text-text-light-sub dark:text-text-dark-sub hover:text-danger dark:hover:text-danger transition-colors"
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
             whileTap={{ scale: 0.95 }}
           >
-            Clear
+            <X size={12} /> Clear
           </motion.button>
         )}
       </AnimatePresence>
@@ -108,14 +108,14 @@ export function MoodTagSelector({ onChange, selected }: Props) {
         ))}
       </div>
 
-      {/* Level 2: Secondary Moods (allows multi-select) */}
       <AnimatePresence>
         {selection.level1 && level2Data && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="flex flex-wrap gap-2 p-3 bg-gray-100 dark:bg-gray-800/50 rounded-lg"
+            // --- CHANGE: Themed sub-mood container ---
+            className="flex flex-wrap gap-2 p-3 bg-secondary-light dark:bg-secondary-dark rounded-lg border border-border-light dark:border-border-dark"
           >
             {level2Data.map((subMood) => (
               <MoodButton

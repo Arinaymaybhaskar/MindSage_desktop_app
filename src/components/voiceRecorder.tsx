@@ -2,10 +2,8 @@ import React from "react";
 import { Mic, StopCircle, Pause, Play, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import LiveWaveformVisualizer from "./liveWaveformVisualizer";
-// Import the new playback visualizer
 import PlaybackWaveformVisualizer from "./PlaybackWaveformVisualizer";
 
-// --- Define the props type to match the hook's return value ---
 type VoiceRecorderProps = {
   isRecording: boolean;
   isPaused: boolean;
@@ -47,7 +45,7 @@ const VoiceRecorderUI: React.FC<VoiceRecorderProps> = ({
         <button
           type="button"
           onClick={togglePauseResume}
-          className="flex items-center justify-center w-14 h-14 bg-white dark:bg-gray-200 text-gray-900 rounded-full shadow-lg transform transition-transform hover:scale-105"
+          className="flex items-center justify-center w-14 h-14 bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark rounded-full shadow-lg border border-border-light dark:border-border-dark transform transition-transform hover:scale-105"
           aria-label={isPaused ? "Resume recording" : "Pause recording"}
         >
           {isPaused ? <Play size={28} className="ml-1" /> : <Pause size={28} />}
@@ -59,7 +57,7 @@ const VoiceRecorderUI: React.FC<VoiceRecorderProps> = ({
       <button
         type="button"
         onClick={startRecording}
-        className="flex items-center justify-center w-14 h-14 bg-red-600 text-white rounded-full shadow-lg transform transition-transform hover:scale-105"
+        className="flex items-center justify-center w-14 h-14 bg-danger text-white rounded-full shadow-lg transform transition-transform hover:scale-105"
         aria-label="Start recording"
       >
         <Mic size={28} />
@@ -68,10 +66,9 @@ const VoiceRecorderUI: React.FC<VoiceRecorderProps> = ({
   };
 
   return (
-    <div className="w-full bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-4">
+    <div className="w-full bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-xl p-4 flex flex-col gap-4">
       {/* Top Row: Controls and Timer */}
       <div className="w-full flex items-center justify-between">
-        {/* Left-side secondary button (Stop/Delete) */}
         <div className="w-14 flex justify-start">
           <AnimatePresence>
             {(isRecording || isPaused) && (
@@ -81,7 +78,7 @@ const VoiceRecorderUI: React.FC<VoiceRecorderProps> = ({
                 exit={{ opacity: 0, scale: 0.8 }}
                 type="button"
                 onClick={stopRecording}
-                className="p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-secondary-light dark:hover:bg-secondary-dark transition-colors"
                 aria-label="Stop recording"
               >
                 <StopCircle size={28} />
@@ -94,7 +91,7 @@ const VoiceRecorderUI: React.FC<VoiceRecorderProps> = ({
                 exit={{ opacity: 0, scale: 0.8 }}
                 type="button"
                 onClick={resetRecording}
-                className="p-2 rounded-full text-gray-500 hover:bg-red-100 dark:hover:bg-red-500/10 hover:text-red-500"
+                className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-danger/10 hover:text-danger transition-colors"
                 aria-label="Delete recording"
               >
                 <Trash2 size={28} />
@@ -103,10 +100,8 @@ const VoiceRecorderUI: React.FC<VoiceRecorderProps> = ({
           </AnimatePresence>
         </div>
 
-        {/* Center Primary Button */}
         <div className="flex-shrink-0">{renderPrimaryButton()}</div>
 
-        {/* Right-side Timer / Status */}
         <div className="w-14 flex justify-end">
           <AnimatePresence mode="wait">
             <motion.div
@@ -118,11 +113,11 @@ const VoiceRecorderUI: React.FC<VoiceRecorderProps> = ({
               className="text-right"
             >
               {isRecording || isPaused ? (
-                <div className="text-xl font-mono text-gray-900 dark:text-gray-100">
+                <div className="text-xl font-mono text-text-light dark:text-text-dark">
                   {formatTime(recordingTime)}
                 </div>
               ) : (
-                <div className="w-14 h-7" /> // Placeholder to prevent layout shift
+                <div className="w-14 h-7" />
               )}
             </motion.div>
           </AnimatePresence>
@@ -143,10 +138,9 @@ const VoiceRecorderUI: React.FC<VoiceRecorderProps> = ({
             {isRecording || isPaused ? (
               <LiveWaveformVisualizer waveformHistory={waveformHistory} />
             ) : hasRecording ? (
-              // Use the new PlaybackWaveformVisualizer here
               <PlaybackWaveformVisualizer audioBlob={recordingBlob} />
             ) : (
-              <div className="flex items-center justify-center h-full text-sm text-gray-400 dark:text-gray-500">
+              <div className="flex items-center justify-center h-full text-sm text-text-light-sub dark:text-text-dark-sub">
                 Click the mic to start recording
               </div>
             )}

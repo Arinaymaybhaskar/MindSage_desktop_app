@@ -22,7 +22,7 @@ export function AuthLayout({
 
   return (
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-base-light dark:bg-base-dark">
-      {/* --- CHANGE: Themed decorative panel --- */}
+      {/* --- Themed decorative panel --- */}
       <div className="hidden w-1/2 md:flex bg-secondary-light dark:bg-secondary-dark p-8 flex-col justify-between">
         <div className="flex items-center gap-2 font-bold text-lg text-text-light font-[fraunces] dark:text-text-dark">
           <img
@@ -58,7 +58,7 @@ export function AuthLayout({
         </div>
       </div>
 
-      {/* --- CHANGE: Themed form panel --- */}
+      {/* --- Themed form panel --- */}
       <div className="w-full lg:w-1/2 md:w-1/2 min-h-screen flex items-center justify-center px-4 py-12">
         <div className="max-w-md w-full">
           <div className="flex lg:hidden md:hidden justify-center items-center gap-2 mb-8">
@@ -84,20 +84,34 @@ export function AuthLayout({
               </p>
             </div>
 
-            {/* --- REVAMP: Animated Auth Mode Toggle --- */}
+            {/* --- REVAMPED: Auth Mode Toggle with Disabled State --- */}
             <div className="flex justify-center mb-6">
               <div className="relative flex w-full p-1 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
                 {toggleOptions.map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => setAuthMode(opt.id as "offline" | "online")}
-                    className={`relative flex-1 flex items-center cursor-pointer justify-center gap-2 px-4 py-2 text-sm font-medium rounded-full z-10 transition-colors ${
-                      authMode === opt.id
-                        ? "text-text-light dark:text-text-dark"
-                        : "text-text-light-sub dark:text-text-dark-sub"
+                    // Only allow onClick for the "offline" option
+                    onClick={() => {
+                      if (opt.id === "offline") {
+                        setAuthMode("offline");
+                      }
+                    }}
+                    // Disable the "online" button
+                    disabled={opt.id === "online"}
+                    className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-full z-10 transition-colors ${
+                      // Ternary to handle styling for all states
+                      opt.id === "online"
+                        ? // Disabled state for "online"
+                          "text-info opacity-70 cursor-not-allowed"
+                        : authMode === opt.id
+                        ? // Active state for "offline"
+                          "text-text-light dark:text-text-dark"
+                        : // Inactive state for "offline"
+                          "text-text-light-sub dark:text-text-dark-sub"
                     }`}
                   >
-                    {authMode === opt.id && (
+                    {/* The animated pill only shows for the active "offline" mode */}
+                    {authMode === opt.id && opt.id === "offline" && (
                       <motion.div
                         layoutId="auth-mode-pill"
                         className="absolute inset-0 bg-surface-light dark:bg-surface-dark rounded-full shadow-md"
@@ -111,7 +125,10 @@ export function AuthLayout({
                     <span className="relative">
                       <opt.icon size={16} />
                     </span>
-                    <span className="relative">{opt.label}</span>
+                    {/* Display "Coming Soon" for the "online" option */}
+                    <span className="relative font-semibold">
+                      {opt.id === "online" ? "Coming Soon" : opt.label}
+                    </span>
                   </button>
                 ))}
               </div>
