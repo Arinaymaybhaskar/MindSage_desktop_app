@@ -1,9 +1,9 @@
 // src/components/MoodSlider.tsx
-import React from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion, animate } from "framer-motion";
 
 type Props = {
-  value: number; // The mood score, expected to be 1-5
+  value: number;
   onChange: (val: number) => void;
 };
 
@@ -16,10 +16,37 @@ const moods = [
 ];
 
 export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
-  const selectedMood = moods.find((m) => m.value === value) || moods[2];
-  const progress = ((value - 1) / (moods.length - 1)) * 100;
+  const [visualValue, setVisualValue] = useState(value);
+  // --- NEW: State to track if animation is running ---
+  const [isAnimating, setIsAnimating] = useState(false);
 
-  // Create a color gradient for the slider track
+  useEffect(() => {
+    // Prevent the prop from overriding the value during animation
+    if (!isAnimating) {
+      setVisualValue(value);
+    }
+  }, [value, isAnimating]);
+
+  const handleEmojiClick = (newValue: number) => {
+    setIsAnimating(true); // <-- Lock the slider from drag input
+    animate(visualValue, newValue, {
+      duration: 0.4,
+      ease: "easeInOut",
+      onUpdate: (latest) => {
+        setVisualValue(latest);
+      },
+      onComplete: () => {
+        onChange(newValue);
+        setIsAnimating(false); // <-- Unlock the slider
+      },
+    });
+  };
+
+  const roundedVisualValue = Math.round(visualValue);
+  const selectedMood =
+    moods.find((m) => m.value === roundedVisualValue) || moods[2];
+  const progress = ((visualValue - 1) / (moods.length - 1)) * 100;
+
   const gradient = `linear-gradient(to right, ${moods[0].color}, ${selectedMood.color} ${progress}%, #e5e7eb ${progress}%)`;
   const darkGradient = `linear-gradient(to right, ${moods[0].color}, ${selectedMood.color} ${progress}%, #4b5563 ${progress}%)`;
 
@@ -35,17 +62,32 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
       </div>
 
       <div className="relative w-full">
-        {/* Themed Range Slider */}
         <input
           type="range"
           min="1"
           max="5"
-          step="1"
-          value={value}
-          onChange={(e) => onChange(parseInt(e.target.value))}
+          step="0.01"
+          value={visualValue}
+          // --- UPDATED: New, optimized onChange handler ---
+          onChange={(e) => {
+            // Do nothing if an emoji-click animation is running
+            if (isAnimating) return;
+
+            const draggedValue = parseFloat(e.target.value);
+            // 1. FOR SNAPPING: Always round the value from dragging
+            const roundedValue = Math.round(draggedValue);
+
+            // Set the visual state to the rounded value for the snap effect
+            setVisualValue(roundedValue);
+
+            // 2. FOR PERFORMANCE: Only notify the parent if the integer changes
+            if (value !== roundedValue) {
+              onChange(roundedValue);
+            }
+          }}
           className="w-full h-2 rounded-lg appearance-none cursor-pointer mood-slider"
           style={{
-            // @ts-expect-error
+            // @ts-expect-error Custom CSS properties
             "--gradient": gradient,
             "--dark-gradient": darkGradient,
             "--thumb-color": selectedMood.color,
@@ -53,19 +95,21 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
         />
       </div>
 
-      {/* Clickable Emoji Labels */}
       <div className="flex justify-between mt-3 px-1">
         {moods.map((mood) => (
           <motion.button
             type="button"
             key={mood.value}
-            onClick={() => onChange(value)}
+            onClick={() => handleEmojiClick(mood.value)}
             className="text-2xl transition-opacity duration-200"
             animate={{
-              scale: value === mood.value ? 1.4 : 1,
-              opacity: value === mood.value ? 1 : 0.5,
+              scale: roundedVisualValue === mood.value ? 1.4 : 1,
+              opacity: roundedVisualValue === mood.value ? 1 : 0.5,
             }}
-            whileHover={{ scale: value === mood.value ? 1.5 : 1.2, opacity: 1 }}
+            whileHover={{
+              scale: roundedVisualValue === mood.value ? 1.5 : 1.2,
+              opacity: 1,
+            }}
           >
             {mood.emoji}
           </motion.button>

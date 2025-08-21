@@ -1,13 +1,9 @@
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { X } from "lucide-react";
+// Assuming your mood data utilities are in this path
 import { moodHierarchy, moodColors } from "../utils/moodHierarchy";
-import { X } from "lucide-react"; // Using an icon for the clear button
 
-interface Props {
-  onChange: (tags: string[]) => void;
-  selected: string[];
-}
-
+// --- HELPER FUNCTIONS ---
 const getContrastingTextColor = (hexColor: string) => {
   if (!hexColor) return "text-text-light dark:text-text-dark";
   const r = parseInt(hexColor.slice(1, 3), 16);
@@ -17,42 +13,86 @@ const getContrastingTextColor = (hexColor: string) => {
   return luminance > 0.5 ? "text-black" : "text-white";
 };
 
-// --- CHANGE: Themed MoodButton sub-component ---
+const findParentMood = (childMood, hierarchy) => {
+  for (const parentMood of Object.keys(hierarchy)) {
+    const children = hierarchy[parentMood];
+    if (children && typeof children === "object" && childMood in children) {
+      return parentMood;
+    }
+  }
+  return null;
+};
+
+// --- PROPS INTERFACE ---
+interface Props {
+  onChange: (tags: string[]) => void;
+  selected: string[];
+}
+
+// --- SUB-COMPONENTS ---
 const MoodButton = ({ mood, onClick, isSelected, color }) => (
-  <motion.button
+  <button
     type="button"
     onClick={onClick}
-    className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 transform hover:-translate-y-0.5 shadow-sm border
+    className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors duration-200 shadow-sm border
       ${
         isSelected
           ? `${getContrastingTextColor(color)} border-transparent`
           : "bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark border-border-light dark:border-border-dark hover:border-border-light/70 dark:hover:border-border-dark/70"
       }`}
     style={{ backgroundColor: isSelected ? color : undefined }}
-    whileTap={{ scale: 0.95 }}
   >
     {mood}
-  </motion.button>
+  </button>
 );
 
+// --- MAIN COMPONENT ---
 export function MoodTagSelector({ onChange, selected }: Props) {
-  const [selection, setSelection] = useState({
-    level1: selected[0] || null,
-    level2: selected.slice(1),
-  });
+  const getInitialState = () => {
+    if (!selected || selected.length === 0) {
+      return { level1: [], level2: [] };
+    }
+    const initialLevel1 = new Set<string>();
+    const initialLevel2: string[] = [];
+    const allLevel1Keys = Object.keys(moodHierarchy);
+    selected.forEach((tag) => {
+      if (allLevel1Keys.includes(tag)) {
+        initialLevel1.add(tag);
+      } else {
+        const parentMood = findParentMood(tag, moodHierarchy);
+        if (parentMood) {
+          initialLevel1.add(parentMood);
+          initialLevel2.push(tag);
+        }
+      }
+    });
+    return {
+      level1: Array.from(initialLevel1),
+      level2: initialLevel2,
+    };
+  };
+
+  const [selection, setSelection] = useState(getInitialState);
 
   useEffect(() => {
-    const newTags = [selection.level1, ...selection.level2].filter(
-      Boolean
-    ) as string[];
-    onChange(newTags);
+    const uniqueTags = new Set([...selection.level1, ...selection.level2]);
+    onChange(Array.from(uniqueTags));
   }, [selection]);
 
   const handleLevel1 = (mood: string) => {
-    setSelection((prev) => ({
-      level1: prev.level1 === mood ? null : mood,
-      level2: [],
-    }));
+    setSelection((prev) => {
+      const newLevel1 = prev.level1.includes(mood)
+        ? prev.level1.filter((m) => m !== mood)
+        : [...prev.level1, mood];
+      let newLevel2 = prev.level2;
+      if (!newLevel1.includes(mood)) {
+        const childrenOfMood = moodHierarchy[mood]
+          ? Object.keys(moodHierarchy[mood])
+          : [];
+        newLevel2 = newLevel2.filter((m) => !childrenOfMood.includes(m));
+      }
+      return { level1: newLevel1, level2: newLevel2 };
+    });
   };
 
   const handleLevel2 = (subMood: string) => {
@@ -67,68 +107,62 @@ export function MoodTagSelector({ onChange, selected }: Props) {
 
   const handleClear = () => {
     setSelection({
-      level1: null,
+      level1: [],
       level2: [],
     });
   };
 
   const level1Data = Object.keys(moodHierarchy);
-  const level2Data = selection.level1
-    ? Object.keys(moodHierarchy[selection.level1])
-    : null;
 
   return (
     <div className="space-y-4 w-full">
-      <AnimatePresence>
-        {selection.level1 && (
-          // --- CHANGE: Themed clear button ---
-          <motion.button
-            key="clear-button"
-            type="button"
-            onClick={handleClear}
-            className="text-xs flex w-full justify-end items-center gap-1 text-text-light-sub dark:text-text-dark-sub hover:text-danger dark:hover:text-danger transition-colors"
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <X size={12} /> Clear
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {selection.level1.length > 0 && (
+        <button
+          type="button"
+          onClick={handleClear}
+          className="text-xs flex w-full justify-end items-center gap-1 text-text-light-sub dark:text-text-dark-sub hover:text-danger dark:hover:text-danger transition-colors"
+        >
+          <X size={12} /> Clear
+        </button>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {level1Data.map((mood) => (
           <MoodButton
             key={mood}
             mood={mood}
             onClick={() => handleLevel1(mood)}
-            isSelected={selection.level1 === mood}
+            isSelected={selection.level1.includes(mood)}
             color={moodColors[mood]}
           />
         ))}
       </div>
 
-      <AnimatePresence>
-        {selection.level1 && level2Data && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            // --- CHANGE: Themed sub-mood container ---
-            className="flex flex-wrap gap-2 p-3 bg-secondary-light dark:bg-secondary-dark rounded-lg border border-border-light dark:border-border-dark"
-          >
-            {level2Data.map((subMood) => (
-              <MoodButton
-                key={subMood}
-                mood={subMood}
-                onClick={() => handleLevel2(subMood)}
-                isSelected={selection.level2.includes(subMood)}
-                color={moodColors[selection.level1!]}
-              />
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="space-y-3">
+        {selection.level1.map((parentMood) => {
+          const level2Data = Object.keys(
+            moodHierarchy[parentMood as keyof typeof moodHierarchy] || {}
+          );
+
+          if (level2Data.length === 0) return null;
+
+          return (
+            <div
+              key={parentMood}
+              className="flex flex-wrap gap-2 p-3 bg-secondary-light dark:bg-secondary-dark rounded-lg border border-border-light dark:border-border-dark"
+            >
+              {level2Data.map((subMood) => (
+                <MoodButton
+                  key={subMood}
+                  mood={subMood}
+                  onClick={() => handleLevel2(subMood)}
+                  isSelected={selection.level2.includes(subMood)}
+                  color={moodColors[parentMood]}
+                />
+              ))}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

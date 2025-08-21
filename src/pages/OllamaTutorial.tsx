@@ -96,7 +96,7 @@ const DownloadCard = ({
       href={url}
       onClick={(e) => {
         e.preventDefault();
-        (window as any).electron?.shell.openExternal(url);
+        (window as any).electron.openExternal(url);
       }}
       className="inline-flex items-center gap-2 bg-info text-white font-semibold px-6 py-2 rounded-lg hover:bg-info/90 transition-colors"
     >
@@ -106,7 +106,7 @@ const DownloadCard = ({
 );
 
 const TerminalGuide = () => {
-  const [activeTab, setActiveTab] = useState("macos");
+  const [activeTab, setActiveTab] = useState("windows");
   return (
     <div className="bg-secondary-light dark:bg-secondary-dark rounded-xl border border-border-light dark:border-border-dark p-6">
       <h3 className="text-xl font-bold mb-4 text-center text-text-light dark:text-text-dark">
@@ -115,6 +115,7 @@ const TerminalGuide = () => {
       <div className="flex justify-center mb-6 bg-tertiary-light dark:bg-tertiary-dark p-1 rounded-full">
         {["macos", "windows"].map((tab) => (
           <button
+            // disabled={tab === "macos"}
             key={tab}
             onClick={() => setActiveTab(tab)}
             className="relative px-4 py-1.5 rounded-full text-sm font-semibold transition-colors flex-1"
@@ -304,7 +305,7 @@ const OllamaTutorialPage = () => {
               <DownloadCard
                 os="macOS"
                 description="Double-click the downloaded .zip file, then drag the Ollama icon to your Applications folder."
-                url="https://ollama.com/download/Ollama-darwin.zip"
+                url="https://ollama.com/download/Ollama.dmg"
               />
               <DownloadCard
                 os="Windows"
@@ -314,7 +315,7 @@ const OllamaTutorialPage = () => {
               <DownloadCard
                 os="Linux"
                 description="For Linux, copy the one-line command from the official site and run it in your terminal."
-                url="https://ollama.com/download"
+                url="https://ollama.com/download/linux"
               />
             </div>
           </TutorialSection>
@@ -354,10 +355,11 @@ const OllamaTutorialPage = () => {
             </h2>
             <p className="text-lg text-text-light-sub dark:text-text-dark-sub text-center max-w-2xl mx-auto mb-12">
               Great! Now use a command to download your first model. This can
-              take several minutes.
+              take several minutes. We recommend starting with the
+              llama3.2:latest as it is the most stable version.
             </p>
             <TerminalCommand
-              command="ollama run llama3"
+              command="ollama run llama3.2:latest"
               description="This downloads and prepares the Llama 3 model."
             >
               <p className="text-text-dark-sub text-sm mb-2">

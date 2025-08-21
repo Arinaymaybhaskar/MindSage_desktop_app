@@ -113,7 +113,7 @@ export default function JournalList() {
 
     setLoading(true);
     journalService
-      .getAll(authMode, accessToken!, page, PAGE_LIMIT)
+      .getAll(authMode, accessToken!, PAGE_LIMIT, page)
       .then((newEntries) => {
         setEntries((prev) =>
           page === 0 ? newEntries : [...prev, ...newEntries]
@@ -175,7 +175,7 @@ export default function JournalList() {
     () =>
       entries.map((e) => ({
         date: e.created_at!,
-        mood_score: e.mood_score ?? 50,
+        mood_score: e.mood_score ?? 5,
       })),
     [entries]
   );
@@ -188,7 +188,7 @@ export default function JournalList() {
             My Journals
           </h1>
           <Link
-            to="/journal/new"
+            to="/"
             className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
           >
             <Plus size={20} />
@@ -223,18 +223,17 @@ export default function JournalList() {
             <AnimatePresence>
               {filteredEntries.map((entry, index) => {
                 const cardProps = {
-                  key: entry.id,
                   entry: entry,
                   onDelete: () => handleDelete(entry.id!),
                 };
                 if (filteredEntries.length === index + 1) {
                   return (
                     <div ref={lastEntryRef}>
-                      <JournalEntryCard {...cardProps} />
+                      <JournalEntryCard {...cardProps} key={entry.id} />
                     </div>
                   );
                 }
-                return <JournalEntryCard {...cardProps} />;
+                return <JournalEntryCard {...cardProps} key={entry.id} />;
               })}
             </AnimatePresence>
 

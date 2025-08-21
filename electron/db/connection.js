@@ -64,7 +64,6 @@ export function initDatabase() {
             content TEXT NOT NULL,
             mood_score INTEGER,
             sentiment_score REAL,
-            mood_tags TEXT,
             image_key TEXT,
             audio_key TEXT,
             content_summary TEXT,
@@ -75,6 +74,27 @@ export function initDatabase() {
             synced INTEGER DEFAULT 0,
             sync_action TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            -- Sync columns can be added here if tags need to be synced
+            synced INTEGER DEFAULT 0,
+            sync_action TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, name) -- Ensures a user can't have duplicate tags
+        );
+
+        -- The junction table to link journal entries and tags
+        CREATE TABLE IF NOT EXISTS journal_entry_tags (
+            journal_entry_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            PRIMARY KEY (journal_entry_id, tag_id), -- Prevents duplicate tags on the same entry
+            FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
         );
 
         -- This table is likely read-only from the server, but we add sync columns for completeness
@@ -287,7 +307,12 @@ export function initDatabase() {
         CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
         CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
         CREATE INDEX IF NOT EXISTS idx_progress_logs_goal_id ON progress_logs(goal_id);
-    `);
+    
+        -- NEW INDEXES FOR TAGS
+        CREATE INDEX IF NOT EXISTS idx_tags_user_id_name ON tags(user_id, name);
+        CREATE INDEX IF NOT EXISTS idx_jet_tag_id ON journal_entry_tags(tag_id);
+
+        `);
 
     // Ensure older DBs get the new column if missing
     try {
@@ -326,5 +351,5 @@ export function initDatabase() {
         insertCategory.run(cat.name, cat.color);
     }
 
-    console.log('Local database with sync columns initialized successfully.');
+    console.log('Local database with normalized tags initialized successfully.');
 }

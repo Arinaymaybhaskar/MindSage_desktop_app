@@ -52,7 +52,9 @@ export const MoodCalendar: React.FC<Props> = ({
 
     const averagedMap = new Map<string, number>();
     for (const [key, scores] of map.entries()) {
-      const avg = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+      // By explicitly converting score to a number, you guarantee mathematical addition.
+      const avg =
+        scores.reduce((sum, score) => sum + Number(score), 0) / scores.length;
       averagedMap.set(key, avg);
     }
     return averagedMap;

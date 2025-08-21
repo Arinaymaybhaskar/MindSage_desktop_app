@@ -33,7 +33,7 @@ const emptyJournal: JournalEntry = {
   content: "",
   mood_score: 0,
   sentiment_score: 0,
-  mood_tags: "",
+  mood_tags: [],
 };
 
 // A reusable panel component for the sidebar
@@ -96,22 +96,67 @@ export default function JournalForm() {
     | "offline"
     | "online";
 
-  // --- NEW: State for submission loading ---
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // --- State for Drag-and-Drop ---
   const [isDragging, setIsDragging] = useState(false);
 
   // Load draft or fetch entry
   useEffect(() => {
-    if (isEdit && id) {
-      journalService.getOne(authMode, accessToken!, +id).then(setEntry);
-    } else {
-      const savedDraft = localStorage.getItem(DRAFT_KEY);
-      if (savedDraft) {
-        setEntry(JSON.parse(savedDraft));
+    const loadEntry = async () => {
+      console.log(
+        `[JournalForm] Component mounted. Mode: ${isEdit ? "Edit" : "Create"}`
+      );
+      if (isEdit && id) {
+        console.log(`[JournalForm] Fetching entry with ID: ${id}`);
+        const fetchedEntry = await journalService.getOne(
+          authMode,
+          accessToken!,
+          +id
+        );
+        console.log("[JournalForm] Fetched entry from DB:", fetchedEntry);
+
+        const entryToSet = {
+          ...fetchedEntry,
+          mood_tags: fetchedEntry.mood_tags || [],
+        };
+        setEntry(entryToSet);
+        console.log("[JournalForm] State set for editing:", entryToSet);
+
+        // If the fetched entry has an image key, get the URL and set it for preview.
+        if (fetchedEntry.image_key) {
+          console.log(
+            `[JournalForm] Entry has an image_key: ${fetchedEntry.image_key}. Fetching image URL.`
+          );
+          try {
+            const url = await window.electron.ipcRenderer.invoke(
+              "media:getImage",
+              fetchedEntry.image_key.toString()
+            );
+            setImagePreview(url);
+            console.log("[JournalForm] Image preview URL set:", url);
+          } catch (error) {
+            console.error(
+              "[JournalForm] Failed to fetch image for preview:",
+              error
+            );
+          }
+        }
+      } else {
+        const savedDraft = localStorage.getItem(DRAFT_KEY);
+        if (savedDraft) {
+          console.log("[JournalForm] Found saved draft in localStorage.");
+          const draft = JSON.parse(savedDraft);
+          const draftToSet = { ...draft, mood_tags: draft.mood_tags || [] };
+          setEntry(draftToSet);
+          console.log("[JournalForm] Loaded draft into state:", draftToSet);
+        } else {
+          console.log(
+            "[JournalForm] No draft found. Starting with an empty entry."
+          );
+        }
       }
-    }
+    };
+
+    loadEntry();
   }, [id, isEdit, authMode, accessToken, DRAFT_KEY]);
 
   // Auto-save draft
@@ -129,17 +174,20 @@ export default function JournalForm() {
     e.preventDefault();
     if (!entry.content || isSubmitting) return;
 
+    console.log("--- [handleSubmit] Starting Submission ---");
+    console.log("Initial entry state:", entry);
     setIsSubmitting(true);
 
     try {
       let aiRes: any = {};
 
-      // Only call AI if title, mood_score, or mood_tags are missing
-      if (
+      const needsAiCompletion =
         !entry.title?.trim() ||
         entry.mood_score === undefined ||
-        !entry.mood_tags?.length
-      ) {
+        !entry.mood_tags?.length;
+
+      if (needsAiCompletion) {
+        console.log("[handleSubmit] Entry needs AI completion. Calling AI...");
         const prompt = getAutoPopulateValues(entry.content);
         const res2 = await ollamaService.getResponse(
           accessToken!,
@@ -148,9 +196,11 @@ export default function JournalForm() {
           true
         );
         aiRes = JSON.parse(res2);
+        console.log("[handleSubmit] AI Response received:", aiRes);
+      } else {
+        console.log("[handleSubmit] Skipping AI call, all fields are present.");
       }
 
-      // Merge AI data only if missing
       const mergedEntry: JournalEntry = {
         ...entry,
         title: entry.title?.trim() ? entry.title : aiRes.title,
@@ -161,30 +211,35 @@ export default function JournalForm() {
         mood_tags:
           entry.mood_tags && entry.mood_tags.length > 0
             ? entry.mood_tags
-            : aiRes.mood_tags?.toString(),
+            : aiRes.mood_tags || [],
       };
 
+      console.log("[handleSubmit] Merged entry (User + AI):", mergedEntry);
       setEntry(mergedEntry);
-      console.log("Final entry to save:", mergedEntry);
 
-      // Save to backend
       let res;
       if (isEdit && id) {
+        console.log(`[handleSubmit] Updating entry with ID: ${id}`);
         res = await journalService.update(
           authMode,
           accessToken!,
           +Number(id),
           mergedEntry
         );
+        console.log("[handleSubmit] Update response:", res);
       } else {
+        console.log("[handleSubmit] Creating new entry.");
         res = await journalService.create(authMode, accessToken!, mergedEntry);
+        console.log("[handleSubmit] Create response:", res);
       }
 
-      const journalId = isEdit ? id : res.journalId;
-      let imageKey, audioKey;
+      const journalId = isEdit ? +id! : res.journalId;
+      console.log(`[handleSubmit] Journal ID for media upload: ${journalId}`);
+      let imageKey = entry.image_key; // Start with existing key
+      let audioKey;
 
-      // Image upload
       if (imageFile) {
+        console.log("[handleSubmit] Uploading new image...");
         const arrayBuffer = await imageFile.arrayBuffer();
         const result = await mediaService.saveFileForJournal(
           journalId,
@@ -192,11 +247,12 @@ export default function JournalForm() {
           arrayBuffer,
           imageFile.name
         );
+        console.log("[handleSubmit] Image upload result:", result);
         if (result.success) imageKey = result.key;
       }
 
-      // Audio upload
       if (recordingBlob) {
+        console.log("[handleSubmit] Uploading audio...");
         const arrayBuffer = await recordingBlob.arrayBuffer();
         const result = await mediaService.saveFileForJournal(
           journalId,
@@ -204,14 +260,19 @@ export default function JournalForm() {
           arrayBuffer,
           `audio-${Date.now()}.webm`
         );
+        console.log("[handleSubmit] Audio upload result:", result);
         if (result.success) {
           audioKey = result.key;
           resetRecording();
         }
       }
 
-      // Update entry with media keys if needed
-      if (imageKey || audioKey) {
+      // Only update with media keys if there's a new key or a key was changed.
+      if (imageKey !== entry.image_key || audioKey) {
+        console.log("[handleSubmit] Updating entry with media keys:", {
+          imageKey,
+          audioKey,
+        });
         await journalService.update(authMode, accessToken!, journalId, {
           ...mergedEntry,
           image_key: imageKey,
@@ -219,13 +280,14 @@ export default function JournalForm() {
         });
       }
 
-      // Clean up
+      console.log("[handleSubmit] Cleaning up and navigating...");
       localStorage.removeItem(DRAFT_KEY);
       navigate("/dashboard");
     } catch (error) {
-      console.error("❌ Submission error", error);
+      console.error("❌ [handleSubmit] Submission error:", error);
     } finally {
       setIsSubmitting(false);
+      console.log("--- [handleSubmit] Submission Finished ---");
     }
   };
 
@@ -263,8 +325,10 @@ export default function JournalForm() {
   };
 
   const handleRemoveImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
+    console.log("[JournalForm] Removing image.");
+    setImageFile(null); // Clear any newly selected file
+    setImagePreview(null); // Clear the preview
+    setEntry((prev) => ({ ...prev, image_key: null })); // Clear the key from the entry state
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
@@ -378,8 +442,15 @@ export default function JournalForm() {
                 onChange={(score) => setEntry({ ...entry, mood_score: score })}
               />
               <MoodTagSelector
+                key={JSON.stringify(entry.mood_tags)} // FIX: Force re-mount when tags change from parent
                 selected={entry.mood_tags ?? []}
-                onChange={(tags) => setEntry({ ...entry, mood_tags: tags })}
+                onChange={(tags) => {
+                  console.log(
+                    "[MoodTagSelector] onChange triggered. New tags:",
+                    tags
+                  );
+                  setEntry({ ...entry, mood_tags: tags });
+                }}
               />
             </SidebarPanel>
 
