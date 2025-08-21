@@ -5,9 +5,12 @@ import axios from 'axios'
 import http from 'http'
 import url from 'url';
 import { shell } from "electron";
+import { profile } from "console";
+
+const offlineAccessTokenSecret = "be1e968105e3d8c510625e7ae117d3b376913c6359b5063bc5ff07f1cc43cfa3229405930cdeb7bcc9e9ebf3199c0b85b1a0c2396018eee4985f2d1a0abf6002";
 
 const generateAccessToken = (user) => {
-    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+    return jwt.sign(user, offlineAccessTokenSecret, { expiresIn: '15m' });
 };
 
 export const handleLogin = async (event, mode, credentials) => {
@@ -37,7 +40,8 @@ export const handleLogin = async (event, mode, credentials) => {
                 username: user.username,
                 email: user.email,
                 full_name: user.full_name || null, // Fallback to null if undefined
-                created_at: user.created_at
+                created_at: user.created_at,
+                profile_picture: user.profile_picture || null
             };
             return { accessToken, userInfo };
         } catch (error) {
@@ -85,14 +89,14 @@ export async function handleGoogleLogin() {
 
                 // --- Step 3: Exchange Authorization Code for Tokens ---
                 const tokenResponse = await axios.post(
-                  "https://oauth2.googleapis.com/token",
-                  {
-                    code,
-                    client_id: process.env.GOOGLE_CLIENT_ID, // <-- PASTE YOUR CLIENT ID HERE
-                    client_secret: process.env.GOOGLE_CLIENT_SECRET, // <-- PASTE YOUR CLIENT SECRET HERE
-                    redirect_uri: `http://localhost:${server.address().port}`,
-                    grant_type: "authorization_code",
-                  }
+                    "https://oauth2.googleapis.com/token",
+                    {
+                        code,
+                        client_id: process.env.GOOGLE_CLIENT_ID, // <-- PASTE YOUR CLIENT ID HERE
+                        client_secret: process.env.GOOGLE_CLIENT_SECRET, // <-- PASTE YOUR CLIENT SECRET HERE
+                        redirect_uri: `http://localhost:${server.address().port}`,
+                        grant_type: "authorization_code",
+                    }
                 );
 
                 const { access_token, refresh_token } = tokenResponse.data;

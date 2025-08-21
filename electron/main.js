@@ -1,17 +1,17 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url' // <-- Import the necessary function
+import { fileURLToPath } from 'node:url'
 import { startServer } from '../src/server/app'
 import localDB from './db/index.js';
 import { handleGoogleLogin, handleLogin, handleRegister } from './methods/auth.js'
 import { userChangePassword, userDeleteAccount, userGetMe, userGetSettings, userUpdateProfile, userUpdateSettings } from './methods/user.js'
 import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal } from './methods/journal.js'
-import { getAudioBase64, getImageBase64, handleOpenMedia, handleSaveMedia } from './methods/media.js'
+import { getAudioBase64, getImageBase64, handleOpenMedia, handleSaveMedia, handleSaveProfileImage } from './methods/media.js'
 import { handleAddCategory, handleDeleteCategory, handleGetCategories, handleUpdateCategory } from './methods/categories.js'
 import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActiveGoals, handleGetCompletedGoals, handleGetPinnedGoals, handleTogglePin, handleUpdateGoal, handleUpdateProgress } from './methods/goal.js'
 import { handleAddProgressLog, handleGetProgressLogs } from './methods/progressLogs.js'
 import { handleGetOllamaModels, handleOllamaPrompt } from './methods/ollama.js'
-import { createCollection, getQdrantPort, insertVector, searchVector, startQdrant, stopQdrant } from './methods/qdrant.js';
+// import { createCollection, getQdrantPort, insertVector, searchVector, startQdrant, stopQdrant } from './methods/qdrant.js';
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -21,15 +21,20 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
   ? path.join(__dirname, '../public')
   : process.env.DIST
 
+// This global variable will hold the reference to the main window.
 let win;
 
 function createWindow() {
-  const win = new BrowserWindow({
+  // ✅ CHANGED: Removed 'const' to assign to the global 'win' variable.
+  win = new BrowserWindow({
     width: 1024,
-    height: 600,
+    height: 800,
     minWidth: 1024,
-    show: false, // Don't show until maximized
+    minHeight: 800,
+    show: false, // Don't show until ready
     icon: path.join(__dirname, '../assets/icon.png'),
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
@@ -37,7 +42,7 @@ function createWindow() {
     },
   });
 
-  // Show when ready (prevents flicker)
+  // Show window when its content is ready (prevents a white flash)
   win.once('ready-to-show', () => {
     if (!win.isDestroyed()) {
       win.show();
@@ -50,25 +55,18 @@ function createWindow() {
     }
   });
 
-  ipcMain.on('minimize-window', () => {
-    win.minimize();
+  // These listeners are specific to the 'win' instance, so it's okay for them to be here.
+  win.on('maximize', () => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('window-maximized', true);
+    }
   });
-
-  ipcMain.on('maximize-window', () => {
-    if (win.isMaximized()) {
-      win.unmaximize();
-    } else {
-      win.maximize();
+  win.on('unmaximize', () => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('window-maximized', false);
     }
   });
 
-  ipcMain.on('close-window', () => {
-    win.close();
-  });
-
-  // Send window state back to renderer
-  win.on('maximize', () => win.webContents.send('window-maximized', true));
-  win.on('unmaximize', () => win.webContents.send('window-maximized', false));
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -78,24 +76,49 @@ function createWindow() {
   }
 }
 
-
-
-
 app.whenReady().then(async () => {
-  await startQdrant();
+  // await startQdrant();
   localDB.initDatabase();
+
+  // --- ✅ MOVED: Window control listeners are now here for consistency ---
+  ipcMain.on('minimize-window', () => {
+    if (win && !win.isDestroyed()) win.minimize();
+  });
+
+  ipcMain.on('maximize-window', () => {
+    if (win && !win.isDestroyed()) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+    }
+  });
+
+  ipcMain.on('close-window', () => {
+    if (win && !win.isDestroyed()) win.close();
+  });
+  // --- End of moved listeners ---
 
   ipcMain.handle("media:save", handleSaveMedia);
   ipcMain.handle('media:open', handleOpenMedia);
-  ipcMain.handle('media:getImage', async (event, imagePath) => {
-    return await getImageBase64(imagePath);
-  });
-  ipcMain.handle('media:getAudio', async (event, audioPath) => {
-    return await getAudioBase64(audioPath);
-  });
+  ipcMain.handle('media:save-profile', handleSaveProfileImage);
+  ipcMain.handle('media:getImage', (event, imagePath) => getImageBase64(imagePath));
+  ipcMain.handle('media:getAudio', (event, audioPath) => getAudioBase64(audioPath));
+
   ipcMain.on("screen:maximize", () => {
     if (win && !win.isDestroyed()) {
       win.maximize();
+    }
+  });
+
+  ipcMain.handle("open-external", async (_event, url) => {
+    try {
+      await shell.openExternal(url);
+      return { success: true };
+    } catch (err) {
+      console.error("openExternal failed:", err);
+      return { success: false, error: String(err) };
     }
   });
 
@@ -148,28 +171,6 @@ app.whenReady().then(async () => {
   ipcMain.handle('ollama:models', handleGetOllamaModels);
   ipcMain.handle('ollama:get-response', handleOllamaPrompt);
 
-  // Qdrant
-  ipcMain.handle("qdrant:start", async (_, token, authMode) => {
-    return await startQdrant(token, authMode);
-  });
-
-  ipcMain.handle("qdrant:createCollection", async (_, token, authMode, name) => {
-    return await createCollection(token, authMode, name);
-  });
-
-  ipcMain.handle("qdrant:insertVector", async (_, token, authMode, collection, id, vector, payload) => {
-    return await insertVector(token, authMode, collection, id, vector, payload);
-  });
-
-  ipcMain.handle("qdrant:searchVector", async (_, token, authMode, collection, vector, limit) => {
-    return await searchVector(token, authMode, collection, vector, limit);
-  });
-
-  ipcMain.handle("qdrant:stop", async (_, token, authMode) => {
-    return stopQdrant(token, authMode);
-  });
-
-
   // Start your backend server first!
   startServer();
 
@@ -183,14 +184,9 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("before-quit", () => {
-  stopQdrant();
-});
-
 app.commandLine.appendSwitch('disable-features', 'AutofillServerCommunication');
 
-
 app.on('window-all-closed', () => {
-  win = null
-  if (process.platform !== 'darwin') app.quit()
-})
+  win = null;
+  if (process.platform !== 'darwin') app.quit();
+});

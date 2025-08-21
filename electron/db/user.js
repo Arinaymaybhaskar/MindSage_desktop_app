@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { db } from './connection.js'; // Import the db connection
 
 export function getUserById(userId) {
-    const user = db.prepare('SELECT id, username, email, created_at, full_name, timezone FROM users WHERE id = ?').get(userId);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
     if (!user) return null;
 
     // Mimic the online API by attaching related data

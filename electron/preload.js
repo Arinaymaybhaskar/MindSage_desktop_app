@@ -26,8 +26,8 @@ contextBridge.exposeInMainWorld('electron', {
         'db:upsertJournalEntry',
         'db:getAllEntries',
         'dialog:saveFile',
-        'auth:login',       // <-- Added for standard login
-        'auth:register',     // <-- Added for standard registration
+        'auth:login',
+        'auth:register',
         "user:get-me",
         'user:update-profile',
         'user:get-settings',
@@ -36,7 +36,7 @@ contextBridge.exposeInMainWorld('electron', {
         'user:delete-account',
         'journal:create',
         'journal:get-recent',
-        'journal:get-all', // <-- FIX: This channel was missing
+        'journal:get-all',
         'journal:get-by-id',
         'journal:update',
         'journal:delete',
@@ -45,7 +45,9 @@ contextBridge.exposeInMainWorld('electron', {
         "journal:get-chart-data",
         'media:getImage',
         'media:save',
+        'media:save-profile', // <-- NEW allowed channel
         "media:getAudio",
+        'media:save',
         'category:get-all',
         'category:delete',
         'category:add',
@@ -88,4 +90,5 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.removeAllListeners(channel);
     }
   },
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
 });

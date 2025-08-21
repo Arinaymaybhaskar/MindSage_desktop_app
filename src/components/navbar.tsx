@@ -12,15 +12,19 @@ import { ProfileDropdown } from "./profileDropdown";
 // import { formatTimeAgo } from "../utils/DateFormatter"; // Adjust path if necessary
 // import EmptyState from "./EmptyState"; // Adjust path if necessary
 
-interface Notification {
-  id: number;
-  user_id: number;
-  title: string;
-  body: string;
-  created_at: string;
-  read: boolean;
-  type: string; // e.g., 'goal_completed', 'reminder'
-}
+// interface Notification {
+//   id: number;
+//   user_id: number;
+//   title: string;
+//   body: string;
+//   created_at: string;
+//   read: boolean;
+//   type: string; // e.g., 'goal_completed', 'reminder'
+// }
+
+// Resolve assets at build time
+const iconDark = new URL("../../assets/iconDark.png", import.meta.url).href;
+const iconLight = new URL("../../assets/iconLight.png", import.meta.url).href;
 
 const Header = () => {
   // const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -28,43 +32,43 @@ const Header = () => {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const notificationsRef = useRef<HTMLDivElement>(null);
+  // const notificationsRef = useRef<HTMLDivElement>(null);
 
   // const unreadCount = notifications.filter((n) => !n.read).length;
 
-  useEffect(() => {
-    // Mock data for demonstration
-    const mockNotifications: Notification[] = [
-      {
-        id: 1,
-        user_id: 1,
-        title: "Goal Achieved!",
-        body: "You've completed 'Read 12 books'.",
-        created_at: new Date().toISOString(),
-        read: false,
-        type: "goal_completed",
-      },
-      {
-        id: 2,
-        user_id: 1,
-        title: "New Feature",
-        body: "Check out the new AI-powered insights.",
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-        read: false,
-        type: "announcement",
-      },
-      {
-        id: 3,
-        user_id: 1,
-        title: "Weekly Summary",
-        body: "Your weekly progress report is ready.",
-        created_at: new Date(Date.now() - 86400000).toISOString(),
-        read: true,
-        type: "report",
-      },
-    ];
-    // setNotifications(mockNotifications);
-  }, []);
+  // useEffect(() => {
+  //   // Mock data for demonstration
+  //   const mockNotifications: Notification[] = [
+  //     {
+  //       id: 1,
+  //       user_id: 1,
+  //       title: "Goal Achieved!",
+  //       body: "You've completed 'Read 12 books'.",
+  //       created_at: new Date().toISOString(),
+  //       read: false,
+  //       type: "goal_completed",
+  //     },
+  //     {
+  //       id: 2,
+  //       user_id: 1,
+  //       title: "New Feature",
+  //       body: "Check out the new AI-powered insights.",
+  //       created_at: new Date(Date.now() - 3600000).toISOString(),
+  //       read: false,
+  //       type: "announcement",
+  //     },
+  //     {
+  //       id: 3,
+  //       user_id: 1,
+  //       title: "Weekly Summary",
+  //       body: "Your weekly progress report is ready.",
+  //       created_at: new Date(Date.now() - 86400000).toISOString(),
+  //       read: true,
+  //       type: "report",
+  //     },
+  //   ];
+  //   // setNotifications(mockNotifications);
+  // }, []);
 
   // Close dropdown when clicking outside
   // useEffect(() => {
@@ -108,12 +112,12 @@ const Header = () => {
       {/* Logo and Branding */}
       <Link to="/dashboard" className="flex items-center gap-3">
         <img
-          src="/assets/iconDark.png"
+          src={iconDark}
           alt="MindSage Logo"
           className="w-8 h-8 dark:hidden"
         />
         <img
-          src="/assets/iconLight.png"
+          src={iconLight}
           alt="MindSage Logo"
           className="w-8 h-8 hidden dark:block"
         />

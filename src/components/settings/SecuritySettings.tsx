@@ -20,7 +20,7 @@ const SecuritySettings = ({ settings, onSettingsSave }) => {
         </p>
       </div>
       <div className="p-6 divide-y divide-border-light dark:divide-border-dark">
-        {/* Biometric Lock Setting */}
+        {/* Biometric Lock Setting
         <div className="py-4 flex justify-between items-center">
           <div>
             <label className="font-medium text-text-light dark:text-text-dark">
@@ -36,7 +36,7 @@ const SecuritySettings = ({ settings, onSettingsSave }) => {
               onSettingsSave({ ...settings, biometric_lock: v })
             }
           />
-        </div>
+        </div> */}
 
         {/* Change Password Setting */}
         <div className="py-4 flex justify-between items-center">

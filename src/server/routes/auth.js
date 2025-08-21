@@ -9,9 +9,12 @@ import fs from "fs";
 
 const router = express.Router();
 
+const offlineAccessTokenSecret = "be1e968105e3d8c510625e7ae117d3b376913c6359b5063bc5ff07f1cc43cfa3229405930cdeb7bcc9e9ebf3199c0b85b1a0c2396018eee4985f2d1a0abf6002";
+const offlineRefreshTokenSecret = "835261b0476f6ab27b89e3f5584dab137ae30e8d73bc98b72b304373076e7c34c68cc2d92733b32bef0459582a389bc72f5f32f432f06cc87e90101bcbe47b9e";
+
 // --- Helper function to generate Access Token ---
 const generateAccessToken = (user) => {
-  return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+  return jwt.sign(user, offlineAccessTokenSecret, { expiresIn: '15m' });
 };
 
 const client = new OAuth2Client(process.env.O_AUTH_CLIENT_ID);
@@ -83,7 +86,7 @@ router.post("/check-username", async (req, res) => {
 // --- User Login ---
 router.post("/login", async (req, res) => {
   const { identifier, password, timezone, rememberMe, authMode } = req.body;
-  
+
   if (!identifier || !password) return res.status(400).json({ error: "Identifier and password are mandatory" });
 
   let query;
@@ -114,7 +117,7 @@ router.post("/login", async (req, res) => {
 
     const refreshToken = jwt.sign(
       { id: user.id },
-      process.env.REFRESH_TOKEN_SECRET,
+      offlineRefreshTokenSecret,
       { expiresIn: refreshTokenExpiry }
     );
 
@@ -155,7 +158,7 @@ router.post("/token", async (req, res) => {
     const result = await pool.query("SELECT * FROM refresh_tokens WHERE token = $1 AND is_revoked = FALSE", [refreshToken]);
     if (result.rows.length === 0) return res.sendStatus(403);
 
-    jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
+    jwt.verify(refreshToken, offlineRefreshTokenSecret, (err, user) => {
       if (err) return res.sendStatus(403);
       // The user object from the JWT payload might contain 'id' or 'userId'
       const userId = user.id || user.userId;
@@ -211,7 +214,7 @@ router.post("/google-login", async (req, res) => {
     }
 
     const accessToken = generateAccessToken({ id: user.id, username: user.username });
-    const refreshToken = jwt.sign({ id: user.id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
+    const refreshToken = jwt.sign({ id: user.id }, offlineRefreshTokenSecret, { expiresIn: "7d" });
 
     await pool.query(
       "INSERT INTO refresh_tokens (user_id, token) VALUES ($1, $2)",
@@ -225,7 +228,7 @@ router.post("/google-login", async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/api/auth/refresh-token",
     });
-    
+
     const userInfo = { created_at: user.created_at, email: user.email, id: user.id, full_name: user.full_name, username: user.username, timezone: user.timezone };
     res.json({ accessToken, userInfo });
 
@@ -340,12 +343,12 @@ router.post("/verify-otp", async (req, res) => {
       id: user.id,
       username: user.username,
     });
-    
+
     // Using a standard 7-day refresh token for password reset login
     const refreshToken = jwt.sign(
-        { id: user.id },
-        process.env.REFRESH_TOKEN_SECRET,
-        { expiresIn: "7d" }
+      { id: user.id },
+      offlineRefreshTokenSecret,
+      { expiresIn: "7d" }
     );
 
     // 3. Store the refresh token

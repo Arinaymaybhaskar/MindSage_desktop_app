@@ -84,3 +84,11 @@
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
+
+#drag-region {
+  -webkit-app-region: drag;
+}
+
+#window-controls button {
+  -webkit-app-region: no-drag;
+}

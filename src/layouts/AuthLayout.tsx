@@ -2,6 +2,11 @@ import { Cloud, WifiOff } from "lucide-react";
 import { type ReactNode } from "react";
 import { motion } from "framer-motion";
 
+// Resolve assets at build time
+const authIconDark = new URL("../../assets/iconDark.png", import.meta.url).href;
+const authIconLight = new URL("../../assets/iconLight.png", import.meta.url)
+  .href;
+
 interface AuthLayoutProps {
   children: ReactNode;
   title: string;
@@ -26,14 +31,14 @@ export function AuthLayout({
       <div className="hidden w-1/2 md:flex bg-secondary-light dark:bg-secondary-dark p-8 flex-col justify-between">
         <div className="flex items-center gap-2 font-bold text-lg text-text-light font-[fraunces] dark:text-text-dark">
           <img
-            src="../../assets/iconLight.png" // Ensure this path is correct
+            src={authIconLight}
             alt="MindSage Logo"
             className="w-8 h-8 hidden dark:block"
           />
           <img
-            src="../../assets/iconDark.png" // Ensure this path is correct
+            src={authIconDark}
             alt="MindSage Logo"
-            className="w-8 h-8 dark:hidden "
+            className="w-8 h-8 dark:hidden"
           />
           <span className="flex">
             Mind<p className="font-medium">Sage</p>
@@ -62,11 +67,7 @@ export function AuthLayout({
       <div className="w-full lg:w-1/2 md:w-1/2 min-h-screen flex items-center justify-center px-4 py-12">
         <div className="max-w-md w-full">
           <div className="flex lg:hidden md:hidden justify-center items-center gap-2 mb-8">
-            <img
-              src="../../assets/iconDark.png"
-              alt="MindSage Logo"
-              className="w-8 h-8"
-            />
+            <img src={authIconDark} alt="MindSage Logo" className="w-8 h-8" />
             <p className="text-2xl font-[fraunces] text-text-light dark:text-text-dark font-medium">
               <span className="font-bold">Mind</span>Sage
             </p>

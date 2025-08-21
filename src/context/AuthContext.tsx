@@ -30,22 +30,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return storedUser ? JSON.parse(storedUser) : null;
   });
 
-const login = (
-  access: string,
-  userInfo: UserInfo,
-  authMode: "offline" | "online"
-) => {
-  localStorage.setItem('authMode', authMode);
-  setAccessToken(access);
+  const login = (
+    access: string,
+    userInfo: UserInfo,
+    authMode: "offline" | "online"
+  ) => {
+    localStorage.setItem("authMode", authMode);
+    setAccessToken(access);
 
-  // Clone before mutation
-  const clonedUserInfo = structuredClone(userInfo);
+    // Clone before mutation
+    const clonedUserInfo = structuredClone(userInfo);
 
-  setUser(userInfo);
+    setUser(userInfo);
 
-  localStorage.setItem("accessToken", access);
-  localStorage.setItem("userInfo", JSON.stringify(clonedUserInfo));
-};
+    localStorage.setItem("accessToken", access);
+
+    console.log("User info set in localStorage:", clonedUserInfo);
+    localStorage.setItem("userInfo", JSON.stringify(clonedUserInfo));
+  };
 
   const logout = () => {
     localStorage.clear();

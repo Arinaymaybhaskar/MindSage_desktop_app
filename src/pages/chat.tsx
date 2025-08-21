@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bot, User, Send, Sparkles, Info, Trash2 } from "lucide-react";
 import TextareaAutosize from "react-textarea-autosize";
 
+// --- Feature Flag ---
+const isFeatureEnabled = false;
+
 // --- TYPE DEFINITIONS ---
 interface Message {
   id: number;
@@ -11,7 +14,7 @@ interface Message {
 }
 type Provider = "ollama" | "gemini";
 
-// --- MOCK API & DATA ---
+// --- MOCK API & DATA (remains the same) ---
 const loadingMessages = [
   "Consulting the digital consciousness...",
   "Analyzing your entries for patterns...",
@@ -24,7 +27,6 @@ const fetchAiResponse = async (
   provider: Provider
 ): Promise<{ answer: string }> => {
   console.log(`Fetching response for "${userInput}" from ${provider}`);
-  // Simulate API delay
   await new Promise((resolve) =>
     setTimeout(resolve, 2000 + Math.random() * 2000)
   );
@@ -33,7 +35,8 @@ const fetchAiResponse = async (
   };
 };
 
-// --- SUB-COMPONENTS ---
+// --- Themed Sub-components ---
+
 const ChatBubble: React.FC<{ message: Message }> = ({ message }) => {
   const isUser = message.sender === "user";
   return (
@@ -46,22 +49,25 @@ const ChatBubble: React.FC<{ message: Message }> = ({ message }) => {
       className={`flex items-start gap-3 ${isUser ? "justify-end" : ""}`}
     >
       {!isUser && (
-        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-full">
-          <Bot size={18} className="text-gray-600 dark:text-gray-300" />
+        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-tertiary-light dark:bg-tertiary-dark rounded-full">
+          <Bot size={18} className="text-info" />
         </div>
       )}
       <div
         className={`max-w-xs md:max-w-md lg:max-w-2xl px-4 py-3 rounded-2xl shadow-sm ${
           isUser
-            ? "bg-indigo-600 text-white rounded-br-lg"
-            : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-lg"
+            ? "bg-info text-white rounded-br-lg"
+            : "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark rounded-bl-lg border border-border-light dark:border-border-dark"
         }`}
       >
         <p className="text-sm break-words leading-relaxed">{message.text}</p>
       </div>
       {isUser && (
-        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-full">
-          <User size={18} className="text-gray-600 dark:text-gray-300" />
+        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-tertiary-light dark:bg-tertiary-dark rounded-full">
+          <User
+            size={18}
+            className="text-text-light-sub dark:text-text-dark-sub"
+          />
         </div>
       )}
     </motion.div>
@@ -75,15 +81,15 @@ const LoadingBubble: React.FC<{ message: string }> = ({ message }) => (
     exit={{ opacity: 0, y: -10 }}
     className="flex items-start gap-3"
   >
-    <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-full">
-      <Bot size={18} className="text-gray-600 dark:text-gray-300" />
+    <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-tertiary-light dark:bg-tertiary-dark rounded-full">
+      <Bot size={18} className="text-info" />
     </div>
-    <div className="bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-4 py-3 rounded-2xl rounded-bl-lg shadow-sm">
+    <div className="bg-surface-light dark:bg-surface-dark text-text-light-sub dark:text-text-dark-sub px-4 py-3 rounded-2xl rounded-bl-lg shadow-sm border border-border-light dark:border-border-dark">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">
-          <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.3s]"></span>
-          <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.15s]"></span>
-          <span className="h-2 w-2 bg-gray-400 rounded-full animate-pulse"></span>
+          <span className="h-2 w-2 bg-text-light-sub/50 rounded-full animate-pulse [animation-delay:-0.3s]"></span>
+          <span className="h-2 w-2 bg-text-light-sub/50 rounded-full animate-pulse [animation-delay:-0.15s]"></span>
+          <span className="h-2 w-2 bg-text-light-sub/50 rounded-full animate-pulse"></span>
         </div>
         <span className="text-sm italic">{message}</span>
       </div>
@@ -91,7 +97,25 @@ const LoadingBubble: React.FC<{ message: string }> = ({ message }) => (
   </motion.div>
 );
 
-// --- MAIN CHAT COMPONENT ---
+const ComingSoonPlaceholder: React.FC = () => {
+  return (
+    <div className="flex-grow flex flex-col items-center justify-center text-center p-8 bg-secondary-light dark:bg-secondary-dark">
+      <div className="p-4 bg-info/10 rounded-full mb-4">
+        <Sparkles size={32} className="text-info" />
+      </div>
+      <h3 className="text-xl font-bold text-text-light dark:text-text-dark">
+        AI Insights are Coming Soon!
+      </h3>
+      <p className="max-w-sm mt-2 text-sm text-text-light-sub dark:text-text-dark-sub">
+        We're putting the final touches on our new AI chat feature. Soon, you'll
+        be able to ask questions and get powerful insights from your journal
+        entries.
+      </p>
+    </div>
+  );
+};
+
+// --- Main Chat Component ---
 export const ChatComponent: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -167,76 +191,83 @@ export const ChatComponent: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col  text-gray-900 dark:text-gray-100 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800">
-      {/* Header */}
-      <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+    <div className="w-full h-full flex flex-col bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark overflow-hidden">
+      <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark">
         <div className="flex items-center gap-3">
-          <Sparkles className="text-indigo-500" />
+          <Sparkles className="text-info" />
           <h2 className="text-lg font-bold">MindSage AI Chat</h2>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleClearChat}
-            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
-            title="Clear chat"
-          >
-            <Trash2 size={18} />
-          </button>
+          {isFeatureEnabled && (
+            <button
+              onClick={handleClearChat}
+              className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-danger"
+              title="Clear chat"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
       </header>
 
-      {provider === "ollama" && (
-        <div className="p-3 bg-blue-50 dark:bg-blue-500/10 border-b border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-200 text-xs flex items-start gap-2">
-          <Info size={16} className="flex-shrink-0 mt-0.5" />
-          <p>
-            You're using a local model. Performance depends on your hardware.
-            The first query may take a moment to load the model.
-          </p>
-        </div>
+      {isFeatureEnabled ? (
+        <>
+          {provider === "ollama" && (
+            <div className="p-3 bg-info/10 border-b border-info/20 text-info text-xs flex items-start gap-2">
+              <Info size={16} className="flex-shrink-0 mt-0.5" />
+              <p>
+                You're using a local model. Performance depends on your
+                hardware. The first query may take a moment to load the model.
+              </p>
+            </div>
+          )}
+
+          <div className="flex-grow p-4 md:p-6 overflow-y-auto">
+            <div className="space-y-6 pb-4">
+              <AnimatePresence>
+                {messages.map((msg) => (
+                  <ChatBubble key={msg.id} message={msg} />
+                ))}
+              </AnimatePresence>
+              {isLoading && <LoadingBubble message={loadingMessage} />}
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 border-t border-border-light dark:border-border-dark p-4 bg-surface-light dark:bg-surface-dark">
+            <form
+              onSubmit={handleSendMessage}
+              className="flex items-start gap-3"
+            >
+              <TextareaAutosize
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                placeholder="Ask about your journal entries..."
+                className="flex-1 p-3 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-xl resize-none focus:ring-2 focus:ring-info focus:outline-none transition"
+                rows={1}
+                maxRows={5}
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                className="p-3 bg-info text-white font-semibold rounded-full hover:bg-info/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all transform hover:scale-105"
+                disabled={isLoading || !inputValue.trim()}
+                aria-label="Send message"
+              >
+                <Send size={20} />
+              </button>
+            </form>
+          </div>
+        </>
+      ) : (
+        <ComingSoonPlaceholder />
       )}
-
-      {/* Chat Messages */}
-      {/* Added pb-20 to the main container and pb-4 to the inner div */}
-      <div className="flex-grow p-4 md:p-6 overflow-y-auto pb-20">
-        <div className="space-y-6 pb-4">
-          <AnimatePresence>
-            {messages.map((msg) => (
-              <ChatBubble key={msg.id} message={msg} />
-            ))}
-          </AnimatePresence>
-          {isLoading && <LoadingBubble message={loadingMessage} />}
-          <div ref={chatEndRef} />
-        </div>
-      </div>
-
-      {/* Input Form */}
-      <div className="flex-shrink-0 pb-8 border-t border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-800/50">
-        <form onSubmit={handleSendMessage} className="flex items-start gap-3">
-          <TextareaAutosize
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-            placeholder="Ask about your journal entries..."
-            className="flex-1 p-3 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-xl resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
-            rows={1}
-            maxRows={5}
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            className="p-3 bg-indigo-600 text-white font-semibold rounded-full hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-all transform hover:scale-105"
-            disabled={isLoading || !inputValue.trim()}
-            aria-label="Send message"
-          >
-            <Send size={20} />
-          </button>
-        </form>
-      </div>
     </div>
   );
 };

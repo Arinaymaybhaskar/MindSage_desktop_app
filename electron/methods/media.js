@@ -42,14 +42,13 @@ export const handleSaveMedia = async (event, { journalId, mediaType, arrayBuffer
     fs.mkdirSync(mediaDir, { recursive: true });
     console.log(filename, "original name");
     const name = `audio-${Date.now()}.webm`
-    const uniqueFilename = `${Date.now()}-${
-      mediaType === "image" ? filename : name
-    }`;
+    const uniqueFilename = `${Date.now()}-${mediaType === "image" ? filename : name
+      }`;
     console.log(uniqueFilename, "unique filename")
     const destPath = path.join(mediaDir, uniqueFilename);
 
     fs.writeFileSync(destPath, buffer);
-    
+
 
     const success = localDB.linkMediaToJournal(journalId, destPath, mediaType);
     if (!success) throw new Error("Failed to link media to journal entry in the database.");
@@ -77,5 +76,49 @@ export async function handleOpenMedia(event, filePath) {
   } catch (error) {
     console.error(`Failed to open media file: ${filePath}`, error);
     throw error;
+  }
+}
+
+// NEW: save profile image without attempting to link to journal DB
+export async function handleSaveProfileImage(event, { arrayBuffer, filename, userId }) {
+  try {
+    const buffer = Buffer.from(arrayBuffer);
+    const mediaDir = path.join(app.getPath("userData"), "media", "profile");
+    fs.mkdirSync(mediaDir, { recursive: true });
+
+    const uniqueFilename = `${Date.now()}-${filename}`;
+    const destPath = path.join(mediaDir, uniqueFilename);
+
+    fs.writeFileSync(destPath, buffer);
+
+    console.log(`Profile image saved at: ${destPath}`);
+
+    // If caller provided a userId, persist the profile_picture path to users table.
+    if (userId) {
+      try {
+        if (typeof localDB.updateUser === "function") {
+          // If localDB offers a helper, use it
+          await localDB.updateUser(userId, { profile_picture: destPath });
+        } else if (localDB.db && typeof localDB.db.prepare === "function") {
+          // Fallback to raw SQL (works for many sqlite wrappers)
+          localDB.db
+            .prepare(
+              `UPDATE users SET profile_picture = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+            )
+            .run(destPath, userId);
+        } else {
+          console.warn(
+            "localDB has no known updateUser helper — caller should update users table separately."
+          );
+        }
+      } catch (dbErr) {
+        console.error("Failed to persist profile_picture to users table:", dbErr);
+      }
+    }
+
+    return { success: true, path: destPath };
+  } catch (err) {
+    console.error("Error saving profile image:", err);
+    return { success: false, message: String(err) };
   }
 }

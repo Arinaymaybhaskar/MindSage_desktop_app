@@ -1,17 +1,22 @@
 {
   "name": "mindsage-desktop-app",
   "private": true,
+  "productName": "MindSage",
+  "description": "AI-powered journaling app",
+  "author": "Arinaymay arinaymay.bhaskar.7500@gmail.com",
   "version": "1.0.0",
   "type": "module",
   "main": "dist-electron/main.js",
+  "homepage": "https://github.com/Arinaymaybhaskar/",
   "scripts": {
     "dev": "vite",
     "build": "vite build && electron-builder"
   },
   "build": {
+    "copyright": "Copyright © 2025 Arinaymay",
     "extraResources": [
       {
-        "from": "electron/resources/qdrant",
+        "from": "electron/resources/win/qdrant.exe",
         "to": "qdrant",
         "filter": [
           "**/*"
@@ -24,6 +29,8 @@
       "dist/**/*",
       "dist-electron/**/*",
       "servers/**/*",
+      "src/**/*",
+      "public/**/*",
       "package.json"
     ],
     "directories": {
@@ -80,6 +87,7 @@
     "react-audio-visualize": "^1.2.0",
     "react-date-picker": "^11.0.0",
     "react-dom": "^19.1.0",
+    "react-easy-crop": "^5.5.0",
     "react-hot-toast": "^2.5.2",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.6.3",

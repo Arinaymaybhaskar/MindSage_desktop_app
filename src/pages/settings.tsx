@@ -18,43 +18,43 @@ import { motion } from "framer-motion";
 const ProfileSettings = lazy(
   () => import("../components/settings/ProfileSettings")
 );
-const AppearanceSettings = lazy(
-  () => import("../components/settings/AppearanceSettings")
-);
-const AISettings = lazy(() => import("../components/settings/AISettings"));
-const NotificationsSettings = lazy(
-  () => import("../components/settings/NotificationsSettings")
-);
-const AudioSettings = lazy(
-  () => import("../components/settings/AudioSettings")
-);
-const GoalsSettings = lazy(
-  () => import("../components/settings/GoalsSettings")
-);
+// const AppearanceSettings = lazy(
+//   () => import("../components/settings/AppearanceSettings")
+// );
+// const AISettings = lazy(() => import("../components/settings/AISettings"));
+// const NotificationsSettings = lazy(
+//   () => import("../components/settings/NotificationsSettings")
+// );
+// const AudioSettings = lazy(
+//   () => import("../components/settings/AudioSettings")
+// );
+// const GoalsSettings = lazy(
+//   () => import("../components/settings/GoalsSettings")
+// );
 const SecuritySettings = lazy(
   () => import("../components/settings/SecuritySettings")
 );
-const ExportSettings = lazy(
-  () => import("../components/settings/ExportSettings")
-);
+// const ExportSettings = lazy(
+//   () => import("../components/settings/ExportSettings")
+// );
 
 const settingsSections = {
   profile: { label: "Profile", icon: User, component: ProfileSettings },
-  appearance: {
-    label: "Appearance",
-    icon: Palette,
-    component: AppearanceSettings,
-  },
-  ai: { label: "AI Features", icon: BrainCircuit, component: AISettings },
-  notifications: {
-    label: "Notifications",
-    icon: Bell,
-    component: NotificationsSettings,
-  },
-  audio: { label: "Audio & Voice", icon: Mic, component: AudioSettings },
-  goals: { label: "Goals & Streaks", icon: Target, component: GoalsSettings },
+  // appearance: {
+  //   label: "Appearance",
+  //   icon: Palette,
+  //   component: AppearanceSettings,
+  // },
+  // ai: { label: "AI Features", icon: BrainCircuit, component: AISettings },
+  // notifications: {
+  //   label: "Notifications",
+  //   icon: Bell,
+  //   component: NotificationsSettings,
+  // },
+  // audio: { label: "Audio & Voice", icon: Mic, component: AudioSettings },
+  // goals: { label: "Goals & Streaks", icon: Target, component: GoalsSettings },
   security: { label: "Security", icon: Lock, component: SecuritySettings },
-  export: { label: "Data Export", icon: Download, component: ExportSettings },
+  // export: { label: "Data Export", icon: Download, component: ExportSettings },
 };
 
 const Settings = () => {
@@ -74,6 +74,7 @@ const Settings = () => {
           userService.getMe(authMode, accessToken!),
           userService.getSettings(authMode, accessToken!),
         ]);
+        console.log("Fetched user:", userResponse);
         setUser(userResponse);
         setSettings(settingsResponse);
       } catch (error) {
@@ -89,8 +90,11 @@ const Settings = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace("#", "");
-      if (settingsSections[hash]) {
-        setActiveTab(hash);
+      // Support hashes like "#/settings/appearance" or "#appearance"
+      const parts = hash.split("/").filter(Boolean);
+      const key = parts.length ? parts[parts.length - 1] : "";
+      if (settingsSections[key]) {
+        setActiveTab(key);
       } else {
         setActiveTab("profile");
       }
@@ -164,10 +168,11 @@ const Settings = () => {
                   ([key, { label, icon: Icon }]) => (
                     <a
                       key={key}
-                      href={`#${key}`}
+                      href={`#/settings/${key}`}
                       onClick={(e) => {
                         e.preventDefault();
-                        window.location.hash = key;
+                        // Update hash to include the settings base so the Router stays on /settings/*
+                        window.location.hash = `/settings/${key}`;
                       }}
                       className={`relative flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors z-10 ${
                         activeTab === key

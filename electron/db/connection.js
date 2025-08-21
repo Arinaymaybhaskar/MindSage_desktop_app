@@ -21,6 +21,7 @@ export function initDatabase() {
             password_hash TEXT NOT NULL,
             full_name TEXT,
             timezone TEXT,
+            profile_picture TEXT, -- <-- ADDED column for profile image path
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
@@ -287,6 +288,19 @@ export function initDatabase() {
         CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
         CREATE INDEX IF NOT EXISTS idx_progress_logs_goal_id ON progress_logs(goal_id);
     `);
+
+    // Ensure older DBs get the new column if missing
+    try {
+        const info = db.prepare(`PRAGMA table_info(users)`).all();
+        const hasProfileCol = info.some(col => col.name === 'profile_picture');
+        if (!hasProfileCol) {
+            db.prepare(`ALTER TABLE users ADD COLUMN profile_picture TEXT`).run();
+            console.log("Added users.profile_picture column via ALTER TABLE");
+        }
+    } catch (err) {
+        console.error("Error ensuring profile_picture column exists:", err);
+    }
+
     // Insert a system user if it doesn't exist
     const insertSystemUser = db.prepare(`
         INSERT OR IGNORE INTO users (id, username, email, password_hash, full_name)

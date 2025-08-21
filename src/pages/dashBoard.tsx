@@ -107,6 +107,7 @@ export default function Dashboard() {
 
         setChartData(chartData);
         setUser(userData);
+        console.log("User info set in localStorage from dashboard:", userData);
         localStorage.setItem("userInfo", JSON.stringify(userData));
         setPinnedGoals(pinnedGoalsData);
         setImageKeys(imageData); // Store the keys to be processed later

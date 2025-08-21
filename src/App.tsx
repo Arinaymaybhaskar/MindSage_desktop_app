@@ -41,7 +41,8 @@ function AppLayout() {
     location.pathname === "/login" ||
     location.pathname === "/register" ||
     location.pathname === "/forgot-password" ||
-    location.pathname === "/reset-password";
+    location.pathname === "/reset-password" ||
+    location.pathname === "/ollama-tutorial";
 
   // CHANGED: Updated the paths for the dock items.
   // "Write" now points to the root "/" and "Dashboard" points to "/dashboard".
@@ -63,7 +64,9 @@ function AppLayout() {
 
   return (
     <>
-      {/* <TitleBar /> */}
+      <div className="relative z-[9999]">
+        <TitleBar />
+      </div>
       <div
         className={`flex h-screen font-inter 
   bg-gradient-to-b from-base-light to-white 
@@ -77,8 +80,8 @@ function AppLayout() {
             magnification={80}
           />
         )}
-        <div className={`flex flex-col h-screen w-full overflow-hidden `}>
-          {!isAuthPage && <Navbar />}
+        <div className={`flex flex-col h-screen w-full overflow-hidden pt-15`}>
+          {/* {!isAuthPage && <Navbar />} */}
           <main className="flex-1 overflow-y-auto  no-scrollbar">
             <Routes>
               <Route
@@ -128,7 +131,7 @@ function AppLayout() {
                 }
               />
               <Route
-                path="/settings"
+                path="/settings/*"
                 element={
                   <PrivateRoute>
                     <Settings />
@@ -175,14 +178,7 @@ function AppLayout() {
                   </PrivateRoute>
                 }
               />
-              <Route
-                path="/ollama-tutorial"
-                element={
-                  <PrivateRoute>
-                    <OllamaTutorialPage />
-                  </PrivateRoute>
-                }
-              />
+              <Route path="/ollama-tutorial" element={<OllamaTutorialPage />} />
               <Route
                 path="/goals"
                 element={
@@ -200,13 +196,12 @@ function AppLayout() {
 }
 
 function App() {
-  const Router =
-    process.env.NODE_ENV === "production" ? HashRouter : BrowserRouter;
-
+  // Use Vite's build flag so the router choice is correct in the production bundle
+  // const Router = import.meta.env.PROD ? HashRouter : BrowserRouter;
   return (
-    <Router>
+    <HashRouter>
       <AppLayout />
-    </Router>
+    </HashRouter>
   );
 }
 
