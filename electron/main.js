@@ -171,6 +171,28 @@ app.whenReady().then(async () => {
   ipcMain.handle('ollama:models', handleGetOllamaModels);
   ipcMain.handle('ollama:get-response', handleOllamaPrompt);
 
+  // Whisper
+  ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);
+  ipcMain.handle("whisper:stop-live-transcription", stopLiveTranscription);
+  ipcMain.handle("whisper:transcribe-audio", async (event, filePath) => {
+    try {
+      const result = await transcribeAudioBlob(filePath, event);
+      event.sender.send("blob-transcription-result", result);
+    } catch (err) {
+      event.sender.send("blob-transcription-error", err.message);
+    }
+  });
+
+  eventBus.on("journal:aiStarted", ({ entryId }) => {
+    const win = BrowserWindow.getAllWindows()[0]; // or target a specific window
+    if (win) win.webContents.send("journal:aiStarted", { entryId });
+  });
+
+  eventBus.on("journal:aiCompleted", ({ entryId, aiOutput }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win) win.webContents.send("journal:aiCompleted", { entryId, aiOutput });
+  });
+
   // Start your backend server first!
   startServer();
 
@@ -190,3 +212,8 @@ app.on('window-all-closed', () => {
   win = null;
   if (process.platform !== 'darwin') app.quit();
 });
+
+// ensure method modules that register event listeners are loaded
+import './methods/ollama.js';
+import { eventBus } from './eventBus.js'; import { startLiveTranscription, stopLiveTranscription, transcribeAudio, transcribeAudioBlob } from './methods/whisper.js';
+

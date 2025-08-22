@@ -32,18 +32,16 @@ export function createJournalEntry(userId, entry) {
   const sentiment_score = analyzeSentimentLocal(content || '');
   const now = new Date().toISOString();
 
-  // Use a transaction to ensure both the entry and its tags are created successfully.
   const runTransaction = db.transaction(() => {
-    // Step 1: Insert the main journal entry.
     const entryStmt = db.prepare(`
-            INSERT INTO journal_entries (
-                user_id, title, content, mood_score, sentiment_score,
-                created_at, updated_at, synced, sync_action
-            ) VALUES (
-                @userId, @title, @content, @mood_score, @sentiment_score,
-                @created_at, @updated_at, 0, 'create'
-            )
-        `);
+      INSERT INTO journal_entries (
+        user_id, title, content, mood_score, sentiment_score,
+        created_at, updated_at, synced, sync_action
+      ) VALUES (
+        @userId, @title, @content, @mood_score, @sentiment_score,
+        @created_at, @updated_at, 0, 'create'
+      )
+    `);
 
     const entryResult = entryStmt.run({
       userId,
@@ -57,29 +55,52 @@ export function createJournalEntry(userId, entry) {
 
     const journalId = entryResult.lastInsertRowid;
 
-    // Step 2: Handle the tags.
+    // Handle tags
     if (mood_tags && mood_tags.length > 0) {
-      const insertTagStmt = db.prepare('INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)');
-      const selectTagStmt = db.prepare('SELECT id FROM tags WHERE user_id = ? AND name = ?');
-      const linkTagStmt = db.prepare('INSERT INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)');
+      const insertTagStmt = db.prepare(
+        'INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)'
+      );
+      const selectTagStmt = db.prepare(
+        'SELECT id FROM tags WHERE user_id = ? AND name = ?'
+      );
+      const linkTagStmt = db.prepare(
+        'INSERT INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)'
+      );
 
       for (const tagName of mood_tags) {
-        // Ensure the tag exists for the user.
         insertTagStmt.run(userId, tagName);
-        // Get the tag's ID.
         const tag = selectTagStmt.get(userId, tagName);
         if (tag) {
-          // Link the tag to the journal entry.
           linkTagStmt.run(journalId, tag.id);
         }
       }
     }
 
-    return { journalId, userId };
+    // 🔹 Fetch the created entry (with joined tags)
+    const getEntryStmt = db.prepare(`
+      SELECT je.*, GROUP_CONCAT(t.name) AS mood_tags
+      FROM journal_entries je
+      LEFT JOIN journal_entry_tags jet ON je.id = jet.journal_entry_id
+      LEFT JOIN tags t ON jet.tag_id = t.id
+      WHERE je.id = ?
+      GROUP BY je.id
+    `);
+
+    const createdEntry = getEntryStmt.get(journalId);
+
+    // Convert mood_tags from CSV string back into array
+    if (createdEntry && createdEntry.mood_tags) {
+      createdEntry.mood_tags = createdEntry.mood_tags.split(',');
+    } else {
+      createdEntry.mood_tags = [];
+    }
+
+    return createdEntry;
   });
 
   return runTransaction();
 }
+
 
 /**
  * Retrieves the three most recent journal entries for a user, including their tags.
@@ -244,7 +265,8 @@ export function getMoodScores(userId, range) {
  * @returns {object|null} The updated journal entry or null if not found.
  */
 export function updateJournalEntry(userId, journalId, entry) {
-  const { title, content, mood_score, mood_tags = [] } = entry;
+  console.log("update called", entry);
+  const { title, content, mood_score, mood_tags = [], transcription } = entry;
 
   const sentiment_score = analyzeSentimentLocal(content || '');
   const updated_at = new Date().toISOString();
@@ -260,7 +282,8 @@ export function updateJournalEntry(userId, journalId, entry) {
                 sentiment_score = @sentiment_score,
                 updated_at = @updated_at,
                 synced = 0,
-                sync_action = 'update'
+                sync_action = 'update',
+                transcription = @transcription
             WHERE
                 id = @journalId AND user_id = @userId
         `);
@@ -272,7 +295,8 @@ export function updateJournalEntry(userId, journalId, entry) {
       sentiment_score,
       updated_at,
       journalId,
-      userId
+      userId,
+      transcription
     });
 
     if (result.changes === 0) {
@@ -317,5 +341,15 @@ export function deleteJournalEntry(userId, journalId) {
         WHERE id = ? AND user_id = ?
     `);
   const result = stmt.run(journalId, userId);
+  return result.changes;
+}
+
+export function addContentSummary(summary, journalId, userId) {
+  const stmt = db.prepare(`
+        UPDATE journal_entries
+        SET content_summary = ?, updated_at = CURRENT_TIMESTAMP, synced = 0, sync_action = 'update'
+        WHERE id = ? AND user_id = ?
+    `);
+  const result = stmt.run(summary, journalId, userId);
   return result.changes;
 }

@@ -4,23 +4,18 @@ contextBridge.exposeInMainWorld('electron', {
   minimize: () => ipcRenderer.send('minimize-window'),
   maximize: () => ipcRenderer.send('maximize-window'),
   close: () => ipcRenderer.send('close-window'),
+
   // Function to subscribe to window state changes
   onWindowStateChange: (callback) => {
-    // Create a listener function that wraps the callback
     const listener = (_event, value) => callback(value);
-
-    // Add the listener for the 'window-maximized' channel
     ipcRenderer.on('window-maximized', listener);
-
-    // Return a cleanup function that removes the *specific* listener
     return () => {
       ipcRenderer.removeListener('window-maximized', listener);
     };
   },
+
   ipcRenderer: {
-    // Expose a safe subset of ipcRenderer methods
     invoke: (channel, ...args) => {
-      // --- UPDATED: Added auth channels to the whitelist ---
       const validChannels = [
         'login:google',
         'db:upsertJournalEntry',
@@ -45,9 +40,8 @@ contextBridge.exposeInMainWorld('electron', {
         "journal:get-chart-data",
         'media:getImage',
         'media:save',
-        'media:save-profile', // <-- NEW allowed channel
+        'media:save-profile',
         "media:getAudio",
-        'media:save',
         'category:get-all',
         'category:delete',
         'category:add',
@@ -70,25 +64,50 @@ contextBridge.exposeInMainWorld('electron', {
         "qdrant:insertVector",
         "qdrant:searchVector",
         "qdrant:stop",
+
+        // --- NEW for Whisper ---
+        "whisper:transcribe-audio",      // one-shot transcription
+        "whisper:start-live-transcription", // start live
+        "whisper:stop-live-transcription",  // stop live
       ];
 
       if (validChannels.includes(channel)) {
         return ipcRenderer.invoke(channel, ...args);
       }
-      // It's good practice to throw an error for invalid channels
       console.error(`Invalid IPC channel attempted: ${channel}`);
       return Promise.reject(new Error(`Invalid IPC channel: ${channel}`));
     },
+
     on: (channel, func) => {
-      const validChannels = ['main-process-message', 'sync-complete', 'sync-error'];
+      const validChannels = [
+        'main-process-message',
+        'sync-complete',
+        'sync-error',
+        "live-transcription-data" // <-- added live transcription stream events
+      ];
       if (validChannels.includes(channel)) {
-        // Deliberately strip event as it includes `sender`
         ipcRenderer.on(channel, (event, ...args) => func(...args));
       }
     },
+
     removeAllListeners: (channel) => {
       ipcRenderer.removeAllListeners(channel);
     }
   },
+
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+
+  onAIStarted: (callback) => ipcRenderer.on("journal:aiStarted", (_event, data) => callback(data)),
+  onAICompleted: (callback) => ipcRenderer.on("journal:aiCompleted", (_event, data) => callback(data)),
+
+  // // --- NEW helpers for Whisper ---
+  // whisper: {
+  //   transcribeAudio: (audioBlobPath) => ipcRenderer.invoke("whisper:transcribe-audio", audioBlobPath),
+
+  //   startLive: () => ipcRenderer.invoke("whisper:start-live-transcription"),
+  //   stopLive: () => ipcRenderer.invoke("whisper:stop-live-transcription"),
+
+  //   onLiveData: (callback) =>
+  //     ipcRenderer.on("live-transcription-data", (_event, data) => callback(data)),
+  // }
 });

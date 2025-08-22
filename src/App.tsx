@@ -68,9 +68,7 @@ function AppLayout() {
         <TitleBar />
       </div>
       <div
-        className={`flex h-screen font-inter 
-  bg-gradient-to-b from-base-light to-white 
-  dark:from-base-dark dark:to-[hsl(0,0%,12%)]`}
+        className={`flex h-screen font-inter bg-gradient-to-b from-base-light to-white dark:from-base-dark dark:to-[hsl(0,0%,12%)]`}
       >
         {!isAuthPage && (
           <Dock

@@ -73,6 +73,7 @@
     "dayjs": "^1.11.13",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "ffmpeg-static": "^5.2.0",
     "framer-motion": "^12.23.12",
     "google-auth-library": "^10.1.0",
     "gsap": "^3.13.0",

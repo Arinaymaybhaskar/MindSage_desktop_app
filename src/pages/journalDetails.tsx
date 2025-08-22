@@ -9,6 +9,9 @@ import {
   Tags,
   ArrowLeft,
   X,
+  FileText,
+  ChevronDown,
+  Captions,
 } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
@@ -38,6 +41,8 @@ export default function JournalDetail() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [isTranscriptionOpen, setIsTranscriptionOpen] = useState(false);
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
@@ -66,7 +71,7 @@ export default function JournalDetail() {
         }
       } catch (error) {
         console.error("Failed to fetch journal entry:", error);
-        setEntry(null); // Handle error case
+        setEntry(null);
       }
     };
     fetchEntry();
@@ -104,7 +109,6 @@ export default function JournalDetail() {
             </Link>
           </div>
 
-          {/* New Two-Column Layout */}
           <div className="flex flex-col lg:flex-row lg:gap-8">
             {/* Left Column: Main Content */}
             <article className="w-full lg:w-2/3 bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl p-6 sm:p-10 border border-border-light dark:border-border-dark">
@@ -128,6 +132,7 @@ export default function JournalDetail() {
                   />
                 </div>
               )}
+
               {audioUrl && (
                 <div className="mb-8 bg-tertiary-light dark:bg-tertiary-dark p-4 rounded-lg">
                   <audio controls className="w-full">
@@ -136,6 +141,8 @@ export default function JournalDetail() {
                   </audio>
                 </div>
               )}
+
+              {/* Summary and Transcription have been moved to the sidebar */}
 
               <div className="prose prose-lg dark:prose-invert text-text-light-sub dark:text-text-dark-sub max-w-none leading-relaxed whitespace-pre-wrap">
                 {entry.content}
@@ -167,6 +174,110 @@ export default function JournalDetail() {
                     </button>
                   </div>
                 </div>
+
+                {/* NEW: AI Insights Section */}
+                {(entry.content_summary || entry.transcription) && (
+                  <div>
+                    <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-3">
+                      AI Insights
+                    </h3>
+                    <div className="space-y-2">
+                      {/* Collapsible Transcription Section */}
+                      {entry.transcription && (
+                        <div className="border border-border-light dark:border-border-dark rounded-xl bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
+                          <button
+                            onClick={() =>
+                              setIsTranscriptionOpen(!isTranscriptionOpen)
+                            }
+                            className="w-full flex justify-between items-center p-3 text-left"
+                            aria-expanded={isTranscriptionOpen}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Captions size={16} className="text-info" />
+                              <h4 className="font-semibold text-sm text-text-light dark:text-text-dark">
+                                Transcription
+                              </h4>
+                            </div>
+                            <motion.div
+                              animate={{
+                                rotate: isTranscriptionOpen ? 180 : 0,
+                              }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <ChevronDown
+                                size={18}
+                                className="text-text-light-sub dark:text-text-dark-sub"
+                              />
+                            </motion.div>
+                          </button>
+                          <AnimatePresence>
+                            {isTranscriptionOpen && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{
+                                  duration: 0.3,
+                                  ease: "easeInOut",
+                                }}
+                                className="overflow-hidden"
+                              >
+                                <div className="text-sm text-text-light-sub dark:text-text-dark-sub max-w-none px-3 pb-3 pt-0 whitespace-pre-wrap">
+                                  {entry.transcription}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
+
+                      {/* Collapsible Summary Section */}
+                      {entry.content_summary && (
+                        <div className="border border-border-light dark:border-border-dark rounded-xl bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
+                          <button
+                            onClick={() => setIsSummaryOpen(!isSummaryOpen)}
+                            className="w-full flex justify-between items-center p-3 text-left"
+                            aria-expanded={isSummaryOpen}
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText size={16} className="text-info" />
+                              <h4 className="font-semibold text-sm text-text-light dark:text-text-dark">
+                                Summary
+                              </h4>
+                            </div>
+                            <motion.div
+                              animate={{ rotate: isSummaryOpen ? 180 : 0 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <ChevronDown
+                                size={18}
+                                className="text-text-light-sub dark:text-text-dark-sub"
+                              />
+                            </motion.div>
+                          </button>
+                          <AnimatePresence>
+                            {isSummaryOpen && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{
+                                  duration: 0.3,
+                                  ease: "easeInOut",
+                                }}
+                                className="overflow-hidden"
+                              >
+                                <div className="text-sm text-text-light-sub dark:text-text-dark-sub max-w-none px-3 pb-3 pt-0 whitespace-pre-wrap">
+                                  {entry.content_summary}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Metadata */}
                 <div className="space-y-4">
@@ -215,7 +326,7 @@ export default function JournalDetail() {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Modals are unchanged */}
       <DeleteConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}

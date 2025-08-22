@@ -64,6 +64,7 @@ export function initDatabase() {
             content TEXT NOT NULL,
             mood_score INTEGER,
             sentiment_score REAL,
+            transcription TEXT,
             image_key TEXT,
             audio_key TEXT,
             content_summary TEXT,

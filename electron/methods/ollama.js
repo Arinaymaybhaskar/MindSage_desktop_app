@@ -1,5 +1,8 @@
 import { execSync, exec } from 'child_process';
 import { getUserIdFromToken } from '../../src/utils/electronUtils';
+import { eventBus } from "../eventBus.js";
+import { AISummaryPrompt, getAutoPopulateValues } from './AIPrompts.js';
+// import { getAutoPopulateValues } from '../utils/prompts/journal.js';
 
 export const handleGetOllamaModels = (event, token) => {
     const userId = getUserIdFromToken(token);
@@ -69,3 +72,63 @@ export const handleOllamaPrompt = async (event, token, model, prompt, jsonMode =
         return { error: err.message };
     }
 };
+
+console.log('ollama methods loaded — registering journal:created listener');
+
+// Define a TypeScript type for the journal:created event payload
+/**
+ * @typedef {Object} JournalCreatedEvent
+ * @property {string} userId
+ * @property {any} entry
+ * @property {string} mode
+ */
+
+// Only destructure 'entry' since 'userId' and 'mode' are unused
+eventBus.on("journal:created", async ({ entry }) => {
+    const needsAiCompletion =
+        !entry?.title?.trim() ||
+        entry?.mood_score === undefined ||
+        !entry?.mood_tags?.length;
+    if (needsAiCompletion) {
+        eventBus.emit("journal:aiStarted", { entryId: entry.id });
+        const prompt = getAutoPopulateValues(entry.content);
+        const res2 = await fetch('http://localhost:11434/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: "llama3.2:latest",
+                prompt,
+                stream: false, // full output as one JSON
+                num_predict: 300 // limit tokens for speed
+            })
+        });
+        const aiRes = await res2.json();
+        console.log("[handleSubmit] AI Response received:", aiRes.response);
+        const res3 = aiRes.response
+        eventBus.emit("journal:aiCompleted", { entry, res3 });
+    } else {
+        return;
+    }
+});
+
+eventBus.on("journal:created", async ({ entry }) => {
+    eventBus.emit("ollama:summary-started", { entryId: entry.id });
+    const prompt = AISummaryPrompt(entry.content);
+    const res2 = await fetch('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model: "llama3.2:latest",
+            prompt,
+            stream: false, // full output as one JSON
+            num_predict: 300 // limit tokens for speed
+        })
+    });
+
+    const aiRes = await res2.json();
+    const summary = aiRes.response;
+    const id = entry.id;
+    const userId = entry.user_id;
+
+    eventBus.emit("ollama:summary-generated", { summary, id, userId });
+})

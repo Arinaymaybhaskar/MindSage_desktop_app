@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Minus, Square, Maximize2, X, Rocket, Search } from "lucide-react";
+import {
+  Minus,
+  Square,
+  Maximize2,
+  X,
+  Rocket,
+  Search,
+  Loader2,
+} from "lucide-react";
 import { ProfileDropdown } from "./components/profileDropdown"; // Ensure path is correct
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -13,6 +21,17 @@ const TitleBar: React.FC = () => {
   const location = useLocation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    window.electron.onAIStarted(() => setLoading(true));
+    window.electron.onAICompleted(() => setLoading(false));
+  });
+
+  //   eventBus.on("journal:updated", ({ entry }) => {
+  //   console.log("📢 Journal updated:", entry);
+  //   // could notify UI, trigger sync queue, etc.
+  // });
 
   // --- Handlers and Effects ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +138,14 @@ const TitleBar: React.FC = () => {
         {user && (
           <div className="flex items-center justify-center h-full gap-2 mx-2">
             {/* --- Animated Search Bar --- */}
+
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Loader2 className="animate-spin w-4 h-4" />
+                AI is processing...
+              </div>
+            )}
+
             <div
               ref={searchContainerRef}
               className="relative flex items-center"
