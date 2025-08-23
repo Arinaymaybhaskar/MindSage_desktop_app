@@ -1,69 +1,211 @@
-# React + TypeScript + Vite
+# <img src="./assets/iconDark.png" alt="MindSage Logo" width="28" style="vertical-align: middle;"/> MindSage – Features & Platforms
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+MindSage is an AI-powered journaling platform that helps users reflect, track emotions, and grow through writing and voice.
+It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🛠️ Technologies
 
-## Expanding the ESLint configuration
+### Frontend
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- React (Vite)
+- TypeScript
+- TailwindCSS
+- Lucide-react
+- react-router-dom
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Backend
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+- Node.js + Express
+- JWT Authentication
+- Bcrypt (password encryption)
+- Nodemailer (emails)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Database
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- PostgreSQL (AWS RDS)
+- AWS S3 (media storage)
+- Qdrant Cloud (vector DB)
+- SQLite3 (desktop local storage)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### AI & Processing
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- Gemini
+- Ollama (local models)
+- Whisper.cpp (local transcription with `ggml-tiny.en.bin`)
+- FFmpeg (audio conversion: WebM → WAV)
+- RAG with embeddings:
+  - `text-embedding-004`
+  - `nomic-embed-text` (local)
+
+### Desktop
+
+- Electron with EventBus (event-driven architecture)
+
+---
+
+## 🌐 Website Features
+
+### 1. 🔐 Authentication
+
+- Login (username/email + password, “remember me”)
+- Register (unique username, full name, email, password)
+- Reset password (OTP email, no old password required)
+- Change password (with old password)
+- Delete account (two confirmations + password)
+- Google login (temporary encrypted password)
+- Logout
+
+---
+
+### 2. 📊 Dashboard
+
+- **Pinned Goals:** Displays pinned goals with a visual progress percentage.
+- **Mood & Sentiment Chart:** A line chart visualizing mood and sentiment scores over time, with options to view data for the **last week** or **last month**.
+- **Key Metrics:**
+  - **Entries This Month:** A count of journal entries in the current month.
+  - **Last Entry:** Shows the time elapsed since the last journal entry (e.g., "2 days ago").
+- **Recent Entries:** A list of your most recent journal entries with direct links for quick access.
+- **Image Gallery:** A masonry-style gallery of random images from your journals, with each image linking to its respective entry.
+
+---
+
+### 3. 📓 Journals
+
+- Create / Edit / Delete entries
+- Journal fields: Title, Content, Mood score, Mood tags, Image, Audio
+- Journal detail view: sentiment score, emoji (based on mood), created/updated dates, media
+- Search journals (keyword; semantic planned)
+- Filter by date
+
+**AI-Powered Enhancements**
+
+- **Automatic Title Generation:** AI suggests a title in the background.
+- **Auto Mood Score & Tags:** AI extracts mood signals + relevant tags.
+- **AI Summaries (EDA-based):** Generates concise summaries of journal entries.
+
+---
+
+### 4. 🎯 Goals & Ambitions
+
+- **Goal Creation:**
+  - **Manual Mode:** Create a goal by manually filling in the name, description, target date, target value, and target unit.
+  - **AI-Powered Ambitions:** Provide a high-level ambition (e.g., "I want to be healthier"). The AI will generate 2-3 specific goal templates (e.g., "Exercise 3 times a week," "Drink 8 glasses of water daily"). You can then edit, delete, or add these goals with a single click.
+- **Progress Logging:** Log your progress towards a goal with a value and a descriptive comment.
+- **Goal Management:**
+  - View all active and completed goals on the goals page.
+  - **Pin** important goals to the dashboard.
+  - **Edit**, **Delete**, or mark goals as **Complete**.
+- **Categories:** Organize goals with custom categories, each with its own unique color for easy filtering.
+- **Reflection:** For completed goals, a "See Reflection" button reveals a progress chart to visualize your journey.
+
+---
+
+### 5. 🎤 Voice & Audio Journals
+
+- **Live Speech-to-Text:**
+  - Transcribes speech directly into the journal textarea in real-time.
+  - Does **not** require audio conversion.
+- **Audio Journal Recording:**
+  - User records and saves audio → stored locally as **WebM file**.
+  - **Whisper service flow:**
+    1. Journal created event is emitted (via EventBus).
+    2. Whisper service retrieves WebM file from saved location.
+    3. Converts WebM → WAV (using FFmpeg).
+    4. Transcribes audio via Whisper.cpp (`ggml-tiny.en.bin`).
+    5. Updates journal entry with the transcription.
+  - Transcription appears in the **journal details page** alongside audio.
+
+---
+
+### 6. 🏆 Daily Challenge
+
+- Accept challenges before 8 PM.
+- Upload proof (image).
+- Track challenge streaks.
+- (Future) Choose challenge type.
+
+---
+
+### 7. ⚙️ Settings
+
+- **Profile:**
+  - Update full name, username, and email.
+  - Upload/change profile photo.
+- **Privacy & Security:**
+  - Change password (requires old password).
+  - Delete account (requires two confirmations + password).
+
+---
+
+### 8. 🤖 AI Features
+
+- Follow-up questions (3 prompts based on entry).
+- Chatbot (answers based on journals, with links).
+- **Autocomplete (Lightweight AI Model):**
+  - Suggests completions while typing.
+  - **Tab** → accept suggestion.
+  - **Ctrl + →** → move word by word through suggestion.
+- **AI Transcription:**
+  - Live transcription (speech-to-text into textarea).
+  - Recorded audio transcription (via FFmpeg + Whisper.cpp).
+
+---
+
+## 💻 Desktop App
+
+The desktop app supports **all website features** + **offline-first architecture**:
+
+- Local database (users, journals, settings).
+- Local vector DB for embeddings.
+- Local AI model for generation.
+- Device-based media uploads.
+
+### 🔄 Online Sync
+
+Users can switch online to:
+
+- Register & authenticate.
+- Sync all data.
+- Cloud embeddings (Qdrant).
+- Cloud AI generation.
+- Cloud media storage (S3).
+
+📦 Executable available via the MindSage website.
+
+---
+
+## 🚀 Roadmap (Future Enhancements)
+
+- **Advanced RAG Pipeline (with LangChain.js):**
+  - Implement a conversational chatbot with memory.
+  - Use selective retrieval from a vector database to provide answers based on **journals, goals, progress logs, and audio transcriptions**.
+- **Performance Enhancements:**
+  - Introduce a **caching layer** for frequently accessed functions using SQLite in-memory mode.
+- **Gamification & Analytics:**
+  - Full journaling and challenge **streaks system**.
+  - Deeper journaling analytics & lifestyle recommendations.
+  - Gamification (badges, XP).
+- **Core Features:**
+  - Full semantic journal search.
+  - Customizable daily challenge categories.
+  - Export journals to PDF/Markdown.
+  - Optional journal sharing with trusted peers.
+  - Notifications & Reminders system.
+  - Appearance settings (Dark Mode, fonts).
+  - Data export options.
+
+---
+
+## ⚙️ Technical Notes
+
+- **Event-Driven Architecture:**
+  - Electron desktop app uses EventBus for background AI tasks (title, tags, moodscore, summaries, audio transcription).
+- **Audio Pipelines:**
+  - **Live Transcription:** Microphone → Whisper.cpp → journal content textarea (real time).
+  - **Recorded Audio Transcription:**
+    - Save audio (WebM) → Convert to WAV (FFmpeg) → Whisper.cpp transcription → Journal Service updates entry.
+- **Local-first AI:**
+  - Whisper.cpp for offline transcription.
+  - Ollama lightweight models for autocomplete & summaries.
