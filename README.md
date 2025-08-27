@@ -176,6 +176,46 @@ Users can switch online to:
 
 ---
 
+## 📊 System Workflows
+
+This section provides a visual overview of the core processes and data flows within the MindSage application.
+
+### Journal Management
+
+**1. Create Journal Flow**
+_This diagram illustrates the process when a user creates a new journal entry, including the conditional logic for handling audio attachments and transcription._
+![Create Journal Flow](./assets/diagrams/createJournal.png)
+
+**2. Update Journal Flow**
+_This shows how the system handles updates to an existing journal. The flow branches based on the type of data being changed (content, mood, audio) and triggers different backend processes like re-embedding or re-transcription._
+![Update Journal Flow](./assets/diagrams/updateJournal.png)
+
+**3. Delete Journal Flow**
+_This diagram details the steps for deleting a journal entry, ensuring that records are removed from the SQLite database, the vector store (Qdrant), and the file system (for images/audio)._
+![Delete Journal Flow](./assets/diagrams/deleteJournal.png)
+
+### Goal Management
+
+**1. AI-Assisted Goal Creation**
+_This flow outlines how a user's high-level ambition is transformed into concrete, actionable goals by the AI. It includes a retry mechanism for AI model calls and a manual fallback option._
+![AI Goal Creation Flow](./assets/diagrams/CreateGoal.png)
+
+**2. Goal Actions (Add Progress, Update, Delete, Complete)**
+_This diagram covers the various CRUD operations for goals, such as logging progress, updating goal details, deleting a goal entirely, and marking it as complete._
+![Other Goal Actions Flow](./assets/diagrams/otherGoalActions.png)
+
+### Data Synchronization & Processing
+
+**1. Manual Sync Initiation**
+_This shows the initial frontend and backend steps when a user manually triggers a bulk sync of their journals to the cloud._
+![Manual Sync Flow](./assets/diagrams/bulkSync.png)
+
+**2. Background Worker & Sync Process**
+_This diagram details the asynchronous worker process that handles the heavy lifting of data synchronization. It periodically checks for pending journals, performs AI enrichment (summaries, tags), generates embeddings, and updates the sync status._
+![Background Worker Flow](./assets/diagrams/worker.png)
+
+---
+
 ## 🚀 Roadmap (Future Enhancements)
 
 - **Advanced RAG Pipeline (with LangChain.js):**
