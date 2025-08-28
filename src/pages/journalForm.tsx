@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
+// START: Added imports for speech-to-text
+import whisperService from "../api/whisperService";
 import {
   ArrowLeft,
   BrainCircuit,
@@ -13,7 +15,9 @@ import {
   UploadCloud,
   Mic,
   Trash2,
+  MicOff, // Added MicOff icon
 } from "lucide-react";
+// END: Added imports
 import { motion, AnimatePresence } from "framer-motion";
 import { MoodTagSelector } from "../components/moodOptions";
 import { MoodSlider } from "../components/moodSlider";
@@ -86,6 +90,7 @@ export default function JournalForm() {
   const DRAFT_KEY = id ? `draft-journal-${id}` : "draft-journal";
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [existingAudioUrl, setExistingAudioUrl] = useState<string | null>(null); // State for existing audio
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const voiceRecorderState = useVoiceRecorder();
@@ -98,6 +103,10 @@ export default function JournalForm() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  // START: Added state for live transcription
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  // END: Added state
 
   // Load draft or fetch entry
   useEffect(() => {
@@ -140,6 +149,26 @@ export default function JournalForm() {
             );
           }
         }
+
+        // If the fetched entry has an audio key, get the URL for playback.
+        if (fetchedEntry.audio_key) {
+          console.log(
+            `[JournalForm] Entry has an audio_key: ${fetchedEntry.audio_key}. Fetching audio URL.`
+          );
+          try {
+            const url = await window.electron.ipcRenderer.invoke(
+              "media:getAudio",
+              fetchedEntry.audio_key.toString()
+            );
+            setExistingAudioUrl(url);
+            console.log("[JournalForm] Existing audio URL set:", url);
+          } catch (error) {
+            console.error(
+              "[JournalForm] Failed to fetch audio for preview:",
+              error
+            );
+          }
+        }
       } else {
         const savedDraft = localStorage.getItem(DRAFT_KEY);
         if (savedDraft) {
@@ -170,6 +199,34 @@ export default function JournalForm() {
     return () => clearTimeout(timer);
   }, [entry, isEdit, DRAFT_KEY]);
 
+  // START: Added useEffect for live transcription
+  useEffect(() => {
+    const unsubscribe = whisperService.onLiveData((data) => {
+      if (data?.text) {
+        setEntry((prev) => ({
+          ...prev,
+          // Append new text, handling potential empty initial content
+          content:
+            (prev.content ? prev.content.trim() + " " : "") + data.text.trim(),
+        }));
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+  // END: Added useEffect
+
+  // START: Added handler for live transcription
+  const toggleLiveTranscription = async () => {
+    if (isTranscribing) {
+      await whisperService.stopLive();
+      setIsTranscribing(false);
+    } else {
+      await whisperService.startLive();
+      setIsTranscribing(true);
+    }
+  };
+  // END: Added handler
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!entry.content || isSubmitting) return;
@@ -179,42 +236,15 @@ export default function JournalForm() {
     setIsSubmitting(true);
 
     try {
-      let aiRes: any = {};
-
-      const needsAiCompletion =
-        !entry.title?.trim() ||
-        entry.mood_score === undefined ||
-        !entry.mood_tags?.length;
-
-      if (needsAiCompletion) {
-        console.log("[handleSubmit] Entry needs AI completion. Calling AI...");
-        const prompt = getAutoPopulateValues(entry.content);
-        const res2 = await ollamaService.getResponse(
-          accessToken!,
-          selectedModel!,
-          prompt,
-          true
-        );
-        aiRes = JSON.parse(res2);
-        console.log("[handleSubmit] AI Response received:", aiRes);
-      } else {
-        console.log("[handleSubmit] Skipping AI call, all fields are present.");
-      }
-
+      // No AI completion — use the values provided by the user (or sensible defaults)
       const mergedEntry: JournalEntry = {
         ...entry,
-        title: entry.title?.trim() ? entry.title : aiRes.title,
-        mood_score:
-          entry.mood_score !== undefined && entry.mood_score !== 0
-            ? entry.mood_score
-            : aiRes.mood_score,
-        mood_tags:
-          entry.mood_tags && entry.mood_tags.length > 0
-            ? entry.mood_tags
-            : aiRes.mood_tags || [],
+        title: entry.title?.trim() ? entry.title : "",
+        mood_score: entry.mood_score ?? 0,
+        mood_tags: entry.mood_tags ?? [],
       };
 
-      console.log("[handleSubmit] Merged entry (User + AI):", mergedEntry);
+      console.log("[handleSubmit] Entry to submit:", mergedEntry);
       setEntry(mergedEntry);
 
       let res;
@@ -233,10 +263,10 @@ export default function JournalForm() {
         console.log("[handleSubmit] Create response:", res);
       }
 
-      const journalId = isEdit ? +id! : res.journalId;
+      const journalId = isEdit ? +id! : res.id;
       console.log(`[handleSubmit] Journal ID for media upload: ${journalId}`);
       let imageKey = entry.image_key; // Start with existing key
-      let audioKey;
+      let audioKey = entry.audio_key; // Start with existing key
 
       if (imageFile) {
         console.log("[handleSubmit] Uploading new image...");
@@ -268,7 +298,10 @@ export default function JournalForm() {
       }
 
       // Only update with media keys if there's a new key or a key was changed.
-      if (imageKey !== entry.image_key || audioKey) {
+      const needsMediaUpdate =
+        imageKey !== res.image_key || audioKey !== res.audio_key;
+
+      if (needsMediaUpdate) {
         console.log("[handleSubmit] Updating entry with media keys:", {
           imageKey,
           audioKey,
@@ -331,6 +364,12 @@ export default function JournalForm() {
     setEntry((prev) => ({ ...prev, image_key: null })); // Clear the key from the entry state
   };
 
+  const handleRemoveAudio = () => {
+    console.log("[JournalForm] Removing existing audio.");
+    setExistingAudioUrl(null); // Clear the preview URL
+    setEntry((prev) => ({ ...prev, audio_key: null })); // Clear the key from the entry state
+  };
+
   const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -384,6 +423,20 @@ export default function JournalForm() {
             </AnimatePresence>
             <button
               type="button"
+              onClick={toggleLiveTranscription}
+              title={
+                isTranscribing ? "Stop Transcription" : "Start Transcription"
+              }
+              className={` p-2 rounded-full shadow-lg transition-all ${
+                isTranscribing
+                  ? "bg-red-500 text-white animate-pulse"
+                  : "bg-info text-white hover:bg-info/90"
+              }`}
+            >
+              {isTranscribing ? <MicOff size={22} /> : <Mic size={22} />}
+            </button>
+            <button
+              type="button"
               onClick={() => setEntry(emptyJournal)}
               disabled={isSubmitting}
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-danger bg-danger/10 rounded-lg hover:bg-danger/20 transition-all disabled:opacity-50"
@@ -425,13 +478,19 @@ export default function JournalForm() {
               onChange={(e) => setEntry({ ...entry, title: e.target.value })}
               className="text-3xl font-[fraunces] font-bold bg-transparent focus:outline-none mb-4 placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
             />
-            <textarea
-              id="content"
-              placeholder="Write freely..."
-              value={entry.content}
-              onChange={(e) => setEntry({ ...entry, content: e.target.value })}
-              className="flex-grow font-inter w-full text-lg bg-transparent focus:outline-none resize-none leading-relaxed placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
-            />
+            {/* START: Modified editor area for transcription button */}
+            <div className="relative flex-grow">
+              <textarea
+                id="content"
+                placeholder="Write freely, or click the mic to start speaking..."
+                value={entry.content}
+                onChange={(e) =>
+                  setEntry({ ...entry, content: e.target.value })
+                }
+                className="w-full h-full font-inter text-lg bg-transparent focus:outline-none resize-none leading-relaxed placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
+              />
+            </div>
+            {/* END: Modified editor area */}
           </div>
 
           {/* Sidebar Column */}
@@ -506,9 +565,34 @@ export default function JournalForm() {
                     />
                   </label>
                 )}
-                <VoiceRecorderUI {...voiceRecorderState} />
+
+                {/* --- START: UPDATED AUDIO SECTION --- */}
+                {/* Show existing audio if it exists and a new one hasn't been recorded */}
+                {isEdit && existingAudioUrl && !recordingBlob && (
+                  <div className="relative w-full">
+                    <p className="text-sm font-semibold mb-2 text-text-light-sub dark:text-text-dark-sub">
+                      Current Audio
+                    </p>
+                    <audio controls src={existingAudioUrl} className="w-full" />
+                    <button
+                      type="button"
+                      onClick={handleRemoveAudio}
+                      className="absolute top-5 right-[-4px] p-1.5 bg-tertiary-light dark:bg-tertiary-dark rounded-full text-text-light-sub hover:text-danger"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Show the voice recorder if there's no new recording blob */}
+                {!recordingBlob && <VoiceRecorderUI {...voiceRecorderState} />}
+
+                {/* Show player for the new recording once it's available */}
                 {recordingBlob && (
                   <div className="relative w-full">
+                    <p className="text-sm font-semibold mb-2 text-text-light-sub dark:text-text-dark-sub">
+                      New Recording
+                    </p>
                     <audio
                       controls
                       src={URL.createObjectURL(recordingBlob)}
@@ -517,12 +601,13 @@ export default function JournalForm() {
                     <button
                       type="button"
                       onClick={resetRecording}
-                      className="absolute -top-2 -right-2 p-1 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-full text-text-light-sub hover:text-danger"
+                      className="absolute top-5 right-[-4px] p-1.5 bg-tertiary-light dark:bg-tertiary-dark rounded-full text-text-light-sub hover:text-danger"
                     >
-                      <X size={14} />
+                      <X size={16} />
                     </button>
                   </div>
                 )}
+                {/* --- END: UPDATED AUDIO SECTION --- */}
               </div>
             </SidebarPanel>
 
@@ -536,7 +621,7 @@ export default function JournalForm() {
                 {isGeneratingQuestions ? (
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
-                  <Mic size={18} />
+                  <BrainCircuit size={18} /> // Corrected icon for this button
                 )}
                 <span>
                   {isGeneratingQuestions

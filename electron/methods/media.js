@@ -2,6 +2,8 @@ import { app } from 'electron';
 import fs from 'node:fs'
 import path from 'node:path'
 import localDB from '../db';
+import ffmpegPath from "ffmpeg-static";
+import { spawn } from "child_process";
 
 export async function getImageBase64(imagePath) {
   try {
@@ -13,6 +15,30 @@ export async function getImageBase64(imagePath) {
     console.error('Error loading image:', err);
     return null;
   }
+}
+
+async function convertWebmToWav(webmBuffer, wavPath) {
+  return new Promise((resolve, reject) => {
+    // Save a temporary WebM file
+    const tempWebm = wavPath.replace(/\.wav$/, `-${Date.now()}.webm`);
+    fs.writeFileSync(tempWebm, webmBuffer);
+
+    const ffmpeg = spawn(ffmpegPath, [
+      "-y",          // overwrite output if exists
+      "-i", tempWebm,
+      "-ar", "16000", // optional: resample to 16kHz
+      "-ac", "1",     // mono
+      wavPath,
+    ]);
+
+    ffmpeg.stderr.on("data", (data) => console.log(data.toString()));
+
+    ffmpeg.on("close", (code) => {
+      fs.unlinkSync(tempWebm); // cleanup temp file
+      if (code === 0) resolve(wavPath);
+      else reject(new Error(`ffmpeg exited with code ${code}`));
+    });
+  });
 }
 
 function getMimeType(filePath) {
@@ -33,33 +59,54 @@ export async function getAudioBase64(audioPath) {
   }
 }
 
-export const handleSaveMedia = async (event, { journalId, mediaType, arrayBuffer, filename }) => {
+export const handleSaveMedia = async (
+  event,
+  { journalId, mediaType, arrayBuffer, filename }
+) => {
   try {
-    console.log("Received arrayBuffer:", arrayBuffer); // ✅ Should now log correctly
-
     const buffer = Buffer.from(arrayBuffer);
     const mediaDir = path.join(app.getPath("userData"), "media", String(journalId));
     fs.mkdirSync(mediaDir, { recursive: true });
-    console.log(filename, "original name");
-    const name = `audio-${Date.now()}.webm`
-    const uniqueFilename = `${Date.now()}-${mediaType === "image" ? filename : name
-      }`;
-    console.log(uniqueFilename, "unique filename")
-    const destPath = path.join(mediaDir, uniqueFilename);
 
-    fs.writeFileSync(destPath, buffer);
+    if (mediaType === "image") {
+      // Save image directly
+      const uniqueFilename = `${Date.now()}-${filename}`;
+      const destPath = path.join(mediaDir, uniqueFilename);
+      fs.writeFileSync(destPath, buffer);
 
+      const success = localDB.linkMediaToJournal(journalId, destPath, mediaType);
+      if (!success) throw new Error("Failed to link media in DB.");
 
-    const success = localDB.linkMediaToJournal(journalId, destPath, mediaType);
-    if (!success) throw new Error("Failed to link media to journal entry in the database.");
+      return { success: true, key: destPath };
+    }
 
-    console.log(`Media saved at: ${destPath}`);
-    return { success: true, key: destPath };
+    if (mediaType === "audio") {
+      // Save raw WebM
+      const webmName = `${Date.now()}-${filename.replace(/\..+$/, ".webm")}`;
+      const webmPath = path.join(mediaDir, webmName);
+      fs.writeFileSync(webmPath, buffer);
+
+      // Convert to WAV
+      const wavName = `${Date.now()}-${filename.replace(/\..+$/, ".wav")}`;
+      const wavPath = path.join(mediaDir, wavName);
+      await convertWebmToWav(buffer, wavPath);
+
+      // Link WAV to journal
+      const success = localDB.linkMediaToJournal(journalId, wavPath, mediaType);
+      if (!success) throw new Error("Failed to link media in DB.");
+
+      console.log(`Saved WebM at: ${webmPath}`);
+      console.log(`Converted WAV at: ${wavPath}`);
+
+      return { success: true, key: wavPath };
+    }
+
+    throw new Error("Unknown mediaType");
   } catch (err) {
     console.error(err);
-    return { success: false, message: err.message };
+    return { success: false, message: String(err) };
   }
-}
+};
 
 /**
  * Handles opening a local file path in the system's default application.

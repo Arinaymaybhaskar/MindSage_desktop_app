@@ -1,6 +1,8 @@
 import localDB from "../db";
 import jwt from "jsonwebtoken";
 import axios from 'axios'
+import { eventBus } from "../eventBus.js";
+import { updateJournalEntry } from "../db/journal.js";
 
 function getUserIdFromToken(token) {
     try {
@@ -21,16 +23,21 @@ function getUserIdFromToken(token) {
 export async function handleCreateJournal(event, mode, token, payload) {
     const userId = getUserIdFromToken(token).id;
     if (!userId) throw new Error("Invalid token");
-    console.log(mode, payload)
+    let createdJournal;
     if (mode === 'online') {
         const response = await axios.post('http://localhost:4000/api/journals', payload, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
     } else { // Offline
-
-        return localDB.createJournalEntry(userId, payload);
+        createdJournal = localDB.createJournalEntry(userId, payload);
     }
+    eventBus.emit("journal:created", {
+        userId,
+        entry: createdJournal,
+        mode
+    });
+    return createdJournal;
 }
 
 export async function handleGettingImages(event, mode, token, getMode) {
@@ -96,15 +103,21 @@ export async function handleGetJournalById(event, mode, token, journalId) {
 export async function handleUpdateJournal(event, mode, token, journalId, payload) {
     const userId = getUserIdFromToken(token).id;
     if (!userId) throw new Error("Invalid token");
-
+    let updatedJournal;
     if (mode === 'online') {
         const response = await axios.put(`http://localhost:4000/api/journals/${journalId}`, payload, {
             headers: { Authorization: `Bearer ${token}` }
         });
-        return response.data;
+        updatedJournal = response.data;
     } else { // Offline
-        return localDB.updateJournalEntry(userId, journalId, payload);
+        updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
     }
+    console.log(updatedJournal)
+    if (updatedJournal.audio_key) {
+        eventBus.emit("journal:audio-saved", ({ entry: updatedJournal, event }))
+    }
+
+    return updatedJournal;
 }
 
 export async function handleDeleteJournal(event, mode, token, journalId) {
@@ -144,3 +157,36 @@ export async function handleGetChartData(event, mode, token, range) {
         return localDB.getMoodScores(userId, range);
     }
 }
+
+const addContentSummary = (summary, journalId, userId) => {
+    return localDB.addContentSummary(summary, journalId, userId);
+}
+
+eventBus.on("journal:aiCompleted", ({ entry, res3 }) => {
+    try {
+        res3 = typeof res3 === "string" ? JSON.parse(res3) : (res3 || {});
+    } catch (err) {
+        console.error("Failed to parse AI response (res3):", err);
+        res3 = {};
+    }
+    const enrichedEntry = {
+        title: entry.title ?? res3.title,
+        mood_score: entry.mood_score ?? res3.mood_score,
+        mood_tags: (Array.isArray(entry.mood_tags) && entry.mood_tags.length > 0) ? entry.mood_tags : (Array.isArray(res3.mood_tags) ? res3.mood_tags : []),
+        content: entry.content,
+    };
+
+    const updated = localDB.updateJournalEntry(entry.user_id, entry.id, enrichedEntry);
+    eventBus.emit("journal:updated", { entry: updated });
+});
+
+
+eventBus.on("ollama:summary-generated", ({ summary, id, userId }) => {
+    addContentSummary(summary, id, userId);
+})
+
+eventBus.on("whisper:transcribe-ended", ({ entry, transcriptionText }) => {
+    console.log("📝 Transcription text:", transcriptionText);
+    updateJournalEntry(entry.user_id, entry.id, { ...entry, transcription: transcriptionText });
+    eventBus.emit("journal:updated", { entry: { ...entry, transcription: transcriptionText } });
+});
