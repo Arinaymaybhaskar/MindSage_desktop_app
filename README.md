@@ -214,6 +214,16 @@ _This shows the initial frontend and backend steps when a user manually triggers
 _This diagram details the asynchronous worker process that handles the heavy lifting of data synchronization. It periodically checks for pending journals, performs AI enrichment (summaries, tags), generates embeddings, and updates the sync status._
 ![Background Worker Flow](./assets/diagrams/worker.png)
 
+### Search & AI Chat
+
+**1. Semantic Search Flow**
+_This workflow details the process for semantic search. A user's query is vectorized and used to find the most relevant journal entries from the Qdrant vector database. The results are then re-ranked by a local LLM (Ollama) to improve relevance before being returned. If no semantic matches are found, the system falls back to a traditional keyword search._
+![Semantic Search Flow](./assets/diagrams/semanticSearch.png)
+
+**2. Conversational AI Chat Flow**
+_This diagram illustrates the RAG (Retrieval-Augmented Generation) pipeline for the conversational chatbot. It uses LangChain for context management and classifies user queries to determine if retrieval from journals is needed. The system can handle time-based questions, retrieves relevant context from Qdrant, and uses Ollama to generate a conversational response grounded in the user's data._
+![Chat Flow](./assets/diagrams/chat.png)
+
 ---
 
 ## 🚀 Roadmap (Future Enhancements)
