@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { ProfileDropdown } from "./components/profileDropdown"; // Ensure path is correct
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import OllamaStatus from "./components/OllamaStatus";
 
 const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -128,13 +129,7 @@ const TitleBar: React.FC = () => {
         className="flex items-center h-full"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        <Link
-          to="/ollama-tutorial"
-          className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-text-light-sub dark:text-text-dark-sub rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
-        >
-          <Rocket size={16} />
-          <span className="hidden lg:block">Get Started</span>
-        </Link>
+        <OllamaStatus />
         {user && (
           <div className="flex items-center justify-center h-full gap-2 mx-2">
             {/* --- Animated Search Bar --- */}

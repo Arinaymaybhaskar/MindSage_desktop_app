@@ -1,173 +1,43 @@
-// qdrantManager.js
-import { spawn } from "child_process";
-import path from "path";
-import fs from "fs";
-import http from "http";
-import jwt from "jsonwebtoken";
+import { ipcMain } from "electron";
+import { QdrantClient } from "@qdrant/js-client-rest";
+import { eventBus } from "../eventBus.js";
 
-let qdrantProcess = null;
-let qdrantPort = 6333;
+let client = null;
 
-function getUserIdFromToken(token) {
-    try {
-        // 1. Guard against null or undefined tokens
-        if (!token) {
-            return null;
-        }
-        const decoded = jwt.decode(token);
-        // 2. Ensure the token was successfully decoded and has an id
-        console.log(decoded, "decoded");
-        return decoded.id;
-    } catch (e) {
-        console.error("Error decoding token:", e);
-        return null;
-    }
-}
+export function registerQdrantIPC(runtime) {
+    client = new QdrantClient({ url: runtime.baseUrl });
 
-function getQdrantPath() {
-    const isDev = process.env.NODE_ENV === "development";
-    const qdrantBinaryDir = isDev
-        ? path.join(__dirname, "qdrant_bin")
-        : path.join(process.resourcesPath, "qdrant");
-
-    const qdrantBinaryName =
-        process.platform === "darwin"
-            ? process.arch === "arm64"
-                ? "qdrant-aarch64-apple-darwin"
-                : "qdrant-x86_64-apple-darwin"
-            : process.platform === "win32"
-                ? "qdrant.exe"
-                : "qdrant-x86_64-unknown-linux-gnu";
-
-    return path.join(qdrantBinaryDir, qdrantBinaryName);
-}
-
-function getAvailablePort(startPort, callback) {
-    const server = http.createServer();
-    server.listen(startPort, () => {
-        server.close(() => callback(startPort));
+    ipcMain.handle("qdrant:get-collections", async () => {
+        return client.getCollections();
     });
-    server.on("error", () => {
-        getAvailablePort(startPort + 1, callback);
-    });
-}
 
-function startQdrant(token, authMode) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    return new Promise((resolve, reject) => {
-        if (qdrantProcess) return resolve({ port: qdrantPort });
-
-        getAvailablePort(qdrantPort, (port) => {
-            qdrantPort = port;
-            const qdrantPath = path.join(
-                process.resourcesPath,
-                "qdrant", // folder where binary will be stored in packaged app
-                process.platform === "darwin"
-                    ? process.arch === "arm64"
-                        ? "qdrant-aarch64-apple-darwin"
-                        : "qdrant-x86_64-apple-darwin"
-                    : process.platform === "win32"
-                        ? "qdrant.exe"
-                        : "qdrant-x86_64-unknown-linux-gnu"
-            );
-
-            if (!fs.existsSync(qdrantPath)) {
-                return reject(new Error("Qdrant binary not found"));
-            }
-
-            qdrantProcess = spawn(qdrantPath, ["--storage", path.join(process.cwd(), "qdrant_data"), "--port", port], {
-                cwd: path.dirname(qdrantPath),
-            });
-
-            qdrantProcess.stdout.on("data", (data) => {
-                console.log(`Qdrant: ${data}`);
-            });
-
-            qdrantProcess.stderr.on("data", (data) => {
-                console.error(`Qdrant Error: ${data}`);
-            });
-
-            setTimeout(() => resolve({ port }), 3000); // Wait for server to start
+    ipcMain.handle("qdrant:create-collection", async (_e, name, size, distance = "Cosine") => {
+        return client.createCollection(name, {
+            vectors: { size, distance }
         });
     });
-}
 
-function stopQdrant(token, authMode) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    if (qdrantProcess) {
-        qdrantProcess.kill();
-        qdrantProcess = null;
-    }
-}
-
-async function createCollection(token, authMode, name) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    const res = await fetch(`http://localhost:${qdrantPort}/collections/${name}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            vectors: { size: 1536, distance: "Cosine" },
-        }),
+    ipcMain.handle("qdrant:upsert", async (_e, collection, points) => {
+        return client.upsert(collection, { points });
     });
-    return res.json();
-}
 
-async function insertVector(token, authMode, collection, id, vector, payload = {}) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    const res = await fetch(`http://localhost:${qdrantPort}/collections/${collection}/points`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            points: [{ id, vector, payload }],
-        }),
+    ipcMain.handle("qdrant:search", async (_e, collection, vector, limit = 5, filter) => {
+        return client.search(collection, { vector, limit, filter });
     });
-    return res.json();
-}
 
-async function searchVector(token, authMode, collection, vector, limit = 5) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    const res = await fetch(`http://localhost:${qdrantPort}/collections/${collection}/points/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vector, limit }),
+    ipcMain.handle("qdrant:delete-collection", async (_e, name) => {
+        return client.deleteCollection(name);
     });
-    return res.json();
-}
 
-module.exports = {
-    startQdrant,
-    stopQdrant,
-    createCollection,
-    insertVector,
-    searchVector,
-};
+    // Add bulk sync handler
+    ipcMain.handle("qdrant:bulk-sync", async () => {
+        try {
+            // Emit the bulk sync event to the worker
+            eventBus.emit("journal:bulk-sync-requested");
+            return { success: true, message: "Bulk sync started" };
+        } catch (error) {
+            console.error("Error starting bulk sync:", error);
+            return { success: false, error: error.message };
+        }
+    });
+}

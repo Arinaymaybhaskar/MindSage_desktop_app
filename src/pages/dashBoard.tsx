@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense, useMemo } from "react";
+import { useEffect, useState, lazy, Suspense, useMemo, use } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { userService } from "../api/userService";
@@ -10,6 +10,7 @@ import {
   Edit,
   ArrowUpRightIcon,
   ArrowRight,
+  Plus,
 } from "lucide-react";
 
 // Components
@@ -19,6 +20,7 @@ import DashboardSkeleton from "../components/Skeletons/DashBoardSkeleton";
 import StatCard from "../components/StatCard";
 import { goalService } from "../api/goalService";
 import MoodSentimentChart from "../components/MoodSentimentChart";
+import { dashboardService } from "../api/dashBoardService";
 
 // Dynamically import the Masonry component for code splitting
 const Masonry = lazy(() => import("../components/masonry"));
@@ -62,9 +64,9 @@ export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
   const [pinnedGoals, setPinnedGoals] = useState<PinnedGoal[]>([]);
-  const [chartData, setChartData] = useState();
+  const [chartData, setChartData] = useState<any>(null);
   const [lastEntryId, setLastEntryId] = useState<number | null>(null);
-
+  const [dashboardData, setDashboardData] = useState<any>(null);
   // State to hold just the image keys fetched initially
   const [imageKeys, setImageKeys] = useState<ImageKeyEntry[]>([]);
   // State for the fully processed images with data URIs
@@ -101,11 +103,17 @@ export default function Dashboard() {
           journalService.getChartData(authMode, accessToken, 30),
         ]);
 
+        const dashboardData = await dashboardService.getData(
+          authMode,
+          accessToken
+        );
+        console.log(dashboardData, "dashboardData");
+        setDashboardData(dashboardData);
+        setChartData(dashboardData.dailyScores);
         if (recentEntriesData && recentEntriesData.length > 0) {
           setLastEntryId(recentEntriesData[0].id);
         }
-
-        setChartData(chartData);
+        // setChartData(chartData);
         setUser(userData);
         console.log("User info set in localStorage from dashboard:", userData);
         localStorage.setItem("userInfo", JSON.stringify(userData));
@@ -200,13 +208,22 @@ export default function Dashboard() {
   return (
     <div className="">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <header className="mb-8">
-          <h1 className="text-4xl font-[fraunces] font-bold tracking-tight text-gray-900 dark:text-white">
-            Welcome back, {user.full_name?.split(" ")[0] || user.username}
-          </h1>
-          <p className="text-lg text-text-light-sub dark:text-text-dark-sub mt-1">
-            Here's a look at your recent activity and memories.
-          </p>
+        <header className="mb-8 flex justify-between items-center">
+          <div className="">
+            <h1 className="text-4xl font-[fraunces] font-bold tracking-tight text-gray-900 dark:text-white">
+              Welcome back, {user.full_name?.split(" ")[0] || user.username}
+            </h1>
+            <p className="text-lg text-text-light-sub dark:text-text-dark-sub mt-1">
+              Here's a look at your recent activity and memories.
+            </p>
+          </div>
+          <Link
+            to="/"
+            className="flex items-center h-12 gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
+          >
+            <Plus size={20} />
+            <span>New Entry</span>
+          </Link>
         </header>
 
         {/* Stats Section */}
@@ -236,7 +253,7 @@ export default function Dashboard() {
         </section>
 
         <div className="flex w-full h-full justify-center gap-6 items-center mt-6">
-          {chartData && <MoodSentimentChart data={chartData} />}
+          {chartData && <MoodSentimentChart initialData={chartData} />}
           <section className="h-[500px] bg-secondary-light dark:bg-secondary-dark border border-border-light dark:border-border-dark rounded-xl w-1/4 flex flex-col">
             {/* Header */}
             <div className="flex justify-between items-center p-6 pb-4">

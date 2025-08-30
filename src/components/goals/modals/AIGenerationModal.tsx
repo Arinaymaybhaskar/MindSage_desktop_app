@@ -51,9 +51,21 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   const [goals, setGoals] = useState<GeneratedGoal[]>([]);
   const [error, setError] = useState("");
   const { accessToken } = useAuth();
-  const selectedModel =
-    typeof window !== "undefined" ? localStorage.getItem("selectedModel") : "";
+  const [selectedModel, setSelectedModel] = useState<string>("");
 
+  useEffect(() => {
+    const fetchModel = async () => {
+      try {
+        const storedModel = await window.electron.ipcRenderer.invoke(
+          "settings:getSelectedModel"
+        );
+        if (storedModel) setSelectedModel(storedModel);
+      } catch (err) {
+        console.error("Failed to load selected model from store:", err);
+      }
+    };
+    fetchModel();
+  }, []);
   // All logic (useMemo, handlers, etc.) remains the same...
   const categoryIndexByName = useMemo(() => {
     const map = new Map<string, Category>();

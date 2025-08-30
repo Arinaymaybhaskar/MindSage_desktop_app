@@ -172,12 +172,17 @@ export const ProfileDropdown: React.FC = () => {
           (model: { name: string }) => model.name
         );
         setModels(modelNames);
-        const storedModel = localStorage.getItem("selectedModel");
+        const storedModel = await window.electron.ipcRenderer.invoke(
+          "settings:getSelectedModel"
+        );
         if (storedModel && modelNames.includes(storedModel)) {
           setSelectedModel(storedModel);
         } else if (modelNames.length > 0) {
           setSelectedModel(modelNames[0]);
-          localStorage.setItem("selectedModel", modelNames[0]);
+          await window.electron.ipcRenderer.invoke(
+            "settings:setSelectedModel",
+            modelNames[0]
+          );
         }
       } catch (error) {
         console.error("Error fetching models: ", error);
@@ -186,8 +191,11 @@ export const ProfileDropdown: React.FC = () => {
     fetchModels();
   }, [accessToken]);
 
-  const handleModelChange = (model: string) => {
-    localStorage.setItem("selectedModel", model);
+  const handleModelChange = async (model: string) => {
+    await window.electron.ipcRenderer.invoke(
+      "settings:setSelectedModel",
+      model
+    );
     setSelectedModel(model);
     setIsOpen(false);
   };

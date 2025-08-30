@@ -1,4 +1,4 @@
-export const getAutoPopulateValues = (content) => {
+export function getAutoPopulateValues(content) {
   // This function constructs a detailed prompt for an AI model.
   // It asks the AI to analyze the provided 'content' (a journal entry)
   // and return a structured JSON object with a title, mood score, and relevant tags.
@@ -72,7 +72,7 @@ ${content}
   return prompt;
 };
 
-export const AISummaryPrompt = (entry) => {
+export function AISummaryPrompt(entry) {
   const prompt = `
   Summarize the following journal entry in 3-5 sentences, capturing the main feelings, events, and key takeaways.
 Journal Entry:

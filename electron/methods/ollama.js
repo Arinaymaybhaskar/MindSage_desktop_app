@@ -1,6 +1,7 @@
 import { execSync, exec } from 'child_process';
 import { getUserIdFromToken } from '../../src/utils/electronUtils';
 import { eventBus } from "../eventBus.js";
+import { spawn } from "child_process";
 import { AISummaryPrompt, getAutoPopulateValues } from './AIPrompts.js';
 // import { getAutoPopulateValues } from '../utils/prompts/journal.js';
 
@@ -132,3 +133,44 @@ eventBus.on("journal:created", async ({ entry }) => {
 
     eventBus.emit("ollama:summary-generated", { summary, id, userId });
 })
+
+export async function generateSuggestion(prompt, maxTokens = 20) {
+    console.log("[generateSuggestion] Called with:", { prompt, maxTokens });
+
+    try {
+        const response = await fetch("http://localhost:11434/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "llama3.2:latest",
+                prompt,
+                options: {
+                    num_predict: maxTokens,
+                },
+                // ⬇️ ADD THIS SYSTEM PROMPT ⬇️
+                system: "You are a raw text completion model. Your only job is to continue the user's text. Do not add any commentary, greetings, or conversational filler. Directly output the next sequence of words.",
+                // ⬆️ THIS FORCES IT INTO COMPLETION MODE ⬆️
+                temperature: 0.2,
+                stream: false, // You are correctly asking for a single response
+            }),
+        });
+
+        // Handle non-successful HTTP responses
+        if (!response.ok) {
+            throw new Error(`API request failed with status ${response.status}`);
+        }
+
+        // Since stream is false, parse the entire JSON body at once
+        const data = await response.json();
+
+        console.log("[generateSuggestion] Final output:", data.response.trim());
+
+        // The generated text is in the 'response' property
+        return data.response.trim();
+
+    } catch (error) {
+        console.error("[generateSuggestion] Error fetching suggestion:", error);
+        // Return an empty string on failure so the frontend doesn't break
+        return "";
+    }
+}

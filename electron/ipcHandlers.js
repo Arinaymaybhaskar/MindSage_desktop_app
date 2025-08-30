@@ -1,0 +1,125 @@
+import { app, ipcMain } from "electron";
+import path, { dirname, join } from 'node:path';
+// Import method handlers
+import { handleGoogleLogin, handleLogin, handleRegister } from "./methods/auth.js";
+import { userChangePassword, userDeleteAccount, userGetMe, userGetSettings, userUpdateProfile, userUpdateSettings } from "./methods/user.js";
+import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal } from "./methods/journal.js";
+import { getAudioBase64, getImageBase64, handleOpenMedia, handleSaveMedia, handleSaveProfileImage } from "./methods/media.js";
+import { handleAddCategory, handleDeleteCategory, handleGetCategories, handleUpdateCategory } from "./methods/categories.js";
+import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActiveGoals, handleGetCompletedGoals, handleGetPinnedGoals, handleTogglePin, handleUpdateGoal, handleUpdateProgress } from "./methods/goal.js";
+import { handleAddProgressLog, handleGetProgressLogs } from "./methods/progressLogs.js";
+import { generateSuggestion, handleGetOllamaModels, handleOllamaPrompt } from "./methods/ollama.js";
+import { startLiveTranscription, stopLiveTranscription, transcribeAudioBlob } from "./methods/whisper.js";
+import { getAllTimeScores, getDashboardData, getMonthlyScores } from "./methods/dashboard.js";
+import { getSelectedModel, setSelectedModel } from "./store.js";
+import { registerQdrantIPC } from "./methods/qdrant.js";
+import { Worker } from 'node:worker_threads';
+import { fileURLToPath } from "node:url";
+
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
+
+export function createQdrantWorker() {
+    const __filename = fileURLToPath(import.meta.url)
+    const __dirname = dirname(__filename)
+
+    const worker = new Worker(join(__dirname, 'qdrantWorker.js'))
+    worker.on('error', (error) => console.error('Qdrant Worker Error:', error));
+    worker.on('exit', (code) => {
+        if (code !== 0) console.error(`Qdrant Worker stopped with exit code ${code}`);
+    });
+    return worker;
+}
+
+export function registerIPCHandlers(runtime) {
+    // Qdrant
+    registerQdrantIPC(runtime);
+
+    // Media
+    ipcMain.handle("media:save", handleSaveMedia);
+    ipcMain.handle("media:open", handleOpenMedia);
+    ipcMain.handle("media:save-profile", handleSaveProfileImage);
+    ipcMain.handle("media:getImage", (_e, imagePath) => getImageBase64(imagePath));
+    ipcMain.handle("media:getAudio", (_e, audioPath) => getAudioBase64(audioPath));
+
+    // Auth
+    ipcMain.handle("auth:register", handleRegister);
+    ipcMain.handle("auth:login", handleLogin);
+    ipcMain.handle("login:google", handleGoogleLogin);
+
+    // User
+    ipcMain.handle("user:get-me", userGetMe);
+    ipcMain.handle("user:update-profile", userUpdateProfile);
+    ipcMain.handle("user:get-settings", userGetSettings);
+    ipcMain.handle("user:update-settings", userUpdateSettings);
+    ipcMain.handle("user:change-password", userChangePassword);
+    ipcMain.handle("user:delete-account", userDeleteAccount);
+
+    // Journal
+    ipcMain.handle("journal:create", handleCreateJournal);
+    ipcMain.handle("journal:get-recent", handleGetRecentJournals);
+    ipcMain.handle("journal:get-all", handleGetAllJournals);
+    ipcMain.handle("journal:get-by-id", handleGetJournalById);
+    ipcMain.handle("journal:update", handleUpdateJournal);
+    ipcMain.handle("journal:delete", handleDeleteJournal);
+    ipcMain.handle("journal:get-images", handleGettingImages);
+    ipcMain.handle("journal:get-chart-data", handleGetChartData);
+    ipcMain.handle("chat:send", handleChat);
+
+    // Categories
+    ipcMain.handle("category:get-all", handleGetCategories);
+    ipcMain.handle("category:delete", handleDeleteCategory);
+    ipcMain.handle("category:add", handleAddCategory);
+    ipcMain.handle("category:update", handleUpdateCategory);
+
+    // Goals
+    ipcMain.handle("goal:get-active-goals", handleGetActiveGoals);
+    ipcMain.handle("goal:get-completed-goals", handleGetCompletedGoals);
+    ipcMain.handle("goal:add", handleCreateGoal);
+    ipcMain.handle("goal:update", handleUpdateGoal);
+    ipcMain.handle("goal:delete", handleDeleteGoal);
+    ipcMain.handle("goal:toggle-pin", handleTogglePin);
+    ipcMain.handle("goal:complete", handleCompleteGoal);
+    ipcMain.handle("goal:update-progress", handleUpdateProgress);
+    ipcMain.handle("goal:getPinned", handleGetPinnedGoals);
+
+    // Logs
+    ipcMain.handle("logs:getAll", handleGetProgressLogs);
+    ipcMain.handle("logs:add", handleAddProgressLog);
+
+    // Dashboard
+    ipcMain.handle("dashboard:get-data", getDashboardData);
+    ipcMain.handle("dashboard:get-monthly-scores", getMonthlyScores);
+    ipcMain.handle("dashboard:get-all-time-scores", getAllTimeScores);
+
+    // Ollama
+    ipcMain.handle("ollama:models", handleGetOllamaModels);
+    ipcMain.handle("ollama:get-response", handleOllamaPrompt);
+    ipcMain.handle("ollama:generate-suggestion", async (_e, prompt, maxTokens) => {
+        try {
+            return await generateSuggestion(prompt, maxTokens);
+        } catch (err) {
+            console.error(err);
+            return "";
+        }
+    });
+
+    // Whisper
+    ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);
+    ipcMain.handle("whisper:stop-live-transcription", stopLiveTranscription);
+    ipcMain.handle("whisper:transcribe-audio", async (event, filePath) => {
+        try {
+            const result = await transcribeAudioBlob(filePath, event);
+            event.sender.send("blob-transcription-result", result);
+        } catch (err) {
+            event.sender.send("blob-transcription-error", err.message);
+        }
+    });
+
+    // Settings
+    ipcMain.handle("settings:getSelectedModel", () => getSelectedModel());
+    ipcMain.handle("settings:setSelectedModel", (_e, model) => {
+        setSelectedModel(model);
+        return true;
+    });
+}

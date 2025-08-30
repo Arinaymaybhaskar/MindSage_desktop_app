@@ -158,6 +158,20 @@ export async function handleGetChartData(event, mode, token, range) {
     }
 }
 
+export const getPendingJournals = (userId) => {
+    if (!userId) throw new Error("Invalid userId");
+    return localDB.getPendingJournals(userId);
+}
+
+export const updateSyncStatus = (userId, journalId, status) => {
+    if (!userId) throw new Error("Invalid userId");
+    if (!journalId) throw new Error("Invalid journalId");
+    if (!status) throw new Error("Invalid status");
+    return localDB.updateSyncStatus(userId, journalId, status);
+}
+
+
+
 const addContentSummary = (summary, journalId, userId) => {
     return localDB.addContentSummary(summary, journalId, userId);
 }

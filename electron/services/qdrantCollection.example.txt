@@ -1,0 +1,41 @@
+1. For Journal Entries
+
+{
+  "user_id": 1,
+  "source_type": "journal",
+  "source_id": 101, // Corresponds to journal_entries.id in SQLite
+  "text_content": "Today was a breakthrough day on the project. I finally solved the nagging bug that was holding us back. Feeling incredibly relieved and productive...",
+  "created_at": "2025-08-28T18:30:00Z", // ISO 8601 format
+  "title": "Project Breakthrough",
+  "mood_score": 9,
+  "sentiment_score": 0.95,
+  "tags": ["work", "programming", "success"]
+}
+
+2. For Goals
+
+{
+  "user_id": 1,
+  "source_type": "goal",
+  "source_id": 25, // Corresponds to goals.id in SQLite
+  "text_content": "Goal: Learn Advanced SQL. Description: I want to master window functions and common table expressions within the next 3 months.",
+  "created_at": "2025-07-01T10:00:00Z", // ISO 8601 format
+  "title": "Learn Advanced SQL",
+  "category_name": "Personal Growth", // Joined from the categories table
+  "status": "in_progress", // Calculated from is_completed
+  "target_date": "2025-10-01"
+}
+
+3. For Goal Progress Logs
+
+{
+  "user_id": 1,
+  "source_type": "progress_log",
+  "source_id": 512, // Corresponds to progress_logs.id in SQLite
+  "text_content": "Finished the chapter on window functions and applied it to a real dataset at work. It made the quarterly report query so much cleaner.",
+  "created_at": "2025-08-15T16:45:00Z", // ISO 8601 format
+  "goal_id": 25, // The parent goal's ID
+  "goal_title": "Learn Advanced SQL", // Denormalized for context
+  "value_logged": 1,
+  "unit": "chapter"
+}

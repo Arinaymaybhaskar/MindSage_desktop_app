@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, KeyboardEvent, ChangeEvent } from "react"; // START: Added useRef, KeyboardEvent, ChangeEvent
 import { Link, useNavigate, useParams } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
-// START: Added imports for speech-to-text
 import whisperService from "../api/whisperService";
 import {
   ArrowLeft,
@@ -9,15 +8,13 @@ import {
   Paperclip,
   Save,
   Smile,
-  ChevronDown,
   X,
   Loader2,
   UploadCloud,
   Mic,
   Trash2,
-  MicOff, // Added MicOff icon
+  MicOff,
 } from "lucide-react";
-// END: Added imports
 import { motion, AnimatePresence } from "framer-motion";
 import { MoodTagSelector } from "../components/moodOptions";
 import { MoodSlider } from "../components/moodSlider";
@@ -27,10 +24,8 @@ import { mediaService } from "../api/mediaService";
 import VoiceRecorderUI from "../components/voiceRecorder";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
 import { ollamaService } from "../api/ollamaService";
-import {
-  getAutoPopulateValues,
-  getFollowUpQuestionsPrompt,
-} from "../utils/prompts/Journal";
+import { getFollowUpQuestionsPrompt } from "../utils/prompts/Journal";
+import { SidebarPanel } from "../components/journal/SidebarPanel";
 
 const emptyJournal: JournalEntry = {
   title: "",
@@ -38,47 +33,6 @@ const emptyJournal: JournalEntry = {
   mood_score: 0,
   sentiment_score: 0,
   mood_tags: [],
-};
-
-// A reusable panel component for the sidebar
-const SidebarPanel = ({ title, icon: Icon, children }) => {
-  const [isOpen, setIsOpen] = useState(true);
-  return (
-    <div className="bg-secondary-light dark:bg-secondary-dark border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
-      <button
-        type="button"
-        className="w-full flex justify-between items-center p-4"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <div className="flex items-center gap-3">
-          <Icon size={18} className="text-info" />
-          <h3 className="font-semibold text-text-light dark:text-text-dark">
-            {title}
-          </h3>
-        </div>
-        <motion.div animate={{ rotate: isOpen ? 0 : -90 }}>
-          <ChevronDown
-            size={20}
-            className="text-text-light-sub dark:text-text-dark-sub transition-transform"
-          />
-        </motion.div>
-      </button>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-          >
-            <div className="p-4 border-t border-border-light dark:border-border-dark">
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 };
 
 export default function JournalForm() {
@@ -96,16 +50,37 @@ export default function JournalForm() {
   const voiceRecorderState = useVoiceRecorder();
   const { recordingBlob, resetRecording } = voiceRecorderState;
   const { accessToken } = useAuth();
-  const selectedModel = localStorage.getItem("selectedModel");
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const selectedAutoCompleteModel = localStorage.getItem(
+    "selectedAutoCompleteModel"
+  );
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const model = await window.electron.ipcRenderer.invoke(
+          "settings:getSelectedModel"
+        );
+
+        if (model) setSelectedModel(model);
+      } catch (err) {
+        console.error("[JournalForm] Failed to load settings from store:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // START: Added state for live transcription
   const [isTranscribing, setIsTranscribing] = useState(false);
+
+  // START: Added state for inline autocomplete suggestions
+  const [suggestion, setSuggestion] = useState("");
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   // END: Added state
 
   // Load draft or fetch entry
@@ -199,13 +174,12 @@ export default function JournalForm() {
     return () => clearTimeout(timer);
   }, [entry, isEdit, DRAFT_KEY]);
 
-  // START: Added useEffect for live transcription
+  // Live transcription
   useEffect(() => {
     const unsubscribe = whisperService.onLiveData((data) => {
       if (data?.text) {
         setEntry((prev) => ({
           ...prev,
-          // Append new text, handling potential empty initial content
           content:
             (prev.content ? prev.content.trim() + " " : "") + data.text.trim(),
         }));
@@ -213,9 +187,49 @@ export default function JournalForm() {
     });
     return () => unsubscribe();
   }, []);
-  // END: Added useEffect
 
-  // START: Added handler for live transcription
+  // START: Add useEffect for debounced autocomplete suggestions
+  useEffect(() => {
+    if (!entry.content || entry.content.trim().length < 20) {
+      setSuggestion("");
+      return;
+    }
+
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    debounceTimeout.current = setTimeout(async () => {
+      try {
+        const prompt = entry.content.trim();
+
+        const result = await window.electron.ipcRenderer.invoke(
+          "ollama:generate-suggestion",
+          prompt,
+          10
+        );
+
+        if (result && typeof result === "string") {
+          const cleanedSuggestion = result
+            .replace(/"/g, "")
+            .replace(/\n/g, " ")
+            .trim();
+          setSuggestion("  " + cleanedSuggestion);
+        }
+      } catch (error) {
+        console.error("Failed to generate suggestion:", error);
+        setSuggestion("");
+      }
+    }, 2000); // High debounce of 2 seconds
+
+    return () => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+    };
+  }, [entry.content]);
+  // END: Add useEffect
+
   const toggleLiveTranscription = async () => {
     if (isTranscribing) {
       await whisperService.stopLive();
@@ -225,7 +239,6 @@ export default function JournalForm() {
       setIsTranscribing(true);
     }
   };
-  // END: Added handler
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,7 +249,6 @@ export default function JournalForm() {
     setIsSubmitting(true);
 
     try {
-      // No AI completion — use the values provided by the user (or sensible defaults)
       const mergedEntry: JournalEntry = {
         ...entry,
         title: entry.title?.trim() ? entry.title : "",
@@ -265,8 +277,8 @@ export default function JournalForm() {
 
       const journalId = isEdit ? +id! : res.id;
       console.log(`[handleSubmit] Journal ID for media upload: ${journalId}`);
-      let imageKey = entry.image_key; // Start with existing key
-      let audioKey = entry.audio_key; // Start with existing key
+      let imageKey = entry.image_key;
+      let audioKey = entry.audio_key;
 
       if (imageFile) {
         console.log("[handleSubmit] Uploading new image...");
@@ -297,7 +309,6 @@ export default function JournalForm() {
         }
       }
 
-      // Only update with media keys if there's a new key or a key was changed.
       const needsMediaUpdate =
         imageKey !== res.image_key || audioKey !== res.audio_key;
 
@@ -343,6 +354,43 @@ export default function JournalForm() {
     }
   };
 
+  // START: Add handlers for autocomplete suggestion
+  const handleContentChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    // As the user types, clear the current suggestion to prevent it from lingering.
+    if (suggestion) {
+      setSuggestion("");
+    }
+    setEntry({ ...entry, content: e.target.value });
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    const isAtEnd = e.currentTarget.selectionStart === entry.content.length;
+
+    // Accept with Tab key (kept as an option)
+    const isTabAccept = e.key === "Tab" && suggestion;
+
+    const isWordAccept =
+      (e.ctrlKey || e.metaKey) &&
+      e.key === "ArrowRight" &&
+      suggestion &&
+      isAtEnd;
+
+    if (isTabAccept) {
+      e.preventDefault();
+      setEntry({ ...entry, content: entry.content + suggestion });
+      setSuggestion("");
+    } else if (isWordAccept) {
+      e.preventDefault();
+      const suggestionWords = suggestion.trim().split(" ");
+      const firstWord = suggestionWords[0];
+      const remainingSuggestion = suggestionWords.slice(1).join(" ");
+
+      setEntry({ ...entry, content: entry.content + " " + firstWord });
+      setSuggestion(remainingSuggestion ? " " + remainingSuggestion : "");
+    }
+  };
+  // END: Add handlers
+
   const processImageFile = (file: File) => {
     if (file && file.type.startsWith("image/")) {
       setImageFile(file);
@@ -359,15 +407,15 @@ export default function JournalForm() {
 
   const handleRemoveImage = () => {
     console.log("[JournalForm] Removing image.");
-    setImageFile(null); // Clear any newly selected file
-    setImagePreview(null); // Clear the preview
-    setEntry((prev) => ({ ...prev, image_key: null })); // Clear the key from the entry state
+    setImageFile(null);
+    setImagePreview(null);
+    setEntry((prev) => ({ ...prev, image_key: null }));
   };
 
   const handleRemoveAudio = () => {
     console.log("[JournalForm] Removing existing audio.");
-    setExistingAudioUrl(null); // Clear the preview URL
-    setEntry((prev) => ({ ...prev, audio_key: null })); // Clear the key from the entry state
+    setExistingAudioUrl(null);
+    setEntry((prev) => ({ ...prev, audio_key: null }));
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
@@ -478,16 +526,26 @@ export default function JournalForm() {
               onChange={(e) => setEntry({ ...entry, title: e.target.value })}
               className="text-3xl font-[fraunces] font-bold bg-transparent focus:outline-none mb-4 placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
             />
-            {/* START: Modified editor area for transcription button */}
+
+            {/* START: Modified editor area for ghost text autocomplete */}
             <div className="relative flex-grow">
+              {/* Ghost text layer - sits behind the textarea */}
+              <div
+                className="absolute inset-0 font-inter text-lg leading-relaxed pointer-events-none"
+                aria-hidden="true"
+              >
+                <span className="text-transparent">{entry.content}</span>
+                <span className="text-text-light-sub/50 dark:text-text-dark-sub/50">
+                  {suggestion}
+                </span>
+              </div>
               <textarea
                 id="content"
                 placeholder="Write freely, or click the mic to start speaking..."
                 value={entry.content}
-                onChange={(e) =>
-                  setEntry({ ...entry, content: e.target.value })
-                }
-                className="w-full h-full font-inter text-lg bg-transparent focus:outline-none resize-none leading-relaxed placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
+                onChange={handleContentChange}
+                onKeyDown={handleKeyDown}
+                className="relative z-10 w-full h-full font-inter text-lg bg-transparent focus:outline-none resize-none leading-relaxed placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
               />
             </div>
             {/* END: Modified editor area */}
@@ -501,7 +559,7 @@ export default function JournalForm() {
                 onChange={(score) => setEntry({ ...entry, mood_score: score })}
               />
               <MoodTagSelector
-                key={JSON.stringify(entry.mood_tags)} // FIX: Force re-mount when tags change from parent
+                key={JSON.stringify(entry.mood_tags)}
                 selected={entry.mood_tags ?? []}
                 onChange={(tags) => {
                   console.log(
@@ -567,7 +625,6 @@ export default function JournalForm() {
                 )}
 
                 {/* --- START: UPDATED AUDIO SECTION --- */}
-                {/* Show existing audio if it exists and a new one hasn't been recorded */}
                 {isEdit && existingAudioUrl && !recordingBlob && (
                   <div className="relative w-full">
                     <p className="text-sm font-semibold mb-2 text-text-light-sub dark:text-text-dark-sub">
@@ -584,10 +641,8 @@ export default function JournalForm() {
                   </div>
                 )}
 
-                {/* Show the voice recorder if there's no new recording blob */}
                 {!recordingBlob && <VoiceRecorderUI {...voiceRecorderState} />}
 
-                {/* Show player for the new recording once it's available */}
                 {recordingBlob && (
                   <div className="relative w-full">
                     <p className="text-sm font-semibold mb-2 text-text-light-sub dark:text-text-dark-sub">
@@ -621,7 +676,7 @@ export default function JournalForm() {
                 {isGeneratingQuestions ? (
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
-                  <BrainCircuit size={18} /> // Corrected icon for this button
+                  <BrainCircuit size={18} />
                 )}
                 <span>
                   {isGeneratingQuestions

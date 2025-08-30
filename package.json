@@ -10,14 +10,16 @@
   "homepage": "https://github.com/Arinaymaybhaskar/",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && electron-builder"
+    "build": "vite build && electron-builder",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "npm run rebuild"
   },
   "build": {
     "copyright": "Copyright © 2025 Arinaymay",
     "extraResources": [
       {
-        "from": "electron/resources/win/qdrant.exe",
-        "to": "qdrant",
+        "from": "resources/",
+        "to": ".",
         "filter": [
           "**/*"
         ]
@@ -31,6 +33,7 @@
       "servers/**/*",
       "src/**/*",
       "public/**/*",
+      "electron/workers/**/*",
       "package.json"
     ],
     "directories": {
@@ -55,8 +58,9 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@google/genai": "^1.10.0",
+    "@heroicons/react": "^2.2.0",
     "@mui/material": "^7.3.1",
-    "@qdrant/js-client-rest": "^1.15.0",
+    "@qdrant/js-client-rest": "^1.15.1",
     "@reduxjs/toolkit": "^2.8.2",
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tailwindcss/vite": "^4.1.11",
@@ -71,19 +75,25 @@
     "cors": "^2.8.5",
     "d3-array": "^3.2.4",
     "dayjs": "^1.11.13",
+    "dictionary-en": "^4.0.0",
     "dotenv": "^17.2.1",
+    "electron-store": "^10.1.0",
     "express": "^5.1.0",
     "ffmpeg-static": "^5.2.0",
     "framer-motion": "^12.23.12",
+    "get-port": "^7.1.0",
     "google-auth-library": "^10.1.0",
     "gsap": "^3.13.0",
     "jsonwebtoken": "^9.0.2",
+    "langchain": "^0.3.31",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.525.0",
     "motion": "^12.23.12",
     "node-key-sender": "^1.0.11",
     "nodemailer": "^7.0.5",
+    "nspell": "^2.1.5",
     "pg": "^8.16.3",
+    "qdrant-client": "^0.0.1",
     "react": "^19.1.0",
     "react-audio-visualize": "^1.2.0",
     "react-date-picker": "^11.0.0",
@@ -97,6 +107,7 @@
     "recharts": "^3.0.2",
     "sentiment": "^5.0.2",
     "sqlite3": "^5.1.7",
+    "strip-ansi": "^7.1.0",
     "uuid": "^11.1.0",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.24.6",
@@ -124,6 +135,7 @@
     "typescript-eslint": "^8.35.1",
     "vite": "^7.0.4",
     "vite-plugin-electron": "^0.29.0",
-    "vite-plugin-electron-renderer": "^0.14.6"
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vite-plugin-static-copy": "^3.1.2"
   }
 }

@@ -353,3 +353,23 @@ export function addContentSummary(summary, journalId, userId) {
   const result = stmt.run(summary, journalId, userId);
   return result.changes;
 }
+
+export const getPendingJournal = (userId) => {
+  const stmt = db.prepare(`
+        SELECT * FROM journal_entries 
+        WHERE synced_to_qdrant = 'pending' AND user_id = ?
+        ORDER BY created_at ASC 
+        LIMIT 1
+    `);
+  return stmt.get(userId);
+}
+
+export const updateSyncStatus = (journalId, userId, status) => {
+  const stmt = db.prepare(`
+        UPDATE journal_entries
+        SET synced_to_qdrant = ?
+        WHERE id = ? AND user_id = ?
+    `);
+  const result = stmt.run(status, journalId, userId);
+  return result.changes;
+}

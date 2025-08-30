@@ -5,6 +5,14 @@ contextBridge.exposeInMainWorld('electron', {
   maximize: () => ipcRenderer.send('maximize-window'),
   close: () => ipcRenderer.send('close-window'),
 
+  send: (channel, ...args) => ipcRenderer.send(channel, ...args),
+  onStatusUpdate: (callback) => {
+    ipcRenderer.on("status-update", (_, status) => callback(status));
+  },
+  removeStatusUpdateListener: () => {
+    ipcRenderer.removeAllListeners("status-update");
+  },
+
   // Function to subscribe to window state changes
   onWindowStateChange: (callback) => {
     const listener = (_event, value) => callback(value);
@@ -59,16 +67,22 @@ contextBridge.exposeInMainWorld('electron', {
         'logs:add',
         'ollama:models',
         "ollama:get-response",
-        "qdrant:start",
-        "qdrant:createCollection",
-        "qdrant:insertVector",
-        "qdrant:searchVector",
-        "qdrant:stop",
-
+        "ollama:generate-suggestion",
+        "qdrant:get-collections",
+        "qdrant:create-collection",
+        "qdrant:upsert",
+        "qdrant:search",
+        "qdrant:delete-collection",
+        "dashboard:get-data",
+        "dashboard:get-monthly-scores",
+        "dashboard:get-all-time-scores",
         // --- NEW for Whisper ---
         "whisper:transcribe-audio",      // one-shot transcription
         "whisper:start-live-transcription", // start live
         "whisper:stop-live-transcription",  // stop live
+        "settings:getSelectedModel",
+        "settings:setSelectedModel",
+        "qdrant:bulk-sync" // Add this new channel
       ];
 
       if (validChannels.includes(channel)) {

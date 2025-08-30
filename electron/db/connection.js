@@ -25,7 +25,6 @@ export function initDatabase() {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
-        DROP TABLE IF EXISTS user_settings;
         CREATE TABLE IF NOT EXISTS user_settings (
             user_id INTEGER PRIMARY KEY,
             dark_mode INTEGER DEFAULT 0,
@@ -74,6 +73,7 @@ export function initDatabase() {
             is_deleted INTEGER DEFAULT 0,
             synced INTEGER DEFAULT 0,
             sync_action TEXT,
+            synced_to_qdrant TEXT DEFAULT 'not_synced' CHECK(synced_to_qdrant IN ('not_synced', 'pending', 'in_progress', 'success', 'failed')),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
 
