@@ -5,13 +5,42 @@ import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import WeeklyMoodStrip from "../components/weeklyMoodStrip";
 import { MoodCalendar } from "../components/moodCalender";
-import { Pencil, Trash2, Plus, Search, BookOpen } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Plus,
+  Search,
+  BookOpen,
+  CloudOff,
+  Clock,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  CircleSlash,
+} from "lucide-react";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { useAuth } from "../hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import EmptyState from "../components/EmptyState";
 
 dayjs.extend(isBetween);
+
+const SyncIcon = (state: string) => {
+  switch (state) {
+    case "not_synced":
+      return <CloudOff className="w-5 h-5 text-gray-400" />;
+    case "pending":
+      return <Clock className="w-5 h-5 text-yellow-500" />;
+    case "in_progress":
+      return <Loader2 className="w-5 h-5 animate-spin text-blue-500" />;
+    case "success":
+      return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+    case "failed":
+      return <AlertCircle className="w-5 h-5 text-red-500" />;
+    default:
+      return <CircleSlash className="w-5 h-5 text-gray-300" />;
+  }
+};
 
 // --- JournalEntryCard Component ---
 const JournalEntryCard = ({ entry, onDelete }) => {
@@ -50,6 +79,7 @@ const JournalEntryCard = ({ entry, onDelete }) => {
             </p>
           </div>
           <div className="flex items-center gap-1">
+            <p>{SyncIcon(entry.synced_to_qdrant)}</p>
             <Link
               to={`/journal/edit/${entry.id}`}
               className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-info dark:hover:text-info transition-colors"
@@ -115,6 +145,7 @@ export default function JournalList() {
     journalService
       .getAll(authMode, accessToken!, page, PAGE_LIMIT) // This is correct - page, limit
       .then((newEntries) => {
+        console.log(newEntries, "newEntries");
         setEntries((prev) =>
           page === 0 ? newEntries : [...prev, ...newEntries]
         );
