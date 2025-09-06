@@ -5,7 +5,6 @@ const AI_CORE_URL = process.env.AI_CORE_URL || "http://localhost:3000/api";
 // A collection of functions (tools) that the agent can execute.
 
 const vector_search = async ({ query, date_filter }) => {
-    console.log(`[Tool: vector_search] Searching for: "${query}"`, { date_filter });
     // In a real implementation, you would pass the date_filter to the AI Core
     // which would then need to support it in its Qdrant query.
     // For now, we'll just pass the query.
@@ -20,7 +19,6 @@ const vector_search = async ({ query, date_filter }) => {
 };
 
 const get_all_entries = async ({ date_filter }, userId) => {
-    console.log(`[Tool: get_all_entries] Fetching all entries for date range: ${JSON.stringify(date_filter)}`);
 
     const fromDate = new Date(date_filter.from);
     const toDate = new Date(date_filter.to);
@@ -36,14 +34,10 @@ const get_all_entries = async ({ date_filter }, userId) => {
         [userId, fromDate.toISOString(), toDate.toISOString()]
     );
 
-    console.log(`[Tool: get_all_entries] Found ${result.rowCount} entries.`);
-    console.log(result.rows)
-
     return result.rows.map(row => row.content);
 };
 
 const retrieve_challenge_data = async ({ date_filter, status }, userId) => {
-    console.log(`[Tool: retrieve_challenge_data] Fetching challenges for: ${date_filter}`);
     // Similar date parsing logic would be needed here.
     const interval = date_filter.includes("week") ? "7 days" : "30 days";
     const result = await pool.query(

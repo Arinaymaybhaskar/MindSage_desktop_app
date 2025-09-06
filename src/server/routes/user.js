@@ -9,7 +9,6 @@ const router = express.Router();
 // Get current user info
 router.get("/me", authenticateToken, async (req, res) => {
   try {
-    console.log("Fetching user info for ID:", req.user);
     const id = req.user.id || req.user.userId; // Handle both user.id and user.userId
     const username = req.user.username;
     
@@ -50,7 +49,6 @@ router.get("/me", authenticateToken, async (req, res) => {
     const user = result.rows[0];
     user.entriesCount = entriesCount; // Add entries count to user object
     user.lastEntryDate = lastEntry.rows.length > 0 ? lastEntry.rows[0].created_at : null; // Add last entry date
-    console.log("User streaks:", getstreaks.rows[0].count);
     res.json(user);
   } catch (err) {
     console.error("Error fetching user:", err);
@@ -238,7 +236,6 @@ router.delete("/me", authenticateToken, async (req, res) => {
 
 // change password
 router.put("/me/change-password", authenticateToken, async (req, res) => {
-  console.log("Changing password", req.body, req.user);
   const { old_password, new_password } = req.body;
   try {
     const result = await pool.query("SELECT * FROM users WHERE id = $1", [req.user.id]);

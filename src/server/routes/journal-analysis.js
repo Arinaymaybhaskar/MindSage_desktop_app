@@ -27,7 +27,6 @@ router.post("/", authenticateToken, async (req, res) => {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING id
             `, [journal_id, sentiment, mood, topics, recurring_thoughts, cognitive_distortions, suggested_therapy_technique, analyzed_at])
-        console.log(result)
         const analysisId = result.rows[0].id;
         res.status(200).json({analysisId});
     } catch (err) {

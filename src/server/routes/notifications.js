@@ -44,7 +44,6 @@ router.post("/", checkCronAuth, async (req, res) => {
     }
 
     const insertPromises = targetUsers.map((user) => {
-      console.log("Notification for user:", user.id);
       return pool.query(
         "INSERT INTO notifications (user_id, title, body, type) VALUES ($1, $2, $3, $4)",
         [user.id, title, body, type]

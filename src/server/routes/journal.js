@@ -15,7 +15,6 @@ const AI_CORE_URL = process.env.AI_CORE_URL || "http://localhost:3000/api";
 const analyzeSentiment = (text) => {
   const result = sentiment.analyze(text);
   const score = Math.max(-1, Math.min(1, result.score / 10));
-  console.log(score)
   return score;
 };
 
@@ -30,7 +29,6 @@ router.post("/chat", authenticateToken, async (req, res) => {
     }
 
     try {
-        console.log(`[Chat Route] Handing off query to agent for user ${userId}`);
         const answer = await handleQuery(query, userId);
         res.status(200).json({ answer }); // The agent returns the final answer directly
     } catch (err) {
@@ -58,7 +56,6 @@ router.post("/", authenticateToken, async (req, res) => {
         );
 
         const journalId = result.rows[0].id;
-        console.log(`[DB] Saved journal entry with ID: ${journalId}`);
 
         // Step 3: Asynchronously call the AI Core to create and store the vector embedding
         // We don't wait for this to finish to keep the API response fast.
@@ -106,17 +103,11 @@ router.get("/recent", authenticateToken, async (req, res) => {
 router.get("/upload", authenticateToken, async (req, res) => {
   const fileType = req.query.type;
   const postId = req.query.postId;
-  console.log(postId)
-  const userId = req.user.id
-  console.log(`[API] 🔐 User ID: ${req.user.id}`);
-  console.log(`[API] 📁 Requested file type: ${fileType}`);
 
   if (!fileType) return res.status(400).json({ error: "Missing file type" });
 
   try {
     const result = await generateUploadUrl(req.user.id, postId, fileType, posts);
-    console.log(`[API] ✅ Returning signed URL`);
-    console.log(result, 'result')
     res.json(result);
   } catch (err) {
     console.error(`[API] ❌ Error generating signed URL`, err);
@@ -145,7 +136,6 @@ router.get("/media/:key", authenticateToken, async (req, res) => {
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY created_at DESC", [req.user.id]);
-    console.log(result.rows);
     res.json(result.rows.map((row)=>{
       return {
         ...row,
@@ -217,7 +207,6 @@ router.put("/:id", authenticateToken, async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "Journal entry not found" });
         }
-        console.log(`[DB] Updated journal entry with ID: ${journalId}`);
 
         // Step 3: Asynchronously call the AI Core to update the vector embedding
         // NOTE: This assumes your AI Core's /edit endpoint can find the entry by journal_id.
@@ -262,7 +251,6 @@ router.delete("/:id", authenticateToken, async (req, res) => {
         if (result2.rows.length === 0) {
             return res.status(404).json({ error: "Journal entry not found" });
         }
-        console.log(`[DB] Deleted journal entry with ID: ${journalId}`);
 
         // Step 2: Asynchronously call the AI Core to delete the vector embedding
         // NOTE: This assumes your AI Core's /delete endpoint can find the entry by journal_id.
