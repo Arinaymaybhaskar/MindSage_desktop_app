@@ -171,7 +171,6 @@ export function getAllEntries(userId, limit = 10, offset = 0, fromDate, toDate) 
   // *** FIX: The parameter order for LIMIT and OFFSET is crucial. ***
   // SQL expects `LIMIT count OFFSET start`. So, 'limit' must be pushed before 'offset'.
   params.push(limit, offset);
-  console.log(sql, params);
   const stmt = db.prepare(sql);
   const rows = stmt.all(...params);
 
@@ -265,7 +264,6 @@ export function getMoodScores(userId, range) {
  * @returns {object|null} The updated journal entry or null if not found.
  */
 export function updateJournalEntry(userId, journalId, entry) {
-  console.log("update called", entry);
   const { title, content, mood_score, mood_tags = [], transcription } = entry;
 
   const sentiment_score = analyzeSentimentLocal(content || '');

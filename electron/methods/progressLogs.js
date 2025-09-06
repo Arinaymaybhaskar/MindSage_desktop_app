@@ -9,7 +9,6 @@ function getUserIdFromToken(token) {
         }
         const decoded = jwt.decode(token);
         // 2. Ensure the token was successfully decoded and has an id
-        console.log(decoded);
         return decoded.id;
     } catch (e) {
         console.error("Error decoding token:", e);
@@ -33,7 +32,6 @@ export const handleGetProgressLogs = async (event, authMode, token, goalId) => {
 
 export const handleAddProgressLog = async (event, authMode, token, goalId, value, description) => {
     const userId = getUserIdFromToken(token);
-        console.log(userId, "userID in profgesslofg")
     if (!userId) {
         return { error: "Invalid token" };
     }

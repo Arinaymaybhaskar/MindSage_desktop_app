@@ -74,8 +74,6 @@ export const handleOllamaPrompt = async (event, token, model, prompt, jsonMode =
     }
 };
 
-console.log('ollama methods loaded — registering journal:created listener');
-
 // Define a TypeScript type for the journal:created event payload
 /**
  * @typedef {Object} JournalCreatedEvent
@@ -104,7 +102,6 @@ eventBus.on("journal:created", async ({ entry }) => {
             })
         });
         const aiRes = await res2.json();
-        console.log("[handleSubmit] AI Response received:", aiRes.response);
         const res3 = aiRes.response
         eventBus.emit("journal:aiCompleted", { entry, res3 });
     } else {
@@ -135,8 +132,6 @@ eventBus.on("journal:created", async ({ entry }) => {
 })
 
 export async function generateSuggestion(prompt, maxTokens = 20) {
-    console.log("[generateSuggestion] Called with:", { prompt, maxTokens });
-
     try {
         const response = await fetch("http://localhost:11434/api/generate", {
             method: "POST",
@@ -162,8 +157,6 @@ export async function generateSuggestion(prompt, maxTokens = 20) {
 
         // Since stream is false, parse the entire JSON body at once
         const data = await response.json();
-
-        console.log("[generateSuggestion] Final output:", data.response.trim());
 
         // The generated text is in the 'response' property
         return data.response.trim();

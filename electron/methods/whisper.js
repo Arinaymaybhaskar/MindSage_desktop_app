@@ -36,11 +36,8 @@ export function startLiveTranscription(event) {
     const exePath = path.join(basePath, "Release", "whisper-stream.exe");
     const modelPath = path.join(basePath, "models", "ggml-tiny.en.bin");
 
-    console.log("🚀 Starting live transcription...");
 
     liveProcess = spawn(exePath, ["--model", modelPath, "--capture", "-1"]);
-
-    console.log("✅ Spawned whisper-stream.exe with PID:", liveProcess.pid);
 
     liveProcess.stdout.on("data", (data) => {
         const msg = data.toString();
@@ -48,14 +45,12 @@ export function startLiveTranscription(event) {
         // NEW LOGIC: Test if the message contains bracketed text.
         // If it does, discard the entire chunk and do nothing.
         if (bracketTestRegex.test(msg)) {
-            console.log("🚫 Skipping chunk with bracketed text:", msg.trim());
             return; // Exit the function, effectively ignoring the chunk.
         }
 
         // Only send the message if it's not empty.
         // This handles any other empty/whitespace-only outputs.
         if (msg.trim()) {
-            console.log("📥 [Whisper STDOUT]:", msg.trim());
             const resultObject = { text: msg };
             event.sender.send("live-transcription-data", resultObject);
         }
@@ -66,7 +61,6 @@ export function startLiveTranscription(event) {
     });
 
     liveProcess.on("close", (code, signal) => {
-        console.log(`🛑 Whisper live closed (code=${code}, signal=${signal})`);
         liveProcess = null;
         event.sender.send("live-transcription-stopped");
     });
@@ -74,7 +68,6 @@ export function startLiveTranscription(event) {
 
 export function stopLiveTranscription() {
     if (liveProcess) {
-        console.log("🛑 Stopping live transcription (PID:", liveProcess.pid, ")");
         liveProcess.kill("SIGINT");
         liveProcess = null;
     } else {
@@ -96,7 +89,6 @@ export function transcribeAudioBlob(filePath, event) {
         const exePath = path.join(basePath, "Release", "whisper-cli.exe");
         const modelPath = path.join(basePath, "models", "ggml-tiny.en.bin");
 
-        console.log("🚀 Starting blob transcription...");
 
         const whisperProcess = spawn(exePath, [
             "--model", modelPath,
@@ -128,7 +120,6 @@ export function transcribeAudioBlob(filePath, event) {
                         );
                     }
 
-                    console.log("✅ Transcription JSON:", json);
                     resolve(json);
                     safeSend(event, "blob-transcription-result", json);
                 } catch (err) {
@@ -155,11 +146,9 @@ eventBus.on("journal:audio-saved", ({ entry, event }) => {
 
     eventBus.emit("whisper:transcribe-started", { audioKey: entry.audio_key, event });
 
-    console.log(`🚀 Kicking off transcription for: ${entry.audio_key}`);
 
     transcribeAudioBlob(entry.audio_key, event)
         .then(transcriptionJson => {
-            console.log("✅ Successfully processed transcription for:", entry.audio_key);
 
             // Extract plain text
             const transcriptionText = transcriptionJson.transcription
@@ -167,7 +156,6 @@ eventBus.on("journal:audio-saved", ({ entry, event }) => {
                 .join(" ")
                 .replace(/\[.*?\]/g, "") // remove bracketed notes if you want
                 .trim();
-            console.log("📝 Transcription text:", transcriptionText);
             eventBus.emit("whisper:transcribe-ended", { entry, transcriptionText });
             // Save to DB
             // localDB.db.prepare(`
@@ -175,8 +163,6 @@ eventBus.on("journal:audio-saved", ({ entry, event }) => {
             //     SET transcription = ?, updated_at = CURRENT_TIMESTAMP
             //     WHERE id = ?
             // `).run(transcriptionText, entry.id);
-
-            // console.log(`📝 Transcription saved to DB for journal ${entry.id}`);
         })
         .catch(error => {
             console.error("💥 Transcription failed for:", entry.audio_key, error);

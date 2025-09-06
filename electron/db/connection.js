@@ -321,7 +321,6 @@ export function initDatabase() {
         const hasProfileCol = info.some(col => col.name === 'profile_picture');
         if (!hasProfileCol) {
             db.prepare(`ALTER TABLE users ADD COLUMN profile_picture TEXT`).run();
-            console.log("Added users.profile_picture column via ALTER TABLE");
         }
     } catch (err) {
         console.error("Error ensuring profile_picture column exists:", err);

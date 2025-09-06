@@ -2,7 +2,6 @@ import { getUserIdFromToken } from '../../src/utils/electronUtils';
 import localDB from '../db';
 
 export const getDashboardData = (event, authMode, token) => {
-    console.log("getDashboardData called with authMode:", authMode, token);
     const userId = getUserIdFromToken(token);
     if (!userId) {
         return { error: "Invalid token" };
@@ -15,7 +14,6 @@ export const getDashboardData = (event, authMode, token) => {
 }
 
 export const getMonthlyScores = (event, authMode, token) => {
-    console.log("getMonthlyScores called with authMode:", authMode, token);
     const userId = getUserIdFromToken(token);
     if (!userId) {
         return { error: "Invalid token" };
@@ -28,7 +26,6 @@ export const getMonthlyScores = (event, authMode, token) => {
 }
 
 export const getAllTimeScores = (event, authMode, token) => {
-    console.log("getAllTimeScores called with authMode:", authMode, token);
     const userId = getUserIdFromToken(token);
     if (!userId) {
         return { error: "Invalid token" };

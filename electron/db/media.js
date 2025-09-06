@@ -10,7 +10,6 @@ import { db } from './connection.js';
  */
 export function linkMediaToJournal(journalId, mediaKey, mediaType) {
     try {
-        console.log("saving audio", journalId, mediaKey, mediaType)
         let column;
         if (mediaType === 'image') {
             column = 'image_key';

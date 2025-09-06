@@ -15,7 +15,6 @@ const generateAccessToken = (user) => {
 
 export const handleLogin = async (event, mode, credentials) => {
     const { identifier, password } = credentials;
-    console.log(`Login attempt for ${identifier} in ${mode} mode.`);
     if (mode === 'online') {
         try {
             // Call your local backend server
@@ -52,7 +51,6 @@ export const handleLogin = async (event, mode, credentials) => {
 };
 
 export const handleRegister = async (event, mode, details) => {
-    console.log(`Registration attempt in ${mode} mode.`);
     if (mode === 'online') {
         try {
             // Call your local backend server started with startServer()

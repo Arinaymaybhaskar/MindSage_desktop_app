@@ -12,7 +12,6 @@ function getUserIdFromToken(token) {
         }
         const decoded = jwt.decode(token);
         // 2. Ensure the token was successfully decoded and has an id
-        console.log(decoded);
         return decoded;
     } catch (e) {
         console.error("Error decoding token:", e);
@@ -69,7 +68,6 @@ export async function handleGetRecentJournals(event, mode, token) {
 }
 
 export async function handleGetAllJournals(event, mode, token, page, limit) {
-    console.log("Getting all entries", mode, token);
     const userId = getUserIdFromToken(token).id;
     if (!userId) throw new Error("Invalid token");
 
@@ -79,10 +77,8 @@ export async function handleGetAllJournals(event, mode, token, page, limit) {
         });
         return response.data;
     } else { // Offline
-        console.log("Getting all entries offline");
         const offset = page * limit; // Calculate offset from page and limit
         const ans = localDB.getAllEntries(userId, limit, offset);
-        console.log(ans);
         return ans
     }
 }
@@ -113,7 +109,6 @@ export async function handleUpdateJournal(event, mode, token, journalId, payload
     } else { // Offline
         updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
     }
-    console.log(updatedJournal)
     if (updatedJournal.audio_key) {
         eventBus.emit("journal:audio-saved", ({ entry: updatedJournal, event }))
     }
@@ -201,7 +196,6 @@ eventBus.on("ollama:summary-generated", ({ summary, id, userId }) => {
 })
 
 eventBus.on("whisper:transcribe-ended", ({ entry, transcriptionText }) => {
-    console.log("📝 Transcription text:", transcriptionText);
     updateJournalEntry(entry.user_id, entry.id, { ...entry, transcription: transcriptionText });
     eventBus.emit("journal:updated", { entry: { ...entry, transcription: transcriptionText } });
 });

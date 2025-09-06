@@ -95,9 +95,6 @@ export const handleSaveMedia = async (
       const success = localDB.linkMediaToJournal(journalId, wavPath, mediaType);
       if (!success) throw new Error("Failed to link media in DB.");
 
-      console.log(`Saved WebM at: ${webmPath}`);
-      console.log(`Converted WAV at: ${wavPath}`);
-
       return { success: true, key: wavPath };
     }
 
@@ -137,8 +134,6 @@ export async function handleSaveProfileImage(event, { arrayBuffer, filename, use
     const destPath = path.join(mediaDir, uniqueFilename);
 
     fs.writeFileSync(destPath, buffer);
-
-    console.log(`Profile image saved at: ${destPath}`);
 
     // If caller provided a userId, persist the profile_picture path to users table.
     if (userId) {

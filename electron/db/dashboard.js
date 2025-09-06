@@ -11,8 +11,6 @@ import fs from "node:fs";
  * - pinned goals
  */
 export function getDashboardData(userId) {
-    console.log(userId, "userId for dashboard");
-
     // 1. User details
     const userDetails = db.prepare(`
         SELECT 
