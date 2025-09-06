@@ -29,6 +29,56 @@ export function registerQdrantIPC(runtime) {
         return client.deleteCollection(name);
     });
 
+    ipcMain.handle("qdrant:update-point", async (_e, collection, pointId, vector, payload = {}) => {
+        try {
+            const result = await client.upsert(collection, {
+                points: [
+                    {
+                        id: pointId,
+                        vector,
+                        payload
+                    }
+                ]
+            });
+            return { success: true, result };
+        } catch (error) {
+            console.error("Error updating point:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Update payload only (no vector overwrite)
+    ipcMain.handle("qdrant:update-payload", async (_e, collection, pointId, payload) => {
+        try {
+            const result = await client.setPayload(collection, {
+                payload,
+                points: [pointId]
+            });
+            return { success: true, result };
+        } catch (error) {
+            console.error("Error updating payload:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Update vector only (keep existing payload)
+    ipcMain.handle("qdrant:update-vector", async (_e, collection, pointId, vector) => {
+        try {
+            const result = await client.updateVectors(collection, {
+                points: [
+                    {
+                        id: pointId,
+                        vector
+                    }
+                ]
+            });
+            return { success: true, result };
+        } catch (error) {
+            console.error("Error updating vector:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // Add bulk sync handler
     ipcMain.handle("qdrant:bulk-sync", async () => {
         try {

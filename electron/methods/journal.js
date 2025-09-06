@@ -188,6 +188,15 @@ eventBus.on("journal:aiCompleted", ({ entry, res3 }) => {
 
     const updated = localDB.updateJournalEntry(entry.user_id, entry.id, enrichedEntry);
     eventBus.emit("journal:updated", { entry: updated });
+    // Trigger Qdrant update with the new fields via worker message
+    if (global.qdrantWorker) {
+        global.qdrantWorker.postMessage({
+            type: 'journal:qdrant-update-needed',
+            data: { entry: updated }
+        });
+    } else {
+        console.error(`[JOURNAL] Qdrant worker not available for journal ID: ${entry.id}`);
+    }
 });
 
 
