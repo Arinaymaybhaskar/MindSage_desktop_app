@@ -82,7 +82,8 @@ contextBridge.exposeInMainWorld('electron', {
         "whisper:stop-live-transcription",  // stop live
         "settings:getSelectedModel",
         "settings:setSelectedModel",
-        "qdrant:bulk-sync" // Add this new channel
+        "qdrant:bulk-sync", // Add this new channel
+        "qdrant:sync-journal"
       ];
 
       if (validChannels.includes(channel)) {

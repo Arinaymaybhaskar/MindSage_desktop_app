@@ -254,7 +254,7 @@ export const ProfileDropdown: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="absolute top-full right-0 mt-2 w-72 bg-secondary-light dark:bg-secondary-dark rounded-xl shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-10"
+              className="absolute top-full right-0 mt-2 bg-secondary-light dark:bg-secondary-dark rounded-xl shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-10"
             >
               <div className="p-4 border-b border-border-light dark:border-border-dark flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-border-light dark:bg-border-dark flex items-center justify-center">

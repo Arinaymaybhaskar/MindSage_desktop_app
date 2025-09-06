@@ -32,11 +32,44 @@ export function registerQdrantIPC(runtime) {
     // Add bulk sync handler
     ipcMain.handle("qdrant:bulk-sync", async () => {
         try {
-            // Emit the bulk sync event to the worker
-            eventBus.emit("journal:bulk-sync-requested");
+            // Send message directly to worker instead of using eventBus
+            if (global.qdrantWorker) {
+                global.qdrantWorker.postMessage({
+                    type: 'journal:bulk-sync-requested',
+                    data: {}
+                });
+                console.log('IPC Handler: Bulk sync message sent to worker');
+            } else {
+                console.error('Qdrant worker not available');
+                return { success: false, error: "Worker not available" };
+            }
             return { success: true, message: "Bulk sync started" };
         } catch (error) {
             console.error("Error starting bulk sync:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Add single journal sync handler
+    ipcMain.handle("qdrant:sync-journal", async (_e, journalId) => {
+        try {
+            console.log(`IPC Handler: Received request to sync journal ID ${journalId}`);
+            
+            // Send message directly to worker instead of using eventBus
+            if (global.qdrantWorker) {
+                global.qdrantWorker.postMessage({
+                    type: 'journal:sync-requested',
+                    data: { journalId }
+                });
+                console.log(`IPC Handler: Message sent to worker for journal ID ${journalId}`);
+            } else {
+                console.error('Qdrant worker not available');
+                return { success: false, error: "Worker not available" };
+            }
+            
+            return { success: true, message: "Journal sync started" };
+        } catch (error) {
+            console.error("Error starting journal sync:", error);
             return { success: false, error: error.message };
         }
     });

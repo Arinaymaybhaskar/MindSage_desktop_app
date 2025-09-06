@@ -42,6 +42,12 @@ function createQdrantWorker() {
     console.log('Qdrant Worker Message:', message);
   });
 
+  // Add debug logging for worker creation
+  console.log('Qdrant worker created successfully');
+
+  // Store worker reference for sending messages
+  global.qdrantWorker = worker;
+
   worker.on('error', (error) => console.error('Qdrant Worker Error:', error))
   worker.on('exit', (code) => {
     if (code !== 0) console.error(`Qdrant Worker stopped with exit code ${code}`)

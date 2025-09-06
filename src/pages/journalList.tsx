@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
+import { qdrantService } from "../api/qdrantService";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import WeeklyMoodStrip from "../components/weeklyMoodStrip";
@@ -17,6 +18,7 @@ import {
   CheckCircle2,
   AlertCircle,
   CircleSlash,
+  Cloud,
 } from "lucide-react";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { useAuth } from "../hooks/useAuth";
@@ -43,7 +45,7 @@ const SyncIcon = (state: string) => {
 };
 
 // --- JournalEntryCard Component ---
-const JournalEntryCard = ({ entry, onDelete }) => {
+const JournalEntryCard = ({ entry, onDelete }: { entry: JournalEntry; onDelete: () => void }) => {
   const moodTags = useMemo(() => {
     if (Array.isArray(entry.mood_tags)) return entry.mood_tags;
     try {
@@ -52,7 +54,7 @@ const JournalEntryCard = ({ entry, onDelete }) => {
     } catch {
       return (entry.mood_tags || "")
         .split(",")
-        .map((t) => t.trim())
+        .map((t: string) => t.trim())
         .filter(Boolean);
     }
   }, [entry.mood_tags]);
@@ -75,11 +77,11 @@ const JournalEntryCard = ({ entry, onDelete }) => {
               </h2>
             </Link>
             <p className="text-xs text-text-light-sub dark:text-text-dark-sub mt-1">
-              {formatTimeAgo(entry.created_at)}
+              {formatTimeAgo(entry.created_at || '')}
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <p>{SyncIcon(entry.synced_to_qdrant)}</p>
+            <p>{SyncIcon(entry.synced_to_qdrant || 'not_synced')}</p>
             <Link
               to={`/journal/edit/${entry.id}`}
               className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-info dark:hover:text-info transition-colors"
@@ -101,7 +103,7 @@ const JournalEntryCard = ({ entry, onDelete }) => {
         </p>
         {moodTags.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4">
-            {moodTags.map((tag, idx) => (
+            {moodTags.map((tag: string, idx: number) => (
               <span
                 key={idx}
                 className="bg-tertiary-light dark:bg-tertiary-dark text-info px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -130,6 +132,8 @@ export default function JournalList() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const PAGE_LIMIT = 10;
 
   useEffect(() => {
@@ -157,9 +161,9 @@ export default function JournalList() {
       });
   }, [page, authMode, accessToken]);
 
-  const observer = useRef<IntersectionObserver>();
+  const observer = useRef<IntersectionObserver | null>(null);
   const lastEntryRef = useCallback(
-    (node) => {
+    (node: HTMLElement | null) => {
       // THIS IS THE FIX: If we are already loading, do nothing.
       if (loading) return;
 
@@ -180,6 +184,36 @@ export default function JournalList() {
     if (window.confirm("Are you sure you want to delete this entry?")) {
       await journalService.remove(authMode, accessToken!, id);
       setEntries((prev) => prev.filter((e) => e.id !== id));
+    }
+  };
+
+  const handleBulkSync = async () => {
+    if (bulkSyncing) return;
+    
+    setBulkSyncing(true);
+    setSyncStatus("Starting bulk sync...");
+    
+    try {
+      const result = await qdrantService.bulkSync();
+      if (result.success) {
+        setSyncStatus("Bulk sync started successfully!");
+        // Refresh the entries to show updated sync status
+        setTimeout(() => {
+          setEntries([]);
+          setPage(0);
+          setHasMore(true);
+          setSyncStatus(null);
+        }, 2000);
+      } else {
+        setSyncStatus(`Sync failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Bulk sync error:", error);
+      setSyncStatus(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setBulkSyncing(false);
+      // Clear status after 5 seconds
+      setTimeout(() => setSyncStatus(null), 5000);
     }
   };
 
@@ -217,14 +251,34 @@ export default function JournalList() {
           <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
             My Journals
           </h1>
-          <Link
-            to="/"
-            className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
-          >
-            <Plus size={20} />
-            <span>New Entry</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBulkSync}
+              disabled={bulkSyncing}
+              className="flex items-center gap-2 px-5 py-2.5 bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark font-semibold rounded-lg shadow-md hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 border border-border-light dark:border-border-dark"
+            >
+              {bulkSyncing ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <Cloud size={20} />
+              )}
+              <span>{bulkSyncing ? "Syncing..." : "Sync All"}</span>
+            </button>
+            <Link
+              to="/"
+              className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
+            >
+              <Plus size={20} />
+              <span>New Entry</span>
+            </Link>
+          </div>
         </header>
+
+        {syncStatus && (
+          <div className="mb-6 p-4 bg-info/10 border border-info/20 rounded-lg">
+            <p className="text-info font-medium text-center">{syncStatus}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 space-y-6">

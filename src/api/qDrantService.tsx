@@ -46,4 +46,12 @@ export const qdrantService = {
     checkElectron();
     return window.electron.ipcRenderer.invoke("qdrant:delete-collection", name);
   },
+  bulkSync: () => {
+    checkElectron();
+    return window.electron.ipcRenderer.invoke("qdrant:bulk-sync");
+  },
+  syncJournal: (journalId: number) => {
+    checkElectron();
+    return window.electron.ipcRenderer.invoke("qdrant:sync-journal", journalId);
+  },
 };

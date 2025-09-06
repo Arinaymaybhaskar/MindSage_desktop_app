@@ -110,18 +110,68 @@ eventBus.on("journal:created", async ({ entry }) => {
     await processJournal(entry);
 });
 
-// Event for manual sync requests
+// Listen for messages from main process
+parentPort?.on('message', async (message) => {
+    console.log('Worker: Received message from main process:', message);
+    
+    if (message.type === 'journal:sync-requested') {
+        const { journalId } = message.data;
+        parentPort?.postMessage(`Received manual sync request for journal ${journalId}`);
+        console.log(`Worker: Received manual sync request for journal ${journalId}`);
+
+        const journal = db.prepare(
+            `SELECT * FROM journal_entries WHERE id = ?`
+        ).get(journalId);
+
+        if (journal) {
+            parentPort?.postMessage(`Found journal ${journalId} in database, processing...`);
+            console.log(`Worker: Found journal ${journalId} in database, processing...`);
+            await processJournal(journal);
+        } else {
+            parentPort?.postMessage(`Journal ${journalId} not found`);
+            console.log(`Worker: Journal ${journalId} not found in database`);
+        }
+    } else if (message.type === 'journal:bulk-sync-requested') {
+        parentPort?.postMessage("Received bulk sync request");
+        console.log("Worker: Received bulk sync request");
+
+        const pendingJournals = db.prepare(
+            `SELECT * FROM journal_entries WHERE synced_to_qdrant IN ('pending', 'failed') ORDER BY created_at DESC`
+        ).all();
+
+        parentPort?.postMessage(`Found ${pendingJournals.length} journals to sync`);
+        console.log(`Worker: Found ${pendingJournals.length} journals to sync`);
+
+        for (const journal of pendingJournals) {
+            try {
+                await processJournal(journal);
+            } catch (error) {
+                parentPort?.postMessage(`Error processing journal ${journal.id}: ${error.message}`);
+                console.log(`Worker: Error processing journal ${journal.id}: ${error.message}`);
+            }
+        }
+
+        parentPort?.postMessage("Bulk sync completed");
+        console.log("Worker: Bulk sync completed");
+    }
+});
+
+// Keep the old eventBus listener for backward compatibility (in case other parts use it)
 eventBus.on("journal:sync-requested", async ({ journalId }) => {
     parentPort?.postMessage(`Received manual sync request for journal ${journalId}`);
+    console.log(`Worker: Received manual sync request for journal ${journalId}`);
 
     const journal = db.prepare(
         `SELECT * FROM journal_entries WHERE id = ?`
     ).get(journalId);
 
     if (journal) {
+        parentPort?.postMessage(`Found journal ${journalId} in database, processing...`);
+        console.log(`Worker: Found journal ${journalId} in database, processing...`);
         await processJournal(journal);
     } else {
         parentPort?.postMessage(`Journal ${journalId} not found`);
+        console.log(`Worker: Journal ${journalId} not found in database`);
     }
 });
 
@@ -148,6 +198,12 @@ eventBus.on("journal:bulk-sync-requested", async () => {
 
 // Keep the worker alive and listen for events
 parentPort?.postMessage("Qdrant worker started with event-based architecture.");
+console.log("Qdrant worker started with event-based architecture.");
+console.log("Worker: EventBus listeners registered:", {
+    "journal:created": eventBus.listenerCount("journal:created"),
+    "journal:sync-requested": eventBus.listenerCount("journal:sync-requested"),
+    "journal:bulk-sync-requested": eventBus.listenerCount("journal:bulk-sync-requested")
+});
 
 // Optional: Keep a heartbeat to ensure the worker stays alive
 setInterval(() => {
