@@ -74,7 +74,6 @@ const Settings = () => {
           userService.getMe(authMode, accessToken!),
           userService.getSettings(authMode, accessToken!),
         ]);
-        console.log("Fetched user:", userResponse);
         setUser(userResponse);
         setSettings(settingsResponse);
       } catch (error) {

@@ -7,7 +7,6 @@ const checkElectron = () => {
 export const goalService = {
   getActiveGoals: async (authMode: "online" | "offline", token: string) => {
     checkElectron();
-    console.log("calling active Goals");
     return await window.electron.ipcRenderer.invoke(
       "goal:get-active-goals",
       authMode,
@@ -16,7 +15,6 @@ export const goalService = {
   },
   getCompletedGoals: async (authMode: "online" | "offline", token: string) => {
     checkElectron();
-    console.log("calling getCompleted Goals");
 
     return await window.electron.ipcRenderer.invoke(
       "goal:get-completed-goals",
@@ -26,7 +24,6 @@ export const goalService = {
   },
   addGoal: async (authMode: "online" | "offline", token: string, goal: any) => {
     checkElectron();
-    console.log("goalService.addGoal", goal, authMode, token);
     return await window.electron.ipcRenderer.invoke(
       "goal:add",
       authMode,
@@ -67,10 +64,6 @@ export const goalService = {
     token: string,
     goalId: string
   ) => {
-    console.log(authMode, "authMode");
-    console.log(token, "token");
-    console.log(goalId, "goalId");
-
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:toggle-pin",
@@ -109,7 +102,7 @@ export const goalService = {
   },
   getPinned: async (authMode: "online" | "offline", token: string) => {
     checkElectron();
-    console.log("calling pinned Goals");
+
     return await window.electron.ipcRenderer.invoke(
       "goal:getPinned",
       authMode,

@@ -145,7 +145,6 @@ export default function JournalList() {
     journalService
       .getAll(authMode, accessToken!, page, PAGE_LIMIT) // This is correct - page, limit
       .then((newEntries) => {
-        console.log(newEntries, "newEntries");
         setEntries((prev) =>
           page === 0 ? newEntries : [...prev, ...newEntries]
         );

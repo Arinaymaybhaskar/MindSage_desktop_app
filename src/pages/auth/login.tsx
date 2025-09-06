@@ -32,11 +32,9 @@ export default function Login() {
         identifier: form.identifier,
         password: form.password,
       });
-      console.log(res.userInfo);
       login(res.accessToken, res.userInfo, authMode);
       navigate("/");
     } catch (err: any) {
-      console.log(err, "error");
       setError(err.message || "Invalid username or password");
     } finally {
       setIsLoading(false);
@@ -44,14 +42,12 @@ export default function Login() {
   };
 
   const handleGoogleSuccess = async (response: any) => {
-    console.log(response);
     setError("");
     setIsLoading(true);
     try {
       const res = await api.post("/auth/google-login", {
         response,
       });
-      console.log(res);
       login(res.data.accessToken, res.data.userInfo, authMode);
       navigate("/");
     } catch (err) {

@@ -86,37 +86,27 @@ export default function JournalForm() {
   // Load draft or fetch entry
   useEffect(() => {
     const loadEntry = async () => {
-      console.log(
-        `[JournalForm] Component mounted. Mode: ${isEdit ? "Edit" : "Create"}`
-      );
       if (isEdit && id) {
-        console.log(`[JournalForm] Fetching entry with ID: ${id}`);
         const fetchedEntry = await journalService.getOne(
           authMode,
           accessToken!,
           +id
         );
-        console.log("[JournalForm] Fetched entry from DB:", fetchedEntry);
 
         const entryToSet = {
           ...fetchedEntry,
           mood_tags: fetchedEntry.mood_tags || [],
         };
         setEntry(entryToSet);
-        console.log("[JournalForm] State set for editing:", entryToSet);
 
         // If the fetched entry has an image key, get the URL and set it for preview.
         if (fetchedEntry.image_key) {
-          console.log(
-            `[JournalForm] Entry has an image_key: ${fetchedEntry.image_key}. Fetching image URL.`
-          );
           try {
             const url = await window.electron.ipcRenderer.invoke(
               "media:getImage",
               fetchedEntry.image_key.toString()
             );
             setImagePreview(url);
-            console.log("[JournalForm] Image preview URL set:", url);
           } catch (error) {
             console.error(
               "[JournalForm] Failed to fetch image for preview:",
@@ -127,16 +117,12 @@ export default function JournalForm() {
 
         // If the fetched entry has an audio key, get the URL for playback.
         if (fetchedEntry.audio_key) {
-          console.log(
-            `[JournalForm] Entry has an audio_key: ${fetchedEntry.audio_key}. Fetching audio URL.`
-          );
           try {
             const url = await window.electron.ipcRenderer.invoke(
               "media:getAudio",
               fetchedEntry.audio_key.toString()
             );
             setExistingAudioUrl(url);
-            console.log("[JournalForm] Existing audio URL set:", url);
           } catch (error) {
             console.error(
               "[JournalForm] Failed to fetch audio for preview:",
@@ -147,15 +133,11 @@ export default function JournalForm() {
       } else {
         const savedDraft = localStorage.getItem(DRAFT_KEY);
         if (savedDraft) {
-          console.log("[JournalForm] Found saved draft in localStorage.");
           const draft = JSON.parse(savedDraft);
           const draftToSet = { ...draft, mood_tags: draft.mood_tags || [] };
           setEntry(draftToSet);
-          console.log("[JournalForm] Loaded draft into state:", draftToSet);
         } else {
-          console.log(
-            "[JournalForm] No draft found. Starting with an empty entry."
-          );
+          setEntry(emptyJournal);
         }
       }
     };
@@ -244,8 +226,6 @@ export default function JournalForm() {
     e.preventDefault();
     if (!entry.content || isSubmitting) return;
 
-    console.log("--- [handleSubmit] Starting Submission ---");
-    console.log("Initial entry state:", entry);
     setIsSubmitting(true);
 
     try {
@@ -256,32 +236,25 @@ export default function JournalForm() {
         mood_tags: entry.mood_tags ?? [],
       };
 
-      console.log("[handleSubmit] Entry to submit:", mergedEntry);
       setEntry(mergedEntry);
 
       let res;
       if (isEdit && id) {
-        console.log(`[handleSubmit] Updating entry with ID: ${id}`);
         res = await journalService.update(
           authMode,
           accessToken!,
           +Number(id),
           mergedEntry
         );
-        console.log("[handleSubmit] Update response:", res);
       } else {
-        console.log("[handleSubmit] Creating new entry.");
         res = await journalService.create(authMode, accessToken!, mergedEntry);
-        console.log("[handleSubmit] Create response:", res);
       }
 
       const journalId = isEdit ? +id! : res.id;
-      console.log(`[handleSubmit] Journal ID for media upload: ${journalId}`);
       let imageKey = entry.image_key;
       let audioKey = entry.audio_key;
 
       if (imageFile) {
-        console.log("[handleSubmit] Uploading new image...");
         const arrayBuffer = await imageFile.arrayBuffer();
         const result = await mediaService.saveFileForJournal(
           journalId,
@@ -289,12 +262,10 @@ export default function JournalForm() {
           arrayBuffer,
           imageFile.name
         );
-        console.log("[handleSubmit] Image upload result:", result);
         if (result.success) imageKey = result.key;
       }
 
       if (recordingBlob) {
-        console.log("[handleSubmit] Uploading audio...");
         const arrayBuffer = await recordingBlob.arrayBuffer();
         const result = await mediaService.saveFileForJournal(
           journalId,
@@ -302,7 +273,6 @@ export default function JournalForm() {
           arrayBuffer,
           `audio-${Date.now()}.webm`
         );
-        console.log("[handleSubmit] Audio upload result:", result);
         if (result.success) {
           audioKey = result.key;
           resetRecording();
@@ -313,10 +283,6 @@ export default function JournalForm() {
         imageKey !== res.image_key || audioKey !== res.audio_key;
 
       if (needsMediaUpdate) {
-        console.log("[handleSubmit] Updating entry with media keys:", {
-          imageKey,
-          audioKey,
-        });
         await journalService.update(authMode, accessToken!, journalId, {
           ...mergedEntry,
           image_key: imageKey,
@@ -324,14 +290,12 @@ export default function JournalForm() {
         });
       }
 
-      console.log("[handleSubmit] Cleaning up and navigating...");
       localStorage.removeItem(DRAFT_KEY);
       navigate("/dashboard");
     } catch (error) {
       console.error("❌ [handleSubmit] Submission error:", error);
     } finally {
       setIsSubmitting(false);
-      console.log("--- [handleSubmit] Submission Finished ---");
     }
   };
 
@@ -406,14 +370,12 @@ export default function JournalForm() {
   };
 
   const handleRemoveImage = () => {
-    console.log("[JournalForm] Removing image.");
     setImageFile(null);
     setImagePreview(null);
     setEntry((prev) => ({ ...prev, image_key: null }));
   };
 
   const handleRemoveAudio = () => {
-    console.log("[JournalForm] Removing existing audio.");
     setExistingAudioUrl(null);
     setEntry((prev) => ({ ...prev, audio_key: null }));
   };
@@ -562,10 +524,6 @@ export default function JournalForm() {
                 key={JSON.stringify(entry.mood_tags)}
                 selected={entry.mood_tags ?? []}
                 onChange={(tags) => {
-                  console.log(
-                    "[MoodTagSelector] onChange triggered. New tags:",
-                    tags
-                  );
                   setEntry({ ...entry, mood_tags: tags });
                 }}
               />

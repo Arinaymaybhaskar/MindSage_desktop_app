@@ -26,18 +26,15 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
     recognition.continuous = false;
 
     recognition.onstart = () => {
-      console.log("[SpeechRecognition] 🎙️ Started listening");
       setListening(true);
     };
 
     recognition.onend = () => {
-      console.log("[SpeechRecognition] 🛑 Stopped listening");
       setListening(false);
     };
 
     recognition.onresult = (e: SpeechRecognitionEvent) => {
       const spokenText = e.results[0][0].transcript;
-      console.log(`[SpeechRecognition] 📝 Transcript: ${spokenText}`);
       setTranscript(spokenText);
     };
 
@@ -55,7 +52,6 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
       return;
     }
     setTranscript("");
-    console.log("[SpeechRecognition] 🔁 Starting new session...");
     recognitionRef.current.start();
   };
 

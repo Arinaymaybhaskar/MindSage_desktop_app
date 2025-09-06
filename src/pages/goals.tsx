@@ -105,7 +105,6 @@ const GoalsPage: React.FC = () => {
   };
 
   const handleDelete = async (goal: Goal) => {
-    console.log(goal, "delete called");
     await goalService.deleteGoal(authMode, accessToken!, goal.id);
     closeModal();
     await fetchAllData();

@@ -7,7 +7,6 @@ const checkElectron = () => {
 export const dashboardService = {
   getData: async (authMode: "online" | "offline", token: string) => {
     checkElectron();
-    console.log(authMode, token);
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-data",
       authMode,

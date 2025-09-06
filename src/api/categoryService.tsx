@@ -7,7 +7,6 @@ const checkElectron = () => {
 export const categoryService = {
     getCategories: async (authMode: "online" | "offline", token: string) => {
         checkElectron();
-        console.log(authMode, token)
         return await window.electron.ipcRenderer.invoke(
           "category:get-all",
           authMode,

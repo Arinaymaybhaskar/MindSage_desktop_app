@@ -30,7 +30,6 @@ const TitleBar: React.FC = () => {
   });
 
   //   eventBus.on("journal:updated", ({ entry }) => {
-  //   console.log("📢 Journal updated:", entry);
   //   // could notify UI, trigger sync queue, etc.
   // });
 

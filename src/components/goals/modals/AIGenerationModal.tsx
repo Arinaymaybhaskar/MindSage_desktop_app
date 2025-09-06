@@ -133,7 +133,6 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
         .trim();
       const parsed = JSON.parse(cleaned);
       const normalized = normalizeAIResponseToGoals(parsed);
-      console.log(normalized, goals);
       setGoals(normalized);
     } catch (err) {
       console.error("Error generating goals:", err);

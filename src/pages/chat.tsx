@@ -26,7 +26,6 @@ const fetchAiResponse = async (
   userInput: string,
   provider: Provider
 ): Promise<{ answer: string }> => {
-  console.log(`Fetching response for "${userInput}" from ${provider}`);
   await new Promise((resolve) =>
     setTimeout(resolve, 2000 + Math.random() * 2000)
   );
