@@ -80,7 +80,8 @@ export async function handleGetAllJournals(event, mode, token, page, limit) {
         return response.data;
     } else { // Offline
         console.log("Getting all entries offline");
-        const ans = localDB.getAllEntries(userId, page, limit);
+        const offset = page * limit; // Calculate offset from page and limit
+        const ans = localDB.getAllEntries(userId, limit, offset);
         console.log(ans);
         return ans
     }

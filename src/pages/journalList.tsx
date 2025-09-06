@@ -113,7 +113,7 @@ export default function JournalList() {
 
     setLoading(true);
     journalService
-      .getAll(authMode, accessToken!, PAGE_LIMIT, page)
+      .getAll(authMode, accessToken!, page, PAGE_LIMIT) // This is correct - page, limit
       .then((newEntries) => {
         setEntries((prev) =>
           page === 0 ? newEntries : [...prev, ...newEntries]
@@ -125,7 +125,7 @@ export default function JournalList() {
         console.error("Failed to load journal entries:", error);
         setLoading(false);
       });
-  }, [page]);
+  }, [page, authMode, accessToken]);
 
   const observer = useRef<IntersectionObserver>();
   const lastEntryRef = useCallback(
