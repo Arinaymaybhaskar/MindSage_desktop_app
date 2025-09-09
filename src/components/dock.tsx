@@ -180,9 +180,8 @@ export default function Dock({
   baseItemSize = 50,
 }: DockProps) {
   const PILL_HEIGHT = 8;
-  const PILL_WIDTH = 160;
-  const INITIAL_VISIBLE_MS = 5000;
-  const COLLAPSE_DELAY_MS = 500;
+  const INITIAL_VISIBLE_MS = 0;
+  const COLLAPSE_DELAY_MS = 100;
 
   const mouseX = useMotionValue<number>(Infinity);
   const [expanded, setExpanded] = useState(true);
@@ -214,14 +213,6 @@ export default function Dock({
   const padX = useSpring(useTransform(openMV, [0, 1], [8, 16]), spring);
   const padY = useSpring(useTransform(openMV, [0, 1], [0, 8]), spring);
   const radius = useSpring(useTransform(openMV, [0, 1], [999, 16]), spring);
-
-  const initialBg = useTransform(openMV, (val) => {
-    // when collapsed: black (light), white (dark)
-    // when expanded: normal theme base
-    return val === 0
-      ? "bg-black dark:bg-white"
-      : "bg-base-light dark:bg-base-dark";
-  });
 
   useEffect(() => {
     initialTimerRef.current = setTimeout(

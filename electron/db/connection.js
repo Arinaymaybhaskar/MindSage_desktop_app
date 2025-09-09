@@ -304,6 +304,48 @@ export function initDatabase() {
             FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
         );
 
+        -- =============================================== --
+        -- ==          NEWLY ADDED CHAT TABLES          == --
+        -- =============================================== --
+
+        CREATE TABLE IF NOT EXISTS chats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            model TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            sender TEXT NOT NULL CHECK(sender IN ('user', 'ai')),
+            content TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            message_id INTEGER NOT NULL,
+            file_type TEXT,
+            file_path TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+            FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS message_sources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_id INTEGER NOT NULL,
+            source_type TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+        );
+
         -- Add indexes for faster lookups
         CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
         CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
@@ -312,6 +354,12 @@ export function initDatabase() {
         -- NEW INDEXES FOR TAGS
         CREATE INDEX IF NOT EXISTS idx_tags_user_id_name ON tags(user_id, name);
         CREATE INDEX IF NOT EXISTS idx_jet_tag_id ON journal_entry_tags(tag_id);
+
+        -- INDEXES FOR NEW CHAT TABLES
+        CREATE INDEX IF NOT EXISTS idx_chats_user_id ON chats(user_id);
+        CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
+        CREATE INDEX IF NOT EXISTS idx_files_message_id ON files(message_id);
+        CREATE INDEX IF NOT EXISTS idx_message_sources_message_id ON message_sources(message_id);
 
         `);
 
@@ -351,5 +399,5 @@ export function initDatabase() {
         insertCategory.run(cat.name, cat.color);
     }
 
-    console.log('Local database with normalized tags initialized successfully.');
+    console.log('Local database with normalized tags and chat tables initialized successfully.');
 }

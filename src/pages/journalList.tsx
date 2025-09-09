@@ -45,7 +45,13 @@ const SyncIcon = (state: string) => {
 };
 
 // --- JournalEntryCard Component ---
-const JournalEntryCard = ({ entry, onDelete }: { entry: JournalEntry; onDelete: () => void }) => {
+const JournalEntryCard = ({
+  entry,
+  onDelete,
+}: {
+  entry: JournalEntry;
+  onDelete: () => void;
+}) => {
   const moodTags = useMemo(() => {
     if (Array.isArray(entry.mood_tags)) return entry.mood_tags;
     try {
@@ -77,11 +83,11 @@ const JournalEntryCard = ({ entry, onDelete }: { entry: JournalEntry; onDelete: 
               </h2>
             </Link>
             <p className="text-xs text-text-light-sub dark:text-text-dark-sub mt-1">
-              {formatTimeAgo(entry.created_at || '')}
+              {formatTimeAgo(entry.created_at || "")}
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <p>{SyncIcon(entry.synced_to_qdrant || 'not_synced')}</p>
+            <p>{SyncIcon(entry.synced_to_qdrant || "not_synced")}</p>
             <Link
               to={`/journal/edit/${entry.id}`}
               className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-info dark:hover:text-info transition-colors"
@@ -189,10 +195,10 @@ export default function JournalList() {
 
   const handleBulkSync = async () => {
     if (bulkSyncing) return;
-    
+
     setBulkSyncing(true);
     setSyncStatus("Starting bulk sync...");
-    
+
     try {
       const result = await qdrantService.bulkSync();
       if (result.success) {
@@ -209,7 +215,11 @@ export default function JournalList() {
       }
     } catch (error) {
       console.error("Bulk sync error:", error);
-      setSyncStatus(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setSyncStatus(
+        `Sync failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     } finally {
       setBulkSyncing(false);
       // Clear status after 5 seconds
@@ -228,8 +238,8 @@ export default function JournalList() {
       const lower = searchTerm.toLowerCase();
       result = result.filter(
         (e) =>
-          e.title.toLowerCase().includes(lower) ||
-          e.content.toLowerCase().includes(lower)
+          e.title?.toLowerCase().includes(lower) ||
+          e.content?.toLowerCase().includes(lower)
       );
     }
     return result.sort((a, b) => dayjs(b.created_at).diff(dayjs(a.created_at)));

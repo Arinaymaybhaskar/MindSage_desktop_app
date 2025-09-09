@@ -83,7 +83,12 @@ contextBridge.exposeInMainWorld('electron', {
         "settings:getSelectedModel",
         "settings:setSelectedModel",
         "qdrant:bulk-sync", // Add this new channel
-        "qdrant:sync-journal"
+        "qdrant:sync-journal",
+        "chat:get-by-id",
+        "chat:get-chats",
+        "chat:send-message",
+        "chat:delete-chat",
+        "chat:change-title"
       ];
 
       if (validChannels.includes(channel)) {

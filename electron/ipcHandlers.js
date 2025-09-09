@@ -15,6 +15,7 @@ import { getSelectedModel, setSelectedModel } from "./store.js";
 import { registerQdrantIPC } from "./methods/qdrant.js";
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from "node:url";
+import { handleChangeChatTitle, handleDeleteChat, handleGetChatById, handleGetChats, handleUserMessage } from "./methods/chat.js";
 
 // const __filename = fileURLToPath(import.meta.url);
 // const __dirname = path.dirname(__filename);
@@ -122,4 +123,11 @@ export function registerIPCHandlers(runtime) {
         setSelectedModel(model);
         return true;
     });
+
+    // Chat
+    ipcMain.handle("chat:get-by-id", handleGetChatById);
+    ipcMain.handle("chat:send-message", handleUserMessage);
+    ipcMain.handle("chat:get-chats", handleGetChats);
+    ipcMain.handle("chat:delete-chat", handleDeleteChat);
+    ipcMain.handle("chat:change-title", handleChangeChatTitle);
 }
