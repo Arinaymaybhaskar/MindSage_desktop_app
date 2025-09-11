@@ -8,6 +8,7 @@ import * as goal from "./goal.js";
 import * as logs from './progressLogs.js';
 import * as dashboard from './dashboard.js';
 import * as chat from './chat.js';
+import * as exportData from './exportData.js';
 
 // Export all database functions in a structured object
 const localDB = {
@@ -21,6 +22,7 @@ const localDB = {
     ...logs,
     ...dashboard,
     ...chat,
+    ...exportData
 };
 
 export default localDB;

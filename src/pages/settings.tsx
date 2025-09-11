@@ -34,9 +34,9 @@ const ProfileSettings = lazy(
 const SecuritySettings = lazy(
   () => import("../components/settings/SecuritySettings")
 );
-// const ExportSettings = lazy(
-//   () => import("../components/settings/ExportSettings")
-// );
+const ExportSettings = lazy(
+  () => import("../components/settings/ExportSettings")
+);
 
 const settingsSections = {
   profile: { label: "Profile", icon: User, component: ProfileSettings },
@@ -54,7 +54,7 @@ const settingsSections = {
   // audio: { label: "Audio & Voice", icon: Mic, component: AudioSettings },
   // goals: { label: "Goals & Streaks", icon: Target, component: GoalsSettings },
   security: { label: "Security", icon: Lock, component: SecuritySettings },
-  // export: { label: "Data Export", icon: Download, component: ExportSettings },
+  export: { label: "Data Export", icon: Download, component: ExportSettings },
 };
 
 const Settings = () => {

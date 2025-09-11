@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app, shell } from 'electron';
 import fs from 'node:fs'
 import path from 'node:path'
 import localDB from '../db';
@@ -13,6 +13,17 @@ export async function getImageBase64(imagePath) {
     return `data:${mimeType};base64,${base64}`;
   } catch (err) {
     console.error('Error loading image:', err);
+    return null;
+  }
+}
+
+export async function getPdfBase64(pdfPath) {
+  try {
+    const data = fs.readFileSync(pdfPath);
+    const base64 = data.toString('base64');
+    return `data:application/pdf;base64,${base64}`;
+  } catch (err) {
+    console.error('Error loading pdf:', err);
     return null;
   }
 }
@@ -65,7 +76,7 @@ export const handleSaveMedia = async (
 ) => {
   try {
     const buffer = Buffer.from(arrayBuffer);
-    const mediaDir = path.join(app.getPath("userData"), "media", String(journalId));
+    const mediaDir = path.join(app.getPath("userData"), "media", "journals", String(journalId));
     fs.mkdirSync(mediaDir, { recursive: true });
 
     if (mediaType === "image") {
@@ -161,6 +172,25 @@ export async function handleSaveProfileImage(event, { arrayBuffer, filename, use
     return { success: true, path: destPath };
   } catch (err) {
     console.error("Error saving profile image:", err);
+    return { success: false, message: String(err) };
+  }
+}
+
+export const handleSaveChatMedia = async (
+  event,
+  { messageId, chatId, filetype, arrayBuffer, filename }) => {
+  try {
+    const buffer = Buffer.from(arrayBuffer);
+    const mediaDir = path.join(app.getPath("userData"), "media", "chats", String(messageId), String(chatId));
+    fs.mkdirSync(mediaDir, { recursive: true });
+    const ext = path.extname(filename) || (filetype === "image" ? ".png" : filetype === "pdf" ? ".pdf" : "");
+    const base = path.basename(filename, ext);
+    const uniqueFilename = `${Date.now()}-${base}${ext}`;
+    const destPath = path.join(mediaDir, uniqueFilename);
+    fs.writeFileSync(destPath, buffer);
+    return { success: true, key: destPath };
+  } catch (err) {
+    console.error(err);
     return { success: false, message: String(err) };
   }
 }

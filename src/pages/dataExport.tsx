@@ -1,26 +1,47 @@
-// src/pages/DataExportPage.tsx (assuming new file location)
 import { useState } from "react";
-import { Download, Clock, Check, Loader2 } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { Download, Check, Loader2 } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 
 const DataExportPage = () => {
   const [requestSent, setRequestSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { accessToken } = useAuth();
+  const authMode = (localStorage.getItem("authMode") || "offline") as
+    | "offline"
+    | "online";
 
-  const handleExportRequest = () => {
+  const handleExport = async () => {
     setIsLoading(true);
-    toast
-      .promise(new Promise((resolve) => setTimeout(resolve, 2000)), {
-        loading: "Submitting your export request...",
-        success: () => {
-          setRequestSent(true);
-          return "Request received! We will email you a download link.";
-        },
-        error: "Failed to request export. Please try again.",
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+    try {
+      // Step 1: Ask the user where to save the file BEFORE generating it.
+      const saveDialogResult = await window.electron.ipcRenderer.invoke(
+        "dialog:show-save-export"
+      );
+
+      // Step 2: If the user selected a path (didn't cancel), proceed.
+      if (!saveDialogResult.canceled && saveDialogResult.filePath) {
+        // Step 3: Call the export handler, now passing the chosen file path.
+        const exportResult = await window.electron.ipcRenderer.invoke(
+          "user:export-data",
+          authMode,
+          accessToken!,
+          saveDialogResult.filePath // Pass the destination path
+        );
+
+        if (exportResult.success) {
+          setRequestSent(true); // The file was generated and saved successfully.
+        } else {
+          console.error("Data export generation failed:", exportResult.error);
+          // TODO: Show an error notification to the user
+        }
+      }
+      // If the user canceled the dialog, we simply do nothing.
+    } catch (error) {
+      console.error("Error during data export process:", error);
+      // TODO: Show a generic error notification to the user
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -48,19 +69,18 @@ const DataExportPage = () => {
               <li>Media attachments (images and audio)</li>
             </ul>
 
-            {/* Themed Info Box */}
             <div className="bg-info/10 border-l-4 border-info p-4 rounded-r-lg mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <Clock className="h-5 w-5 text-info" />
+                  <Download className="h-5 w-5 text-info" />
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-semibold text-info/90 dark:text-info/80">
-                    Processing Time
+                    Direct Download
                   </h3>
                   <p className="text-sm text-info/80 dark:text-info/70 mt-1">
-                    Data exports can take up to 24 hours. You'll receive an
-                    email with a secure download link when it's ready.
+                    Click the button below to choose a location and save your
+                    complete data export as a ZIP file.
                   </p>
                 </div>
               </div>
@@ -70,11 +90,11 @@ const DataExportPage = () => {
               {requestSent ? (
                 <div className="flex items-center gap-3 px-6 py-3 text-sm font-semibold text-success bg-success/10 rounded-lg">
                   <Check size={18} />
-                  <span>Request Sent! Check your email.</span>
+                  <span>Export saved successfully!</span>
                 </div>
               ) : (
                 <button
-                  onClick={handleExportRequest}
+                  onClick={handleExport}
                   disabled={isLoading}
                   className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
                 >
@@ -84,7 +104,9 @@ const DataExportPage = () => {
                     <Download size={18} />
                   )}
                   <span>
-                    {isLoading ? "Processing..." : "Request Full Data Export"}
+                    {isLoading
+                      ? "Generating Export..."
+                      : "Export and Save Data"}
                   </span>
                 </button>
               )}

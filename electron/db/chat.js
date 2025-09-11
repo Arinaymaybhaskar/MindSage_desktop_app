@@ -122,7 +122,6 @@ export const AddChat = async (userId, chatData) => {
             VALUES (?, ?, ?)
         `);
         const result = stmt.run(userId, title, model);
-        console.log("AddChat result:", result);
         return { id: result.lastInsertRowid };
     } catch (error) {
         console.error("[AddChat] Error:", error);
@@ -166,7 +165,6 @@ export const addMessage = async (
     sources,
     files
 ) => {
-    console.log("addMessage called with:", { chatId, sender, content, sources, files });
     try {
         const insertMessageStmt = db.prepare(`
             INSERT INTO messages (chat_id, sender, content)

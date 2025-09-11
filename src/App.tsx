@@ -33,6 +33,7 @@ import {
 import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
 import OllamaTutorialPage from "./pages/OllamaTutorial";
+import QdrantViewer from "./pages/qdrantViewer";
 
 function AppLayout() {
   const location = useLocation();
@@ -54,6 +55,26 @@ function AppLayout() {
       path: "/daily-challenge",
       icon: <TrophyIcon size={18} />,
       label: "Daily Challenge",
+    },
+    {
+      path: "/qdrant",
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="lucide lucide-database"
+        >
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"></path>
+          <path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"></path>
+        </svg>
+      ),
+      label: "Qdrant",
     },
     { path: "/chat", icon: <MessageSquareDot size={18} />, label: "Chat" },
     { path: "/goals", icon: <Target size={18} />, label: "Goals" },
@@ -99,6 +120,7 @@ function AppLayout() {
                   </PrivateRoute>
                 }
               />
+              <Route path="/qdrant" element={<QdrantViewer />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />

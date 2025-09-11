@@ -17,9 +17,7 @@ function getUserIdFromToken(token) {
 }
 
 export const handleUserMessage = async (event, authMode, token, chatId, message, model, sources = [], files = []) => {
-    console.log("handleUserMessage called with:", { authMode, token, chatId, message, model, sources, files });
     const userId = getUserIdFromToken(token);
-    console.log("Decoded userId:", userId);
     if (!userId) {
         return { error: "Invalid token" };
     }
@@ -28,15 +26,16 @@ export const handleUserMessage = async (event, authMode, token, chatId, message,
     } else {
         // If chatId is null → create new chat
         if (!chatId) {
-            const newChat = await localDB.AddChat(userId, { title: "chat", model });
-            console.log("New chat created:", newChat);
+            const title = message.length < 20 ? message : "chat";
+            const newChat = await localDB.AddChat(userId, { title, model });
             chatId = newChat.id;
         }
 
 
         // Add the user's message
         const userMessage = await localDB.addMessage(chatId, "user", message, sources, files);
-        return { chatId, userMessage };
+        const messageId = userMessage.id;
+        return { chatId, messageId };
     }
 };
 
@@ -95,4 +94,27 @@ export const handleChangeChatTitle = async (event, authMode, token, chatId, newT
     }
 }
 
-
+export const linkMediaToMessage = async (event, authMode, token, messageId, chatId, imageKey) => {
+    console.log("linkMediaToMessage called with in method file:", { authMode, token, messageId, chatId, imageKey });
+    const userId = getUserIdFromToken(token);
+    if (!userId) {
+        return { error: "Invalid token" };
+    }
+    if (authMode === "online") {
+        console.log("online mode")
+        return { error: "Online mode not implemented" };
+    } else {
+        // Infer file type from extension
+        try {
+            const lower = String(imageKey).toLowerCase();
+            let fileType = 'image';
+            if (lower.endsWith('.pdf')) fileType = 'pdf';
+            else if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.gif') || lower.endsWith('.webp')) fileType = 'image';
+            // Store with inferred type
+            return localDB.linkMediaToMessage(messageId, chatId, imageKey, fileType);
+        } catch (err) {
+            console.error('Failed to infer file type for media link:', err);
+            return localDB.linkMediaToMessage(messageId, chatId, imageKey, 'image');
+        }
+    }
+}

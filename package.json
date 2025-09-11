@@ -109,6 +109,7 @@
     "sqlite3": "^5.1.7",
     "strip-ansi": "^7.1.0",
     "uuid": "^11.1.0",
+    "zip-a-folder": "^3.1.9",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.24.6",
     "zxcvbn": "^4.4.2"

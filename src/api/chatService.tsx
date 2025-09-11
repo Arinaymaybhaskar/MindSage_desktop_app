@@ -13,7 +13,14 @@ export const chatService = {
     model: string,
     sources: string[] = [],
     files: string[] = []
-  ): Promise<{ chatId: number; userMessage: any } | { error: string }> => {
+  ): Promise<
+    | {
+        messageId: any;
+        chatId: number;
+        userMessage: any;
+      }
+    | { error: string }
+  > => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "chat:send-message",
@@ -80,6 +87,23 @@ export const chatService = {
       authMode,
       token,
       chatId
+    );
+  },
+  linkMediaToMessage: async (
+    authModel: "online" | "offline",
+    token: string,
+    messageId: number,
+    chatId: number,
+    mediaKey: string
+  ): Promise<{ success: boolean; key?: string; message?: string }> => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke(
+      "media:linkMessage",
+      authModel,
+      token,
+      messageId,
+      chatId,
+      mediaKey
     );
   },
 };

@@ -18,6 +18,7 @@ import { useAuth } from "../hooks/useAuth";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { motion, AnimatePresence } from "framer-motion";
 import DeleteConfirmationModal from "../components/goals/modals/DeleteConfirmationModal";
+import ImageLightbox from "../components/chat/ImageLightbox";
 
 const parseMoodTags = (tags: string | string[] | undefined): string[] => {
   if (Array.isArray(tags)) return tags;
@@ -333,37 +334,12 @@ export default function JournalDetail() {
         onConfirm={handleDeleteConfirm}
         type="journal entry"
       />
-      <AnimatePresence>
-        {showImageModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-base-dark/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setShowImageModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              className="relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                className="absolute -top-3 -right-3 text-text-dark bg-secondary-dark rounded-full p-1.5 z-10 hover:bg-tertiary-dark transition-colors"
-                onClick={() => setShowImageModal(false)}
-              >
-                <X size={24} />
-              </button>
-              <img
-                src={imageUrl}
-                alt="Full View"
-                className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {showImageModal && (
+        <ImageLightbox
+          url={imageUrl}
+          onClose={() => setShowImageModal(false)}
+        />
+      )}
     </>
   );
 }

@@ -50,6 +50,9 @@ contextBridge.exposeInMainWorld('electron', {
         'media:save',
         'media:save-profile',
         "media:getAudio",
+        "media:linkMessage",
+        "media:save-chat-media",
+        "media:getPdf",
         'category:get-all',
         'category:delete',
         'category:add',
@@ -88,7 +91,9 @@ contextBridge.exposeInMainWorld('electron', {
         "chat:get-chats",
         "chat:send-message",
         "chat:delete-chat",
-        "chat:change-title"
+        "chat:change-title",
+        "user:export-data",
+        "dialog:show-save-export"
       ];
 
       if (validChannels.includes(channel)) {

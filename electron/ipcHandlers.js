@@ -1,10 +1,10 @@
-import { app, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path, { dirname, join } from 'node:path';
 // Import method handlers
 import { handleGoogleLogin, handleLogin, handleRegister } from "./methods/auth.js";
 import { userChangePassword, userDeleteAccount, userGetMe, userGetSettings, userUpdateProfile, userUpdateSettings } from "./methods/user.js";
 import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal } from "./methods/journal.js";
-import { getAudioBase64, getImageBase64, handleOpenMedia, handleSaveMedia, handleSaveProfileImage } from "./methods/media.js";
+import { getAudioBase64, getImageBase64, getPdfBase64, handleOpenMedia, handleSaveChatMedia, handleSaveMedia, handleSaveProfileImage } from "./methods/media.js";
 import { handleAddCategory, handleDeleteCategory, handleGetCategories, handleUpdateCategory } from "./methods/categories.js";
 import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActiveGoals, handleGetCompletedGoals, handleGetPinnedGoals, handleTogglePin, handleUpdateGoal, handleUpdateProgress } from "./methods/goal.js";
 import { handleAddProgressLog, handleGetProgressLogs } from "./methods/progressLogs.js";
@@ -15,7 +15,8 @@ import { getSelectedModel, setSelectedModel } from "./store.js";
 import { registerQdrantIPC } from "./methods/qdrant.js";
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from "node:url";
-import { handleChangeChatTitle, handleDeleteChat, handleGetChatById, handleGetChats, handleUserMessage } from "./methods/chat.js";
+import { handleChangeChatTitle, handleDeleteChat, handleGetChatById, handleGetChats, handleUserMessage, linkMediaToMessage as handleLinkMediaToMessage } from "./methods/chat.js";
+import { handleExportUserData } from "./methods/exportData.js";
 
 // const __filename = fileURLToPath(import.meta.url);
 // const __dirname = path.dirname(__filename);
@@ -42,6 +43,9 @@ export function registerIPCHandlers(runtime) {
     ipcMain.handle("media:save-profile", handleSaveProfileImage);
     ipcMain.handle("media:getImage", (_e, imagePath) => getImageBase64(imagePath));
     ipcMain.handle("media:getAudio", (_e, audioPath) => getAudioBase64(audioPath));
+    ipcMain.handle("media:getPdf", (_e, pdfPath) => getPdfBase64(pdfPath));
+    ipcMain.handle("media:linkMessage", handleLinkMediaToMessage);
+    ipcMain.handle("media:save-chat-media", handleSaveChatMedia);
 
     // Auth
     ipcMain.handle("auth:register", handleRegister);
@@ -130,4 +134,26 @@ export function registerIPCHandlers(runtime) {
     ipcMain.handle("chat:get-chats", handleGetChats);
     ipcMain.handle("chat:delete-chat", handleDeleteChat);
     ipcMain.handle("chat:change-title", handleChangeChatTitle);
+
+    // export data
+    ipcMain.handle("user:export-data", handleExportUserData);
+
+    ipcMain.handle('dialog:show-save-export', async (event) => {
+        const browserWindow = BrowserWindow.fromWebContents(event.sender);
+        if (!browserWindow) {
+            return { canceled: true, filePath: null };
+        }
+
+        const result = await dialog.showSaveDialog(browserWindow, {
+            title: 'Save Data Export',
+            defaultPath: `my-journal-export-${new Date().toISOString().split('T')[0]}.zip`,
+            buttonLabel: 'Save',
+            filters: [
+                { name: 'ZIP Archives', extensions: ['zip'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
+
+        return result; // Will contain { canceled: boolean, filePath: string | undefined }
+    });
 }
