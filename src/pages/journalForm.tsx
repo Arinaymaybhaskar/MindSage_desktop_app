@@ -14,6 +14,8 @@ import {
   Mic,
   Trash2,
   MicOff,
+  SquarePlus,
+  ImagePlus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoodTagSelector } from "../components/moodOptions";
@@ -58,13 +60,17 @@ export default function JournalForm() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const model = await window.electron.ipcRenderer.invoke(
-          "settings:getSelectedModel"
+        const models = await window.electron.ipcRenderer.invoke(
+          "models:get-selected"
         );
-
-        if (model) setSelectedModel(model);
+        // Use the chat model for journal responses
+        if (models?.chat) {
+          setSelectedModel(models.chat);
+        } else {
+          console.error("[JournalForm] No chat model selected");
+        }
       } catch (err) {
-        console.error("[JournalForm] Failed to load settings from store:", err);
+        console.error("[JournalForm] Failed to load model settings:", err);
       }
     };
     fetchSettings();
@@ -559,7 +565,7 @@ export default function JournalForm() {
                     }`}
                   >
                     <div className="text-center">
-                      <UploadCloud
+                      <ImagePlus
                         size={32}
                         className={`mx-auto mb-2 transition-transform ${
                           isDragging

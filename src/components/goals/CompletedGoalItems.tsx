@@ -1,6 +1,7 @@
 import React from "react";
 import type { Goal } from "../../types/Goals";
 import { CheckCircle2, NotebookText, Trash2Icon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface CompletedGoalItemProps {
   goal: Goal;
@@ -13,6 +14,7 @@ const CompletedGoalItem: React.FC<CompletedGoalItemProps> = ({
   onViewReflection,
   onDelete,
 }) => {
+  const navigate = useNavigate();
   const formattedDate = goal.completed_date
     ? new Date(goal.completed_date).toLocaleDateString("en-US", {
         year: "numeric",
@@ -33,12 +35,13 @@ const CompletedGoalItem: React.FC<CompletedGoalItemProps> = ({
         <CheckCircle2 size={28} className="text-success flex-shrink-0" />
         <div className="min-w-0">
           {/* --- CHANGE: Themed text colors --- */}
-          <p
+          <button
+            onClick={() => navigate(`/goals/view/${goal.id}`)}
             className="font-semibold truncate text-text-light dark:text-text-dark"
             title={goal.title}
           >
             {goal.title}
-          </p>
+          </button>
           <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
             Completed on {formattedDate}
           </p>

@@ -109,4 +109,18 @@ export const goalService = {
       token
     );
   },
+  getGoalById: async (
+    authMode: "online" | "offline",
+    token: string,
+    goalId: number
+  ) => {
+    checkElectron();
+
+    return await window.electron.ipcRenderer.invoke(
+      "goal:get-by-id",
+      authMode,
+      token,
+      goalId
+    );
+  },
 };

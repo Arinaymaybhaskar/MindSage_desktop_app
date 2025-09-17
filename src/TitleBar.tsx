@@ -119,7 +119,7 @@ const TitleBar: React.FC = () => {
           className="w-5 h-5 hidden dark:block"
           alt="MindSage Logo"
         />
-        <div className="pl-3 font-semibold text-sm text-text-light-sub dark:text-text-dark-sub">
+        <div className="pl-3 font-semibold text-md text-text-light-sub dark:text-text-dark-sub">
           MindSage
         </div>
       </div>

@@ -266,7 +266,13 @@ export default function Dashboard() {
                 <ArrowUpRightIcon size={18} />
               </Link>
             </div>
-
+            {pinnedGoals.length === 0 && (
+              <div className="flex w-full justify-center items-center h-full bg-">
+                <p className="font-bold text-neutral-600 dark:text-neutral-400">
+                  No Pinned Goals
+                </p>
+              </div>
+            )}
             {/* Scrollable Goal List */}
             <div className="flex-grow space-y-1 overflow-y-auto no-scrollbar px-6 pb-6">
               {[...pinnedGoals]
@@ -296,7 +302,7 @@ export default function Dashboard() {
                           {progressPercentage}%
                         </span>
                       </div>
-                      <div className="w-full bg-tertiary-dark dark:bg-base-dark rounded-full h-1.5">
+                      <div className="w-full bg-white dark:bg-base-dark rounded-full h-1.5">
                         <div
                           className={`h-1.5 rounded-full ${barColor} transition-all duration-500 ease-out`}
                           style={{ width: `${progressPercentage}%` }}

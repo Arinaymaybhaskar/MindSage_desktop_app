@@ -56,12 +56,19 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   useEffect(() => {
     const fetchModel = async () => {
       try {
-        const storedModel = await window.electron.ipcRenderer.invoke(
-          "settings:getSelectedModel"
+        const models = await window.electron.ipcRenderer.invoke(
+          "models:get-selected"
         );
-        if (storedModel) setSelectedModel(storedModel);
+        // Use the chat model since we're doing text generation
+        if (models?.chat) {
+          setSelectedModel(models.chat);
+        } else {
+          console.warn("No chat model selected in settings");
+          setError("Please select a chat model in Settings first.");
+        }
       } catch (err) {
-        console.error("Failed to load selected model from store:", err);
+        console.error("Failed to load selected model:", err);
+        setError("Failed to load AI model configuration.");
       }
     };
     fetchModel();

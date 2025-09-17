@@ -103,18 +103,25 @@ export const ChatComponent: React.FC = () => {
     setPrompt(randomPrompt);
   }, []);
 
+  // Update the model fetching useEffect
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const model = await window.electron.ipcRenderer.invoke(
-          "settings:getSelectedModel"
+        const models = await window.electron.ipcRenderer.invoke(
+          "models:get-selected"
         );
-        if (model) setModel(model);
+        // Use the chat model for conversations
+        if (models?.chat) {
+          setModel(models.chat);
+        } else {
+          console.error("[Chat] No chat model selected");
+        }
       } catch (err) {
-        console.error("[JournalForm] Failed to load settings from store:", err);
+        console.error("[Chat] Failed to load model settings:", err);
       }
     };
     fetchSettings();
+    // Get user greeting
     const user = localStorage.getItem("userInfo");
     const userName = user ? JSON.parse(user).full_name.split(" ")[0] : "User";
     setGreeting(getGreeting(userName));

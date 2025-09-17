@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef, useContext } from "react";
 import AuthContext from "../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { Settings, LogOut, ChevronDown, User as UserIcon } from "lucide-react";
-import { ollamaService } from "../api/ollamaService";
-import { useAuth } from "../hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 
@@ -15,83 +13,13 @@ interface User {
   timezone: string;
 }
 
-// --- NEW: Reusable Custom Dropdown Component ---
-const Dropdown = ({ options, selectedValue, onChange, placeholder }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedLabel =
-    options.find((opt) => opt.value === selectedValue)?.label || placeholder;
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-2 flex items-center justify-between text-left bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-info focus:border-info outline-none transition text-sm"
-      >
-        <span className="truncate text-text-light dark:text-text-dark">
-          {selectedLabel}
-        </span>
-        <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
-          <ChevronDown
-            size={16}
-            className="text-text-light-sub dark:text-text-dark-sub"
-          />
-        </motion.div>
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 5 }}
-            exit={{ opacity: 0, y: -5 }}
-            className="absolute top-full right-0 mt-1 w-full bg-surface-light dark:bg-surface-dark rounded-lg shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-20 p-2 max-h-48 overflow-y-auto"
-          >
-            {options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
-              >
-                {option.label}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
 export const ProfileDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
-  const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("");
   const { logout } = useContext(AuthContext);
-  const { accessToken } = useAuth();
   const navigate = useNavigate();
 
   // close dropdown when clicking outside
@@ -164,42 +92,6 @@ export const ProfileDropdown: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const fetchedModels = await ollamaService.getModels(accessToken!);
-        const modelNames = fetchedModels.map(
-          (model: { name: string }) => model.name
-        );
-        setModels(modelNames);
-        const storedModel = await window.electron.ipcRenderer.invoke(
-          "settings:getSelectedModel"
-        );
-        if (storedModel && modelNames.includes(storedModel)) {
-          setSelectedModel(storedModel);
-        } else if (modelNames.length > 0) {
-          setSelectedModel(modelNames[0]);
-          await window.electron.ipcRenderer.invoke(
-            "settings:setSelectedModel",
-            modelNames[0]
-          );
-        }
-      } catch (error) {
-        console.error("Error fetching models: ", error);
-      }
-    };
-    fetchModels();
-  }, [accessToken]);
-
-  const handleModelChange = async (model: string) => {
-    await window.electron.ipcRenderer.invoke(
-      "settings:setSelectedModel",
-      model
-    );
-    setSelectedModel(model);
-    setIsOpen(false);
-  };
-
   const handleLogout = () => {
     if (logout) logout();
     navigate("/login");
@@ -212,8 +104,6 @@ export const ProfileDropdown: React.FC = () => {
   ) : (
     <UserIcon size={20} />
   );
-
-  const modelOptions = models.map((model) => ({ value: model, label: model }));
 
   return (
     <>
@@ -277,23 +167,6 @@ export const ProfileDropdown: React.FC = () => {
                   <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
                     {user?.email}
                   </p>
-                </div>
-              </div>
-
-              <div className="p-2">
-                <div className="px-2 py-1.5 text-xs font-semibold text-text-light-sub dark:text-text-dark-sub">
-                  AI Model
-                </div>
-                {/* --- CHANGE: Replaced <select> with <Dropdown> --- */}
-                <div className="px-2">
-                  <Dropdown
-                    options={modelOptions}
-                    selectedValue={selectedModel}
-                    onChange={handleModelChange}
-                    placeholder={
-                      models.length > 0 ? "Select a model" : "No models found"
-                    }
-                  />
                 </div>
               </div>
               <hr className="border-border-light dark:border-border-dark my-1" />

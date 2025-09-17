@@ -1,5 +1,7 @@
 import localDB from "../db";
 import jwt from "jsonwebtoken";
+import { eventBus } from "../eventBus";
+import { db } from "../db/connection";
 
 function getUserIdFromToken(token) {
     try {
@@ -39,6 +41,15 @@ export const handleAddProgressLog = async (event, authMode, token, goalId, value
     if (authMode === "online") {
         console.log("online mode")
     } else {
-        return localDB.logProgress(goalId, value, description);
+        const addedLog = localDB.logProgress(goalId, value, description);
+        if (addedLog) {
+            // Emit event - worker will automatically pick this up
+            eventBus.emit("progress_log:created", { entry: addedLog });
+
+            // Also emit goal updated event since current_value changed
+            const updatedGoal = db.prepare('SELECT * FROM goals WHERE id = ?').get(addedLog.goal_id);
+            eventBus.emit("goal:updated", { entry: updatedGoal });
+        }
+        return addedLog;
     }
 }

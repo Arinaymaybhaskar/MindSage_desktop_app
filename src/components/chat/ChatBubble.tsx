@@ -83,7 +83,7 @@ export const ChatBubble: React.FC<{
                   onClick={() => file.path && onPdfOpen(file.path, file.name)}
                   className={`flex items-center gap-3 w-full max-w-sm p-3 rounded-lg border transition-all duration-200 enabled:hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 ${
                     isUser
-                      ? "bg-base-dark border-border-dark enabled:hover:underline cursor-pointer"
+                      ? "bg-base-light dark:bg-base-dark border-border-light dark:border-border-dark enabled:hover:underline cursor-pointer"
                       : "bg-surface-light dark:bg-surface-dark border-border-light dark:border-border-dark enabled:hover:bg-zinc-200/50 dark:enabled:hover:bg-zinc-700/50"
                   }`}
                 >

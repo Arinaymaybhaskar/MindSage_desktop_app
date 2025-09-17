@@ -20,7 +20,7 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
 
   // --- CHANGE: Themed classes for inactive buttons ---
   const inactiveClasses =
-    "bg-secondary-light text-text-light-sub hover:bg-tertiary-light dark:bg-secondary-dark dark:text-text-dark-sub dark:hover:bg-tertiary-dark";
+    "bg-secondary-light cursor-pointer text-text-light-sub hover:bg-tertiary-light dark:bg-secondary-dark dark:text-text-dark-sub dark:hover:bg-tertiary-dark";
 
   return (
     <div className="mb-8">
@@ -36,7 +36,7 @@ const CategoryFilter: React.FC<CategoryFilterProps> = ({
           onClick={() => onCategorySelect(null)}
           className={clsx(baseClasses, {
             // --- CHANGE: Themed selected state ---
-            "bg-info text-white shadow-md": !selectedCategory,
+            "bg-info cursor-pointer text-white shadow-md": !selectedCategory,
             [inactiveClasses]: selectedCategory,
           })}
         >

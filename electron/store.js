@@ -1,11 +1,8 @@
-import Store from "electron-store";
+import Store from 'electron-store';
 
-const store = new Store();
-
-export function getSelectedModel() {
-    return store.get("selectedModel", "");
-}
-
-export function setSelectedModel(model) {
-    store.set("selectedModel", model);
-}
+export const modelStore = new Store({
+    name: 'model-settings', // this will create model-settings.json in app data
+    defaults: {
+        selectedModels: {}
+    }
+});

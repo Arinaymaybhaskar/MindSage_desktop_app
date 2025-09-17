@@ -6,12 +6,12 @@ import { userChangePassword, userDeleteAccount, userGetMe, userGetSettings, user
 import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal } from "./methods/journal.js";
 import { getAudioBase64, getImageBase64, getPdfBase64, handleOpenMedia, handleSaveChatMedia, handleSaveMedia, handleSaveProfileImage } from "./methods/media.js";
 import { handleAddCategory, handleDeleteCategory, handleGetCategories, handleUpdateCategory } from "./methods/categories.js";
-import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActiveGoals, handleGetCompletedGoals, handleGetPinnedGoals, handleTogglePin, handleUpdateGoal, handleUpdateProgress } from "./methods/goal.js";
+import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActiveGoals, handleGetCompletedGoals, handleGetGoalById, handleGetPinnedGoals, handleTogglePin, handleUpdateGoal, handleUpdateProgress } from "./methods/goal.js";
 import { handleAddProgressLog, handleGetProgressLogs } from "./methods/progressLogs.js";
-import { generateSuggestion, handleGetOllamaModels, handleOllamaPrompt } from "./methods/ollama.js";
+import { generateSuggestion, handleDownloadOllamaModel, handleGetOllamaModels, handleOllamaPrompt, handleDeleteOllamaModel } from "./methods/ollama.js";
 import { startLiveTranscription, stopLiveTranscription, transcribeAudioBlob } from "./methods/whisper.js";
 import { getAllTimeScores, getDashboardData, getMonthlyScores } from "./methods/dashboard.js";
-import { getSelectedModel, setSelectedModel } from "./store.js";
+import { modelStore} from "./store.js";
 import { registerQdrantIPC } from "./methods/qdrant.js";
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from "node:url";
@@ -87,6 +87,8 @@ export function registerIPCHandlers(runtime) {
     ipcMain.handle("goal:complete", handleCompleteGoal);
     ipcMain.handle("goal:update-progress", handleUpdateProgress);
     ipcMain.handle("goal:getPinned", handleGetPinnedGoals);
+    ipcMain.handle("goal:get-by-id", handleGetGoalById);
+
 
     // Logs
     ipcMain.handle("logs:getAll", handleGetProgressLogs);
@@ -108,6 +110,9 @@ export function registerIPCHandlers(runtime) {
             return "";
         }
     });
+    ipcMain.handle("ollama:download-model", handleDownloadOllamaModel);
+    ipcMain.handle("ollama:delete-model", handleDeleteOllamaModel);
+
 
     // Whisper
     ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);
@@ -122,11 +127,11 @@ export function registerIPCHandlers(runtime) {
     });
 
     // Settings
-    ipcMain.handle("settings:getSelectedModel", () => getSelectedModel());
-    ipcMain.handle("settings:setSelectedModel", (_e, model) => {
-        setSelectedModel(model);
-        return true;
-    });
+    // ipcMain.handle("settings:getSelectedModel", () => getSelectedModel());
+    // ipcMain.handle("settings:setSelectedModel", (_e, model) => {
+    //     setSelectedModel(model);
+    //     return true;
+    // });
 
     // Chat
     ipcMain.handle("chat:get-by-id", handleGetChatById);
@@ -155,5 +160,15 @@ export function registerIPCHandlers(runtime) {
         });
 
         return result; // Will contain { canceled: boolean, filePath: string | undefined }
+    });
+
+    // modelStore
+    ipcMain.handle('models:get-selected', () => {
+        return modelStore.get('selectedModels');
+    });
+
+    ipcMain.handle('models:save-selected', (_, models) => {
+        modelStore.set('selectedModels', models);
+        return true;
     });
 }

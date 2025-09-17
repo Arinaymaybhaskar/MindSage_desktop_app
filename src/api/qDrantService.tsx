@@ -54,4 +54,17 @@ export const qdrantService = {
     checkElectron();
     return window.electron.ipcRenderer.invoke("qdrant:sync-journal", journalId);
   },
+  // **NEW**
+  syncGoal: (goalId: number) => {
+    checkElectron();
+    return window.electron.ipcRenderer.invoke("qdrant:sync-goal", goalId);
+  },
+  // **NEW**
+  syncProgressLog: (progressLogId: number) => {
+    checkElectron();
+    return window.electron.ipcRenderer.invoke(
+      "qdrant:sync-progress-log",
+      progressLogId
+    );
+  },
 };

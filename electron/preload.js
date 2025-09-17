@@ -66,11 +66,14 @@ contextBridge.exposeInMainWorld('electron', {
         'goal:complete',
         'goal:update-progress',
         'goal:getPinned',
+        "goal:get-by-id",
         'logs:getAll',
         'logs:add',
         'ollama:models',
         "ollama:get-response",
         "ollama:generate-suggestion",
+        "ollama:download-model",
+        "ollama:delete-model",
         "qdrant:get-collections",
         "qdrant:create-collection",
         "qdrant:upsert",
@@ -79,7 +82,6 @@ contextBridge.exposeInMainWorld('electron', {
         "dashboard:get-data",
         "dashboard:get-monthly-scores",
         "dashboard:get-all-time-scores",
-        // --- NEW for Whisper ---
         "whisper:transcribe-audio",      // one-shot transcription
         "whisper:start-live-transcription", // start live
         "whisper:stop-live-transcription",  // stop live
@@ -87,13 +89,17 @@ contextBridge.exposeInMainWorld('electron', {
         "settings:setSelectedModel",
         "qdrant:bulk-sync", // Add this new channel
         "qdrant:sync-journal",
+        "qdrant:sync-goal",
+        "qdrant:sync-progress-log",
         "chat:get-by-id",
         "chat:get-chats",
         "chat:send-message",
         "chat:delete-chat",
         "chat:change-title",
         "user:export-data",
-        "dialog:show-save-export"
+        "dialog:show-save-export",
+        'models:get-selected',
+        'models:save-selected',
       ];
 
       if (validChannels.includes(channel)) {

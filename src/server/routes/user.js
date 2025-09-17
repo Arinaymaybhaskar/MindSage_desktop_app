@@ -180,7 +180,8 @@ router.put("/me/settings", authenticateToken, async (req, res) => {
     "send_to_ai", "journal_reminder", "challenge_alert", "check_in_frequency", "ai_tone",
     "breathing_reminder", "daily_challenge_type", "auto_summarize", "ai_tags", "insight_tone",
     "enable_ai_image", "enable_voice_mood", "enable_smart_prompts", "auto_save_timer",
-    "journal_streaks", "weekly_summary_email", "journaling_goal"
+    "journal_streaks", "weekly_summary_email", "journaling_goal", "custom_colors", 
+    "selected_theme", "use_custom_colors"
   ];
   // convert camelCase to snake_case for database compatibility
   const snakeCaseFields = allowedFields.map(field => field.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase());

@@ -27,9 +27,11 @@ export const Dropdown = ({ options, selectedValue, onSelect, placeholder }) => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-2.5 flex items-center justify-between text-left bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg  outline-none transition"
+        className="w-full p-2 flex items-center justify-between text-left bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-info focus:border-info outline-none transition text-sm"
       >
-        <span className="truncate">{selectedLabel}</span>
+        <span className="truncate text-text-light dark:text-text-dark">
+          {selectedLabel}
+        </span>
         <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
           <ChevronDown
             size={16}
@@ -44,7 +46,7 @@ export const Dropdown = ({ options, selectedValue, onSelect, placeholder }) => {
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 5 }}
             exit={{ opacity: 0, y: -5 }}
-            className="absolute top-full right-0 mt-1 w-full  bg-surface-light dark:bg-surface-dark rounded-lg shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-20 p-2 max-h-48 overflow-y-auto"
+            className="absolute top-full right-0 mt-1 w-full bg-surface-light dark:bg-surface-dark rounded-lg shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-20 p-2 max-h-48 overflow-y-auto"
           >
             {options.map((option) => (
               <button

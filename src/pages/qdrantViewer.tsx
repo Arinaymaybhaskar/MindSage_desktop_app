@@ -21,7 +21,7 @@ interface Collection {
 }
 interface Point {
   id: string | number;
-  payload?: { [key: string]: any };
+  payload: { [key: string]: any };
   vectors?: { [key: string]: number[] };
 }
 interface CollectionDetails {
@@ -106,6 +106,11 @@ export default function QdrantViewer() {
   const [showVectors, setShowVectors] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const user = localStorage.getItem("userInfo");
+  let userId: number;
+  if (user) {
+    userId = JSON.parse(user).id;
+  }
   // --- NEW: State for sorting ---
   const [sortKey, setSortKey] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -185,7 +190,10 @@ export default function QdrantViewer() {
         }
       );
       const pointsData = await pointsRes.json();
-      setPoints(pointsData.result?.points || []);
+      const userPoints = pointsData.result.points.filter(
+        (point: Point) => point.payload.user_id === userId
+      );
+      setPoints(userPoints || []);
     } catch (err) {
       console.error("Error fetching collection details:", err);
       setError("Failed to fetch collection details");
@@ -363,7 +371,7 @@ export default function QdrantViewer() {
                       onClick={() =>
                         setSortOrder(sortOrder === "asc" ? "desc" : "asc")
                       }
-                      className="p-2 border border-border-light dark:border-border-dark rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
+                      className="p-2 border border-border-light dark:border-border-dark rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark text-text-light dark:text-text-dark "
                     >
                       {sortOrder === "asc" ? (
                         <ArrowUp className="h-4 w-4" />

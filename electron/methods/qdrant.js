@@ -79,21 +79,20 @@ export function registerQdrantIPC(runtime) {
         }
     });
 
-    // Add bulk sync handler
+    // Updated bulk sync handler to support journals, goals, and progress logs
     ipcMain.handle("qdrant:bulk-sync", async () => {
         try {
-            // Send message directly to worker instead of using eventBus
             if (global.qdrantWorker) {
-                global.qdrantWorker.postMessage({
-                    type: 'journal:bulk-sync-requested',
-                    data: {}
-                });
-                console.log('IPC Handler: Bulk sync message sent to worker');
+                // Trigger bulk sync for all types
+                global.qdrantWorker.postMessage({ type: 'journal:bulk-sync-requested' });
+                global.qdrantWorker.postMessage({ type: 'goal:bulk-sync-requested' });
+                global.qdrantWorker.postMessage({ type: 'progress_log:bulk-sync-requested' });
+                console.log('IPC Handler: Bulk sync messages sent to worker for journals, goals, and progress logs');
             } else {
                 console.error('Qdrant worker not available');
                 return { success: false, error: "Worker not available" };
             }
-            return { success: true, message: "Bulk sync started" };
+            return { success: true, message: "Bulk sync started for all types" };
         } catch (error) {
             console.error("Error starting bulk sync:", error);
             return { success: false, error: error.message };
@@ -104,8 +103,6 @@ export function registerQdrantIPC(runtime) {
     ipcMain.handle("qdrant:sync-journal", async (_e, journalId) => {
         try {
             console.log(`IPC Handler: Received request to sync journal ID ${journalId}`);
-            
-            // Send message directly to worker instead of using eventBus
             if (global.qdrantWorker) {
                 global.qdrantWorker.postMessage({
                     type: 'journal:sync-requested',
@@ -116,10 +113,51 @@ export function registerQdrantIPC(runtime) {
                 console.error('Qdrant worker not available');
                 return { success: false, error: "Worker not available" };
             }
-            
             return { success: true, message: "Journal sync started" };
         } catch (error) {
             console.error("Error starting journal sync:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // **NEW**: Add single goal sync handler
+    ipcMain.handle("qdrant:sync-goal", async (_e, goalId) => {
+        try {
+            console.log(`IPC Handler: Received request to sync goal ID ${goalId}`);
+            if (global.qdrantWorker) {
+                global.qdrantWorker.postMessage({
+                    type: 'goal:sync-requested',
+                    data: { goalId }
+                });
+                console.log(`IPC Handler: Message sent to worker for goal ID ${goalId}`);
+            } else {
+                console.error('Qdrant worker not available');
+                return { success: false, error: "Worker not available" };
+            }
+            return { success: true, message: "Goal sync started" };
+        } catch (error) {
+            console.error("Error starting goal sync:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // **NEW**: Add single progress log sync handler
+    ipcMain.handle("qdrant:sync-progress-log", async (_e, progressLogId) => {
+        try {
+            console.log(`IPC Handler: Received request to sync progress log ID ${progressLogId}`);
+            if (global.qdrantWorker) {
+                global.qdrantWorker.postMessage({
+                    type: 'progress_log:sync-requested',
+                    data: { progressLogId }
+                });
+                console.log(`IPC Handler: Message sent to worker for progress log ID ${progressLogId}`);
+            } else {
+                console.error('Qdrant worker not available');
+                return { success: false, error: "Worker not available" };
+            }
+            return { success: true, message: "Progress log sync started" };
+        } catch (error) {
+            console.error("Error starting progress log sync:", error);
             return { success: false, error: error.message };
         }
     });

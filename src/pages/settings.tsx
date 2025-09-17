@@ -9,6 +9,7 @@ import {
   Lock,
   Download,
   Mic,
+  Boxes,
   Target,
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
@@ -18,6 +19,14 @@ import { motion } from "framer-motion";
 const ProfileSettings = lazy(
   () => import("../components/settings/ProfileSettings")
 );
+const ColorSettings = lazy(
+  () => import("../components/settings/ColorSettings")
+);
+
+const ModelSettings = lazy(
+  () => import("../components/settings/ModelSettings")
+);
+
 // const AppearanceSettings = lazy(
 //   () => import("../components/settings/AppearanceSettings")
 // );
@@ -40,6 +49,8 @@ const ExportSettings = lazy(
 
 const settingsSections = {
   profile: { label: "Profile", icon: User, component: ProfileSettings },
+  colors: { label: "Colors", icon: Palette, component: ColorSettings },
+  models: { label: "Models", icon: Boxes, component: ModelSettings },
   // appearance: {
   //   label: "Appearance",
   //   icon: Palette,

@@ -34,6 +34,9 @@ interface UserSettings {
   journal_streaks: boolean;
   weekly_summary_email: boolean;
   journaling_goal: number;
+  custom_colors?: string;
+  selected_theme?: string;
+  use_custom_colors?: boolean;
 }
 
 /**

@@ -110,3 +110,22 @@ export const getPinnedGoals = async (userId) => {
     return stmt.all(userId);
 }
 
+export const getGoalById = async (goalId, userId) => {
+    const goalStmt = db.prepare("SELECT * FROM goals WHERE user_id = ? AND id = ?");
+    const goal = goalStmt.get(userId, goalId);
+
+    if (!goal) return null;
+
+    const logsStmt = db.prepare("SELECT * FROM progress_logs WHERE goal_id = ? ORDER BY logged_at DESC");
+    const logs = logsStmt.all(goalId);
+
+    const categoryId = goal.category_id
+    const categoryStmt = db.prepare("SELECT * FROM categories WHERE id = ?");
+
+    const category = categoryStmt.get(categoryId);
+
+    goal.category = category;
+    goal.logs = logs;
+    return goal;
+};
+

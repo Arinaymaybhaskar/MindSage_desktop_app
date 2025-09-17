@@ -6,6 +6,7 @@ import {
   useNavigate,
   HashRouter,
 } from "react-router-dom";
+import { useEffect } from "react";
 import Login from "./pages/auth/login";
 import PrivateRoute from "./routes/privateRoute";
 import Dashboard from "./pages/dashBoard";
@@ -34,6 +35,9 @@ import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
 import OllamaTutorialPage from "./pages/OllamaTutorial";
 import QdrantViewer from "./pages/qdrantViewer";
+import { ColorThemeProvider } from "./context/ColorThemeContext";
+import { initializeColors } from "./utils/colorInitializer";
+import GoalDetail from "./pages/goalDetail";
 
 function AppLayout() {
   const location = useLocation();
@@ -207,6 +211,14 @@ function AppLayout() {
                   </PrivateRoute>
                 }
               />
+              <Route
+                path="/goals/view/:id"
+                element={
+                  <PrivateRoute>
+                    <GoalDetail />
+                  </PrivateRoute>
+                }
+              />
             </Routes>
           </main>
         </div>
@@ -216,12 +228,19 @@ function AppLayout() {
 }
 
 function App() {
+  // Initialize colors on app startup
+  useEffect(() => {
+    initializeColors();
+  }, []);
+
   // Use Vite's build flag so the router choice is correct in the production bundle
   // const Router = import.meta.env.PROD ? HashRouter : BrowserRouter;
   return (
-    <HashRouter>
-      <AppLayout />
-    </HashRouter>
+    <ColorThemeProvider>
+      <HashRouter>
+        <AppLayout />
+      </HashRouter>
+    </ColorThemeProvider>
   );
 }
 

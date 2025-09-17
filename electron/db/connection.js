@@ -53,6 +53,9 @@ export function initDatabase() {
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
             synced INTEGER DEFAULT 0,
             sync_action TEXT,
+            custom_colors TEXT,
+            selected_theme TEXT DEFAULT 'Default',
+            use_custom_colors INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
 
@@ -74,6 +77,7 @@ export function initDatabase() {
             synced INTEGER DEFAULT 0,
             sync_action TEXT,
             synced_to_qdrant TEXT DEFAULT 'not_synced' CHECK(synced_to_qdrant IN ('not_synced', 'pending', 'in_progress', 'success', 'failed')),
+            qdrant_id TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
 
@@ -290,6 +294,8 @@ export function initDatabase() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             completed_date TEXT, -- 'YYYY-MM-DD'
             target_date TEXT, -- 'YYYY-MM-DD'
+            synced_to_qdrant TEXT DEFAULT 'not_synced' CHECK(synced_to_qdrant IN ('not_synced', 'pending', 'in_progress', 'success', 'failed')),
+            qdrant_id TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
         );
@@ -300,6 +306,8 @@ export function initDatabase() {
             goal_id INTEGER NOT NULL,
             value REAL NOT NULL,
             description TEXT,
+            synced_to_qdrant TEXT DEFAULT 'not_synced' CHECK(synced_to_qdrant IN ('not_synced', 'pending', 'in_progress', 'success', 'failed')),
+            qdrant_id TEXT,
             logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
         );
@@ -347,6 +355,9 @@ export function initDatabase() {
         );
 
         -- Add indexes for faster lookups
+        CREATE INDEX IF NOT EXISTS idx_goals_synced_to_qdrant ON goals(synced_to_qdrant);
+        CREATE INDEX IF NOT EXISTS idx_progress_logs_synced_to_qdrant ON progress_logs(synced_to_qdrant);
+
         CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
         CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
         CREATE INDEX IF NOT EXISTS idx_progress_logs_goal_id ON progress_logs(goal_id);

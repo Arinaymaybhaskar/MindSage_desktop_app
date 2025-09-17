@@ -19,6 +19,7 @@ import { progressLogsService } from "../api/progressLogsService";
 import LogProgressModal from "../components/goals/modals/logProgressModal";
 import GoalCardSkeleton from "../components/goals/GoalCardSkeleton";
 import ActiveGoalsList from "../components/goals/ActiveGoalsList";
+import { qdrantService } from "../api/qdrantService";
 
 const GoalsPage: React.FC = () => {
   // All state, data fetching, and handler logic remains the same...
@@ -87,15 +88,20 @@ const GoalsPage: React.FC = () => {
     newCategory?: Category
   ) => {
     try {
+      let goalAdded;
       if (modalType === "edit") {
-        await goalService.updateGoal(
+        goalAdded = await goalService.updateGoal(
           authMode,
           accessToken!,
           goalData.id,
           goalData
         );
       } else {
-        await goalService.addGoal(authMode, accessToken!, goalData);
+        goalAdded = await goalService.addGoal(authMode, accessToken!, goalData);
+      }
+      console.log(goalAdded, "goalAdded");
+      if (goalAdded) {
+        await qdrantService.syncGoal(goalAdded.lastInsertRowid);
       }
       closeModal();
       await fetchAllData();
@@ -152,14 +158,19 @@ const GoalsPage: React.FC = () => {
         goalId,
         value
       );
+      let log;
       if (res) {
-        await progressLogsService.addProgress(
+        log = await progressLogsService.addProgress(
           authMode,
           accessToken!,
           goalId,
           value,
           description
         );
+      }
+      console.log(log, "log");
+      if (log) {
+        qdrantService.syncProgressLog(log.id);
       }
       closeModal();
       if (res.target_value === res.current_value) {

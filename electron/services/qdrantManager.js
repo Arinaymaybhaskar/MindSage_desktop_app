@@ -100,51 +100,108 @@ async function ensureCollection(baseUrl) {
                     text_embedding: { size: 768, distance: "Cosine" },
                 },
                 payload_schema: {
+                    // Common fields
                     user_id: { type: "integer" },
-                    source_type: { type: "keyword" },
+                    source_type: { type: "keyword" }, // 'journal', 'goal', 'progress_log'
                     source_id: { type: "integer" },
                     title: { type: "text" },
+                    created_at: { type: "datetime" },
+                    
+                    // Journal-specific fields
+                    content: { type: "text" },
                     mood_score: { type: "float" },
-                    sentiment_score: { type: "float" },
-                    tags: { type: "keyword" },
+                    mood_tags: { type: "keyword" },
                     category_name: { type: "text" },
-                    status: { type: "keyword" },
+                    updated_at: { type: "datetime" },
+                    
+                    // Goal-specific fields
+                    description: { type: "text" },
+                    parent_goal_title: { type: "text" },
+                    current_value: { type: "float" },
+                    target_value: { type: "float" },
+                    unit: { type: "keyword" },
+                    status: { type: "keyword" }, // 'active', 'completed', 'paused'
+                    is_pinned: { type: "integer" },
                     target_date: { type: "datetime" },
+                    completed_date: { type: "datetime" },
+                    
+                    // Progress log-specific fields
                     goal_id: { type: "integer" },
                     goal_title: { type: "text" },
                     value_logged: { type: "float" },
-                    unit: { type: "keyword" },
-                    created_at: { type: "datetime" },
+                    
+                    // Legacy fields (keep for backward compatibility)
+                    sentiment_score: { type: "float" },
+                    tags: { type: "keyword" },
                 },
             });
-            writeLog(`Collection '${collectionName}' recreated with 768 dimensions`);
+            writeLog(`Collection '${collectionName}' recreated with 768 dimensions and enhanced schema`);
+        } else {
+            // Check if schema needs updating for new fields
+            try {
+                // Try to create index for new fields if they don't exist
+                await client.createFieldIndex(collectionName, 'source_type', { 
+                    field_name: 'source_type',
+                    field_schema: { type: 'keyword' }
+                });
+                await client.createFieldIndex(collectionName, 'goal_id', { 
+                    field_name: 'goal_id',
+                    field_schema: { type: 'integer' }
+                });
+                await client.createFieldIndex(collectionName, 'status', { 
+                    field_name: 'status',
+                    field_schema: { type: 'keyword' }
+                });
+                writeLog(`Updated collection '${collectionName}' with new field indexes`);
+            } catch (indexError) {
+                // Indexes might already exist, that's fine
+                writeLog(`Collection '${collectionName}' schema is up to date`);
+            }
         }
     } catch (err) {
         if (err.status === 404 || err.response?.status === 404) {
-            writeLog(`Creating collection '${collectionName}' with schema...`);
+            writeLog(`Creating collection '${collectionName}' with enhanced schema...`);
             await client.createCollection(collectionName, {
                 vectors: {
-                    text_embedding: { size: 768, distance: "Cosine" }, // Changed from 512 to 768
+                    text_embedding: { size: 768, distance: "Cosine" },
                 },
                 payload_schema: {
+                    // Common fields
                     user_id: { type: "integer" },
-                    source_type: { type: "keyword" },
+                    source_type: { type: "keyword" }, // 'journal', 'goal', 'progress_log'
                     source_id: { type: "integer" },
                     title: { type: "text" },
+                    created_at: { type: "datetime" },
+                    
+                    // Journal-specific fields
+                    content: { type: "text" },
                     mood_score: { type: "float" },
-                    sentiment_score: { type: "float" },
-                    tags: { type: "keyword" },
+                    mood_tags: { type: "keyword" },
                     category_name: { type: "text" },
-                    status: { type: "keyword" },
+                    updated_at: { type: "datetime" },
+                    
+                    // Goal-specific fields
+                    description: { type: "text" },
+                    parent_goal_title: { type: "text" },
+                    current_value: { type: "float" },
+                    target_value: { type: "float" },
+                    unit: { type: "keyword" },
+                    status: { type: "keyword" }, // 'active', 'completed', 'paused'
+                    is_pinned: { type: "integer" },
                     target_date: { type: "datetime" },
+                    completed_date: { type: "datetime" },
+                    
+                    // Progress log-specific fields
                     goal_id: { type: "integer" },
                     goal_title: { type: "text" },
                     value_logged: { type: "float" },
-                    unit: { type: "keyword" },
-                    created_at: { type: "datetime" },
+                    
+                    // Legacy fields (keep for backward compatibility)
+                    sentiment_score: { type: "float" },
+                    tags: { type: "keyword" },
                 },
             });
-            writeLog(`Collection '${collectionName}' created with 768 dimensions`);
+            writeLog(`Collection '${collectionName}' created with 768 dimensions and enhanced schema`);
         } else {
             writeLog(`Failed to check collection: ${err}`, "error");
             throw err;

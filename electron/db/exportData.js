@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { zip } from 'zip-a-folder';
-import { db } from './connection';
+import { db } from './connection.js';
 import os from 'node:os';
 
 /**
