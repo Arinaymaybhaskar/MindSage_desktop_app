@@ -202,7 +202,7 @@ const GoalsPage: React.FC = () => {
           </h1>
           <button
             onClick={() => openModal("addChoice")}
-            className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
+            className="flex items-center gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 transition-all duration-200 hover:scale-105"
           >
             <Plus size={20} />
             <span>Add Goal</span>

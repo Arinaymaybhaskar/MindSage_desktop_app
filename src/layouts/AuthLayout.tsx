@@ -53,7 +53,7 @@ export function AuthLayout({
             through life.
           </p>
           <div className="flex gap-4 pt-2">
-            <div className="h-1 w-12 bg-info rounded-full"></div>
+            <div className="h-1 w-12 bg-light1 dark:bg-dark1 rounded-full"></div>
             <div className="h-1 w-12 bg-success rounded-full"></div>
             <div className="h-1 w-12 bg-warning rounded-full"></div>
           </div>
@@ -103,7 +103,7 @@ export function AuthLayout({
                       // Ternary to handle styling for all states
                       opt.id === "online"
                         ? // Disabled state for "online"
-                          "text-info opacity-70 cursor-not-allowed"
+                          "text-dark1 dark:text-light1 opacity-70 cursor-not-allowed"
                         : authMode === opt.id
                         ? // Active state for "offline"
                           "text-text-light dark:text-text-dark"

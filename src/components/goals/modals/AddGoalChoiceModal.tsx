@@ -55,7 +55,7 @@ const AddGoalChoiceModal: React.FC<AddGoalChoiceModalProps> = ({
         >
           {/* --- CHANGE: Themed icon container and color --- */}
           <div className="p-4 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
-            <Wand2 size={32} className="text-info" />
+            <Wand2 size={32} className="text-dark1 dark:text-light1" />
           </div>
           <div className="text-content">
             {/* --- CHANGE: Themed text --- */}

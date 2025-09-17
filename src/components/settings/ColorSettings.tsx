@@ -226,7 +226,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
       onClick={() => handleThemeSelect(theme)}
       className={`p-4 rounded-xl border-2 transition-all ${
         localSettings.selectedTheme === theme.name
-          ? "border-info bg-info/10"
+          ? "border-info bg-light1 dark:bg-dark1/10"
           : "border-border-light dark:border-border-dark hover:border-info/50"
       }`}
       whileHover={{ scale: 1.02 }}
@@ -389,7 +389,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
         <div className="flex justify-end border-t border-border-light dark:border-border-dark pt-6">
           <motion.button
             onClick={handleSave}
-            className="flex items-center gap-2 px-6 py-3 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all"
+            className="flex items-center gap-2 px-6 py-3 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >

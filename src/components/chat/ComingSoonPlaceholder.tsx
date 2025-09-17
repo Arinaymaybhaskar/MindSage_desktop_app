@@ -4,8 +4,8 @@ import { Sparkles } from "lucide-react";
 export const ComingSoonPlaceholder: React.FC = () => {
   return (
     <div className="flex-grow flex flex-col items-center justify-center text-center p-8 bg-secondary-light dark:bg-secondary-dark">
-      <div className="p-4 bg-info/10 rounded-full mb-4">
-        <Sparkles size={32} className="text-info" />
+      <div className="p-4 bg-light1 dark:bg-dark1/10 rounded-full mb-4">
+        <Sparkles size={32} className="text-dark1 dark:text-light1" />
       </div>
       <h3 className="text-xl font-bold text-text-light dark:text-text-dark">
         AI Insights are Coming Soon!
@@ -20,5 +20,3 @@ export const ComingSoonPlaceholder: React.FC = () => {
 };
 
 export default ComingSoonPlaceholder;
-
-

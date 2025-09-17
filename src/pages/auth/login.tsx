@@ -128,7 +128,7 @@ export default function Login() {
                 onChange={(e) =>
                   setForm({ ...form, rememberMe: e.target.checked })
                 }
-                className="h-4 w-4 text-info bg-tertiary-light dark:bg-tertiary-dark border-border-light rounded focus:ring-info"
+                className="h-4 w-4 text-dark1 dark:text-light1 bg-tertiary-light dark:bg-tertiary-dark border-border-light rounded focus:ring-info"
               />
               <label
                 htmlFor="remember-me"
@@ -140,7 +140,7 @@ export default function Login() {
             <div className="text-sm">
               <Link
                 to="/forgot-password"
-                className="font-medium text-info hover:text-info/90"
+                className="font-medium text-dark1 dark:text-light1 hover:text-dark1 dark:text-light1/90"
               >
                 Forgot your password?
               </Link>
@@ -150,7 +150,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-info hover:bg-info/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-light1 dark:bg-dark1 hover:bg-light1 dark:bg-dark1/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? "Signing in..." : "Sign in"}
             </button>
@@ -180,7 +180,7 @@ export default function Login() {
           </span>{" "}
           <Link
             to="/register"
-            className="font-medium text-info hover:text-info/90"
+            className="font-medium text-dark1 dark:text-light1 hover:text-dark1 dark:text-light1/90"
           >
             Sign up
           </Link>

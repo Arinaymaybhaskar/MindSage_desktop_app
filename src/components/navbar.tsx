@@ -104,7 +104,7 @@ const Header = () => {
   // const getNotificationIcon = (type: string) => {
   //   if (type.includes("goal"))
   //     return <GoalIcon className="w-5 h-5 text-success" />;
-  //   return <Bell className="w-5 h-5 text-info" />;
+  //   return <Bell className="w-5 h-5 text-dark1 dark:text-light1" />;
   // };
 
   return (

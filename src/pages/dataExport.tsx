@@ -69,16 +69,16 @@ const DataExportPage = () => {
               <li>Media attachments (images and audio)</li>
             </ul>
 
-            <div className="bg-info/10 border-l-4 border-info p-4 rounded-r-lg mb-6">
+            <div className="bg-light1 dark:bg-dark1/10 border-l-4 border-info p-4 rounded-r-lg mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <Download className="h-5 w-5 text-info" />
+                  <Download className="h-5 w-5 text-dark1 dark:text-light1" />
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-semibold text-info/90 dark:text-info/80">
+                  <h3 className="text-sm font-semibold text-dark1 dark:text-light1/90 dark:text-dark1 dark:text-light1/80">
                     Direct Download
                   </h3>
-                  <p className="text-sm text-info/80 dark:text-info/70 mt-1">
+                  <p className="text-sm text-dark1 dark:text-light1/80 dark:text-dark1 dark:text-light1/70 mt-1">
                     Click the button below to choose a location and save your
                     complete data export as a ZIP file.
                   </p>
@@ -96,7 +96,7 @@ const DataExportPage = () => {
                 <button
                   onClick={handleExport}
                   disabled={isLoading}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
                 >
                   {isLoading ? (
                     <Loader2 size={20} className="animate-spin" />

@@ -290,7 +290,7 @@ const DailyChallenge = () => {
                 onDrop={handleDrop}
                 className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
                   isDragging
-                    ? "border-info bg-info/10"
+                    ? "border-info bg-light1 dark:bg-dark1/10"
                     : "border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
                 }`}
               >
@@ -298,7 +298,7 @@ const DailyChallenge = () => {
                   size={32}
                   className={`mb-2 transition-colors ${
                     isDragging
-                      ? "text-info"
+                      ? "text-dark1 dark:text-light1"
                       : "text-text-light-sub dark:text-text-dark-sub"
                   }`}
                 />
@@ -329,10 +329,10 @@ const DailyChallenge = () => {
               {challengeData?.description}
             </p>
             <div className="bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg p-4 mb-6 text-left">
-              <h4 className="font-semibold text-info mb-2 flex items-center gap-2">
+              <h4 className="font-semibold text-dark1 dark:text-light1 mb-2 flex items-center gap-2">
                 <Award size={18} /> Benefits
               </h4>
-              <ul className="space-y-1 text-sm text-info/90">
+              <ul className="space-y-1 text-sm text-dark1 dark:text-light1/90">
                 {challengeData?.benefits.map((benefit, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <CheckCircle size={16} className="mt-0.5 flex-shrink-0" />
@@ -343,7 +343,7 @@ const DailyChallenge = () => {
             </div>
             <button
               onClick={handleAccept}
-              className="w-full px-6 py-3 bg-info text-white font-semibold rounded-lg hover:bg-info/90 transition-colors"
+              className="w-full px-6 py-3 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg hover:bg-light1 dark:bg-dark1/90 transition-colors"
             >
               Accept Challenge
             </button>
@@ -375,7 +375,7 @@ const DailyChallenge = () => {
                     Today's Challenge
                   </h2>
                   <div className="flex items-center gap-2 text-sm font-mono px-3 py-1.5 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
-                    <Clock size={16} className="text-info" />
+                    <Clock size={16} className="text-dark1 dark:text-light1" />
                     <span className="text-text-light dark:text-text-dark">
                       {timeLeft}
                     </span>
@@ -426,7 +426,7 @@ const DailyChallenge = () => {
                   },
                 ].map((step) => (
                   <li key={step.num} className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-tertiary-light dark:bg-tertiary-dark text-info rounded-full font-bold">
+                    <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 rounded-full font-bold">
                       {step.num}
                     </div>
                     <div>

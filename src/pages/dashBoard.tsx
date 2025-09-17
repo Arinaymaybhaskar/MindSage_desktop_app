@@ -172,7 +172,10 @@ export default function Dashboard() {
       return { bar: "bg-success", text: "text-success" };
     }
     if (percentage >= 50) {
-      return { bar: "bg-info", text: "text-info" };
+      return {
+        bar: "bg-light1 dark:bg-dark1",
+        text: "text-dark1 dark:text-light1",
+      };
     }
     return { bar: "bg-warning", text: "text-warning" };
   };
@@ -217,7 +220,7 @@ export default function Dashboard() {
           </div>
           <Link
             to="/"
-            className="flex items-center h-12 gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
+            className="flex items-center h-12 gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all duration-200 hover:scale-105"
           >
             <Plus size={20} />
             <span>New Entry</span>
@@ -324,7 +327,7 @@ export default function Dashboard() {
             </h2>
             <Link
               to="/journals"
-              className="flex items-center gap-1 text-sm font-semibold text-text-light-sub dark:text-text-dark-sub hover:text-info dark:hover:text-info transition-colors"
+              className="flex items-center gap-1 text-sm font-semibold text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 transition-colors"
             >
               View all
               <ArrowRight size={16} />

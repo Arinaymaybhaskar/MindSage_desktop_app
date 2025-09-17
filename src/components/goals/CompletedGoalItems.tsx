@@ -53,7 +53,7 @@ const CompletedGoalItem: React.FC<CompletedGoalItemProps> = ({
         {/* --- CHANGE: Themed "View Reflection" button --- */}
         <button
           onClick={() => onViewReflection(goal)}
-          className="flex items-center gap-2 text-sm font-semibold text-info whitespace-nowrap px-4 py-2 rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors duration-200"
+          className="flex items-center gap-2 text-sm font-semibold text-dark1 dark:text-light1 whitespace-nowrap px-4 py-2 rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors duration-200"
         >
           <NotebookText size={16} />
           <span>View Reflection</span>

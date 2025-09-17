@@ -113,7 +113,7 @@ export const ProfileDropdown: React.FC = () => {
           className="flex items-center gap-2 p-1.5 rounded-full transition-colors duration-200 border border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
         >
           {/* Avatar: show image if available, otherwise initials */}
-          <div className="flex items-center justify-center w-8 h-8 bg-info/10 rounded-full text-info font-semibold overflow-hidden">
+          <div className="flex items-center justify-center w-8 h-8 bg-light1 dark:bg-dark1/10 rounded-full text-dark1 dark:text-light1 font-semibold overflow-hidden">
             {profileImageSrc ? (
               <img
                 src={profileImageSrc}

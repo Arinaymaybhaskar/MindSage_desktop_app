@@ -92,7 +92,7 @@ function DockItem({
       className={clsx(
         "relative inline-flex items-center justify-center rounded-2xl border-border-light dark:border-border-dark border-1 shadow-md transition-colors",
         {
-          "bg-info": isActive,
+          "bg-light1 dark:bg-dark1": isActive,
           "bg-surface-light dark:bg-surface-dark": !isActive,
         },
         className

@@ -75,7 +75,7 @@ export function DeleteAccount() {
         <div className="max-w-2xl mx-auto">
           <Link
             to="/settings#security"
-            className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-info dark:hover:text-info font-semibold transition-colors mb-6"
+            className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 font-semibold transition-colors mb-6"
           >
             <ArrowLeft size={18} />
             Back to Settings

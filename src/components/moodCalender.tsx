@@ -21,7 +21,7 @@ type Props = {
 const MOOD_COLOR_CLASSES = [
   "bg-danger", // Mood 1 (Worst)
   "bg-warning", // Mood 2
-  "bg-info", // Mood 3 (Neutral)
+  "bg-light1 dark:bg-dark1", // Mood 3 (Neutral)
   "bg-success/80", // Mood 4 (A slightly lighter success)
   "bg-success", // Mood 5 (Best)
 ];

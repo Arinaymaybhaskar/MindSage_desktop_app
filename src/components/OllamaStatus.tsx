@@ -55,7 +55,7 @@ export default function OllamaStatus() {
         return (
           <div className="relative w-full h-2 bg-tertiary-light dark:bg-tertiary-dark rounded-full overflow-hidden">
             <motion.div
-              className="absolute top-0 left-0 h-full bg-info rounded-full"
+              className="absolute top-0 left-0 h-full bg-light1 dark:bg-dark1 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${percent}%` }}
               transition={{ duration: 0.5 }}

@@ -20,10 +20,10 @@ interface ScoreDataPoint {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="p-3 bg-[#262626] border border-gray-600 rounded-lg shadow-lg">
+      <div className="p-3 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg shadow-lg">
         <p className="text-lg font-bold text-gray-50 mb-2">{label}</p>
         <div className="text-sm">
-          <p style={{ color: payload[0].color }}>
+          <p className="text-text-light dark:text-text-dark">
             {`${payload[0].name} : ${payload[0].value.toFixed(2)}`}
           </p>
         </div>
@@ -72,25 +72,29 @@ function MoodSentimentChart({
       }
       try {
         switch (selectedRange) {
-          case "Last Week":
+          case "Last Week": {
             setChartData(initialData);
             break;
-          case "Last Month":
+          }
+          case "Last Month": {
             const monthlyData = await dashboardService.getMonthlyScore(
               authMode,
               accessToken!
             );
             setChartData(monthlyData);
             break;
-          case "All Time":
+          }
+          case "All Time": {
             const allTimeData = await dashboardService.getAllTimeScore(
               authMode,
               accessToken!
             );
             setChartData(allTimeData);
             break;
-          default:
+          }
+          default: {
             setChartData(initialData);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch chart data:", error);
@@ -139,6 +143,18 @@ function MoodSentimentChart({
     setSelectedRange(range);
     setIsRangeOpen(false);
   };
+
+  function getTailwindColor(className: string) {
+    const tempEl = document.createElement("div");
+    tempEl.className = className;
+    tempEl.style.display = "none";
+    document.body.appendChild(tempEl);
+    const color = getComputedStyle(tempEl).backgroundColor;
+    document.body.removeChild(tempEl);
+    return color;
+  }
+
+  const infoColor = getTailwindColor("bg-light1 dark:bg-dark1");
 
   // Animation variants for smooth transitions
   const motionVariants = {
@@ -243,8 +259,16 @@ function MoodSentimentChart({
                 >
                   <defs>
                     <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b8dda" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#8b8dda" stopOpacity={0} />
+                      <stop
+                        offset="5%"
+                        stopColor={infoColor}
+                        stopOpacity={0.4}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor={infoColor}
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="created_at_formatted" hide />
@@ -253,7 +277,7 @@ function MoodSentimentChart({
                   <Area
                     type="monotone"
                     dataKey="mood_score"
-                    stroke="#8b8dda"
+                    stroke={infoColor}
                     strokeWidth={2}
                     activeDot={{ r: 1, strokeWidth: 1 }}
                     name="Mood Score"

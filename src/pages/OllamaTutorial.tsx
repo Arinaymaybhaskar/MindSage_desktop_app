@@ -98,7 +98,7 @@ const DownloadCard = ({
         e.preventDefault();
         (window as any).electron.openExternal(url);
       }}
-      className="inline-flex items-center gap-2 bg-info text-white font-semibold px-6 py-2 rounded-lg hover:bg-info/90 transition-colors"
+      className="inline-flex items-center gap-2 bg-light1 dark:bg-dark1 text-white font-semibold px-6 py-2 rounded-lg hover:bg-light1 dark:bg-dark1/90 transition-colors"
     >
       <Download size={16} /> Download
     </a>
@@ -130,7 +130,7 @@ const TerminalGuide = () => {
             <span
               className={`relative capitalize ${
                 activeTab === tab
-                  ? "text-info"
+                  ? "text-dark1 dark:text-light1"
                   : "text-text-light-sub dark:text-text-dark-sub"
               }`}
             >
@@ -232,7 +232,7 @@ const OllamaTutorialPage = () => {
         <div className="mb-8">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-info dark:hover:text-info font-semibold transition-colors"
+            className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 font-semibold transition-colors"
           >
             <ArrowLeft size={18} />
             Go Back
@@ -385,7 +385,7 @@ const OllamaTutorialPage = () => {
                     "https://ollama.com/library"
                   );
                 }}
-                className="text-info hover:text-info/90 font-semibold"
+                className="text-dark1 dark:text-light1 hover:text-dark1 dark:text-light1/90 font-semibold"
               >
                 Ollama Library
               </a>
@@ -438,7 +438,7 @@ const OllamaTutorialPage = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             onClick={scrollToTop}
-            className="fixed bottom-8 right-8 bg-surface-light dark:bg-surface-dark p-3 rounded-full shadow-lg border border-border-light dark:border-border-dark text-text-light dark:text-text-dark hover:text-info dark:hover:text-info transition-colors"
+            className="fixed bottom-8 right-8 bg-surface-light dark:bg-surface-dark p-3 rounded-full shadow-lg border border-border-light dark:border-border-dark text-text-light dark:text-text-dark hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 transition-colors"
             aria-label="Back to top"
           >
             <ArrowUp size={20} />

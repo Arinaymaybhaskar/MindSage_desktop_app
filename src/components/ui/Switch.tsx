@@ -24,7 +24,7 @@ export const Switch = ({ checked, onCheckedChange }: SwitchProps) => {
         "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none",
         "border border-border-light dark:border-border-dark",
         {
-          "bg-info": checked,
+          "bg-light1 dark:bg-dark1": checked,
           "bg-tertiary-light dark:bg-tertiary-dark": !checked,
         }
       )}

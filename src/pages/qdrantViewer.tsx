@@ -46,7 +46,7 @@ const PointCard: React.FC<{ point: Point; showVectors: boolean }> = ({
     >
       <div className="p-4 border-b border-border-light dark:border-border-dark flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <span className="bg-tertiary-light dark:bg-tertiary-dark text-info px-2.5 py-1 rounded text-sm font-mono font-medium">
+          <span className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded text-sm font-mono font-medium">
             ID: {point.id}
           </span>
           {point.payload?.user_id && (
@@ -216,7 +216,7 @@ export default function QdrantViewer() {
           <div className="flex items-center justify-between">
             {" "}
             <div className="flex items-center space-x-4">
-              <Database className="h-10 w-10 text-info" />{" "}
+              <Database className="h-10 w-10 text-dark1 dark:text-light1" />{" "}
               <div>
                 {" "}
                 <h1 className="text-3xl font-bold text-text-light dark:text-text-dark">
@@ -230,7 +230,7 @@ export default function QdrantViewer() {
             <button
               onClick={loadCollections}
               disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 bg-info text-white rounded-lg hover:bg-info/90 disabled:opacity-60 transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-light1 dark:bg-dark1 text-white rounded-lg hover:bg-light1 dark:bg-dark1/90 disabled:opacity-60 transition-colors"
             >
               {" "}
               <RefreshCw
@@ -284,14 +284,14 @@ export default function QdrantViewer() {
                     onClick={() => loadDetails(col.name)}
                     className={`p-4 rounded-lg border-2 text-left transition-all hover:shadow-md ${
                       selected === col.name
-                        ? "border-info bg-info/5"
+                        ? "border-info bg-light1 dark:bg-dark1/5"
                         : "border-border-light dark:border-border-dark hover:border-border-light/70 dark:hover:border-border-dark/70"
                     }`}
                   >
                     {" "}
                     <div className="flex items-center space-x-3">
                       {" "}
-                      <Database className="h-6 w-6 text-info" />{" "}
+                      <Database className="h-6 w-6 text-dark1 dark:text-light1" />{" "}
                       <div>
                         {" "}
                         <h3 className="font-semibold text-text-light dark:text-text-dark">
@@ -385,7 +385,7 @@ export default function QdrantViewer() {
                 <div className="p-6">
                   {loading ? (
                     <div className="text-center py-8">
-                      <Loader2 className="h-8 w-8 mx-auto animate-spin text-info" />
+                      <Loader2 className="h-8 w-8 mx-auto animate-spin text-dark1 dark:text-light1" />
                     </div>
                   ) : sortedAndFilteredPoints.length === 0 ? (
                     <div className="text-center py-8 text-text-light-sub dark:text-text-dark-sub">

@@ -111,7 +111,7 @@ export const ChatBubble: React.FC<{
           <div
             className={`px-4 py-3 rounded-2xl shadow-sm max-w-fit ${
               isUser
-                ? "bg-info text-white rounded-br-lg"
+                ? "bg-dark1 text-white rounded-br-lg"
                 : "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark rounded-bl-lg border border-border-light dark:border-border-dark"
             }`}
           >

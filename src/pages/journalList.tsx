@@ -78,7 +78,7 @@ const JournalEntryCard = ({
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
             <Link to={`/journal/view/${entry.id}`}>
-              <h2 className="text-xl font-bold text-text-light dark:text-text-dark hover:text-info dark:hover:text-info transition-colors">
+              <h2 className="text-xl font-bold text-text-light dark:text-text-dark hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 transition-colors">
                 {entry.title}
               </h2>
             </Link>
@@ -90,7 +90,7 @@ const JournalEntryCard = ({
             <p>{SyncIcon(entry.synced_to_qdrant || "not_synced")}</p>
             <Link
               to={`/journal/edit/${entry.id}`}
-              className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-info dark:hover:text-info transition-colors"
+              className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 transition-colors"
               aria-label="Edit Entry"
             >
               <Pencil size={16} />
@@ -112,7 +112,7 @@ const JournalEntryCard = ({
             {moodTags.map((tag: string, idx: number) => (
               <span
                 key={idx}
-                className="bg-tertiary-light dark:bg-tertiary-dark text-info px-2.5 py-1 rounded-full text-xs font-semibold"
+                className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
               >
                 {tag}
               </span>
@@ -276,7 +276,7 @@ export default function JournalList() {
             </button>
             <Link
               to="/"
-              className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
+              className="flex items-center gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all duration-200 hover:scale-105"
             >
               <Plus size={20} />
               <span>New Entry</span>
@@ -285,8 +285,10 @@ export default function JournalList() {
         </header>
 
         {syncStatus && (
-          <div className="mb-6 p-4 bg-info/10 border border-info/20 rounded-lg">
-            <p className="text-info font-medium text-center">{syncStatus}</p>
+          <div className="mb-6 p-4 bg-light1 dark:bg-dark1/10 border border-info/20 rounded-lg">
+            <p className="text-dark1 dark:text-light1 font-medium text-center">
+              {syncStatus}
+            </p>
           </div>
         )}
 
@@ -307,7 +309,7 @@ export default function JournalList() {
                   </p>
                   <button
                     onClick={() => setSelectedDate(null)}
-                    className="text-xs font-semibold text-info hover:underline"
+                    className="text-xs font-semibold text-dark1 dark:text-light1 hover:underline"
                   >
                     Show all
                   </button>
@@ -334,7 +336,7 @@ export default function JournalList() {
             {loading && (
               <div className="flex justify-center items-center p-4">
                 <svg
-                  className="animate-spin h-8 w-8 text-info"
+                  className="animate-spin h-8 w-8 text-dark1 dark:text-light1"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"

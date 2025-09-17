@@ -82,7 +82,7 @@ export default function GoalDetail() {
                 Completed
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-info">
+              <div className="flex items-center gap-2 text-dark1 dark:text-light1">
                 <CheckCircle size={16} />
                 In Progress
               </div>
@@ -99,7 +99,7 @@ export default function GoalDetail() {
             </div>
             <div className="w-full h-4 rounded-full bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
               <div
-                className="h-full rounded-full bg-info transition-all"
+                className="h-full rounded-full bg-light1 dark:bg-dark1 transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>

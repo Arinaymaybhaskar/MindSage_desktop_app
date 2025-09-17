@@ -34,7 +34,7 @@ const RecentEntryCard = ({ entry }) => {
             {moodTags.map((tag, idx) => (
               <span
                 key={idx}
-                className="bg-tertiary-light dark:bg-tertiary-dark text-info px-2.5 py-1 rounded-full text-xs font-semibold"
+                className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
               >
                 {tag}
               </span>

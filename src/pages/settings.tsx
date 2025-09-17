@@ -186,7 +186,7 @@ const Settings = () => {
                       }}
                       className={`relative flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors z-10 ${
                         activeTab === key
-                          ? "text-info"
+                          ? "text-dark1 dark:text-light1"
                           : "text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
                       }`}
                     >

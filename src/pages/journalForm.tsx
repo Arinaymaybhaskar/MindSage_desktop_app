@@ -447,7 +447,7 @@ export default function JournalForm() {
               className={` p-2 rounded-full shadow-lg transition-all ${
                 isTranscribing
                   ? "bg-red-500 text-white animate-pulse"
-                  : "bg-info text-white hover:bg-info/90"
+                  : "bg-light1 dark:bg-dark1 text-white hover:bg-light1 "
               }`}
             >
               {isTranscribing ? <MicOff size={22} /> : <Mic size={22} />}
@@ -464,7 +464,7 @@ export default function JournalForm() {
             <button
               type="submit"
               disabled={isSubmitting || !entry.content.trim()}
-              className="flex items-center justify-center gap-2 px-4 py-2 w-40 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 px-4 py-2 w-40 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
@@ -560,7 +560,7 @@ export default function JournalForm() {
                     onDrop={handleDrop}
                     className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
                       isDragging
-                        ? "border-info bg-info/10"
+                        ? "border-info bg-light1 dark:bg-dark1/10"
                         : "border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
                     }`}
                   >
@@ -569,7 +569,7 @@ export default function JournalForm() {
                         size={32}
                         className={`mx-auto mb-2 transition-transform ${
                           isDragging
-                            ? "text-info scale-110"
+                            ? "text-dark1 dark:text-light1 scale-110"
                             : "text-text-light-sub dark:text-text-dark-sub"
                         }`}
                       />
@@ -636,7 +636,7 @@ export default function JournalForm() {
                 type="button"
                 onClick={handleGenerateQuestions}
                 disabled={isGeneratingQuestions || !entry.content.trim()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-info font-semibold rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 disabled:opacity-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 font-semibold rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 disabled:opacity-50 transition-colors"
               >
                 {isGeneratingQuestions ? (
                   <Loader2 size={18} className="animate-spin" />

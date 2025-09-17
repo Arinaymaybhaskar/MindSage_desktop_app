@@ -23,7 +23,7 @@ export const SidebarPanel = ({
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-3">
-          <Icon size={18} className="text-info" />
+          <Icon size={18} className="text-dark1 dark:text-light1" />
           <h3 className="font-semibold text-text-light dark:text-text-dark">
             {title}
           </h3>

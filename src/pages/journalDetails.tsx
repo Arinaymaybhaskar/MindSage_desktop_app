@@ -103,7 +103,7 @@ export default function JournalDetail() {
           <div className="mb-6">
             <Link
               to="/journals"
-              className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-info dark:hover:text-info font-semibold transition-colors"
+              className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 font-semibold transition-colors"
             >
               <ArrowLeft size={18} />
               Back to Journals
@@ -194,7 +194,10 @@ export default function JournalDetail() {
                             aria-expanded={isTranscriptionOpen}
                           >
                             <div className="flex items-center gap-3">
-                              <Captions size={16} className="text-info" />
+                              <Captions
+                                size={16}
+                                className="text-dark1 dark:text-light1"
+                              />
                               <h4 className="font-semibold text-sm text-text-light dark:text-text-dark">
                                 Transcription
                               </h4>
@@ -241,7 +244,10 @@ export default function JournalDetail() {
                             aria-expanded={isSummaryOpen}
                           >
                             <div className="flex items-center gap-3">
-                              <FileText size={16} className="text-info" />
+                              <FileText
+                                size={16}
+                                className="text-dark1 dark:text-light1"
+                              />
                               <h4 className="font-semibold text-sm text-text-light dark:text-text-dark">
                                 Summary
                               </h4>
@@ -283,7 +289,7 @@ export default function JournalDetail() {
                 {/* Metadata */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <Smile size={18} className="text-info" />
+                    <Smile size={18} className="text-dark1 dark:text-light1" />
                     <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
                       Mood Score:
                     </span>
@@ -292,7 +298,10 @@ export default function JournalDetail() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <AudioLines size={18} className="text-info" />
+                    <AudioLines
+                      size={18}
+                      className="text-dark1 dark:text-light1"
+                    />
                     <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
                       Sentiment:
                     </span>
@@ -303,7 +312,10 @@ export default function JournalDetail() {
                   {moodTags.length > 0 && (
                     <div>
                       <div className="flex items-center gap-3 mb-2">
-                        <Tags size={18} className="text-info" />
+                        <Tags
+                          size={18}
+                          className="text-dark1 dark:text-light1"
+                        />
                         <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
                           Tags:
                         </span>
@@ -312,7 +324,7 @@ export default function JournalDetail() {
                         {moodTags.map((tag, idx) => (
                           <span
                             key={idx}
-                            className="bg-tertiary-light dark:bg-tertiary-dark text-info px-2.5 py-1 rounded-full text-xs font-semibold"
+                            className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
                           >
                             {tag}
                           </span>

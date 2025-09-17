@@ -360,7 +360,10 @@ export default function ModelSettings({
   if (isInitializing) {
     return (
       <div className="flex justify-center items-center h-96 bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
-        <Loader2 className="animate-spin text-info" size={32} />
+        <Loader2
+          className="animate-spin text-dark1 dark:text-light1"
+          size={32}
+        />
         <span className="ml-4 text-lg text-text-light-sub dark:text-text-dark-sub">
           Loading Model Settings...
         </span>
@@ -425,7 +428,7 @@ export default function ModelSettings({
                     <div className="px-4 pb-4 text-sm text-text-light-sub dark:text-text-dark-sub border-t border-border-light dark:border-border-dark">
                       <p className="mt-2">{FRIENDLY_LABELS[key]}</p>
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="text-xs bg-info/10 text-info px-2 py-1 rounded-full">
+                        <span className="text-xs bg-light1 dark:bg-dark1/10 text-dark1 dark:text-light1 px-2 py-1 rounded-full">
                           Required capability: {requiredCapability}
                         </span>
                       </div>
@@ -487,7 +490,7 @@ export default function ModelSettings({
                         <button
                           onClick={() => handleDownload(m.model)}
                           disabled={loadingModel !== null}
-                          className="p-2 text-white rounded-lg hover:text-info cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="p-2 text-white rounded-lg hover:text-dark1 dark:text-light1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {loadingModel === m.model ? (
                             <Loader2 className="animate-spin" size={18} />
@@ -564,7 +567,7 @@ export default function ModelSettings({
 // Badge Component
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-block bg-info/10 text-info text-xs font-medium px-2.5 py-1 rounded-full">
+    <span className="inline-block bg-light1 dark:bg-dark1/10 text-dark1 dark:text-light1 text-xs font-medium px-2.5 py-1 rounded-full">
       {children}
     </span>
   );
@@ -607,7 +610,7 @@ function ModelCard({
         </p>
         <button
           onClick={onViewDetails}
-          className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-info hover:underline"
+          className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-dark1 dark:text-light1 hover:underline"
         >
           <Info size={14} /> Details
         </button>

@@ -97,7 +97,7 @@ const ChangePassword = () => {
         <div className="max-w-md mx-auto">
           <Link
             to="/settings#security"
-            className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-info dark:hover:text-info font-semibold transition-colors mb-6"
+            className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 font-semibold transition-colors mb-6"
           >
             <ArrowLeft size={18} />
             Back to Settings
@@ -202,7 +202,7 @@ const ChangePassword = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-info hover:bg-info/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-light1 dark:bg-dark1 hover:bg-light1 dark:bg-dark1/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
               <Save size={16} />
               {isLoading ? "Updating..." : "Update Password"}

@@ -184,7 +184,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
                   setPreviewSrc(cropped);
                   setIsCropping(false);
                 }}
-                className="px-4 py-2 text-sm font-semibold bg-info text-white rounded-lg hover:bg-info/90 transition-colors flex items-center gap-2"
+                className="px-4 py-2 text-sm font-semibold bg-light1 dark:bg-dark1 text-white rounded-lg hover:bg-light1 transition-colors flex items-center gap-2"
               >
                 Crop & Save
               </button>
@@ -300,7 +300,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center justify-center gap-2 w-50 px-4 py-2 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all disabled:opacity-60"
+              className="flex items-center justify-center gap-2 w-50 px-4 py-2 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all disabled:opacity-60"
             >
               {isSaving ? (
                 <Loader2 size={18} className="animate-spin" />

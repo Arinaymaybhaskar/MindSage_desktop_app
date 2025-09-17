@@ -28,7 +28,11 @@ interface PasswordStrengthMeterProps {
 const strengthLevels = [
   { text: "Too Weak", color: "bg-danger", textColor: "text-danger" },
   { text: "Weak", color: "bg-warning", textColor: "text-warning" },
-  { text: "Fair", color: "bg-info/60", textColor: "text-info/60" },
+  {
+    text: "Fair",
+    color: "bg-light1 dark:bg-dark1/60",
+    textColor: "text-dark1 dark:text-light1/60",
+  },
   { text: "Good", color: "bg-success/80", textColor: "text-success/80" },
   { text: "Strong", color: "bg-success", textColor: "text-success" },
 ];
@@ -432,7 +436,7 @@ export default function Register() {
               className={`border-l-4 p-4 mt-6 rounded-r-lg relative ${
                 authMode === "offline"
                   ? "bg-warning/10 border-warning"
-                  : "bg-info/10 border-info"
+                  : "bg-light1 dark:bg-dark1/10 border-info"
               }`}
             >
               <button
@@ -446,7 +450,7 @@ export default function Register() {
                   {authMode === "offline" ? (
                     <Shield className="h-5 w-5 text-warning" />
                   ) : (
-                    <Cloud className="h-5 w-5 text-info" />
+                    <Cloud className="h-5 w-5 text-dark1 dark:text-light1" />
                   )}
                 </div>
                 <div className="ml-3">
@@ -489,7 +493,7 @@ export default function Register() {
           </span>
           <Link
             to="/login"
-            className="font-medium text-info hover:text-info/90"
+            className="font-medium text-dark1 dark:text-light1 hover:text-dark1 dark:text-light1/90"
           >
             Login
           </Link>

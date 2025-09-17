@@ -695,7 +695,10 @@ export const ChatComponent: React.FC = () => {
                   {attachedPdf && (
                     <div className="flex items-center justify-between mx-2 my-2 px-3 py-2 rounded-md border bg-surface-light dark:bg-surface-dark border-border-light dark:border-border-dark">
                       <div className="flex items-center gap-2">
-                        <FileText size={16} className="text-info" />
+                        <FileText
+                          size={16}
+                          className="text-dark1 dark:text-light1"
+                        />
                         <span className="text-sm truncate max-w-[12rem]">
                           {attachedPdf.file.name}
                         </span>
@@ -718,7 +721,7 @@ export const ChatComponent: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsFileMenuOpen((prev) => !prev)}
-                        className="p-2 text-text-light-sub dark:text-text-dark-sub hover:text-info transition-colors"
+                        className="p-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 transition-colors"
                       >
                         <Plus size={18} />
                       </button>
@@ -808,7 +811,7 @@ export const ChatComponent: React.FC = () => {
 
                     <button
                       type="submit"
-                      className="p-2 flex justify-center items-center text-info rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 flex justify-center items-center text-dark1 dark:text-light1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={
                         isLoading || (!inputValue.trim() && !attachedImage)
                       }
