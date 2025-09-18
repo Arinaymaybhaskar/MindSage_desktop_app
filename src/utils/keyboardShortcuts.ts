@@ -21,6 +21,10 @@ const shortcuts = {
       keys: ["Backspace", "Backspace"],
       description: "Navigate back to the previous page",
     },
+    reload: {
+      keys: ["Ctrl+R", "⌘+R"],
+      description: "Reload the application",
+    },
     // lockApp: {
     //   keys: ["Ctrl+Q", "⌘+Q"],
     //   description: "Lock the application",

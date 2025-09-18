@@ -3,8 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { AlertCircle, Lock, ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { userService } from "../../api/userService";
-import { Toaster, toast } from "react-hot-toast";
 import { AnimatePresence, motion } from "framer-motion";
+import { useToast } from "../../context/ToastContext";
 
 export function DeleteAccount() {
   const [password, setPassword] = useState("");
@@ -13,7 +13,7 @@ export function DeleteAccount() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { accessToken, logout } = useAuth();
   const navigate = useNavigate();
-
+  const { showToast } = useToast();
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
@@ -34,17 +34,17 @@ export function DeleteAccount() {
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
-    const toastId = toast.loading("Deleting your account...");
+    showToast("Deleting your account...", "info");
     try {
       await userService.deleteAccount(authMode, accessToken!, { password });
-      toast.success("Your account has been deleted.", { id: toastId });
+      showToast("Your account has been deleted.", "success");
       logout(); // Log the user out
       navigate("/login");
       window.location.reload();
     } catch (error) {
-      toast.error(
+      showToast(
         "Deletion failed. Please check your password and try again.",
-        { id: toastId }
+        "danger"
       );
       console.error(error);
       setIsDeleting(false);
@@ -64,13 +64,6 @@ export function DeleteAccount() {
 
   return (
     <>
-      <Toaster
-        position="bottom-center"
-        toastOptions={{
-          className:
-            "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark border border-border-light dark:border-border-dark",
-        }}
-      />
       <div className="bg-base-light dark:bg-base-dark min-h-screen py-12 px-4">
         <div className="max-w-2xl mx-auto">
           <Link

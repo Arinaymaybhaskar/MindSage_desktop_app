@@ -31,12 +31,12 @@ const RecentEntryCard = ({ entry }) => {
         {/* Card Footer with Tags */}
         {moodTags.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4">
-            {moodTags.map((tag, idx) => (
+            {moodTags.slice(0, 4).map((tag, idx) => (
               <span
-                key={idx}
-                className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
+          key={idx}
+          className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
               >
-                {tag}
+          {tag}
               </span>
             ))}
           </div>

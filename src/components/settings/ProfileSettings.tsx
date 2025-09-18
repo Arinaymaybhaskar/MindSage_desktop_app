@@ -209,7 +209,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
           <div>
             <label className={labelClasses}>Profile Picture</label>
             <div className="flex items-center gap-4">
-              <div className="relative w-20 h-20 rounded-full">
+              <div className="relative w-40 h-40 rounded-full">
                 <div className="group w-full h-full rounded-full relative">
                   <div className="w-full h-full rounded-full overflow-hidden bg-tertiary-light dark:bg-tertiary-dark flex items-center justify-center border border-border-light dark:border-border-dark">
                     {previewSrc ? (
@@ -219,7 +219,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <UserIcon className="w-10 h-10 text-text-light-sub dark:text-text-dark-sub" />
+                      <UserIcon className="w-20 h-20 text-text-light-sub dark:text-text-dark-sub" />
                     )}
                   </div>
 

@@ -385,7 +385,7 @@ export default function ModelSettings({
 
         <div className="p-6 space-y-8">
           {/* Section 1: Assign Models */}
-          <section>
+          <section id="assign-models">
             <h3 className="text-lg font-semibold mb-4 text-text-light dark:text-text-dark">
               Assign Models to Tasks
             </h3>
@@ -440,7 +440,7 @@ export default function ModelSettings({
           </section>
 
           {/* Section 2: Recommended Models */}
-          <section>
+          <section id="recommended-models" className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
               <h3 className="text-lg font-semibold mb-4 text-text-light dark:text-text-dark">
                 Recommended Models
@@ -518,7 +518,7 @@ export default function ModelSettings({
           </section>
 
           {/* Section 3: Installed Models */}
-          <section>
+          <section id="installed-models" className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-text-light dark:text-text-dark">
                 Installed Models

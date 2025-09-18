@@ -26,6 +26,7 @@ import { useAuth } from "../hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import EmptyState from "../components/EmptyState";
 import Modal from "../components/Modal";
+import { useToast } from "../context/ToastContext";
 
 dayjs.extend(isBetween);
 
@@ -130,7 +131,7 @@ const JournalEntryCard = ({
         </p>
         {moodTags.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4">
-            {moodTags.map((tag: string, idx: number) => (
+            {moodTags.slice(0, 6).map((tag: string, idx: number) => (
               <span
                 key={idx}
                 className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -156,7 +157,7 @@ export default function JournalList() {
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
-
+  const [showDoubleClickNote, setShowDoubleClickNote] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -172,6 +173,7 @@ export default function JournalList() {
     entryId: null,
   });
   const entryRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
+  const { showToast } = useToast();
 
   useEffect(() => {
     setEntries([]);
@@ -514,7 +516,11 @@ export default function JournalList() {
                   onDelete: () =>
                     setDeleteModalInfo({ isOpen: true, entryId: entry.id! }),
                   selected: entry.id === selectedId,
-                  onSelect: () => setSelectedId(entry.id!),
+                  onSelect: () => {
+                    setSelectedId(entry.id!);
+                    showToast("Double click an entry to open it.", "info");
+                    setTimeout(() => setShowDoubleClickNote(false), 3000); // hide after 3s
+                  },
                 };
                 if (filteredEntries.length === index + 1) {
                   return (

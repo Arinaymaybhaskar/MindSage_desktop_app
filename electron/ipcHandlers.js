@@ -10,7 +10,7 @@ import { handleAddProgressLog, handleGetProgressLogs } from "./methods/progressL
 import { generateSuggestion, handleDownloadOllamaModel, handleGetOllamaModels, handleOllamaPrompt, handleDeleteOllamaModel } from "./methods/ollama.js";
 import { startLiveTranscription, stopLiveTranscription, transcribeAudioBlob } from "./methods/whisper.js";
 import { getAllTimeScores, getDashboardData, getMonthlyScores } from "./methods/dashboard.js";
-import { modelStore} from "./store.js";
+import { modelStore } from "./store.js";
 import { registerQdrantIPC } from "./methods/qdrant.js";
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from "node:url";

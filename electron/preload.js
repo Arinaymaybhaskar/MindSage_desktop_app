@@ -100,6 +100,7 @@ contextBridge.exposeInMainWorld('electron', {
         "dialog:show-save-export",
         'models:get-selected',
         'models:save-selected',
+        "quick-capture:close"
       ];
 
       if (validChannels.includes(channel)) {

@@ -1,51 +1,21 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
-import {
-  Search,
-  X,
-  BookOpen,
-  Target,
-  Eye,
-} from "lucide-react";
+import { Search, X, BookOpen, Target, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { settingsCommands } from "../utils/SearchActions";
+import { actionsCommands, settingsCommands } from "../utils/SearchActions";
 
 export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const navigate = useNavigate();
 
-  // Combine all searchable items into a single list using useMemo for efficiency.
+  // Refs for list items
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  // Combine all searchable items into a single list using useMemo
   const allSearchableItems = useMemo(
-    () => [
-      // High-level actions
-      {
-        type: "Action",
-        title: "Create New Journal Entry",
-        action: () => {
-          navigate("/journal/new"); // Example action
-        },
-        icon: BookOpen,
-      },
-      {
-        type: "Action",
-        title: "View Daily Challenge",
-        action: () => {
-          navigate("/daily-challenge"); // Example action
-        },
-        icon: Target,
-      },
-      // Settings-related commands
-      {
-        type: "Settings",
-        title: "View All Models",
-        icon: Eye,
-        action: () => {
-          navigate("/settings/models#installed");
-        },
-      },
-      ...settingsCommands,
-    ],
+    () => [...actionsCommands, ...settingsCommands],
     [navigate]
   );
 
@@ -54,40 +24,71 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
     inputRef.current?.focus();
   }, []);
 
-  // Handle Escape key to close the search
+  // Escape key closes search
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
+      if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  // Filter results by title + keywords
-  const filteredResults = query
-    ? allSearchableItems.filter((item) => {
-        const searchTerm = query.toLowerCase();
+  // Filter results by title/keywords or slash commands
+  const filteredResults = useMemo(() => {
+    if (!query) return allSearchableItems;
 
-        const inTitle = item.title.toLowerCase().includes(searchTerm);
-        const inKeywords =
-          item.keywords?.some((keyword: string) =>
-            keyword.toLowerCase().includes(searchTerm)
-          ) ?? false;
+    if (query.startsWith("/")) {
+      return [{ type: "SlashCommand", title: `Go to ${query}`, path: query }];
+    }
 
-        return inTitle || inKeywords;
-      })
-    : allSearchableItems;
+    const searchTerm = query.toLowerCase();
+    return allSearchableItems.filter((item) => {
+      const inTitle = item.title.toLowerCase().includes(searchTerm);
+      const inKeywords =
+        item.keywords?.some((keyword: string) =>
+          keyword.toLowerCase().includes(searchTerm)
+        ) ?? false;
+      return inTitle || inKeywords;
+    });
+  }, [query, allSearchableItems]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (itemRefs.current[highlightedIndex]) {
+      itemRefs.current[highlightedIndex]?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [highlightedIndex, filteredResults]);
 
   // Handles selecting an item
-  const handleSelect = (item: (typeof allSearchableItems)[0]) => {
-    if (item.action) {
-      item.action();
-    } else if (item.path) {
-      navigate(item.path);
-    }
+  const handleSelect = (
+    item:
+      | (typeof allSearchableItems)[0]
+      | { path?: string; title: string; type: string }
+  ) => {
+    if (item.action) item.action();
+    else if (item.path) navigate(item.path);
     onClose();
+  };
+
+  // Keyboard navigation
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) =>
+        Math.min(prev + 1, filteredResults.length - 1)
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredResults[highlightedIndex]) {
+        handleSelect(filteredResults[highlightedIndex]);
+      }
+    }
   };
 
   return (
@@ -107,7 +108,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
         className="relative mt-[15vh] max-h-[60vh] w-full max-w-2xl bg-surface-light dark:bg-surface-dark rounded-2xl shadow-2xl border border-border-light dark:border-border-dark overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Search Input Area */}
+        {/* Search Input */}
         <div className="flex items-center gap-4 p-4 border-b border-border-light dark:border-border-dark">
           <Search
             size={20}
@@ -117,7 +118,11 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setHighlightedIndex(0);
+            }}
+            onKeyDown={handleInputKeyDown}
             placeholder="Search or type a command..."
             className="flex-1 bg-transparent outline-none text-base text-text-light dark:text-text-dark placeholder:text-text-light-sub dark:placeholder:text-text-dark-sub"
           />
@@ -137,8 +142,13 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
               {filteredResults.map((item, index) => (
                 <li key={`${item.title}-${index}`}>
                   <button
+                    ref={(el) => (itemRefs.current[index] = el)}
                     onClick={() => handleSelect(item)}
-                    className="flex items-center w-full text-left gap-4 p-3 rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
+                    className={`flex items-center w-full text-left gap-4 p-3 rounded-lg transition-colors ${
+                      highlightedIndex === index
+                        ? "bg-tertiary-light dark:bg-tertiary-dark"
+                        : "hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
+                    }`}
                   >
                     {item.icon && (
                       <item.icon
@@ -146,7 +156,6 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
                         className="text-text-light-sub dark:text-text-dark-sub flex-shrink-0"
                       />
                     )}
-
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-text-light dark:text-text-dark">
                         {item.title}

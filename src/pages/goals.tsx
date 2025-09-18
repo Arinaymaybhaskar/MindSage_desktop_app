@@ -20,6 +20,7 @@ import LogProgressModal from "../components/goals/modals/logProgressModal";
 import GoalCardSkeleton from "../components/goals/GoalCardSkeleton";
 import ActiveGoalsList from "../components/goals/ActiveGoalsList";
 import { qdrantService } from "../api/qdrantService";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const GoalsPage: React.FC = () => {
   // All state, data fetching, and handler logic remains the same...
@@ -35,6 +36,8 @@ const GoalsPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null
   );
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isCompletedGoalsOpen, setIsCompletedGoalsOpen] = useState(true);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [progressLogs, setProgressLogs] = useState<ProgressLog[]>();
@@ -82,6 +85,25 @@ const GoalsPage: React.FC = () => {
   const filteredCompletedGoals = selectedCategory
     ? completedGoals.filter((g) => g.category_id === selectedCategory.id)
     : completedGoals;
+
+  useEffect(() => {
+    const pathParts = location.pathname.split("/").filter(Boolean); // ["goals", "create-manual"]
+    if (pathParts[0] !== "goals") return;
+
+    switch (pathParts[1]) {
+      case "create-manual":
+        setModalType("manualCreate");
+        break;
+      case "create-with-ai":
+        setModalType("AICreate");
+        break;
+      case "category":
+        // optionally preselect a category or trigger filter UI
+        break;
+      default:
+        setModalType(null);
+    }
+  }, [location.pathname]);
 
   const handleCreateOrUpdateGoal = async (
     goalData: Goal,
@@ -144,6 +166,7 @@ const GoalsPage: React.FC = () => {
   const closeModal = () => {
     setSelectedGoal(null);
     setModalType(null);
+    navigate("/goals", { replace: true });
   };
 
   const handleLogProgress = async (

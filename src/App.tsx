@@ -38,12 +38,17 @@ import { initializeColors } from "./utils/colorInitializer";
 import GoalDetail from "./pages/goalDetail";
 import GlobalSearch from "./components/globalSearch";
 import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
+import QuickCapture from "./components/quickCapture";
+import NotFoundPage from "./pages/NotFoundPage";
+import { ToastProvider } from "./context/ToastContext";
 
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showSearch, setShowSearch] = useState(false);
   const [showKeyboardModal, setShowKeyboardModal] = useState(false);
+
+  const isQuickCapturePage = location.pathname === "/quick-capture";
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -140,13 +145,16 @@ function AppLayout() {
           onClose={() => setShowKeyboardModal(false)}
         />
       )}
-      <div className="relative z-[9999]">
-        <TitleBar />
-      </div>
+
+      {!isQuickCapturePage && (
+        <div className="relative z-[9999]">
+          <TitleBar />
+        </div>
+      )}
       <div
         className={`flex h-screen font-inter bg-gradient-to-b from-base-light to-white dark:from-base-dark dark:to-[hsl(0,0%,12%)]`}
       >
-        {!isAuthPage && (
+        {!isQuickCapturePage && !isAuthPage && (
           <Dock
             items={items}
             panelHeight={30}
@@ -154,7 +162,11 @@ function AppLayout() {
             magnification={80}
           />
         )}
-        <div className={`flex flex-col h-screen w-full overflow-hidden pt-15`}>
+        <div
+          className={`flex flex-col h-screen w-full overflow-hidden ${
+            isQuickCapturePage ? "" : "pt-15"
+          }`}
+        >
           {/* {!isAuthPage && <Navbar />} */}
           <main className="flex-1 overflow-y-auto  no-scrollbar">
             <Routes>
@@ -188,6 +200,8 @@ function AppLayout() {
                   </PrivateRoute>
                 }
               />
+              <Route path="/quick-capture" element={<QuickCapture />} />
+
               <Route
                 path="/journal/new"
                 element={
@@ -263,14 +277,6 @@ function AppLayout() {
               />
               <Route path="/ollama-tutorial" element={<OllamaTutorialPage />} />
               <Route
-                path="/goals"
-                element={
-                  <PrivateRoute>
-                    <GoalsPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route
                 path="/goals/view/:id"
                 element={
                   <PrivateRoute>
@@ -278,6 +284,15 @@ function AppLayout() {
                   </PrivateRoute>
                 }
               />
+              <Route
+                path="/goals/*"
+                element={
+                  <PrivateRoute>
+                    <GoalsPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </main>
         </div>
@@ -296,9 +311,11 @@ function App() {
   // const Router = import.meta.env.PROD ? HashRouter : BrowserRouter;
   return (
     <ColorThemeProvider>
-      <HashRouter>
-        <AppLayout />
-      </HashRouter>
+      <ToastProvider>
+        <HashRouter>
+          <AppLayout />
+        </HashRouter>
+      </ToastProvider>
     </ColorThemeProvider>
   );
 }

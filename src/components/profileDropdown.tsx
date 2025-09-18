@@ -118,10 +118,12 @@ export const ProfileDropdown: React.FC = () => {
       <div className="relative " ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 p-1.5 rounded-full transition-colors duration-200 border border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
+          className={`flex items-center ${
+            isOpen ? "gap-2 p-1.5 py-1" : ""
+          } rounded-full transition-colors duration-200 border border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark`}
         >
           {/* Avatar: show image if available, otherwise initials */}
-          <div className="flex items-center justify-center w-8 h-8 bg-light1 dark:bg-dark1/10 rounded-full text-info font-semibold overflow-hidden">
+          <div className="flex items-center justify-center w-6 h-6 bg-light1 dark:bg-dark1/10 rounded-full text-info font-semibold overflow-hidden">
             {profileImageSrc ? (
               <img
                 src={profileImageSrc}
@@ -129,20 +131,27 @@ export const ProfileDropdown: React.FC = () => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-sm">{displayInitial}</span>
+              <span className="text-sm bg-tertiary-light dark:bg-tertiary-dark p-2">
+                {displayInitial}
+              </span>
             )}
           </div>
 
           {/* --- CHANGE: Themed display name --- */}
-          <span className="text-sm font-semibold text-text-light dark:text-text-dark hidden sm:block">
+          {/* <span className="text-sm font-semibold text-text-light dark:text-text-dark hidden sm:block">
             {displayName}
-          </span>
-          <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
-            <ChevronDown
-              size={18}
-              className="text-text-light-sub dark:text-text-dark-sub"
-            />
-          </motion.div>
+          </span> */}
+          {isOpen && (
+            <motion.div
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              animate={{ rotate: isOpen ? 180 : 0 }}
+            >
+              <ChevronDown
+                size={18}
+                className="text-text-light-sub dark:text-text-dark-sub"
+              />
+            </motion.div>
+          )}
         </button>
 
         <AnimatePresence>
@@ -154,8 +163,8 @@ export const ProfileDropdown: React.FC = () => {
               transition={{ duration: 0.15, ease: "easeOut" }}
               className="absolute top-full right-0 mt-2 bg-secondary-light dark:bg-secondary-dark rounded-xl shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-10"
             >
-              <div className="p-4 border-b border-border-light dark:border-border-dark flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-border-light dark:bg-border-dark flex items-center justify-center">
+              <div className="p-4 border-b border-border-light dark:border-border-dark flex flex-col items-center gap-3">
+                <div className="w-20 h-20 rounded-full overflow-hidden bg-border-light dark:bg-border-dark flex items-center justify-center">
                   {profileImageSrc ? (
                     <img
                       src={profileImageSrc}
@@ -168,7 +177,7 @@ export const ProfileDropdown: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <div>
+                <div className="w-full text-center">
                   <p className="font-semibold text-text-light dark:text-text-dark">
                     {displayName}
                   </p>
@@ -215,7 +224,10 @@ export const ProfileDropdown: React.FC = () => {
       </div>
 
       {showKeyboardModal && (
-        <KeyboardShortcutsModal isOpen={showKeyboardModal} onClose={() => setShowKeyboardModal(false)} />
+        <KeyboardShortcutsModal
+          isOpen={showKeyboardModal}
+          onClose={() => setShowKeyboardModal(false)}
+        />
       )}
 
       {showLogoutModal &&

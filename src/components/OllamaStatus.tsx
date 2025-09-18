@@ -97,20 +97,17 @@ export default function OllamaStatus() {
     status.type === "ollama-not-installed" ? Link : "div";
 
   return (
-    <div className="relative mx-3">
+    <div className="relative ">
       <WrapperComponent
         to={status.type === "ollama-not-installed" ? "/ollama-tutorial" : "#"}
       >
         <div className="group cursor-pointer">
           <motion.div
-            className="flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full transition-colors duration-200 border border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
+            className="flex items-center p-1 rounded-full transition-colors duration-200 "
             whileTap={{ scale: 0.95 }}
           >
             <div className="w-6 h-6 flex items-center justify-center">
               {renderStatusIndicator()}
-            </div>
-            <div className="text-sm font-semibold text-text-light dark:text-text-dark hidden sm:block">
-              AI Status
             </div>
           </motion.div>
 

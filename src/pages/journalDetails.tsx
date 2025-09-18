@@ -20,7 +20,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import DeleteConfirmationModal from "../components/goals/modals/DeleteConfirmationModal";
 import ImageLightbox from "../components/chat/ImageLightbox";
 import { format } from "date-fns";
-import { toast, Toaster } from "react-hot-toast";
+import { useToast } from "../context/ToastContext";
 
 // --- Helper: Export Journal to Markdown ---
 function exportJournalToMarkdown(entry: JournalEntry) {
@@ -38,25 +38,20 @@ function exportJournalToMarkdown(entry: JournalEntry) {
 
   const markdown = `# ${entry.title || "Untitled"}  
 
-    **Date:** ${createdAt}  
-    **Mood Score:** ${entry.mood_score || "-"} / 5  
-    **Sentiment:** ${entry.sentiment_score?.toFixed(2) || "-"}  
-    **Tags:** ${tags}  
+**Date:** ${createdAt}  
+**Mood Score:** ${entry.mood_score || "-"} / 5  
+**Sentiment:** ${entry.sentiment_score?.toFixed(2) || "-"}  
+**Tags:** ${tags}  
 
-    ---
+---
 
-    ${entry.content || ""}
+${entry.content || ""}
 
-    ---
-
-    ${
-      entry.transcription
-        ? `## Transcription\n\n${entry.transcription}\n\n`
-        : ""
-    }${
+---
+${entry.transcription ? `## Transcription\n\n${entry.transcription}\n\n` : ""}${
     entry.content_summary ? `## Summary\n\n${entry.content_summary}\n\n` : ""
   }
-    `;
+`;
 
   const blob = new Blob([markdown], { type: "text/markdown" });
   const url = window.URL.createObjectURL(blob);
@@ -88,6 +83,8 @@ export default function JournalDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [entry, setEntry] = useState<JournalEntry | null>(null);
+  const [loading, setLoading] = useState(true); // New loading state
+  const [error, setError] = useState(false); // New error state
   const [imageUrl, setImageUrl] = useState("");
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -98,6 +95,7 @@ export default function JournalDetail() {
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
+  const { showToast } = useToast();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -112,12 +110,13 @@ export default function JournalDetail() {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "e") {
         e.preventDefault();
         exportJournalToMarkdown(entry!);
-        toast.success(
-          "Please select download location. The file will be available at that location."
+        showToast(
+          "Please select download location. The file will be available at that location.",
+          "success"
         );
       }
     },
-    [id, navigate]
+    [id, navigate, entry]
   );
 
   useEffect(() => {
@@ -127,29 +126,40 @@ export default function JournalDetail() {
 
   useEffect(() => {
     if (!id) return;
+
     const fetchEntry = async () => {
+      setLoading(true);
+      setError(false);
+
       try {
         const res = await journalService.getOne(authMode, accessToken!, +id);
-        setEntry(res);
-        if (res.image_key) {
-          const url = await window.electron.ipcRenderer.invoke(
-            "media:getImage",
-            res.image_key.toString()
-          );
-          setImageUrl(url);
+        if (!res) {
+          setError(true);
+        } else {
+          setEntry(res);
+          if (res.image_key) {
+            const url = await window.electron.ipcRenderer.invoke(
+              "media:getImage",
+              res.image_key.toString()
+            );
+            setImageUrl(url);
+          }
+          if (res.audio_key) {
+            const url = await window.electron.ipcRenderer.invoke(
+              "media:getAudio",
+              res.audio_key.toString()
+            );
+            setAudioUrl(url);
+          }
         }
-        if (res.audio_key) {
-          const url = await window.electron.ipcRenderer.invoke(
-            "media:getAudio",
-            res.audio_key.toString()
-          );
-          setAudioUrl(url);
-        }
-      } catch (error) {
-        console.error("Failed to fetch journal entry:", error);
-        setEntry(null);
+      } catch (err) {
+        console.error("Failed to fetch journal entry:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchEntry();
   }, [id, authMode, accessToken]);
 
@@ -160,25 +170,38 @@ export default function JournalDetail() {
     navigate("/journals");
   };
 
-  if (!entry) {
+  // --- Render loading state ---
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-base-light dark:bg-base-dark text-text-light-sub dark:text-text-dark-sub">
-        Loading entry...
+        <span className="animate-pulse text-lg font-medium">
+          Loading your journal...
+        </span>
       </div>
     );
   }
 
+  // --- Render error / not found state ---
+  if (error || !entry) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-base-light dark:bg-base-dark text-text-light-sub dark:text-text-dark-sub">
+        <span className="text-2xl font-semibold mb-4">Journal not found</span>
+        <button
+          onClick={() => navigate("/journals")}
+          className="px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
+        >
+          Back to Journals
+        </button>
+      </div>
+    );
+  }
+
+  // --- Parse mood tags ---
   const moodTags = parseMoodTags(entry.mood_tags);
 
+  // --- Render the main entry view ---
   return (
     <>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          className:
-            "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark border border-border-light dark:border-border-dark",
-        }}
-      />
       <div className="bg-base-light dark:bg-base-dark min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header Navigation */}
@@ -217,7 +240,7 @@ export default function JournalDetail() {
               )}
 
               {audioUrl && (
-                <div className="mb-8  p-4 ">
+                <div className="mb-8 p-4">
                   <audio
                     controls
                     className="w-full bg-transparent audio-player"
@@ -260,8 +283,9 @@ export default function JournalDetail() {
                       onClick={() => {
                         if (entry) {
                           exportJournalToMarkdown(entry);
-                          toast.success(
-                            "Please select download location. The file will be available at that location."
+                          showToast(
+                            "Please select download location. The file will be available at that location.",
+                            "success"
                           );
                         }
                       }}
