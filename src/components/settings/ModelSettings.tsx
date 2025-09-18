@@ -428,7 +428,7 @@ export default function ModelSettings({
                     <div className="px-4 pb-4 text-sm text-text-light-sub dark:text-text-dark-sub border-t border-border-light dark:border-border-dark">
                       <p className="mt-2">{FRIENDLY_LABELS[key]}</p>
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="text-xs bg-light1 dark:bg-dark1/10 text-dark1 dark:text-light1 px-2 py-1 rounded-full">
+                        <span className="text-xs bg-light1 dark:bg-dark1/10 text-dark1 dark:text-light1 py-1 rounded-full">
                           Required capability: {requiredCapability}
                         </span>
                       </div>

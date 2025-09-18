@@ -10,12 +10,11 @@ import {
   Smile,
   X,
   Loader2,
-  UploadCloud,
   Mic,
   Trash2,
   MicOff,
-  SquarePlus,
   ImagePlus,
+  PencilOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoodTagSelector } from "../components/moodOptions";
@@ -84,7 +83,32 @@ export default function JournalForm() {
   // START: Added state for inline autocomplete suggestions
   const [suggestion, setSuggestion] = useState("");
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-  // END: Added state
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const [showEmptyContentPopup, setShowEmptyContentPopup] = useState(false);
+
+  // Keyboard listener for Ctrl+Enter / Cmd+Enter
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isSubmit =
+        (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "enter";
+
+      if (!isSubmit) return;
+
+      e.preventDefault();
+
+      if (!entry.content.trim()) {
+        setShowEmptyContentPopup(true);
+        setTimeout(() => setShowEmptyContentPopup(false), 2500);
+        return;
+      }
+
+      // Trigger submit programmatically
+      handleSubmit(new Event("submit") as unknown as React.FormEvent);
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [entry.content, isSubmitting]);
 
   // Load draft or fetch entry
   useEffect(() => {
@@ -159,6 +183,26 @@ export default function JournalForm() {
     return () => clearTimeout(timer);
   }, [entry, isEdit, DRAFT_KEY]);
 
+  // Save draft immediately when user presses Ctrl/Cmd+S
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const key = (e.key || "").toLowerCase();
+      const isSave = (e.ctrlKey || e.metaKey) && key === "s";
+      if (!isSave) return;
+      e.preventDefault();
+      if (isEdit) return; // don't save drafts for existing entries
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(entry));
+        setShowSaved(true);
+        setTimeout(() => setShowSaved(false), 2000);
+      } catch (err) {
+        console.error("[JournalForm] Failed to save draft via shortcut:", err);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [entry, isEdit, DRAFT_KEY]);
+
   // Live transcription
   useEffect(() => {
     const unsubscribe = whisperService.onLiveData((data) => {
@@ -191,7 +235,7 @@ export default function JournalForm() {
         const result = await window.electron.ipcRenderer.invoke(
           "ollama:generate-suggestion",
           prompt,
-          10
+          5
         );
 
         if (result && typeof result === "string") {
@@ -306,6 +350,10 @@ export default function JournalForm() {
     }
   };
 
+  useEffect(() => {
+    contentRef.current?.focus();
+  }, []);
+
   const handleGenerateQuestions = async () => {
     setIsGeneratingQuestions(true);
     const prompt = getFollowUpQuestionsPrompt(entry.content);
@@ -411,6 +459,19 @@ export default function JournalForm() {
 
   return (
     <div className="w-full h-screen overflow-hidden bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark">
+      <AnimatePresence>
+        {showEmptyContentPopup && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="fixed bottom-6 right-6 z-30 justify-center items-center bg-warning text-black flex p-5 gap-3  px-4 py-2 rounded-lg shadow-lg"
+          >
+            <PencilOff size={18} />
+            <p>You have to write something before submitting.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <form onSubmit={handleSubmit} className="flex flex-col h-full">
         {/* Header */}
         <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark">
@@ -464,7 +525,7 @@ export default function JournalForm() {
             <button
               type="submit"
               disabled={isSubmitting || !entry.content.trim()}
-              className="flex items-center justify-center gap-2 px-4 py-2 w-40 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 px-4 py-2 w-44 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
@@ -510,6 +571,7 @@ export default function JournalForm() {
               </div>
               <textarea
                 id="content"
+                ref={contentRef}
                 placeholder="Write freely, or click the mic to start speaking..."
                 value={entry.content}
                 onChange={handleContentChange}

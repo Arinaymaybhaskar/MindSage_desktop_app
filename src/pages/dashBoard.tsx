@@ -1,9 +1,9 @@
-import { useEffect, useState, lazy, Suspense, useMemo, use } from "react";
+import { useEffect, useState, lazy, Suspense, useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { userService } from "../api/userService";
 import journalService from "../api/journalService";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   BookOpen,
   TrendingUp,
@@ -71,7 +71,7 @@ export default function Dashboard() {
   const [imageKeys, setImageKeys] = useState<ImageKeyEntry[]>([]);
   // State for the fully processed images with data URIs
   const [processedImages, setProcessedImages] = useState<any[]>([]);
-
+  const navigate = useNavigate();
   // Separate loading states for the main dashboard and the masonry gallery
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [isMasonryLoading, setIsMasonryLoading] = useState(true);
@@ -293,8 +293,9 @@ export default function Dashboard() {
                     getProgressColors(progressPercentage);
 
                   return (
-                    <div
-                      className="p-3 rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
+                    <button
+                      onClick={() => navigate(`/goals/view/${goal.id}`)}
+                      className="p-3 rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors w-full cursor-pointer"
                       key={goal.id}
                     >
                       <div className="flex justify-between items-center mb-1.5">
@@ -311,7 +312,7 @@ export default function Dashboard() {
                           style={{ width: `${progressPercentage}%` }}
                         ></div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
             </div>

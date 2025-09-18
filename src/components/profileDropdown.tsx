@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import AuthContext from "../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
-import { Settings, LogOut, ChevronDown, User as UserIcon } from "lucide-react";
+import {
+  Settings,
+  LogOut,
+  ChevronDown,
+  User as UserIcon,
+  Keyboard,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
 
 interface User {
   username: string;
@@ -21,6 +28,7 @@ export const ProfileDropdown: React.FC = () => {
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [showKeyboardModal, setShowKeyboardModal] = useState(false);
 
   // close dropdown when clicking outside
   useEffect(() => {
@@ -113,7 +121,7 @@ export const ProfileDropdown: React.FC = () => {
           className="flex items-center gap-2 p-1.5 rounded-full transition-colors duration-200 border border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
         >
           {/* Avatar: show image if available, otherwise initials */}
-          <div className="flex items-center justify-center w-8 h-8 bg-light1 dark:bg-dark1/10 rounded-full text-dark1 dark:text-light1 font-semibold overflow-hidden">
+          <div className="flex items-center justify-center w-8 h-8 bg-light1 dark:bg-dark1/10 rounded-full text-info font-semibold overflow-hidden">
             {profileImageSrc ? (
               <img
                 src={profileImageSrc}
@@ -169,8 +177,19 @@ export const ProfileDropdown: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <hr className="border-border-light dark:border-border-dark my-1" />
+
               <div className="p-2 gap-1 flex flex-col">
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    setShowKeyboardModal(true);
+                  }}
+                  className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors whitespace-nowrap"
+                >
+                  <Keyboard size={16} className="mr-3" />
+                  Keyboard Shortcuts
+                </button>
+
                 <Link
                   to="/settings"
                   onClick={() => setIsOpen(false)}
@@ -194,6 +213,10 @@ export const ProfileDropdown: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
+
+      {showKeyboardModal && (
+        <KeyboardShortcutsModal isOpen={showKeyboardModal} onClose={() => setShowKeyboardModal(false)} />
+      )}
 
       {showLogoutModal &&
         typeof document !== "undefined" &&

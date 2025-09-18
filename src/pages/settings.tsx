@@ -1,17 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { userService } from "../api/userService";
-import {
-  User,
-  Palette,
-  BrainCircuit,
-  Bell,
-  Lock,
-  Download,
-  Mic,
-  Boxes,
-  Target,
-} from "lucide-react";
+import { User, Palette, Lock, Download, Boxes } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import SettingsSkeleton from "../components/Skeletons/SettingsSkeleton";
 import { motion } from "framer-motion";
@@ -154,7 +144,7 @@ const Settings = () => {
   return (
     <>
       <Toaster
-        position="bottom-center"
+        position="top-right"
         toastOptions={{
           className:
             "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark border border-border-light dark:border-border-dark",

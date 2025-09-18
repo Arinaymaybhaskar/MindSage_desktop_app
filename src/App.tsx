@@ -1,17 +1,15 @@
 import {
-  BrowserRouter,
   Routes,
   Route,
   useLocation,
   useNavigate,
   HashRouter,
 } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Login from "./pages/auth/login";
 import PrivateRoute from "./routes/privateRoute";
 import Dashboard from "./pages/dashBoard";
 import Register from "./pages/auth/register";
-import Navbar from "./components/navbar";
 import JournalList from "./pages/journalList";
 import JournalForm from "./pages/journalForm";
 import JournalDetail from "./pages/journalDetails";
@@ -38,10 +36,56 @@ import QdrantViewer from "./pages/qdrantViewer";
 import { ColorThemeProvider } from "./context/ColorThemeContext";
 import { initializeColors } from "./utils/colorInitializer";
 import GoalDetail from "./pages/goalDetail";
+import GlobalSearch from "./components/globalSearch";
+import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
 
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [showSearch, setShowSearch] = useState(false);
+  const [showKeyboardModal, setShowKeyboardModal] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key.toLowerCase() === "f") {
+          e.preventDefault(); // block browser's find
+          setShowSearch(true);
+        }
+        if (e.key.toLowerCase() === "n") {
+          e.preventDefault(); // block browser's new window
+          navigate("/journal/new", { replace: true });
+        }
+        if (e.key.toLowerCase() === ",") {
+          e.preventDefault();
+          navigate("/settings");
+        }
+        if (e.key.toLowerCase() === ".") {
+          e.preventDefault();
+          setShowKeyboardModal(true);
+        }
+      } else if (e.key === "Escape") {
+        setShowSearch(false);
+      }
+      if (e.key === "Backspace") {
+        const activeElement = document.activeElement as HTMLElement;
+        if (
+          activeElement &&
+          (activeElement.tagName === "INPUT" ||
+            activeElement.tagName === "TEXTAREA" ||
+            activeElement.isContentEditable)
+        ) {
+          // Let the event propagate if the focus is on an input, textarea, or contenteditable element
+          return;
+        }
+        e.preventDefault();
+        navigate(-1);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
   const isAuthPage =
     location.pathname === "/login" ||
     location.pathname === "/register" ||
@@ -89,6 +133,13 @@ function AppLayout() {
 
   return (
     <>
+      {showSearch && <GlobalSearch onClose={() => setShowSearch(false)} />}
+      {showKeyboardModal && (
+        <KeyboardShortcutsModal
+          isOpen={showKeyboardModal}
+          onClose={() => setShowKeyboardModal(false)}
+        />
+      )}
       <div className="relative z-[9999]">
         <TitleBar />
       </div>
@@ -131,6 +182,14 @@ function AppLayout() {
               {/* CHANGED: The root path "/" now renders JournalForm. */}
               <Route
                 path="/"
+                element={
+                  <PrivateRoute>
+                    <JournalForm />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/journal/new"
                 element={
                   <PrivateRoute>
                     <JournalForm />

@@ -46,7 +46,7 @@ const DataExportPage = () => {
 
   return (
     <div className="bg-base-light dark:bg-base-dark min-h-screen">
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
             Export Your Data

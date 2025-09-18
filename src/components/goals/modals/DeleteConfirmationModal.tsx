@@ -1,5 +1,4 @@
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import Modal from "../../Modal"; // Using the themed base Modal
 
@@ -21,7 +20,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title={`Delete ${type}`} size="sm">
       <div className="text-center">
         {/* --- CHANGE: Themed icon and container --- */}
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-danger/10">
+        <div className="mx-auto flex w-12 items-center justify-center rounded-full bg-danger/10">
           <AlertTriangle className="h-6 w-6 text-danger" aria-hidden="true" />
         </div>
         <div className="mt-4">

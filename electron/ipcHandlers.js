@@ -1,6 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path, { dirname, join } from 'node:path';
-// Import method handlers
 import { handleGoogleLogin, handleLogin, handleRegister } from "./methods/auth.js";
 import { userChangePassword, userDeleteAccount, userGetMe, userGetSettings, userUpdateProfile, userUpdateSettings } from "./methods/user.js";
 import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal } from "./methods/journal.js";
@@ -17,9 +16,6 @@ import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from "node:url";
 import { handleChangeChatTitle, handleDeleteChat, handleGetChatById, handleGetChats, handleUserMessage, linkMediaToMessage as handleLinkMediaToMessage } from "./methods/chat.js";
 import { handleExportUserData } from "./methods/exportData.js";
-
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
 
 export function createQdrantWorker() {
     const __filename = fileURLToPath(import.meta.url)
@@ -125,13 +121,6 @@ export function registerIPCHandlers(runtime) {
             event.sender.send("blob-transcription-error", err.message);
         }
     });
-
-    // Settings
-    // ipcMain.handle("settings:getSelectedModel", () => getSelectedModel());
-    // ipcMain.handle("settings:setSelectedModel", (_e, model) => {
-    //     setSelectedModel(model);
-    //     return true;
-    // });
 
     // Chat
     ipcMain.handle("chat:get-by-id", handleGetChatById);

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { qdrantService } from "../api/qdrantService";
 import dayjs from "dayjs";
@@ -19,11 +19,13 @@ import {
   AlertCircle,
   CircleSlash,
   Cloud,
+  AlertTriangle,
 } from "lucide-react";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { useAuth } from "../hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import EmptyState from "../components/EmptyState";
+import Modal from "../components/Modal";
 
 dayjs.extend(isBetween);
 
@@ -44,14 +46,24 @@ const SyncIcon = (state: string) => {
   }
 };
 
+const displayTitle = (title: string | null) => {
+  if (!title || title.trim() === "") return "Untitled Entry";
+  return title.length > 60 ? title.slice(0, 60) + "..." : title;
+};
+
 // --- JournalEntryCard Component ---
 const JournalEntryCard = ({
   entry,
   onDelete,
+  selected,
+  onSelect,
 }: {
   entry: JournalEntry;
   onDelete: () => void;
+  selected: boolean;
+  onSelect: () => void;
 }) => {
+  const navigate = useNavigate();
   const moodTags = useMemo(() => {
     if (Array.isArray(entry.mood_tags)) return entry.mood_tags;
     try {
@@ -68,20 +80,25 @@ const JournalEntryCard = ({
   return (
     <motion.div
       layout
+      onClick={onSelect}
+      onDoubleClick={() => navigate(`/journal/view/${entry.id}`)}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
-      className="bg-secondary-light dark:bg-secondary-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark transition-all hover:shadow-lg hover:-translate-y-1"
+      className={`cursor-pointer  rounded-xl shadow-sm border transition-all hover:shadow-lg hover:-translate-y-1
+        ${
+          selected
+            ? "bg-tertiary-light dark:bg-tertiary-dark border-border-dark dark:border-border-light "
+            : "border-border-light dark:border-border-dark bg-secondary-light dark:bg-secondary-dark"
+        }`}
     >
       <div className="p-6">
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
-            <Link to={`/journal/view/${entry.id}`}>
-              <h2 className="text-xl font-bold text-text-light dark:text-text-dark hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 transition-colors">
-                {entry.title}
-              </h2>
-            </Link>
+            <h2 className="text-xl font-bold text-text-light dark:text-text-dark transition-colors">
+              {displayTitle(entry.title)}
+            </h2>
             <p className="text-xs text-text-light-sub dark:text-text-dark-sub mt-1">
               {formatTimeAgo(entry.created_at || "")}
             </p>
@@ -90,13 +107,17 @@ const JournalEntryCard = ({
             <p>{SyncIcon(entry.synced_to_qdrant || "not_synced")}</p>
             <Link
               to={`/journal/edit/${entry.id}`}
-              className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 transition-colors"
+              className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-dark1 dark:hover:text-light1 transition-colors"
               aria-label="Edit Entry"
+              onClick={(e) => e.stopPropagation()}
             >
               <Pencil size={16} />
             </Link>
             <button
-              onClick={onDelete}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
               className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-danger dark:hover:text-danger transition-colors"
               aria-label="Delete Entry"
             >
@@ -128,6 +149,7 @@ const JournalEntryCard = ({
 export default function JournalList() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const location = useLocation();
   const searchTerm = new URLSearchParams(location.search).get("search") || "";
   const { accessToken } = useAuth();
@@ -141,6 +163,15 @@ export default function JournalList() {
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const PAGE_LIMIT = 10;
+  const navigate = useNavigate();
+  const [deleteModalInfo, setDeleteModalInfo] = useState<{
+    isOpen: boolean;
+    entryId: number | null;
+  }>({
+    isOpen: false,
+    entryId: null,
+  });
+  const entryRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
 
   useEffect(() => {
     setEntries([]);
@@ -153,7 +184,7 @@ export default function JournalList() {
 
     setLoading(true);
     journalService
-      .getAll(authMode, accessToken!, page, PAGE_LIMIT) // This is correct - page, limit
+      .getAll(authMode, accessToken!, page, PAGE_LIMIT)
       .then((newEntries) => {
         setEntries((prev) =>
           page === 0 ? newEntries : [...prev, ...newEntries]
@@ -170,9 +201,7 @@ export default function JournalList() {
   const observer = useRef<IntersectionObserver | null>(null);
   const lastEntryRef = useCallback(
     (node: HTMLElement | null) => {
-      // THIS IS THE FIX: If we are already loading, do nothing.
       if (loading) return;
-
       if (observer.current) observer.current.disconnect();
 
       observer.current = new IntersectionObserver((entries) => {
@@ -183,14 +212,115 @@ export default function JournalList() {
 
       if (node) observer.current.observe(node);
     },
-    [loading, hasMore] // Add 'loading' to the dependency array
+    [loading, hasMore]
   );
 
   const handleDelete = async (id: number) => {
-    if (window.confirm("Are you sure you want to delete this entry?")) {
-      await journalService.remove(authMode, accessToken!, id);
-      setEntries((prev) => prev.filter((e) => e.id !== id));
-    }
+    await journalService.remove(authMode, accessToken!, id);
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    setDeleteModalInfo({ isOpen: false, entryId: null });
+  };
+
+  // --- Inside JournalList ---
+
+  const DeleteModal = (onClose: () => void, isOpen: boolean) => {
+    const deleteBtnRef = useRef<HTMLButtonElement>(null);
+    const cancelBtnRef = useRef<HTMLButtonElement>(null);
+    const [focused, setFocused] = useState<"delete" | "cancel">("delete");
+
+    useEffect(() => {
+      if (isOpen && deleteBtnRef.current) {
+        deleteBtnRef.current.focus();
+        setFocused("delete");
+      }
+    }, [isOpen]);
+
+    useEffect(() => {
+      if (!isOpen) return;
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+        }
+
+        if (
+          e.key === "ArrowLeft" ||
+          e.key === "ArrowRight" ||
+          e.key === "Tab"
+        ) {
+          e.preventDefault();
+          if (focused === "delete") {
+            setFocused("cancel");
+            cancelBtnRef.current?.focus();
+          } else {
+            setFocused("delete");
+            deleteBtnRef.current?.focus();
+          }
+        }
+
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (focused === "delete") {
+            handleDelete(deleteModalInfo.entryId!);
+          } else if (focused === "cancel") {
+            onClose();
+          }
+        }
+      };
+
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [focused, isOpen, onClose]);
+
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Confirm Deletion"
+        size="md"
+      >
+        <div className="text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-danger/10">
+            <AlertTriangle className="h-6 w-6 text-danger" aria-hidden="true" />
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+              Are you sure you want to delete this entry? This action cannot be
+              undone.
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button
+            ref={deleteBtnRef}
+            type="button"
+            onClick={() => handleDelete(deleteModalInfo.entryId!)}
+            className={`w-full inline-flex justify-center rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors
+            ${
+              focused === "delete"
+                ? "bg-danger text-white ring-2 ring-offset-2 ring-danger"
+                : "bg-danger text-white hover:bg-danger/90"
+            }`}
+          >
+            Delete
+          </button>
+          <button
+            ref={cancelBtnRef}
+            type="button"
+            onClick={onClose}
+            className={`w-full inline-flex justify-center rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors
+            ${
+              focused === "cancel"
+                ? "bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark ring-2 ring-offset-2 ring-border-dark"
+                : "bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80"
+            }`}
+          >
+            Cancel
+          </button>
+        </div>
+      </Modal>
+    );
   };
 
   const handleBulkSync = async () => {
@@ -203,7 +333,6 @@ export default function JournalList() {
       const result = await qdrantService.bulkSync();
       if (result.success) {
         setSyncStatus("Bulk sync started successfully!");
-        // Refresh the entries to show updated sync status
         setTimeout(() => {
           setEntries([]);
           setPage(0);
@@ -222,7 +351,6 @@ export default function JournalList() {
       );
     } finally {
       setBulkSyncing(false);
-      // Clear status after 5 seconds
       setTimeout(() => setSyncStatus(null), 5000);
     }
   };
@@ -254,8 +382,71 @@ export default function JournalList() {
     [entries]
   );
 
+  // Scroll selected entry into view
+  useEffect(() => {
+    if (selectedId && entryRefs.current.has(selectedId)) {
+      const el = entryRefs.current.get(selectedId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [selectedId]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (filteredEntries.length === 0) return;
+      if (deleteModalInfo.isOpen) return;
+      const currentIndex = filteredEntries.findIndex(
+        (e) => e.id === selectedId
+      );
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const nextIndex =
+          currentIndex === -1
+            ? 0
+            : Math.min(currentIndex + 1, filteredEntries.length - 1);
+        setSelectedId(filteredEntries[nextIndex].id!);
+      }
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const prevIndex =
+          currentIndex === -1 ? 0 : Math.max(currentIndex - 1, 0);
+        setSelectedId(filteredEntries[prevIndex].id!);
+      }
+
+      if (e.key === "Enter" && currentIndex !== -1) {
+        navigate(`/journal/view/${filteredEntries[currentIndex].id}`);
+      }
+
+      if (e.key === "Delete" && currentIndex !== -1) {
+        e.preventDefault();
+        setDeleteModalInfo({
+          isOpen: true,
+          entryId: filteredEntries[currentIndex].id!,
+        });
+      }
+
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key.toLowerCase() === "e" && currentIndex !== -1) {
+          e.preventDefault();
+          navigate(`/journal/edit/${filteredEntries[currentIndex].id}`);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [filteredEntries, selectedId, deleteModalInfo.isOpen]);
+
   return (
     <div className="bg-base-light dark:bg-base-dark min-h-screen">
+      {DeleteModal(
+        () => setDeleteModalInfo({ isOpen: false, entryId: null }),
+        deleteModalInfo.isOpen
+      )}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
           <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
@@ -276,7 +467,7 @@ export default function JournalList() {
             </button>
             <Link
               to="/"
-              className="flex items-center gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all duration-200 hover:scale-105"
+              className="flex items-center gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:hover:bg-dark1 transition-all duration-200 hover:scale-105"
             >
               <Plus size={20} />
               <span>New Entry</span>
@@ -285,7 +476,7 @@ export default function JournalList() {
         </header>
 
         {syncStatus && (
-          <div className="mb-6 p-4 bg-light1 dark:bg-dark1/10 border border-info/20 rounded-lg">
+          <div className="mb-6 p-4 bg-light1 dark:bg-dark1 border border-info/20 rounded-lg">
             <p className="text-dark1 dark:text-light1 font-medium text-center">
               {syncStatus}
             </p>
@@ -319,17 +510,33 @@ export default function JournalList() {
             <AnimatePresence>
               {filteredEntries.map((entry, index) => {
                 const cardProps = {
-                  entry: entry,
-                  onDelete: () => handleDelete(entry.id!),
+                  entry,
+                  onDelete: () =>
+                    setDeleteModalInfo({ isOpen: true, entryId: entry.id! }),
+                  selected: entry.id === selectedId,
+                  onSelect: () => setSelectedId(entry.id!),
                 };
                 if (filteredEntries.length === index + 1) {
                   return (
-                    <div ref={lastEntryRef}>
-                      <JournalEntryCard {...cardProps} key={entry.id} />
+                    <div
+                      ref={(el) => {
+                        entryRefs.current.set(entry.id!, el);
+                        lastEntryRef(el);
+                      }}
+                      key={entry.id}
+                    >
+                      <JournalEntryCard {...cardProps} />
                     </div>
                   );
                 }
-                return <JournalEntryCard {...cardProps} key={entry.id} />;
+                return (
+                  <div
+                    ref={(el) => entryRefs.current.set(entry.id!, el)}
+                    key={entry.id}
+                  >
+                    <JournalEntryCard {...cardProps} />
+                  </div>
+                );
               })}
             </AnimatePresence>
 

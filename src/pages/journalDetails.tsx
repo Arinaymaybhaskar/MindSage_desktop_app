@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Pencil,
@@ -8,10 +8,10 @@ import {
   AudioLines,
   Tags,
   ArrowLeft,
-  X,
   FileText,
   ChevronDown,
   Captions,
+  Download,
 } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
@@ -19,6 +19,55 @@ import { formatTimeAgo } from "../utils/DateFormatter";
 import { motion, AnimatePresence } from "framer-motion";
 import DeleteConfirmationModal from "../components/goals/modals/DeleteConfirmationModal";
 import ImageLightbox from "../components/chat/ImageLightbox";
+import { format } from "date-fns";
+import { toast, Toaster } from "react-hot-toast";
+
+// --- Helper: Export Journal to Markdown ---
+function exportJournalToMarkdown(entry: JournalEntry) {
+  console.log("Exporting journal entry:", entry);
+  if (!entry) return;
+
+  const createdAt = entry.created_at
+    ? format(new Date(entry.created_at), "PPPpp")
+    : "Unknown date";
+
+  const tags =
+    entry.mood_tags && typeof entry.mood_tags === "string"
+      ? entry.mood_tags
+      : JSON.stringify(entry.mood_tags || []);
+
+  const markdown = `# ${entry.title || "Untitled"}  
+
+    **Date:** ${createdAt}  
+    **Mood Score:** ${entry.mood_score || "-"} / 5  
+    **Sentiment:** ${entry.sentiment_score?.toFixed(2) || "-"}  
+    **Tags:** ${tags}  
+
+    ---
+
+    ${entry.content || ""}
+
+    ---
+
+    ${
+      entry.transcription
+        ? `## Transcription\n\n${entry.transcription}\n\n`
+        : ""
+    }${
+    entry.content_summary ? `## Summary\n\n${entry.content_summary}\n\n` : ""
+  }
+    `;
+
+  const blob = new Blob([markdown], { type: "text/markdown" });
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${entry.title || "journal"}-${Date.now()}.md`;
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+}
 
 const parseMoodTags = (tags: string | string[] | undefined): string[] => {
   if (Array.isArray(tags)) return tags;
@@ -26,7 +75,8 @@ const parseMoodTags = (tags: string | string[] | undefined): string[] => {
   try {
     const parsed = JSON.parse(tags);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
+  } catch (e: any) {
+    console.error("Failed to parse mood tags:", e);
     return tags
       .split(",")
       .map((tag) => tag.trim())
@@ -49,7 +99,32 @@ export default function JournalDetail() {
     | "offline"
     | "online";
 
-  // Data fetching logic remains the same...
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key.toLowerCase() === "e" && !e.shiftKey) {
+        e.preventDefault();
+        if (id) navigate(`/journal/edit/${id}`);
+      }
+      if (e.key === "Delete") {
+        e.preventDefault();
+        setIsDeleteModalOpen(true);
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        exportJournalToMarkdown(entry!);
+        toast.success(
+          "Please select download location. The file will be available at that location."
+        );
+      }
+    },
+    [id, navigate]
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   useEffect(() => {
     if (!id) return;
     const fetchEntry = async () => {
@@ -97,13 +172,20 @@ export default function JournalDetail() {
 
   return (
     <>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          className:
+            "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark border border-border-light dark:border-border-dark",
+        }}
+      />
       <div className="bg-base-light dark:bg-base-dark min-h-screen">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header Navigation */}
           <div className="mb-6">
             <Link
               to="/journals"
-              className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 font-semibold transition-colors"
+              className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 font-semibold transition-colors"
             >
               <ArrowLeft size={18} />
               Back to Journals
@@ -135,22 +217,23 @@ export default function JournalDetail() {
               )}
 
               {audioUrl && (
-                <div className="mb-8 bg-tertiary-light dark:bg-tertiary-dark p-4 rounded-lg">
-                  <audio controls className="w-full">
+                <div className="mb-8  p-4 ">
+                  <audio
+                    controls
+                    className="w-full bg-transparent audio-player"
+                  >
                     <source src={audioUrl} type="audio/webm" />
                     Your browser does not support the audio element.
                   </audio>
                 </div>
               )}
 
-              {/* Summary and Transcription have been moved to the sidebar */}
-
               <div className="prose prose-lg dark:prose-invert text-text-light-sub dark:text-text-dark-sub max-w-none leading-relaxed whitespace-pre-wrap">
                 {entry.content}
               </div>
             </article>
 
-            {/* Right Column: Sticky Sidebar for Metadata & Actions */}
+            {/* Right Column: Sticky Sidebar */}
             <aside className="w-full lg:w-1/3 lg:sticky top-8 h-fit mt-8 lg:mt-0">
               <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl p-6 border border-border-light dark:border-border-dark space-y-6">
                 {/* Actions */}
@@ -158,7 +241,7 @@ export default function JournalDetail() {
                   <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-3">
                     Actions
                   </h3>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => navigate(`/journal/edit/${id}`)}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
@@ -173,17 +256,30 @@ export default function JournalDetail() {
                       <Trash2 size={14} />
                       <span>Delete</span>
                     </button>
+                    <button
+                      onClick={() => {
+                        if (entry) {
+                          exportJournalToMarkdown(entry);
+                          toast.success(
+                            "Please select download location. The file will be available at that location."
+                          );
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
+                    >
+                      <Download size={14} />
+                      <span>Export</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* NEW: AI Insights Section */}
+                {/* AI Insights */}
                 {(entry.content_summary || entry.transcription) && (
                   <div>
                     <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-3">
                       AI Insights
                     </h3>
                     <div className="space-y-2">
-                      {/* Collapsible Transcription Section */}
                       {entry.transcription && (
                         <div className="border border-border-light dark:border-border-dark rounded-xl bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
                           <button
@@ -235,7 +331,6 @@ export default function JournalDetail() {
                         </div>
                       )}
 
-                      {/* Collapsible Summary Section */}
                       {entry.content_summary && (
                         <div className="border border-border-light dark:border-border-dark rounded-xl bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
                           <button
@@ -339,7 +434,6 @@ export default function JournalDetail() {
         </div>
       </div>
 
-      {/* Modals are unchanged */}
       <DeleteConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}

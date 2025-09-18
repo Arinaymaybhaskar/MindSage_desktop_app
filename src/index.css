@@ -90,7 +90,6 @@
 }
 
 @layer base {
-  /* For your Electron app (Chromium) */
   ::-webkit-scrollbar {
     width: 8px; /* Width of the vertical scrollbar */
     height: 8px; /* Height of the horizontal scrollbar */
