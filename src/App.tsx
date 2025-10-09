@@ -151,9 +151,7 @@ function AppLayout() {
           <TitleBar />
         </div>
       )}
-      <div
-        className={`flex h-screen font-inter bg-gradient-to-b from-base-light to-white dark:from-base-dark dark:to-[hsl(0,0%,12%)]`}
-      >
+      <div className={`flex h-screen font-inter`}>
         {!isQuickCapturePage && !isAuthPage && (
           <Dock
             items={items}
@@ -164,7 +162,7 @@ function AppLayout() {
         )}
         <div
           className={`flex flex-col h-screen w-full overflow-hidden ${
-            isQuickCapturePage ? "" : "pt-15"
+            isQuickCapturePage ? "" : "pt-10"
           }`}
         >
           {/* {!isAuthPage && <Navbar />} */}
@@ -305,6 +303,12 @@ function App() {
   // Initialize colors on app startup
   useEffect(() => {
     initializeColors();
+  }, []);
+  useEffect(() => {
+    const savedZoom = localStorage.getItem("zoom_scale");
+    if (savedZoom && window.electron?.zoom) {
+      window.electron.zoom.set(parseInt(savedZoom, 10) / 100);
+    }
   }, []);
 
   // Use Vite's build flag so the router choice is correct in the production bundle

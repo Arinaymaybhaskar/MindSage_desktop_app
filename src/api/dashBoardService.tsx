@@ -29,4 +29,12 @@ export const dashboardService = {
       token
     );
   },
+  getStats: async (authMode: "online" | "offline", token: string) => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke(
+      "dashboard:get-stats",
+      authMode,
+      token
+    );
+  },
 };

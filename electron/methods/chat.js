@@ -1,5 +1,6 @@
 import localDB from "../db";
 import jwt from "jsonwebtoken";
+import { eventBus } from "../eventBus";
 
 function getUserIdFromToken(token) {
     try {
@@ -35,6 +36,7 @@ export const handleUserMessage = async (event, authMode, token, chatId, message,
         // Add the user's message
         const userMessage = await localDB.addMessage(chatId, "user", message, sources, files);
         const messageId = userMessage.id;
+        eventBus.emit("chat:new-message", { content: message, chatId, messageId, model, userId });
         return { chatId, messageId };
     }
 };

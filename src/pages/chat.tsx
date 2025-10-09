@@ -13,9 +13,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { Sidebar } from "../components/chat/Sidebar";
 import { chatService } from "../api/chatService";
 import { useAuth } from "../hooks/useAuth";
-// START: Import the whisperService
 import whisperService from "../api/whisperService";
-// END: Import
 import type { Chat, Message, MessageFile } from "../types/Chat";
 import ChatBubble from "../components/chat/ChatBubble";
 import LoadingBubble from "../components/chat/LoadingBubble";
@@ -48,14 +46,6 @@ function getGreeting(name: string) {
   if (hour < 18) return `Good afternoon, ${name}`;
   return `Good evening, ${name} `;
 }
-
-// File size formatting handled in ChatBubble
-
-// ChatBubble extracted to components/chat/ChatBubble
-
-// LoadingBubble extracted to components/chat/LoadingBubble
-
-// ComingSoonPlaceholder extracted to components/chat/ComingSoonPlaceholder
 
 export const ChatComponent: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);

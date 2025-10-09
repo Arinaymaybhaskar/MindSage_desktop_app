@@ -106,14 +106,14 @@ async function ensureCollection(baseUrl) {
                     source_id: { type: "integer" },
                     title: { type: "text" },
                     created_at: { type: "datetime" },
-                    
+
                     // Journal-specific fields
                     content: { type: "text" },
                     mood_score: { type: "float" },
                     mood_tags: { type: "keyword" },
                     category_name: { type: "text" },
                     updated_at: { type: "datetime" },
-                    
+
                     // Goal-specific fields
                     description: { type: "text" },
                     parent_goal_title: { type: "text" },
@@ -124,12 +124,12 @@ async function ensureCollection(baseUrl) {
                     is_pinned: { type: "integer" },
                     target_date: { type: "datetime" },
                     completed_date: { type: "datetime" },
-                    
+
                     // Progress log-specific fields
                     goal_id: { type: "integer" },
                     goal_title: { type: "text" },
                     value_logged: { type: "float" },
-                    
+
                     // Legacy fields (keep for backward compatibility)
                     sentiment_score: { type: "float" },
                     tags: { type: "keyword" },
@@ -140,15 +140,15 @@ async function ensureCollection(baseUrl) {
             // Check if schema needs updating for new fields
             try {
                 // Try to create index for new fields if they don't exist
-                await client.createFieldIndex(collectionName, 'source_type', { 
+                await client.createFieldIndex(collectionName, 'source_type', {
                     field_name: 'source_type',
                     field_schema: { type: 'keyword' }
                 });
-                await client.createFieldIndex(collectionName, 'goal_id', { 
+                await client.createFieldIndex(collectionName, 'goal_id', {
                     field_name: 'goal_id',
                     field_schema: { type: 'integer' }
                 });
-                await client.createFieldIndex(collectionName, 'status', { 
+                await client.createFieldIndex(collectionName, 'status', {
                     field_name: 'status',
                     field_schema: { type: 'keyword' }
                 });
@@ -172,14 +172,14 @@ async function ensureCollection(baseUrl) {
                     source_id: { type: "integer" },
                     title: { type: "text" },
                     created_at: { type: "datetime" },
-                    
+
                     // Journal-specific fields
                     content: { type: "text" },
                     mood_score: { type: "float" },
                     mood_tags: { type: "keyword" },
                     category_name: { type: "text" },
                     updated_at: { type: "datetime" },
-                    
+
                     // Goal-specific fields
                     description: { type: "text" },
                     parent_goal_title: { type: "text" },
@@ -190,12 +190,12 @@ async function ensureCollection(baseUrl) {
                     is_pinned: { type: "integer" },
                     target_date: { type: "datetime" },
                     completed_date: { type: "datetime" },
-                    
+
                     // Progress log-specific fields
                     goal_id: { type: "integer" },
                     goal_title: { type: "text" },
                     value_logged: { type: "float" },
-                    
+
                     // Legacy fields (keep for backward compatibility)
                     sentiment_score: { type: "float" },
                     tags: { type: "keyword" },
@@ -215,6 +215,7 @@ export async function startQdrant() {
         const dataDir = resolveDataDir();
         const baseUrl = `http://127.0.0.1:${httpPort}`;
         await ensureCollection(baseUrl);
+        console.log(`[QDRANT] Already running at ${baseUrl}`);
         return { httpPort, grpcPort: httpPort + 1, baseUrl, dataDir };
     }
 
@@ -251,7 +252,7 @@ export async function startQdrant() {
 
     process.env.QDRANT_HTTP_PORT = String(httpPort);
     writeLog(`Qdrant running at ${baseUrl}, data dir: ${dataDir}`);
-
+    console.log(`[QDRANT] Ready and running at ${baseUrl}`);
     return { httpPort, grpcPort, baseUrl, dataDir };
 }
 

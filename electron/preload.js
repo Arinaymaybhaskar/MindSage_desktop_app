@@ -5,6 +5,17 @@ contextBridge.exposeInMainWorld('electron', {
   maximize: () => ipcRenderer.send('maximize-window'),
   close: () => ipcRenderer.send('close-window'),
 
+  zoom: {
+    set: (factor) => {
+      const { webFrame } = require("electron");
+      webFrame.setZoomFactor(factor);
+    },
+    get: () => {
+      const { webFrame } = require("electron");
+      return webFrame.getZoomFactor();
+    },
+  },
+
   send: (channel, ...args) => ipcRenderer.send(channel, ...args),
   onStatusUpdate: (callback) => {
     ipcRenderer.on("status-update", (_, status) => callback(status));
@@ -82,6 +93,7 @@ contextBridge.exposeInMainWorld('electron', {
         "dashboard:get-data",
         "dashboard:get-monthly-scores",
         "dashboard:get-all-time-scores",
+        "dashboard:get-stats",
         "whisper:transcribe-audio",      // one-shot transcription
         "whisper:start-live-transcription", // start live
         "whisper:stop-live-transcription",  // stop live
@@ -100,7 +112,8 @@ contextBridge.exposeInMainWorld('electron', {
         "dialog:show-save-export",
         'models:get-selected',
         'models:save-selected',
-        "quick-capture:close"
+        "quick-capture:close",
+        "eventBus:emit"
       ];
 
       if (validChannels.includes(channel)) {
@@ -131,7 +144,13 @@ contextBridge.exposeInMainWorld('electron', {
 
   onAIStarted: (callback) => ipcRenderer.on("journal:aiStarted", (_event, data) => callback(data)),
   onAICompleted: (callback) => ipcRenderer.on("journal:aiCompleted", (_event, data) => callback(data)),
+  onChatResponseGenerated: (callback) => {
+    ipcRenderer.on("chat:response-generated", (_event, data) => callback(data));
+  },
 
+  onChatError: (callback) => {
+    ipcRenderer.on("chat:error", (_event, error) => callback(error));
+  },
   // // --- NEW helpers for Whisper ---
   // whisper: {
   //   transcribeAudio: (audioBlobPath) => ipcRenderer.invoke("whisper:transcribe-audio", audioBlobPath),

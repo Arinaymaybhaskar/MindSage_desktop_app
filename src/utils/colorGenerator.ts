@@ -66,9 +66,9 @@ export const generateFullTheme = (accents: AccentColors) => {
     "--color-dark4": accents.dark4,
 
     // --- Generated Light Mode UI Colors ---
-    "--color-base-light": `hsl(${lightHue}, ${lightSat}%, 96%)`,
+    "--color-base-light": `hsl(${lightHue}, ${lightSat}%, 90%)`,
     "--color-secondary-light": `hsl(${lightHue}, ${lightSat}%, 94%)`,
-    "--color-tertiary-light": `hsl(${lightHue}, ${lightSat}%, 92%)`,
+    "--color-tertiary-light": `hsl(${lightHue}, ${lightSat}%, 96%)`,
     "--color-surface-light": `hsl(${lightHue}, ${lightSat}%, 98%)`,
     "--color-text-light": `hsl(${lightHue}, 0%, 10%)`,
     "--color-text-light-sub": `hsl(${lightHue}, 0%, 35%)`,

@@ -32,12 +32,19 @@ export const qdrantService = {
       points
     );
   },
-  search: (collection: string, vector: number[], limit = 5, filter?: any) => {
+  search: (
+    token: string,
+    collection: string,
+    query: string,
+    limit = 5,
+    filter?: any
+  ) => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "qdrant:search",
+      token,
       collection,
-      vector,
+      query,
       limit,
       filter
     );

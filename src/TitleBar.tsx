@@ -85,7 +85,7 @@ const TitleBar: React.FC = () => {
       initial={{ y: -40, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="fixed top-0 left-0 right-0 h-10 bg-base-light/80 dark:bg-base-dark/80 backdrop-blur-lg border-b border-border-light dark:border-border-dark z-50 flex items-center justify-between"
+      className="fixed top-0 left-0 right-0 h-10 bg-base-light/95 dark:bg-base-dark/95 backdrop-blur-lg border-b border-border-light dark:border-border-dark z-50 flex items-center justify-between"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
       <div className="flex items-center h-full px-4">
@@ -104,7 +104,7 @@ const TitleBar: React.FC = () => {
         </div>
       </div>
       {showPath && (
-        <p className="text-sm text-text-light-sub font-mono bg-tertiary-dark p-0.5 px-2 rounded-lg dark:text-text-dark-sub">
+        <p className="text-sm text-text-light-sub font-mono bg-tertiary-light dark:bg-tertiary-dark  p-0.5 px-2 rounded-lg dark:text-text-dark-sub">
           {location.pathname}
         </p>
       )}
@@ -124,45 +124,6 @@ const TitleBar: React.FC = () => {
                 AI is processing...
               </div>
             )}
-
-            {/* <div
-              ref={searchContainerRef}
-              className="relative flex items-center"
-            >
-              <AnimatePresence>
-                {isSearchOpen && (
-                  <motion.div
-                    key="search-input"
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: "16rem", opacity: 1 }} // lg:w-96 = 24rem
-                    exit={{ width: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className="relative"
-                  >
-                    <Search className="w-5 h-5 text-text-light-sub dark:text-text-dark-sub absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={query}
-                      onChange={handleSearchChange}
-                      placeholder="Search journal entries..."
-                      className="pl-10 pr-4 py-2 w-full bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark placeholder:text-text-light-sub dark:placeholder:text-text-dark-sub border border-border-light dark:border-border-dark rounded-lg text-sm transition focus:outline-none "
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {!isSearchOpen && (
-                <button
-                  onClick={() => setIsSearchOpen(true)}
-                  className="p-2 text-text-light-sub dark:text-text-dark-sub rounded-full hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
-                  aria-label="Open search"
-                >
-                  <Search className="w-5 h-5" />
-                </button>
-              )}
-            </div> */}
-
             <ProfileDropdown />
           </div>
         )}

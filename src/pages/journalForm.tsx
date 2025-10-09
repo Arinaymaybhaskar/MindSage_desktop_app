@@ -547,7 +547,7 @@ export default function JournalForm() {
         {/* Main Content */}
         <div className="flex-grow flex overflow-hidden">
           {/* Editor Column */}
-          <div className="flex-grow flex flex-col p-6 overflow-y-auto">
+          <div className="flex-grow flex flex-col m-6 p-6 rounded-xl overflow-y-auto bg-tertiary-light dark:bg-tertiary-dark">
             <input
               id="title"
               type="text"

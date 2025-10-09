@@ -2,8 +2,9 @@ import { execSync, exec } from 'child_process';
 import { getUserIdFromToken } from '../../src/utils/electronUtils';
 import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
-import { AISummaryPrompt, getAutoPopulateValues } from './AIPrompts.js';
+import { AISummaryPrompt, getAutoPopulateValues, respondWithContext } from './AIPrompts.js';
 import { modelStore } from '../store.js';
+import { SemanticSearch } from './qdrant.js';
 
 export const handleGetOllamaModels = async (event, token) => {
     const userId = getUserIdFromToken(token);
@@ -58,11 +59,11 @@ export const handleGetOllamaModels = async (event, token) => {
 };
 
 
-export const handleOllamaPrompt = async (event, token, model, prompt, jsonMode = false) => {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
+export const handleOllamaPrompt = async (event, token, model, prompt, jsonMode = false,) => {
+    // const userId = getUserIdFromToken(token);
+    // if (!userId) {
+    //     return { error: "Invalid token" };
+    // }
     if (!model || !prompt) {
         return { error: 'Model name and prompt are required.' };
     }
@@ -184,7 +185,10 @@ eventBus.on("journal:created", async ({ entry }) => {
 eventBus.on("journal:created", async ({ entry }) => {
     eventBus.emit("ollama:summary-started", { entryId: entry.id });
     const prompt = AISummaryPrompt(entry.content);
-
+    if (entry.content.length < 100) {
+        eventBus.emit("ollama:summary-skipped", { entryId: entry.id });
+        return; // Skip summary for very short entries
+    }
     // Get the selected chat model from settings
     const selectedModels = modelStore.get('selectedModels');
     const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
@@ -207,6 +211,20 @@ eventBus.on("journal:created", async ({ entry }) => {
 
     eventBus.emit("ollama:summary-generated", { summary, id, userId });
 });
+
+eventBus.on("chat:new-message", async ({ content, chatId, messageId, model, userId }) => {
+    try {
+        const vector = await generateEmbedding(content);
+        const semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries");
+        const prompt = respondWithContext(content, semanticResult);
+        console.log(prompt, "input")
+        const response = await handleOllamaPrompt("", "", model, prompt, true);
+        eventBus.emit("chat:response-generated", { response, chatId, messageId, semanticResult });
+        console.log(response);
+    } catch (error) {
+        eventBus.emit("chat:error", error);
+    }
+})
 
 // Update generateSuggestion to use selected model
 export async function generateSuggestion(prompt, maxTokens = 20) {
@@ -315,4 +333,27 @@ export const handleDeleteOllamaModel = (event, token, modelName) => {
         });
     });
 };
+
+export async function generateEmbedding(text) {
+    try {
+        const response = await fetch('http://localhost:11434/api/embeddings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'nomic-embed-text:v1.5',
+                prompt: text
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama embedding API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data.embedding;
+    } catch (error) {
+        console.error('Error generating embedding:', error);
+        throw error;
+    }
+}
 

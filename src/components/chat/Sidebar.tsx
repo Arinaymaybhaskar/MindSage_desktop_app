@@ -44,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   handleDeleteChat,
   handleRenameChat,
 }) => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [activeChatId, setActiveChatId] = useState<number | null>(
     chats[0]?.id || null
   );
@@ -116,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         initial={{ width: 280 }}
         animate={{ width: isOpen ? 280 : 72 }}
         transition={{ type: "spring", stiffness: 400, damping: 40 }}
-        className="h-full border-r border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark flex flex-col flex-shrink-0"
+        className="h-full border-r border-border-light dark:border-border-dark  flex flex-col flex-shrink-0"
       >
         {/* Header */}
         <div

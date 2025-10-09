@@ -23,11 +23,11 @@ export const Dropdown = ({ options, selectedValue, onSelect, placeholder }) => {
     options.find((opt) => opt.value == selectedValue)?.label || placeholder;
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="px-4 relative" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-2 flex items-center justify-between text-left bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-info focus:border-info outline-none transition text-sm"
+        className="w-full p-2 gap-2 flex items-center justify-between text-left bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-info focus:border-info outline-none transition text-sm"
       >
         <span className="truncate text-text-light dark:text-text-dark">
           {selectedLabel}

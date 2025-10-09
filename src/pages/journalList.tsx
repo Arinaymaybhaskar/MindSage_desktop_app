@@ -105,7 +105,7 @@ const JournalEntryCard = ({
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <p>{SyncIcon(entry.synced_to_qdrant || "not_synced")}</p>
+            {/* <p>{SyncIcon(entry.synced_to_qdrant || "not_synced")}</p> */}
             <Link
               to={`/journal/edit/${entry.id}`}
               className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-dark1 dark:hover:text-light1 transition-colors"
@@ -375,6 +375,30 @@ export default function JournalList() {
     return result.sort((a, b) => dayjs(b.created_at).diff(dayjs(a.created_at)));
   }, [entries, selectedDate, searchTerm]);
 
+  // Helper to group entries by date
+  const groupedEntries = useMemo(() => {
+    const groups: Record<string, JournalEntry[]> = {};
+    filteredEntries.forEach((entry) => {
+      const dateKey = dayjs(entry.created_at).format("YYYY-MM-DD");
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(entry);
+    });
+
+    // Sort entries within each date by time (newest first)
+    Object.keys(groups).forEach((date) => {
+      groups[date] = groups[date].sort((a, b) =>
+        dayjs(b.created_at).diff(dayjs(a.created_at))
+      );
+    });
+
+    return groups;
+  }, [filteredEntries]);
+
+  // Get sorted date keys (newest date first)
+  const sortedDates = useMemo(() => {
+    return Object.keys(groupedEntries).sort((a, b) => dayjs(b).diff(dayjs(a)));
+  }, [groupedEntries]);
+
   const moodDataForCalendar = useMemo(
     () =>
       entries.map((e) => ({
@@ -455,7 +479,7 @@ export default function JournalList() {
             My Journals
           </h1>
           <div className="flex items-center gap-3">
-            <button
+            {/* <button
               onClick={handleBulkSync}
               disabled={bulkSyncing}
               className="flex items-center gap-2 px-5 py-2.5 bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark font-semibold rounded-lg shadow-md hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 border border-border-light dark:border-border-dark"
@@ -466,7 +490,7 @@ export default function JournalList() {
                 <Cloud size={20} />
               )}
               <span>{bulkSyncing ? "Syncing..." : "Sync All"}</span>
-            </button>
+            </button> */}
             <Link
               to="/"
               className="flex items-center gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:hover:bg-dark1 transition-all duration-200 hover:scale-105"
@@ -510,40 +534,62 @@ export default function JournalList() {
               </div>
             )}
             <AnimatePresence>
-              {filteredEntries.map((entry, index) => {
-                const cardProps = {
-                  entry,
-                  onDelete: () =>
-                    setDeleteModalInfo({ isOpen: true, entryId: entry.id! }),
-                  selected: entry.id === selectedId,
-                  onSelect: () => {
-                    setSelectedId(entry.id!);
-                    showToast("Double click an entry to open it.", "info");
-                    setTimeout(() => setShowDoubleClickNote(false), 3000); // hide after 3s
-                  },
-                };
-                if (filteredEntries.length === index + 1) {
-                  return (
-                    <div
-                      ref={(el) => {
-                        entryRefs.current.set(entry.id!, el);
-                        lastEntryRef(el);
-                      }}
-                      key={entry.id}
-                    >
-                      <JournalEntryCard {...cardProps} />
-                    </div>
-                  );
-                }
-                return (
-                  <div
-                    ref={(el) => entryRefs.current.set(entry.id!, el)}
-                    key={entry.id}
-                  >
-                    <JournalEntryCard {...cardProps} />
+              {sortedDates.map((dateKey) => (
+                <motion.div
+                  key={dateKey}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-4"
+                >
+                  {/* Date Header */}
+                  <h2 className="text-lg font-semibold text-text-light dark:text-text-dark mb-2  pb-1">
+                    {dayjs(dateKey).format("MMMM D, YYYY")}
+                  </h2>
+
+                  {/* Entries for this date */}
+                  <div className="space-y-6">
+                    {groupedEntries[dateKey].map((entry, index) => {
+                      const cardProps = {
+                        entry,
+                        onDelete: () =>
+                          setDeleteModalInfo({
+                            isOpen: true,
+                            entryId: entry.id!,
+                          }),
+                        selected: entry.id === selectedId,
+                        onSelect: () => {
+                          setSelectedId(entry.id!);
+                          showToast(
+                            "Double click an entry to open it.",
+                            "info"
+                          );
+                          setTimeout(() => setShowDoubleClickNote(false), 3000);
+                        },
+                      };
+
+                      // Attach infinite-scroll ref only on the last entry of the last date group
+                      const isLastEntry =
+                        dateKey === sortedDates[sortedDates.length - 1] &&
+                        index === groupedEntries[dateKey].length - 1;
+
+                      return (
+                        <div
+                          key={entry.id}
+                          ref={(el) => {
+                            entryRefs.current.set(entry.id!, el);
+                            if (isLastEntry) lastEntryRef(el);
+                          }}
+                        >
+                          <JournalEntryCard {...cardProps} />
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </motion.div>
+              ))}
             </AnimatePresence>
 
             {loading && (

@@ -80,3 +80,63 @@ Journal Entry:
 `
   return prompt;
 }
+
+
+export function respondWithContext(entry, context) {
+  /*
+    entry: string - current user query or journal input
+    context: array - 5 most relevant results from Qdrant (as shown in your example)
+  */
+
+  const formattedEntries = context
+    .map((item, index) => {
+      const p = item.payload || {};
+      const type = p.source_type || "unknown";
+      const title = p.title || p.goal_title || "Untitled";
+      const text =
+        p.content || p.description || "(no content provided)";
+      const mood =
+        p.mood_score !== null && p.mood_score !== undefined
+          ? `Mood Score: ${p.mood_score}`
+          : "";
+      const created = p.created_at
+        ? new Date(p.created_at).toISOString().split("T")[0]
+        : "";
+
+      return `${index + 1}. [${type.toUpperCase()}] ${title} (${created})
+${text}
+${mood}
+Relevance Score: ${item.score.toFixed(3)}
+`;
+    })
+    .join("\n");
+
+  const prompt = `
+You are MindSage, an AI journaling assistant that helps users reflect, gain insights, and find emotional or cognitive clarity through their journal entries.
+
+You will be given:
+1. A user query (what the user is currently asking or thinking about).
+2. Five most relevant past journal entries (these provide emotional and contextual background).
+
+Your job:
+- Understand the core meaning of the query.
+- Carefully analyze the five past entries for emotional patterns, recurring themes, goals, or mindset shifts related to the query.
+- Generate a thoughtful, context-aware, and psychologically insightful response.
+- Maintain a balanced tone: empathetic, reflective, but never over-therapeutic or overly optimistic.
+- Be concise but meaningful — aim for depth, not length.
+
+---
+
+User Query:
+"${entry}"
+
+Relevant Journal Entries:
+${formattedEntries}
+
+---
+
+MindSage Response:
+`;
+
+  return prompt;
+}

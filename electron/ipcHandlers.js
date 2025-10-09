@@ -9,13 +9,14 @@ import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActive
 import { handleAddProgressLog, handleGetProgressLogs } from "./methods/progressLogs.js";
 import { generateSuggestion, handleDownloadOllamaModel, handleGetOllamaModels, handleOllamaPrompt, handleDeleteOllamaModel } from "./methods/ollama.js";
 import { startLiveTranscription, stopLiveTranscription, transcribeAudioBlob } from "./methods/whisper.js";
-import { getAllTimeScores, getDashboardData, getMonthlyScores } from "./methods/dashboard.js";
+import { getAllTimeScores, getDashboardData, getMonthlyScores, getUserStats } from "./methods/dashboard.js";
 import { modelStore } from "./store.js";
 import { registerQdrantIPC } from "./methods/qdrant.js";
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from "node:url";
 import { handleChangeChatTitle, handleDeleteChat, handleGetChatById, handleGetChats, handleUserMessage, linkMediaToMessage as handleLinkMediaToMessage } from "./methods/chat.js";
 import { handleExportUserData } from "./methods/exportData.js";
+import { eventBus } from "./eventBus.js";
 
 export function createQdrantWorker() {
     const __filename = fileURLToPath(import.meta.url)
@@ -94,6 +95,7 @@ export function registerIPCHandlers(runtime) {
     ipcMain.handle("dashboard:get-data", getDashboardData);
     ipcMain.handle("dashboard:get-monthly-scores", getMonthlyScores);
     ipcMain.handle("dashboard:get-all-time-scores", getAllTimeScores);
+    ipcMain.handle("dashboard:get-stats", getUserStats);
 
     // Ollama
     ipcMain.handle("ollama:models", handleGetOllamaModels);
@@ -158,6 +160,12 @@ export function registerIPCHandlers(runtime) {
 
     ipcMain.handle('models:save-selected', (_, models) => {
         modelStore.set('selectedModels', models);
+        return true;
+    });
+
+    // eventBus
+    ipcMain.handle("eventBus:emit", (ipcEvent, { event, args }) => {
+        eventBus.emit(event, ...args);
         return true;
     });
 }

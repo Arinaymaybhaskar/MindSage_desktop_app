@@ -165,7 +165,7 @@ function MoodSentimentChart({
   };
 
   return (
-    <div className="w-3/4 border-border-light dark:border-border-dark border h-[500px] bg-secondary-light dark:bg-secondary-dark rounded-xl flex flex-col overflow-hidden">
+    <div className=" border-border-light dark:border-border-dark border h-[500px] bg-secondary-light dark:bg-secondary-dark rounded-xl flex flex-col overflow-hidden">
       {/* Chart Header */}
       <div className="flex justify-between items-center w-full px-8 pt-6 pb-6 z-10">
         <h1 className="text-xl text-text-light dark:text-text-dark font-bold">

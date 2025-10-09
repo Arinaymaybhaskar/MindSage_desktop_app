@@ -132,7 +132,9 @@ export default function JournalDetail() {
       setError(false);
 
       try {
+        console.log(authMode, accessToken, "ID:", id);
         const res = await journalService.getOne(authMode, accessToken!, +id);
+        console.log(res);
         if (!res) {
           setError(true);
         } else {

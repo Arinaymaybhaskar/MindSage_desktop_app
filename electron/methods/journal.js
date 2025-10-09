@@ -171,10 +171,24 @@ export const updateSyncStatus = (userId, journalId, status) => {
 const addContentSummary = (summary, journalId, userId) => {
     return localDB.addContentSummary(summary, journalId, userId);
 }
+function cleanAndParseJSON(inputStr) {
+    try {
+        // Remove Markdown code block markers like ```json ... ```
+        const cleaned = inputStr
+            .replace(/```json/i, "") // remove opening ```json
+            .replace(/```/g, "")     // remove closing ```
+            .trim();
+
+        return JSON.parse(cleaned);
+    } catch (err) {
+        console.error("Failed to parse JSON:", err.message);
+        return {};
+    }
+}
 
 eventBus.on("journal:aiCompleted", ({ entry, res3 }) => {
     try {
-        res3 = typeof res3 === "string" ? JSON.parse(res3) : (res3 || {});
+        res3 = typeof res3 === "string" ? cleanAndParseJSON(res3) : (res3 || {});
     } catch (err) {
         console.error("Failed to parse AI response (res3):", err);
         res3 = {};
@@ -207,4 +221,9 @@ eventBus.on("ollama:summary-generated", ({ summary, id, userId }) => {
 eventBus.on("whisper:transcribe-ended", ({ entry, transcriptionText }) => {
     updateJournalEntry(entry.user_id, entry.id, { ...entry, transcription: transcriptionText });
     eventBus.emit("journal:updated", { entry: { ...entry, transcription: transcriptionText } });
+});
+
+
+eventBus.on("custom:test-event", (data) => {
+    console.log("Custom test event received with data:", data);
 });
