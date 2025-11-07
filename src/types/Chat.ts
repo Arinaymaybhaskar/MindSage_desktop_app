@@ -11,11 +11,11 @@ export interface Message {
   text: string;
   sender: "user" | "ai";
   files?: MessageFile[];
+  followUpQuestion?: string;
+  sources?: Array<any>;
 }
 
 export interface Chat {
   id: number;
   title: string;
 }
-
-

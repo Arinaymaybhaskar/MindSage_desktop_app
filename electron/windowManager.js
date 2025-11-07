@@ -24,9 +24,7 @@ export async function createWindow() {
         },
     });
 
-    win.once("ready-to-show", () => {
-        if (!win.isDestroyed()) win.show();
-    });
+    // Splash flow: do not auto-show; main will call win.show() after services are ready
 
     win.webContents.on("did-finish-load", () => {
         if (!win.isDestroyed()) {

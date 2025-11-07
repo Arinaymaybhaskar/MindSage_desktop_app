@@ -93,6 +93,7 @@ export async function handleGetJournalById(event, mode, token, journalId) {
         });
         return response.data;
     } else { // Offline
+        console.log("Fetching journal by ID in offline mode:", journalId);
         return localDB.getJournalById(userId, journalId);
     }
 }

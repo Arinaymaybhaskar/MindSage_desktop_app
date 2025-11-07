@@ -19,7 +19,7 @@ import ChangePassword from "./pages/auth/changePassword";
 import { DeleteAccount } from "./pages/auth/deleteAccount";
 import ForgotPassword from "./pages/auth/forgotPassword";
 import DataExport from "./pages/dataExport";
-import { ChatComponent } from "./pages/chat";
+import { ChatPage } from "./pages/chat";
 import TitleBar from "./TitleBar";
 import {
   BookOpenIcon,
@@ -269,7 +269,7 @@ function AppLayout() {
                 path="/chat"
                 element={
                   <PrivateRoute>
-                    <ChatComponent />
+                    <ChatPage />
                   </PrivateRoute>
                 }
               />

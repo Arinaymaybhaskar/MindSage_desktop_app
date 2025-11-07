@@ -351,6 +351,7 @@ export function initDatabase() {
             message_id INTEGER NOT NULL,
             source_type TEXT NOT NULL,
             source_id TEXT NOT NULL,
+            source_title TEXT,
             FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
         );
 

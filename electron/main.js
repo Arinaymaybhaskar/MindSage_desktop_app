@@ -1,5 +1,6 @@
 // main.js
 import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
+import fs from "node:fs";
 import path, { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,6 +23,7 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
 
 let win;
 let quickCaptureWindow;
+let splash;
 
 function openQuickCaptureWindow() {
   if (quickCaptureWindow) {
@@ -100,15 +102,98 @@ function createQdrantWorker() {
   return worker;
 }
 
+// ------------------- Optional GPU Fallback -------------------
+// Enable this by setting environment variable MS_DISABLE_GPU=1 on affected machines
+if (process.platform === "win32" && process.env.MS_DISABLE_GPU === "1") {
+  app.commandLine.appendSwitch("disable-gpu");
+}
+
 // ------------------- App Ready -------------------
 app.whenReady().then(async () => {
-  localDB.initDatabase();
-  OllamaEmbeddingModelSetup();
-  const runtime = await startQdrant();
-  registerIPCHandlers(runtime);
-  setupEventBusListeners();
-  createQdrantWorker();
-  win = await createWindow();
+  // Simple file logger in userData to debug startup on customer machines
+  const logPath = path.join(app.getPath("userData"), "main.log");
+  const log = (message) => {
+    try {
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`);
+    } catch {}
+  };
+
+  log("App ready");
+
+  // Show splash immediately
+  try {
+    splash = new BrowserWindow({
+      width: 420,
+      height: 300,
+      resizable: false,
+      frame: false,
+      alwaysOnTop: true,
+      transparent: true,
+      show: true,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false,
+      },
+    });
+    const splashUrl = process.env.VITE_DEV_SERVER_URL
+      ? `${process.env.VITE_DEV_SERVER_URL}splash.html`
+      : `file://${path.join(process.env.DIST, "splash.html")}`;
+    splash.loadURL(splashUrl);
+    log("Splash window shown");
+  } catch (e) {
+    log(`Failed to create splash: ${e?.stack || e}`);
+  }
+
+  // Create main window in background; it will be shown after services are ready
+  try {
+    win = await createWindow();
+    log("Main window created");
+  } catch (e) {
+    log(`Failed to create window: ${e?.stack || e}`);
+  }
+
+  // Start services asynchronously, and keep the UI up
+  (async () => {
+    try {
+      log("Initializing localDB");
+      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Initializing local database…');
+      localDB.initDatabase();
+    } catch (e) {
+      log(`localDB init error: ${e?.stack || e}`);
+    }
+
+    try {
+      log("Running OllamaEmbeddingModelSetup");
+      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Preparing AI models…');
+      OllamaEmbeddingModelSetup();
+    } catch (e) {
+      log(`Ollama setup error: ${e?.stack || e}`);
+    }
+
+    try {
+      log("Starting Qdrant");
+      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Starting vector database…');
+      const runtime = await startQdrant();
+      log("Qdrant started");
+      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Wiring up services…');
+      registerIPCHandlers(runtime);
+      setupEventBusListeners();
+      createQdrantWorker();
+      log("IPC handlers, event bus, and worker initialized");
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('services-ready');
+        log("Sent services-ready to renderer");
+        try {
+          if (splash && !splash.isDestroyed()) splash.close();
+        } catch {}
+        try {
+          if (!win.isDestroyed()) win.show();
+        } catch {}
+      }
+    } catch (e) {
+      log(`Qdrant/IPC init error: ${e?.stack || e}`);
+    }
+  })();
 
   // ------------------- Global Shortcut -------------------
   const shortcut =

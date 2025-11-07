@@ -128,7 +128,8 @@ contextBridge.exposeInMainWorld('electron', {
         'main-process-message',
         'sync-complete',
         'sync-error',
-        "live-transcription-data" // <-- added live transcription stream events
+        "live-transcription-data", // <-- added live transcription stream events
+        'services-ready'
       ];
       if (validChannels.includes(channel)) {
         ipcRenderer.on(channel, (event, ...args) => func(...args));

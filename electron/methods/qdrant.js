@@ -20,26 +20,25 @@ function getUserIdFromToken(token) {
     }
 }
 
-export async function SemanticSearch(vector, userId, limit, collection) {
+export async function SemanticSearch(vector, userId, limit, collection, threshold = 0.5) {
     const userFilter = {
         must: [
             {
                 key: 'user_id',
-                match: {
-                    value: userId
-                }
+                match: { value: userId }
             }
         ]
     };
+
     const results = await client.search(collection, {
-        vector: {
-            name: "text_embedding",
-            vector,
-        },
+        vector: { name: "text_embedding", vector },
         limit,
         filter: userFilter,
     });
-    return results;
+
+    const filtered = results.filter(r => r.score >= threshold);
+
+    return filtered;
 }
 
 export function registerQdrantIPC(runtime) {

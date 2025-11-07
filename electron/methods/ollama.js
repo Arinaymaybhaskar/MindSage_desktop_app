@@ -2,9 +2,10 @@ import { execSync, exec } from 'child_process';
 import { getUserIdFromToken } from '../../src/utils/electronUtils';
 import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
-import { AISummaryPrompt, getAutoPopulateValues, respondWithContext } from './AIPrompts.js';
+import { AISummaryPrompt, generateContextTimeAndBaseQueryPrompt, getAutoPopulateValues, respondWithContext, respondWithoutContext } from './AIPrompts.js';
 import { modelStore } from '../store.js';
 import { SemanticSearch } from './qdrant.js';
+import z from 'zod';
 
 export const handleGetOllamaModels = async (event, token) => {
     const userId = getUserIdFromToken(token);
@@ -64,6 +65,7 @@ export const handleOllamaPrompt = async (event, token, model, prompt, jsonMode =
     // if (!userId) {
     //     return { error: "Invalid token" };
     // }
+    console.log(model, prompt, "model", "prompt");
     if (!model || !prompt) {
         return { error: 'Model name and prompt are required.' };
     }
@@ -212,19 +214,100 @@ eventBus.on("journal:created", async ({ entry }) => {
     eventBus.emit("ollama:summary-generated", { summary, id, userId });
 });
 
+// Schemas
+const propsResSchema = z.object({
+    requires_context: z.boolean(),
+    requires_time_filter: z.boolean(),
+    time_filter_from: z.string().nullable(),
+    time_filter_to: z.string().nullable(),
+    base_query: z.string(),
+    notes: z.string()
+});
+
+const chatResponseSchema = z.object({
+    response: z.string(),
+    follow_up_question: z.string()
+});
+
+// Helper: parse and retry AI JSON
+async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log("calling ai");
+            const raw = await rawFn();
+            console.log("ai response", raw);
+            const jsonMatch = raw.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error("No JSON found");
+
+            return schema.parse(JSON.parse(jsonMatch[0]));
+        } catch (err) {
+            console.log(`Attempt ${attempt} failed: ${err.message}`);
+            if (attempt === maxRetries) throw new Error(`Failed after ${maxRetries} attempts`);
+        }
+    }
+}
+
 eventBus.on("chat:new-message", async ({ content, chatId, messageId, model, userId }) => {
     try {
-        const vector = await generateEmbedding(content);
-        const semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries");
-        const prompt = respondWithContext(content, semanticResult);
-        console.log(prompt, "input")
-        const response = await handleOllamaPrompt("", "", model, prompt, true);
-        eventBus.emit("chat:response-generated", { response, chatId, messageId, semanticResult });
-        console.log(response);
+        const now = new Date();
+        const currentTimeISO = now.toISOString();
+
+        // 1️⃣ Generate propsRes
+        const queryPropsPrompt = generateContextTimeAndBaseQueryPrompt(content, currentTimeISO);
+        const propsRes = await parseAIWithRetries(
+            () => handleOllamaPrompt("", "", model, queryPropsPrompt, true),
+            propsResSchema,
+            3
+        );
+        console.log("Validated propsRes:", propsRes);
+
+        let semanticResult = [];
+
+        // 2️⃣ Semantic search logic
+        if (propsRes.requires_context) {
+            // Use original user content
+            console.log("requires context")
+            const vector = await generateEmbedding(content);
+            semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries");
+        } else if (propsRes.requires_time_filter) {
+            console.log("requires context with time filter")
+            // Use base_query and time filter
+            const vector = await generateEmbedding(propsRes.base_query);
+            semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries", {
+                from: propsRes.time_filter_from,
+                to: propsRes.time_filter_to
+            });
+        }
+
+        let mainPrompt;
+
+        if (!propsRes.requires_context && semanticResult.length == 0) {
+            console.log("No context needed")
+            mainPrompt = respondWithoutContext(content);
+        } else {
+            // 3️⃣ Generate prompt for main AI response
+            mainPrompt = respondWithContext(
+                content,
+                semanticResult,
+            );
+        }
+
+        // 4️⃣ Get final chat response
+        const chatResponse = await parseAIWithRetries(
+            () => handleOllamaPrompt("", "", model, mainPrompt, true),
+            chatResponseSchema,
+            3
+        );
+        console.log(chatResponse, "ai chat res")
+        // 5️⃣ Emit validated response
+        eventBus.emit("chat:response-generated", { response: chatResponse, chatId, messageId, semanticResult });
+
     } catch (error) {
+        console.log(error, "error occcured");
         eventBus.emit("chat:error", error);
     }
-})
+});
+
 
 // Update generateSuggestion to use selected model
 export async function generateSuggestion(prompt, maxTokens = 20) {

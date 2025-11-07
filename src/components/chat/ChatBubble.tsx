@@ -1,6 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { FileText } from "lucide-react";
+import { FileText, Lightbulb, Link } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
 export interface MessageFile {
   type: "image" | "audio" | "pdf";
   path?: string;
@@ -14,6 +16,16 @@ export interface Message {
   text: string;
   sender: "user" | "ai";
   files?: MessageFile[];
+  followUpQuestion?: string;
+  sources?: Array<{
+    id: string;
+    payload: {
+      title?: string;
+      source_type?: string;
+      source_id?: string;
+      goal_id?: string;
+    };
+  }>;
 }
 
 const formatFileSize = (bytes: number, decimals = 2) => {
@@ -25,18 +37,66 @@ const formatFileSize = (bytes: number, decimals = 2) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 };
 
+// ⬇️ Follow-up button component
+const FollowUpButton: React.FC<{
+  question: string;
+  onClick?: (question: string) => void;
+}> = ({ question, onClick }) => {
+  const [visible, setVisible] = React.useState(true);
+
+  const handleClick = () => {
+    setVisible(false);
+    onClick?.(question);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <motion.button
+      layout
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={handleClick}
+      className="flex gap-3 mt-1 p-3 text-start rounded-lg bg-info/10 text-info text-sm font-medium hover:bg-info/20 cursor-pointer max-w-full break-words self-start"
+    >
+      <div className="bg-secondary-light dark:bg-secondary-dark p-1 w-7 h-7 flex items-center justify-center rounded-full">
+        <Lightbulb size={16} />
+      </div>
+      <span className="break-words">{question}</span>
+    </motion.button>
+  );
+};
+
 export const ChatBubble: React.FC<{
   isSwitching: boolean;
   message: Message;
   onImageClick: (url: string) => void;
   onPdfOpen: (path: string, name?: string) => void;
-}> = ({ message, onImageClick, onPdfOpen, isSwitching }) => {
+  onFollowUpClick?: (question: string) => void;
+}> = ({ message, onImageClick, onPdfOpen, onFollowUpClick, isSwitching }) => {
   const isUser = message.sender === "user";
-
+  const navigate = useNavigate();
   const imageFiles = (message.files || []).filter((f) => f.type === "image");
   const pdfFiles = (message.files || []).filter((f) => f.type === "pdf");
   const hasImage = imageFiles.length > 0;
   const hasPdf = pdfFiles.length > 0;
+  const hasSources = message.sources && message.sources.length > 0;
+  const hasFollowUpQuestion = message.followUpQuestion;
+
+  const handleSourceClicked = (source: any) => {
+    switch (source.payload.source_type) {
+      case "journal":
+        navigate(`/journal/view/${source.payload.source_id}`);
+        break;
+      case "goal":
+        navigate(`goals/view/${source.payload.source_id}`);
+        break;
+      default:
+        navigate(`goals/view/${source.payload.goal_id}`);
+        break;
+    }
+  };
 
   return (
     <motion.div
@@ -52,6 +112,7 @@ export const ChatBubble: React.FC<{
           isUser ? "items-end" : "items-start"
         }`}
       >
+        {/* Image Attachments */}
         {hasImage && (
           <div
             className={`grid gap-2 ${
@@ -69,11 +130,13 @@ export const ChatBubble: React.FC<{
             ))}
           </div>
         )}
+
+        {/* PDF Attachments */}
         {hasPdf && (
           <div className="flex flex-col gap-2 w-full">
             {pdfFiles.map((file, idx) => {
               const fileName =
-                file.name || file.path?.split(/[\/\\]/).pop() || "Document.pdf";
+                file.name || file.path?.split(/[\\/]/).pop() || "Document.pdf";
 
               return (
                 <button
@@ -84,7 +147,7 @@ export const ChatBubble: React.FC<{
                   className={`flex items-center gap-3 w-full max-w-sm p-3 rounded-lg border transition-all duration-200 enabled:hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 ${
                     isUser
                       ? "bg-base-light dark:bg-base-dark border-border-light dark:border-border-dark enabled:hover:underline cursor-pointer"
-                      : "bg-surface-light dark:bg-surface-dark border-border-light dark:border-border-dark enabled:hover:bg-zinc-200/50 dark:enabled:hover:bg-zinc-700/50"
+                      : "bg-surface-light dark:bg-surface-dark border-border-light dark:border-border-dark enabled:hover:bg-tertiary-light dark:enabled:hover:bg-tertiary-dark"
                   }`}
                 >
                   <div className="flex-shrink-0 bg-red-500/10 dark:bg-red-400/10 p-3 rounded-full">
@@ -94,9 +157,11 @@ export const ChatBubble: React.FC<{
                     />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-medium truncate ">{fileName}</p>
+                    <p className="text-sm font-medium truncate text-text-light dark:text-text-dark">
+                      {fileName}
+                    </p>
                     {file.size && (
-                      <p className="text-xs text-text-light/70 dark:text-text-dark/70">
+                      <p className="text-xs text-text-light-sub dark:text-text-dark-sub">
                         PDF Document • {formatFileSize(file.size)}
                       </p>
                     )}
@@ -107,6 +172,7 @@ export const ChatBubble: React.FC<{
           </div>
         )}
 
+        {/* Message Text */}
         {message.text && (
           <div
             className={`px-4 py-3 rounded-2xl shadow-sm max-w-fit ${
@@ -119,6 +185,32 @@ export const ChatBubble: React.FC<{
               {message.text}
             </p>
           </div>
+        )}
+
+        {/* Sources Section */}
+        {hasSources && !isUser && (
+          <div className="flex flex-wrap gap-2 mt-1">
+            {message.sources!.map((source, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSourceClicked(source)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-tertiary-light dark:bg-tertiary-dark text-xs font-medium text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors cursor-pointer max-w-[120px]"
+              >
+                <Link size={12} className="text-accent flex-shrink-0" />
+                <span className="truncate" title={source.payload?.title}>
+                  {source.payload?.title || `Source ${idx + 1}`}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Follow-Up Question */}
+        {hasFollowUpQuestion && !isUser && (
+          <FollowUpButton
+            question={message.followUpQuestion!}
+            onClick={onFollowUpClick}
+          />
         )}
       </div>
     </motion.div>

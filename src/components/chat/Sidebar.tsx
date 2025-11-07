@@ -10,6 +10,7 @@ import {
   Edit3,
 } from "lucide-react";
 import clsx from "clsx";
+import { useClickOutside } from "../../hooks/useClickOutside"; // Assuming you have this hook from our previous conversation
 
 interface Chat {
   id: number;
@@ -45,33 +46,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
   handleRenameChat,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeChatId, setActiveChatId] = useState<number | null>(
-    chats[0]?.id || null
-  );
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownContainerRef = useRef<HTMLDivElement>(null);
 
   // Rename popup state
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [renameChatId, setRenameChatId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState("");
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setOpenDropdownId(null);
-      }
-    };
+  // Use the custom hook to close the dropdown
+  useClickOutside(dropdownContainerRef, () => setOpenDropdownId(null));
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+  // Set initial active chat
+  useEffect(() => {
+    if (!activeChatId && chats.length > 0) {
+      setActiveChatId(chats[0].id);
+    }
+  }, [chats, activeChatId]);
+
+  const selectChat = (chatId: number) => {
+    handleSelectChat(chatId);
+    setActiveChatId(chatId);
+  };
 
   const toggleDropdown = (chatId: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -85,10 +82,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     setOpenDropdownId(null);
 
-    // If deleting the active chat, reset to the first available chat
     if (activeChatId === chatId) {
       const remainingChats = chats.filter((chat) => chat.id !== chatId);
-      setActiveChatId(remainingChats[0]?.id || null);
+      const newActiveId = remainingChats[0]?.id || null;
+      setActiveChatId(newActiveId);
+      if (newActiveId) {
+        handleSelectChat(newActiveId);
+      } else {
+        handleClearChat();
+      }
     }
   };
 
@@ -102,8 +104,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const confirmRename = () => {
-    if (renameChatId && handleRenameChat) {
-      handleRenameChat(renameChatId, newTitle.trim());
+    if (renameChatId && newTitle.trim()) {
+      handleRenameChat?.(renameChatId, newTitle.trim());
     }
     setIsRenameOpen(false);
     setRenameChatId(null);
@@ -116,7 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         initial={{ width: 280 }}
         animate={{ width: isOpen ? 280 : 72 }}
         transition={{ type: "spring", stiffness: 400, damping: 40 }}
-        className="h-full border-r border-border-light dark:border-border-dark  flex flex-col flex-shrink-0"
+        className="h-full border-r border-border-light dark:border-border-dark flex flex-col flex-shrink-0"
       >
         {/* Header */}
         <div
@@ -149,7 +151,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Buttons */}
         <div className="flex flex-col gap-2 p-3">
           <button
-            onClick={handleClearChat}
+            onClick={() => {
+              handleClearChat();
+              setActiveChatId(null);
+            }}
             className={clsx(
               "flex items-center gap-3 p-2 rounded-md text-sm text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors",
               !isOpen && "justify-center"
@@ -174,77 +179,81 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Past Chats */}
         <div className="flex-1 overflow-y-auto p-3 space-y-1 no-scrollbar">
-          {chats.length > 0 &&
-            chats.map((chat) => (
-              <div key={chat.id} className="relative">
-                <button
-                  onClick={() => {
-                    handleSelectChat(chat.id);
-                    setActiveChatId(chat.id);
-                  }}
-                  className={clsx(
-                    "w-full flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors",
-                    !isOpen && "justify-center",
-                    activeChatId === chat.id
-                      ? "bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1"
-                      : "text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
-                  )}
-                >
-                  <MessageSquare size={18} />
-                  <AnimatePresence>
-                    {isOpen && (
-                      <motion.span
-                        variants={textVariants}
-                        initial="hidden"
-                        animate="visible"
-                        exit="hidden"
-                        className="whitespace-nowrap truncate flex-1 text-left text-sm"
-                      >
-                        {chat.title}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
+          {chats.map((chat) => (
+            <div key={chat.id} className="relative">
+              {/* ---- FIX: Changed from <button> to <div> and added accessibility attributes ---- */}
+              <div
+                onClick={() => selectChat(chat.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") selectChat(chat.id);
+                }}
+                role="button"
+                tabIndex={0}
+                className={clsx(
+                  "w-full flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-info",
+                  !isOpen && "justify-center",
+                  activeChatId === chat.id
+                    ? "bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1"
+                    : "text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
+                )}
+              >
+                <MessageSquare size={18} />
+                <AnimatePresence>
                   {isOpen && (
-                    <div className="relative" ref={dropdownRef}>
-                      <button
-                        onClick={(e) => toggleDropdown(chat.id, e)}
-                        className="p-1 rounded hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
-                      >
-                        <MoreHorizontal size={16} />
-                      </button>
-
-                      <AnimatePresence>
-                        {openDropdownId === chat.id && (
-                          <motion.div
-                            variants={dropdownVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            transition={{ duration: 0.15 }}
-                            className="absolute right-0 top-8 z-50 min-w-[150px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-md shadow-lg py-1"
-                          >
-                            <button
-                              onClick={(e) => handleRename(chat.id, e)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
-                            >
-                              <Edit3 size={14} />
-                              Rename
-                            </button>
-                            <button
-                              onClick={(e) => handleDelete(chat.id, e)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
-                            >
-                              <Trash2 size={14} />
-                              Delete chat
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
+                    <motion.span
+                      variants={textVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="hidden"
+                      className="whitespace-nowrap truncate flex-1 text-left text-sm"
+                    >
+                      {chat.title}
+                    </motion.span>
                   )}
-                </button>
+                </AnimatePresence>
+                {/* ---- This <button> is now a valid child of the <div> ---- */}
+                {isOpen && (
+                  <div className="relative" ref={dropdownContainerRef}>
+                    <button
+                      onClick={(e) => toggleDropdown(chat.id, e)}
+                      className="p-1 rounded hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors z-10"
+                      aria-label="Chat options"
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+
+                    <AnimatePresence>
+                      {openDropdownId === chat.id && (
+                        <motion.div
+                          variants={dropdownVariants}
+                          initial="hidden"
+                          animate="visible"
+                          exit="exit"
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 p-2 top-8 z-50 min-w-[150px] bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-md shadow-lg"
+                        >
+                          <button
+                            onClick={(e) => handleRename(chat.id, e)}
+                            className="w-full rounded-lg flex items-center gap-2 px-3 py-2 text-sm text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
+                          >
+                            <Edit3 size={14} />
+                            Rename
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(chat.id, e)}
+                            className="w-full rounded-lg flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
+                          >
+                            <Trash2 size={14} />
+                            Delete chat
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
               </div>
-            ))}
+            </div>
+          ))}
         </div>
       </motion.div>
 
@@ -255,12 +264,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={() => setIsRenameOpen(false)}
             className="fixed inset-0 flex items-center justify-center bg-black/50 z-50"
           >
             <motion.div
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
               className="bg-surface-light dark:bg-surface-dark p-6 rounded-lg shadow-xl w-80"
             >
               <h3 className="text-lg font-semibold mb-4 text-text-light dark:text-text-dark">
@@ -270,7 +281,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 type="text"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-surface-light dark:bg-surface-dark border-border-light dark:border-border-dark text-text-light dark:text-text-dark"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") confirmRename();
+                  if (e.key === "Escape") setIsRenameOpen(false);
+                }}
+                autoFocus
+                className="w-full px-3 py-2 border rounded-md bg-surface-light dark:bg-surface-dark border-border-light dark:border-border-dark text-text-light dark:text-text-dark focus:outline-none focus:ring-2 focus:ring-info"
               />
               <div className="flex justify-end gap-2 mt-4">
                 <button

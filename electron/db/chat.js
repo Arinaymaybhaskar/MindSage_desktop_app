@@ -1,5 +1,59 @@
 import { db } from './connection.js';
 
+export const addAIResponse = async (chatId, content, sources = [], files = []) => {
+    try {
+        const insertMessageStmt = db.prepare(`
+            INSERT INTO messages (chat_id, sender, content)
+            VALUES (?, 'ai', ?)
+        `);
+
+        const insertSourceStmt = db.prepare(`
+            INSERT INTO message_sources (message_id, source_type, source_id)
+            VALUES (?, ?, ?)
+        `);
+
+        const insertFileStmt = db.prepare(`
+            INSERT INTO files (chat_id, message_id, file_type, file_path)
+            VALUES (?, ?, ?, ?)
+        `);
+
+        const transaction = db.transaction(() => {
+            // Insert the AI message
+            const result = insertMessageStmt.run(chatId, content);
+            const messageId = result.lastInsertRowid;
+
+            // Optional: insert message sources
+            if (sources && sources.length > 0) {
+                for (const source of sources) {
+                    insertSourceStmt.run(messageId, source.source_type, source.source_id);
+                }
+            }
+
+            // Optional: insert files
+            if (files && files.length > 0) {
+                for (const file of files) {
+                    insertFileStmt.run(chatId, messageId, file.file_type, file.file_path);
+                }
+            }
+
+            // Update chat's last updated timestamp
+            db.prepare(`
+                UPDATE chats SET updated_at = CURRENT_TIMESTAMP WHERE id = ?
+            `).run(chatId);
+
+            return messageId;
+        });
+
+        const messageId = transaction();
+        return { id: messageId };
+
+    } catch (error) {
+        console.error("[addAIResponse] Error:", error);
+        console.error("Params:", { chatId, content, sources, files });
+        throw error;
+    }
+};
+
 export const getChatsTitlesByUsers = async (userId, limit = 10, offset = 0) => {
     try {
         const stmt = db.prepare(`
@@ -172,8 +226,8 @@ export const addMessage = async (
         `);
 
         const insertSourceStmt = db.prepare(`
-            INSERT INTO message_sources (message_id, source_type, source_id)
-            VALUES (?, ?, ?)
+            INSERT INTO message_sources (message_id, source_type, source_id, source_title)
+            VALUES (?, ?, ?, ?)
         `);
 
         const insertFileStmt = db.prepare(`
@@ -187,7 +241,7 @@ export const addMessage = async (
 
             if (sources && sources.length > 0) {
                 for (const source of sources) {
-                    insertSourceStmt.run(messageId, source.source_type, source.source_id);
+                    insertSourceStmt.run(messageId, source.source_type, source.source_id, source.source_title);
                 }
             }
 
