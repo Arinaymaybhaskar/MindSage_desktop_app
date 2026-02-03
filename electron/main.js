@@ -1,219 +1,244 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { startServer } from '../src/server/app'
-import localDB from './db/index.js';
-import { handleGoogleLogin, handleLogin, handleRegister } from './methods/auth.js'
-import { userChangePassword, userDeleteAccount, userGetMe, userGetSettings, userUpdateProfile, userUpdateSettings } from './methods/user.js'
-import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal } from './methods/journal.js'
-import { getAudioBase64, getImageBase64, handleOpenMedia, handleSaveMedia, handleSaveProfileImage } from './methods/media.js'
-import { handleAddCategory, handleDeleteCategory, handleGetCategories, handleUpdateCategory } from './methods/categories.js'
-import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActiveGoals, handleGetCompletedGoals, handleGetPinnedGoals, handleTogglePin, handleUpdateGoal, handleUpdateProgress } from './methods/goal.js'
-import { handleAddProgressLog, handleGetProgressLogs } from './methods/progressLogs.js'
-import { handleGetOllamaModels, handleOllamaPrompt } from './methods/ollama.js'
-// import { createCollection, getQdrantPort, insertVector, searchVector, startQdrant, stopQdrant } from './methods/qdrant.js';
+// main.js
+import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
+import fs from "node:fs";
+import path, { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+import localDB from "./db/index.js";
+// import { startServer } from "../src/server/app.js";
+import { createWindow } from "./windowManager.js";
+import { registerIPCHandlers } from "./ipcHandlers.js";
+import { setupEventBusListeners } from "./events.js";
+import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
+import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
+import { Worker } from "node:worker_threads";
 
-process.env.DIST = path.join(__dirname, '../dist')
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+process.env.DIST = path.join(__dirname, "../dist");
 process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
-  ? path.join(__dirname, '../public')
-  : process.env.DIST
+  ? path.join(__dirname, "../public")
+  : process.env.DIST;
 
-// This global variable will hold the reference to the main window.
 let win;
+let quickCaptureWindow;
+let splash;
 
-function createWindow() {
-  // ✅ CHANGED: Removed 'const' to assign to the global 'win' variable.
-  win = new BrowserWindow({
-    width: 1024,
-    height: 800,
-    minWidth: 1024,
-    minHeight: 800,
-    show: false, // Don't show until ready
-    icon: path.join(__dirname, '../assets/icon.png'),
+function openQuickCaptureWindow() {
+  if (quickCaptureWindow) {
+    quickCaptureWindow.focus();
+    return;
+  }
+
+  quickCaptureWindow = new BrowserWindow({
+    title: "QuickCapture",
+    width: 500,
+    height: 400,
     frame: false,
-    titleBarStyle: 'hidden',
+    alwaysOnTop: true,
+    skipTaskbar: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  // Show window when its content is ready (prevents a white flash)
-  win.once('ready-to-show', () => {
-    if (!win.isDestroyed()) {
-      win.show();
-    }
-  });
+  const url = process.env.VITE_DEV_SERVER_URL
+    ? `${process.env.VITE_DEV_SERVER_URL}#/quick-capture`
+    : `file://${path.join(process.env.DIST, "index.html")}#/quick-capture`;
 
-  win.webContents.on("did-finish-load", () => {
-    if (!win.isDestroyed()) {
-      win.webContents.send("main-process-message", new Date().toLocaleString());
-    }
-  });
-
-  // These listeners are specific to the 'win' instance, so it's okay for them to be here.
-  win.on('maximize', () => {
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('window-maximized', true);
-    }
-  });
-  win.on('unmaximize', () => {
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('window-maximized', false);
-    }
-  });
-
+  console.log("Loading QuickCapture URL:", url);
+  quickCaptureWindow.loadURL(url);
 
   if (process.env.VITE_DEV_SERVER_URL) {
-    win.loadURL(process.env.VITE_DEV_SERVER_URL);
-    win.webContents.openDevTools();
-  } else {
-    win.loadFile(path.join(process.env.DIST, 'index.html'));
+    quickCaptureWindow.webContents.openDevTools({ mode: "detach" });
   }
-}
 
-app.whenReady().then(async () => {
-  // await startQdrant();
-  localDB.initDatabase();
-
-  // --- ✅ MOVED: Window control listeners are now here for consistency ---
-  ipcMain.on('minimize-window', () => {
-    if (win && !win.isDestroyed()) win.minimize();
+  quickCaptureWindow.once("ready-to-show", () => {
+    if (!quickCaptureWindow.isDestroyed()) quickCaptureWindow.show();
   });
 
-  ipcMain.on('maximize-window', () => {
-    if (win && !win.isDestroyed()) {
-      if (win.isMaximized()) {
-        win.unmaximize();
-      } else {
-        win.maximize();
+  // 🔑 Close on ESC
+  quickCaptureWindow.webContents.on("before-input-event", (_event, input) => {
+    if (input.key === "Escape") {
+      if (!quickCaptureWindow.isDestroyed()) {
+        quickCaptureWindow.close();
       }
     }
   });
 
-  ipcMain.on('close-window', () => {
-    if (win && !win.isDestroyed()) win.close();
+  quickCaptureWindow.on("closed", () => {
+    quickCaptureWindow = null;
   });
-  // --- End of moved listeners ---
+}
 
-  ipcMain.handle("media:save", handleSaveMedia);
-  ipcMain.handle('media:open', handleOpenMedia);
-  ipcMain.handle('media:save-profile', handleSaveProfileImage);
-  ipcMain.handle('media:getImage', (event, imagePath) => getImageBase64(imagePath));
-  ipcMain.handle('media:getAudio', (event, audioPath) => getAudioBase64(audioPath));
 
-  ipcMain.on("screen:maximize", () => {
-    if (win && !win.isDestroyed()) {
-      win.maximize();
-    }
+
+// ------------------- Qdrant Worker -------------------
+function createQdrantWorker() {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+
+  const isDev = !app.isPackaged;
+
+  const workerPath = isDev
+    ? path.join(__dirname, "qdrantWorker.js")
+    : path.join(process.resourcesPath, "dist-electron", "qdrantWorker.js");
+
+  const worker = new Worker(workerPath, { type: "module" });
+
+  worker.on("message", (message) => console.log("Qdrant Worker Message:", message));
+  worker.on("error", (error) => console.error("Qdrant Worker Error:", error));
+  worker.on("exit", (code) => {
+    if (code !== 0) console.error(`Qdrant Worker stopped with exit code ${code}`);
+    else console.log("Qdrant worker exited successfully");
   });
+  worker.on("online", () => console.log("Qdrant worker is online"));
 
-  ipcMain.handle("open-external", async (_event, url) => {
+  global.qdrantWorker = worker;
+
+  return worker;
+}
+
+// ------------------- Optional GPU Fallback -------------------
+// Enable this by setting environment variable MS_DISABLE_GPU=1 on affected machines
+if (process.platform === "win32" && process.env.MS_DISABLE_GPU === "1") {
+  app.commandLine.appendSwitch("disable-gpu");
+}
+
+// ------------------- App Ready -------------------
+app.whenReady().then(async () => {
+  // Simple file logger in userData to debug startup on customer machines
+  const logPath = path.join(app.getPath("userData"), "main.log");
+  const log = (message) => {
     try {
-      await shell.openExternal(url);
-      return { success: true };
-    } catch (err) {
-      console.error("openExternal failed:", err);
-      return { success: false, error: String(err) };
-    }
-  });
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`);
+    } catch {}
+  };
 
-  // auth
-  ipcMain.handle('auth:register', handleRegister);
-  ipcMain.handle('auth:login', handleLogin);
-  ipcMain.handle('login:google', handleGoogleLogin);
+  log("App ready");
 
-  // user
-  ipcMain.handle("user:get-me", userGetMe);
-  ipcMain.handle('user:update-profile', userUpdateProfile);
-  ipcMain.handle('user:get-settings', userGetSettings);
-  ipcMain.handle('user:update-settings', userUpdateSettings);
-  ipcMain.handle("user:change-password", userChangePassword);
-  ipcMain.handle('user:delete-account', userDeleteAccount);
+  // Show splash immediately
+  try {
+    splash = new BrowserWindow({
+      width: 420,
+      height: 300,
+      resizable: false,
+      frame: false,
+      alwaysOnTop: true,
+      transparent: true,
+      show: true,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false,
+      },
+    });
+    const splashUrl = process.env.VITE_DEV_SERVER_URL
+      ? `${process.env.VITE_DEV_SERVER_URL}splash.html`
+      : `file://${path.join(process.env.DIST, "splash.html")}`;
+    splash.loadURL(splashUrl);
+    log("Splash window shown");
+  } catch (e) {
+    log(`Failed to create splash: ${e?.stack || e}`);
+  }
 
-  // journal
-  ipcMain.handle('journal:create', handleCreateJournal);
-  ipcMain.handle('journal:get-recent', handleGetRecentJournals);
-  ipcMain.handle('journal:get-all', handleGetAllJournals);
-  ipcMain.handle('journal:get-by-id', handleGetJournalById);
-  ipcMain.handle('journal:update', handleUpdateJournal);
-  ipcMain.handle('journal:delete', handleDeleteJournal);
-  ipcMain.handle('journal:get-images', handleGettingImages);
-  ipcMain.handle('journal:get-chart-data', handleGetChartData);
-  ipcMain.handle('chat:send', handleChat);
+  // Create main window in background; it will be shown after services are ready
+  try {
+    win = await createWindow();
+    log("Main window created");
+  } catch (e) {
+    log(`Failed to create window: ${e?.stack || e}`);
+  }
 
-  // Categories
-  ipcMain.handle('category:get-all', handleGetCategories);
-  ipcMain.handle('category:delete', handleDeleteCategory);
-  ipcMain.handle('category:add', handleAddCategory);
-  ipcMain.handle("category:update", handleUpdateCategory);
-
-  // goals
-  ipcMain.handle('goal:get-active-goals', handleGetActiveGoals);
-  ipcMain.handle("goal:get-completed-goals", handleGetCompletedGoals);
-  ipcMain.handle('goal:add', handleCreateGoal);
-  ipcMain.handle('goal:update', handleUpdateGoal);
-  ipcMain.handle('goal:delete', handleDeleteGoal);
-  ipcMain.handle('goal:toggle-pin', handleTogglePin);
-  ipcMain.handle('goal:complete', handleCompleteGoal);
-  ipcMain.handle('goal:update-progress', handleUpdateProgress);
-  ipcMain.handle('goal:getPinned', handleGetPinnedGoals);
-
-  // logs
-  ipcMain.handle('logs:getAll', handleGetProgressLogs);
-  ipcMain.handle('logs:add', handleAddProgressLog);
-
-  // ollama
-  ipcMain.handle('ollama:models', handleGetOllamaModels);
-  ipcMain.handle('ollama:get-response', handleOllamaPrompt);
-
-  // Whisper
-  ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);
-  ipcMain.handle("whisper:stop-live-transcription", stopLiveTranscription);
-  ipcMain.handle("whisper:transcribe-audio", async (event, filePath) => {
+  // Start services asynchronously, and keep the UI up
+  (async () => {
     try {
-      const result = await transcribeAudioBlob(filePath, event);
-      event.sender.send("blob-transcription-result", result);
-    } catch (err) {
-      event.sender.send("blob-transcription-error", err.message);
+      log("Initializing localDB");
+      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Initializing local database…');
+      localDB.initDatabase();
+    } catch (e) {
+      log(`localDB init error: ${e?.stack || e}`);
+    }
+
+    try {
+      log("Running OllamaEmbeddingModelSetup");
+      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Preparing AI models…');
+      OllamaEmbeddingModelSetup();
+    } catch (e) {
+      log(`Ollama setup error: ${e?.stack || e}`);
+    }
+
+    try {
+      log("Starting Qdrant");
+      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Starting vector database…');
+      const runtime = await startQdrant();
+      log("Qdrant started");
+      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Wiring up services…');
+      registerIPCHandlers(runtime);
+      setupEventBusListeners();
+      createQdrantWorker();
+      log("IPC handlers, event bus, and worker initialized");
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('services-ready');
+        log("Sent services-ready to renderer");
+        try {
+          if (splash && !splash.isDestroyed()) splash.close();
+        } catch {}
+        try {
+          if (!win.isDestroyed()) win.show();
+        } catch {}
+      }
+    } catch (e) {
+      log(`Qdrant/IPC init error: ${e?.stack || e}`);
+    }
+  })();
+
+  // ------------------- Global Shortcut -------------------
+  const shortcut =
+    process.platform === "darwin" ? "Command+Option+Space" : "Control+Alt+Space";
+
+  const registered = globalShortcut.register(shortcut, () => {
+    console.log("QuickCapture triggered!");
+    openQuickCaptureWindow();
+  });
+
+  ipcMain.handle("quick-capture:close", () => {
+    if (quickCaptureWindow && !quickCaptureWindow.isDestroyed()) {
+      quickCaptureWindow.close();
+      quickCaptureWindow = null; // reset reference
     }
   });
 
-  eventBus.on("journal:aiStarted", ({ entryId }) => {
-    const win = BrowserWindow.getAllWindows()[0]; // or target a specific window
-    if (win) win.webContents.send("journal:aiStarted", { entryId });
-  });
+  if (!registered) console.log("Failed to register QuickCapture global shortcut");
 
-  eventBus.on("journal:aiCompleted", ({ entryId, aiOutput }) => {
-    const win = BrowserWindow.getAllWindows()[0];
-    if (win) win.webContents.send("journal:aiCompleted", { entryId, aiOutput });
-  });
-
-  // Start your backend server first!
-  startServer();
-
-  // Then create the frontend window
-  createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-app.commandLine.appendSwitch('disable-features', 'AutofillServerCommunication');
+// Enable launch at startup
+app.setLoginItemSettings({
+  openAtLogin: true, // Launch at startup
+  path: process.execPath, // Executable path
+  args: [], // Optional command-line args
+});
 
-app.on('window-all-closed', () => {
+// Optional: check if startup is enabled
+const loginItemSettings = app.getLoginItemSettings();
+console.log("Launch at startup enabled:", loginItemSettings.openAtLogin);
+
+// ------------------- Command Line & Autofill -------------------
+app.commandLine.appendSwitch("disable-features", "AutofillServerCommunication");
+
+// ------------------- Quit & Cleanup -------------------
+app.on("window-all-closed", () => {
   win = null;
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== "darwin") app.quit();
 });
 
-// ensure method modules that register event listeners are loaded
-import './methods/ollama.js';
-import { eventBus } from './eventBus.js'; import { startLiveTranscription, stopLiveTranscription, transcribeAudio, transcribeAudioBlob } from './methods/whisper.js';
-
+app.on("before-quit", () => {
+  stopQdrant();
+  globalShortcut.unregisterAll(); // Clean up global shortcuts
+});

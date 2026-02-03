@@ -12,7 +12,6 @@ function getUserIdFromToken(token) {
         }
         const decoded = jwt.decode(token);
         // 2. Ensure the token was successfully decoded and has an id
-        console.log(decoded);
         return decoded;
     } catch (e) {
         console.error("Error decoding token:", e);
@@ -69,7 +68,6 @@ export async function handleGetRecentJournals(event, mode, token) {
 }
 
 export async function handleGetAllJournals(event, mode, token, page, limit) {
-    console.log("Getting all entries", mode, token);
     const userId = getUserIdFromToken(token).id;
     if (!userId) throw new Error("Invalid token");
 
@@ -79,9 +77,8 @@ export async function handleGetAllJournals(event, mode, token, page, limit) {
         });
         return response.data;
     } else { // Offline
-        console.log("Getting all entries offline");
-        const ans = localDB.getAllEntries(userId, page, limit);
-        console.log(ans);
+        const offset = page * limit; // Calculate offset from page and limit
+        const ans = localDB.getAllEntries(userId, limit, offset);
         return ans
     }
 }
@@ -96,6 +93,7 @@ export async function handleGetJournalById(event, mode, token, journalId) {
         });
         return response.data;
     } else { // Offline
+        console.log("Fetching journal by ID in offline mode:", journalId);
         return localDB.getJournalById(userId, journalId);
     }
 }
@@ -112,7 +110,6 @@ export async function handleUpdateJournal(event, mode, token, journalId, payload
     } else { // Offline
         updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
     }
-    console.log(updatedJournal)
     if (updatedJournal.audio_key) {
         eventBus.emit("journal:audio-saved", ({ entry: updatedJournal, event }))
     }
@@ -158,13 +155,41 @@ export async function handleGetChartData(event, mode, token, range) {
     }
 }
 
+export const getPendingJournals = (userId) => {
+    if (!userId) throw new Error("Invalid userId");
+    return localDB.getPendingJournals(userId);
+}
+
+export const updateSyncStatus = (userId, journalId, status) => {
+    if (!userId) throw new Error("Invalid userId");
+    if (!journalId) throw new Error("Invalid journalId");
+    if (!status) throw new Error("Invalid status");
+    return localDB.updateSyncStatus(userId, journalId, status);
+}
+
+
+
 const addContentSummary = (summary, journalId, userId) => {
     return localDB.addContentSummary(summary, journalId, userId);
+}
+function cleanAndParseJSON(inputStr) {
+    try {
+        // Remove Markdown code block markers like ```json ... ```
+        const cleaned = inputStr
+            .replace(/```json/i, "") // remove opening ```json
+            .replace(/```/g, "")     // remove closing ```
+            .trim();
+
+        return JSON.parse(cleaned);
+    } catch (err) {
+        console.error("Failed to parse JSON:", err.message);
+        return {};
+    }
 }
 
 eventBus.on("journal:aiCompleted", ({ entry, res3 }) => {
     try {
-        res3 = typeof res3 === "string" ? JSON.parse(res3) : (res3 || {});
+        res3 = typeof res3 === "string" ? cleanAndParseJSON(res3) : (res3 || {});
     } catch (err) {
         console.error("Failed to parse AI response (res3):", err);
         res3 = {};
@@ -178,6 +203,15 @@ eventBus.on("journal:aiCompleted", ({ entry, res3 }) => {
 
     const updated = localDB.updateJournalEntry(entry.user_id, entry.id, enrichedEntry);
     eventBus.emit("journal:updated", { entry: updated });
+    // Trigger Qdrant update with the new fields via worker message
+    if (global.qdrantWorker) {
+        global.qdrantWorker.postMessage({
+            type: 'journal:qdrant-update-needed',
+            data: { entry: updated }
+        });
+    } else {
+        console.error(`[JOURNAL] Qdrant worker not available for journal ID: ${entry.id}`);
+    }
 });
 
 
@@ -186,7 +220,11 @@ eventBus.on("ollama:summary-generated", ({ summary, id, userId }) => {
 })
 
 eventBus.on("whisper:transcribe-ended", ({ entry, transcriptionText }) => {
-    console.log("📝 Transcription text:", transcriptionText);
     updateJournalEntry(entry.user_id, entry.id, { ...entry, transcription: transcriptionText });
     eventBus.emit("journal:updated", { entry: { ...entry, transcription: transcriptionText } });
+});
+
+
+eventBus.on("custom:test-event", (data) => {
+    console.log("Custom test event received with data:", data);
 });

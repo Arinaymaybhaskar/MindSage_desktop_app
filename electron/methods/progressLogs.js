@@ -1,5 +1,7 @@
 import localDB from "../db";
 import jwt from "jsonwebtoken";
+import { eventBus } from "../eventBus";
+import { db } from "../db/connection";
 
 function getUserIdFromToken(token) {
     try {
@@ -9,7 +11,6 @@ function getUserIdFromToken(token) {
         }
         const decoded = jwt.decode(token);
         // 2. Ensure the token was successfully decoded and has an id
-        console.log(decoded);
         return decoded.id;
     } catch (e) {
         console.error("Error decoding token:", e);
@@ -33,7 +34,6 @@ export const handleGetProgressLogs = async (event, authMode, token, goalId) => {
 
 export const handleAddProgressLog = async (event, authMode, token, goalId, value, description) => {
     const userId = getUserIdFromToken(token);
-        console.log(userId, "userID in profgesslofg")
     if (!userId) {
         return { error: "Invalid token" };
     }
@@ -41,6 +41,15 @@ export const handleAddProgressLog = async (event, authMode, token, goalId, value
     if (authMode === "online") {
         console.log("online mode")
     } else {
-        return localDB.logProgress(goalId, value, description);
+        const addedLog = localDB.logProgress(goalId, value, description);
+        if (addedLog) {
+            // Emit event - worker will automatically pick this up
+            eventBus.emit("progress_log:created", { entry: addedLog });
+
+            // Also emit goal updated event since current_value changed
+            const updatedGoal = db.prepare('SELECT * FROM goals WHERE id = ?').get(addedLog.goal_id);
+            eventBus.emit("goal:updated", { entry: updatedGoal });
+        }
+        return addedLog;
     }
 }

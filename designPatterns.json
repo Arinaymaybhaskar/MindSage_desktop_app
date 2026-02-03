@@ -1,0 +1,118 @@
+{
+  "design_patterns_learned": [
+    {
+      "name": "Theming & Color Palette",
+      "description": "The application uses a dual-theme approach (light/dark mode) with a consistent color palette across all components. Colors are semantically named to define their purpose.",
+      "details": {
+        "primary_colors": {
+          "info": "Accent color for interactive elements, highlights (blue/teal hues).",
+          "success": "For positive feedback, installed states (green hues).",
+          "warning": "For cautionary notes (yellow/orange hues).",
+          "error": "For negative feedback, destructive actions (red hues)."
+        },
+        "background_colors": {
+          "base_light": "Overall background for light theme.",
+          "base_dark": "Overall background for dark theme.",
+          "surface_light": "Main content surfaces, cards, input backgrounds in light theme.",
+          "surface_dark": "Main content surfaces, cards, input backgrounds in dark theme.",
+          "secondary_light": "Slightly darker/recessed backgrounds (e.g., chat background, settings page outer container) in light theme.",
+          "secondary_dark": "Slightly darker/recessed backgrounds in dark theme.",
+          "tertiary_light": "Even darker/more recessed backgrounds, hover states, sub-containers in light theme.",
+          "tertiary_dark": "Even darker/more recessed backgrounds, hover states, sub-containers in dark theme."
+        },
+        "text_colors": {
+          "text_light": "Primary text color in light theme.",
+          "text_dark": "Primary text color in dark theme.",
+          "text_light_sub": "Subtle/secondary text color (e.g., descriptions, placeholders) in light theme.",
+          "text_dark_sub": "Subtle/secondary text color in dark theme."
+        },
+        "border_colors": {
+          "border_light": "Default border color in light theme.",
+          "border_dark": "Default border color in dark theme."
+        }
+      }
+    },
+    {
+      "name": "Consistent Typography",
+      "description": "A clear hierarchy of font sizes and weights is used for headings, body text, and labels.",
+      "details": {
+        "font_family": "Default sans-serif, with 'fraunces' for specific display elements (like initial greeting).",
+        "font_sizes": "Small (xs, sm), medium (base), large (lg, xl, 3xl) with consistent usage.",
+        "font_weights": "Regular (normal), Medium (500), Semi-bold (600), Bold (700)."
+      }
+    },
+    {
+      "name": "Rounded Corners & Soft Shadows",
+      "description": "Elements consistently use rounded corners and subtle shadows to create a modern, friendly, and elevated feel.",
+      "details": {
+        "border_radius": "Typically `rounded-lg` (8px) or `rounded-2xl` (16px) for cards, modals, and larger containers; `rounded-full` for buttons and badges.",
+        "shadows": "Subtle `shadow-sm`, `shadow-md`, or `shadow-lg` for interactive elements, cards, and modals."
+      }
+    },
+    {
+      "name": "Interactive States (Hover, Focus, Active, Disabled)",
+      "description": "Clear visual feedback is provided for user interactions.",
+      "details": {
+        "hover": "Opacity changes (`hover:opacity-95`), background color changes (`hover:bg-info/90`, `hover:bg-tertiary-light`), underline for links (`hover:underline`).",
+        "focus": "Outline removal (`focus:outline-none`) as borders/shadows often indicate focus.",
+        "disabled": "Reduced opacity (`opacity-50`) and `cursor-not-allowed` for disabled states.",
+        "active": "Subtle background changes or darker shades for active elements."
+      }
+    },
+    {
+      "name": "Micro-interactions & Animations (Framer Motion)",
+      "description": "Subtle, deliberate animations enhance the user experience, providing visual cues for changes in state or content.",
+      "details": {
+        "presence_animations": "Used with `AnimatePresence` for mounting/unmounting components (e.g., chat bubbles, modals, dropdowns) with `initial`, `animate`, `exit` states.",
+        "layout_animations": "Smooth transitions for layout changes (`layout` prop).",
+        "spring_transitions": "Often `type: \"spring\"` with `stiffness` and `damping` for natural, bouncy movements.",
+        "opacity_transitions": "Fade-ins and fade-outs for visibility changes.",
+        "scale_transitions": "Subtle scaling (`scale: 0.95` to `scale: 1`) for pop-up elements.",
+        "translate_transitions": "Vertical translation (`y: 10` or `y: -50`) for entry/exit of elements."
+      }
+    },
+    {
+      "name": "Iconography",
+      "description": "Lucide React icons are used consistently for visual communication, often paired with text.",
+      "details": {
+        "size": "Typically `size={16}` or `size={18}` for inline text, `size={20}` for buttons, `size={32}` for prominent features.",
+        "color": "Often `text-info` for primary actions/features, or `text-text-light-sub` for secondary/decorative icons."
+      }
+    },
+    {
+      "name": "Component Abstraction & Reusability",
+      "description": "Common UI elements are extracted into reusable components (e.g., Dropdown, Badge, ModelCard, Modal) to maintain consistency and reduce code duplication.",
+      "details": {
+        "Dropdown": "Custom selection component with consistent styling.",
+        "Badge": "Small, informative labels with distinct styling.",
+        "ModelCard": "Standardized display for individual AI models.",
+        "ModelDetailsModal": "A generic modal structure adapted for displaying detailed model information.",
+        "LoadingState": "Consistent visual indication for loading data (e.g., animated `Loader2` icon, `LoadingBubble`)."
+      }
+    },
+    {
+      "name": "Responsive Design",
+      "description": "Components are designed to adapt to different screen sizes.",
+      "details": {
+        "flexbox_grid": "Extensive use of flexbox and CSS Grid (`sm:flex-row`, `md:grid-cols-2`) for adaptive layouts.",
+        "max_widths": "Using `max-w-xl`, `max-w-2xl` to constrain content width on larger screens."
+      }
+    },
+    {
+      "name": "Feedback Mechanisms (Toasts)",
+      "description": "Non-intrusive notifications for user actions or system status.",
+      "details": {
+        "react-hot-toast": "Used for success, error, and loading messages. Consistent styling for toast messages."
+      }
+    },
+    {
+      "name": "Empty States / Placeholders",
+      "description": "Friendly and informative messages for when there is no content.",
+      "details": {
+        "greeting": "Personalized greetings based on time of day in chat component.",
+        "ComingSoonPlaceholder": "A dedicated component for features under development, with clear messaging and an icon.",
+        "NoSearchResults": "Centered text message for empty search results."
+      }
+    }
+  ]
+}

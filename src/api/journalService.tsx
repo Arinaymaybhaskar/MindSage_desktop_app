@@ -10,6 +10,15 @@ export interface JournalEntry {
   created_at?: string;
   image_key?: string;
   audio_key?: string;
+  synced_to_qdrant?:
+    | "not_synced"
+    | "pending"
+    | "in_progress"
+    | "success"
+    | "failed";
+  transcription?: string;
+  content_summary?: string;
+  tags?: string[];
 }
 
 interface MoodScoreData {
@@ -37,7 +46,6 @@ export const journalService = {
     limit: number = 10
   ): Promise<JournalEntry[]> => {
     checkElectron();
-    console.log("called get all");
     return await window.electron.ipcRenderer.invoke(
       "journal:get-all",
       mode,

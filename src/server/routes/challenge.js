@@ -126,16 +126,13 @@ router.post("/create", checkCronAuth, async (req, res) => {
 router.get("/upload", authenticateToken, async (req, res) => {
   const fileType = req.query.type;
   const challengeId = req.query.challengeId;
-  console.log(challengeId)
-  console.log(`[API] 🔐 User ID: ${req.user.id}`);
-  console.log(`[API] 📁 Requested file type: ${fileType}`);
+
 
   if (!fileType) return res.status(400).json({ error: "Missing file type" });
 
   try {
     const result = await generateUploadUrl(req.user.id, challengeId, fileType, "challenge");
-    console.log(`[API] ✅ Returning signed URL`);
-    console.log(result, 'result')
+
     res.json(result);
   } catch (err) {
     console.error(`[API] ❌ Error generating signed URL`, err);

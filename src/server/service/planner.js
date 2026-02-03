@@ -73,7 +73,6 @@ User Question: "${userQuery}"
 
 const createPlan = async (userQuery) => {
     const prompt = createPlannerPrompt(userQuery);
-    console.log(new Date().toISOString(), "currentDateandTime")
     try {
         const response = await axios.post(`${AI_CORE_URL}/chat`, {
             query: prompt,
@@ -81,8 +80,6 @@ const createPlan = async (userQuery) => {
             format: 'json' // This still tells Ollama to guarantee JSON output
         });
         
-        // Add a log to see the raw response from the AI Core
-        console.log("[Planner] AI Core raw response:", response.data);
 
         let planObject;
         try {

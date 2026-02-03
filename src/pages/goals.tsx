@@ -19,6 +19,8 @@ import { progressLogsService } from "../api/progressLogsService";
 import LogProgressModal from "../components/goals/modals/logProgressModal";
 import GoalCardSkeleton from "../components/goals/GoalCardSkeleton";
 import ActiveGoalsList from "../components/goals/ActiveGoalsList";
+import { qdrantService } from "../api/qdrantService";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const GoalsPage: React.FC = () => {
   // All state, data fetching, and handler logic remains the same...
@@ -34,6 +36,8 @@ const GoalsPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null
   );
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isCompletedGoalsOpen, setIsCompletedGoalsOpen] = useState(true);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [progressLogs, setProgressLogs] = useState<ProgressLog[]>();
@@ -82,20 +86,44 @@ const GoalsPage: React.FC = () => {
     ? completedGoals.filter((g) => g.category_id === selectedCategory.id)
     : completedGoals;
 
+  useEffect(() => {
+    const pathParts = location.pathname.split("/").filter(Boolean); // ["goals", "create-manual"]
+    if (pathParts[0] !== "goals") return;
+
+    switch (pathParts[1]) {
+      case "create-manual":
+        setModalType("manualCreate");
+        break;
+      case "create-with-ai":
+        setModalType("AICreate");
+        break;
+      case "category":
+        // optionally preselect a category or trigger filter UI
+        break;
+      default:
+        setModalType(null);
+    }
+  }, [location.pathname]);
+
   const handleCreateOrUpdateGoal = async (
     goalData: Goal,
     newCategory?: Category
   ) => {
     try {
+      let goalAdded;
       if (modalType === "edit") {
-        await goalService.updateGoal(
+        goalAdded = await goalService.updateGoal(
           authMode,
           accessToken!,
           goalData.id,
           goalData
         );
       } else {
-        await goalService.addGoal(authMode, accessToken!, goalData);
+        goalAdded = await goalService.addGoal(authMode, accessToken!, goalData);
+      }
+      console.log(goalAdded, "goalAdded");
+      if (goalAdded) {
+        await qdrantService.syncGoal(goalAdded.lastInsertRowid);
       }
       closeModal();
       await fetchAllData();
@@ -105,7 +133,6 @@ const GoalsPage: React.FC = () => {
   };
 
   const handleDelete = async (goal: Goal) => {
-    console.log(goal, "delete called");
     await goalService.deleteGoal(authMode, accessToken!, goal.id);
     closeModal();
     await fetchAllData();
@@ -139,6 +166,7 @@ const GoalsPage: React.FC = () => {
   const closeModal = () => {
     setSelectedGoal(null);
     setModalType(null);
+    navigate("/goals", { replace: true });
   };
 
   const handleLogProgress = async (
@@ -153,14 +181,19 @@ const GoalsPage: React.FC = () => {
         goalId,
         value
       );
+      let log;
       if (res) {
-        await progressLogsService.addProgress(
+        log = await progressLogsService.addProgress(
           authMode,
           accessToken!,
           goalId,
           value,
           description
         );
+      }
+      console.log(log, "log");
+      if (log) {
+        qdrantService.syncProgressLog(log.id);
       }
       closeModal();
       if (res.target_value === res.current_value) {
@@ -192,7 +225,7 @@ const GoalsPage: React.FC = () => {
           </h1>
           <button
             onClick={() => openModal("addChoice")}
-            className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all duration-200 hover:scale-105"
+            className="flex items-center gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 transition-all duration-200 hover:scale-105"
           >
             <Plus size={20} />
             <span>Add Goal</span>

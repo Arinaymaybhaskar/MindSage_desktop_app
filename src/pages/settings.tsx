@@ -1,72 +1,73 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { userService } from "../api/userService";
-import {
-  User,
-  Palette,
-  BrainCircuit,
-  Bell,
-  Lock,
-  Download,
-  Mic,
-  Target,
-} from "lucide-react";
+import { User, Palette, Lock, Download, Boxes, MonitorCog } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import SettingsSkeleton from "../components/Skeletons/SettingsSkeleton";
 import { motion } from "framer-motion";
+import { Link, useLocation } from "react-router-dom";
+import { useToast } from "../context/ToastContext";
 
+// Lazy-loaded settings components
 const ProfileSettings = lazy(
   () => import("../components/settings/ProfileSettings")
 );
-// const AppearanceSettings = lazy(
-//   () => import("../components/settings/AppearanceSettings")
-// );
-// const AISettings = lazy(() => import("../components/settings/AISettings"));
-// const NotificationsSettings = lazy(
-//   () => import("../components/settings/NotificationsSettings")
-// );
-// const AudioSettings = lazy(
-//   () => import("../components/settings/AudioSettings")
-// );
-// const GoalsSettings = lazy(
-//   () => import("../components/settings/GoalsSettings")
-// );
+const ColorSettings = lazy(
+  () => import("../components/settings/ColorSettings")
+);
+const ModelSettings = lazy(
+  () => import("../components/settings/ModelSettings")
+);
 const SecuritySettings = lazy(
   () => import("../components/settings/SecuritySettings")
 );
-// const ExportSettings = lazy(
-//   () => import("../components/settings/ExportSettings")
-// );
+const ExportSettings = lazy(
+  () => import("../components/settings/ExportSettings")
+);
+const AppearanceSettings = lazy(
+  () => import("../components/settings/AppearanceSettings")
+);
 
+// Mapping of sections
 const settingsSections = {
   profile: { label: "Profile", icon: User, component: ProfileSettings },
-  // appearance: {
-  //   label: "Appearance",
-  //   icon: Palette,
-  //   component: AppearanceSettings,
-  // },
-  // ai: { label: "AI Features", icon: BrainCircuit, component: AISettings },
-  // notifications: {
-  //   label: "Notifications",
-  //   icon: Bell,
-  //   component: NotificationsSettings,
-  // },
-  // audio: { label: "Audio & Voice", icon: Mic, component: AudioSettings },
-  // goals: { label: "Goals & Streaks", icon: Target, component: GoalsSettings },
+  colors: { label: "Colors", icon: Palette, component: ColorSettings },
+  appearance: {
+    label: "Appearance",
+    icon: MonitorCog,
+    component: AppearanceSettings,
+  },
+  models: { label: "Models", icon: Boxes, component: ModelSettings },
   security: { label: "Security", icon: Lock, component: SecuritySettings },
-  // export: { label: "Data Export", icon: Download, component: ExportSettings },
+  export: { label: "Data Export", icon: Download, component: ExportSettings },
 };
 
 const Settings = () => {
-  const [settings, setSettings] = useState(null);
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("profile");
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
 
+  const [user, setUser] = useState(null);
+  const [settings, setSettings] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const location = useLocation();
+  const { showToast } = useToast();
+  // Determine active tab from current URL
+  const getActiveTabFromPath = () => {
+    const parts = location.pathname.split("/").filter(Boolean); // e.g., ["settings", "models"]
+    const key = parts.length > 1 ? parts[1] : "profile";
+    return settingsSections[key] ? key : "profile";
+  };
+
+  const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
+
+  useEffect(() => {
+    setActiveTab(getActiveTabFromPath());
+  }, [location.pathname]);
+
+  // Fetch user and settings on mount
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -74,12 +75,11 @@ const Settings = () => {
           userService.getMe(authMode, accessToken!),
           userService.getSettings(authMode, accessToken!),
         ]);
-        console.log("Fetched user:", userResponse);
         setUser(userResponse);
         setSettings(settingsResponse);
       } catch (error) {
         console.error("Failed to fetch settings data:", error);
-        toast.error("Could not load your data.");
+        showToast("Could not load your data.", "danger");
       } finally {
         setIsLoading(false);
       }
@@ -87,41 +87,10 @@ const Settings = () => {
     fetchInitialData();
   }, [authMode, accessToken]);
 
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace("#", "");
-      // Support hashes like "#/settings/appearance" or "#appearance"
-      const parts = hash.split("/").filter(Boolean);
-      const key = parts.length ? parts[parts.length - 1] : "";
-      if (settingsSections[key]) {
-        setActiveTab(key);
-      } else {
-        setActiveTab("profile");
-      }
-    };
-    window.addEventListener("hashchange", handleHashChange);
-    handleHashChange();
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
-
-  const handleSettingsSave = async (newSettings) => {
-    const toastId = toast.loading("Saving settings...");
-    try {
-      const updatedSettings = await userService.updateSettings(
-        authMode,
-        accessToken!,
-        newSettings
-      );
-      setSettings(updatedSettings);
-      toast.success("Settings saved!", { id: toastId });
-    } catch (error) {
-      toast.error("Failed to save settings.", { id: toastId });
-    }
-  };
-
+  // Save handlers
   const handleProfileSave = async (newProfile) => {
-    const toastId = toast.loading("Saving profile...");
     try {
+      showToast("Saving profile...", "info");
       const updatedUser = await userService.updateProfile(
         authMode,
         accessToken!,
@@ -129,27 +98,33 @@ const Settings = () => {
       );
       setUser(updatedUser.user);
       localStorage.setItem("userInfo", JSON.stringify(updatedUser.user));
-      toast.success("Profile updated!", { id: toastId });
+      showToast("Profile updated!", "success");
     } catch (error) {
-      toast.error("Failed to update profile.", { id: toastId });
+      showToast("Failed to update profile.", "danger");
     }
   };
 
-  if (isLoading) {
-    return <SettingsSkeleton />;
-  }
+  const handleSettingsSave = async (newSettings) => {
+    showToast("Saving settings...", "info");
+    try {
+      const updatedSettings = await userService.updateSettings(
+        authMode,
+        accessToken!,
+        newSettings
+      );
+      setSettings(updatedSettings);
+      showToast("Settings saved!", "success");
+    } catch (error) {
+      showToast("Failed to save settings.", "danger");
+    }
+  };
+
+  if (isLoading) return <SettingsSkeleton />;
 
   const ActiveComponent = settingsSections[activeTab]?.component;
 
   return (
     <>
-      <Toaster
-        position="bottom-center"
-        toastOptions={{
-          className:
-            "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark border border-border-light dark:border-border-dark",
-        }}
-      />
       <div className="bg-base-light dark:bg-base-dark min-h-screen">
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <header className="mb-8">
@@ -162,21 +137,17 @@ const Settings = () => {
           </header>
 
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
+            {/* Sidebar */}
             <aside className="lg:w-1/4 w-full lg:sticky top-24">
               <nav className="space-y-1 relative">
                 {Object.entries(settingsSections).map(
                   ([key, { label, icon: Icon }]) => (
-                    <a
+                    <Link
                       key={key}
-                      href={`#/settings/${key}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        // Update hash to include the settings base so the Router stays on /settings/*
-                        window.location.hash = `/settings/${key}`;
-                      }}
+                      to={`/settings/${key}`}
                       className={`relative flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors z-10 ${
                         activeTab === key
-                          ? "text-info"
+                          ? "text-dark1 dark:text-light1"
                           : "text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
                       }`}
                     >
@@ -195,12 +166,13 @@ const Settings = () => {
                         <Icon size={20} />
                       </span>
                       <span className="relative z-10">{label}</span>
-                    </a>
+                    </Link>
                   )
                 )}
               </nav>
             </aside>
 
+            {/* Content */}
             <div className="lg:w-3/4 w-full">
               <Suspense
                 fallback={

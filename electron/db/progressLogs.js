@@ -11,5 +11,7 @@ export async function logProgress(goalId, progress, description) {
     const stmt = db.prepare(`
         INSERT INTO progress_logs (goal_id, value, description) VALUES (?, ?, ?)
     `);
-    return stmt.run(goalId, progress, description);
+    const id = stmt.run(goalId, progress, description).lastInsertRowid;
+    const progressLog = db.prepare('SELECT * FROM progress_logs WHERE id = ?').get(id);
+    return progressLog;
 }

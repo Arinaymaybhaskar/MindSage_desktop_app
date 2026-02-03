@@ -71,7 +71,7 @@ const GoalsSettings = ({ settings, onSettingsSave }) => {
                 { "--thumb-color": "var(--color-info)" } as React.CSSProperties
               }
             />
-            <span className="font-semibold text-info w-12 text-center">
+            <span className="font-semibold text-dark1 dark:text-light1 w-12 text-center">
               {localSettings?.journaling_goal}
             </span>
           </div>
@@ -81,7 +81,7 @@ const GoalsSettings = ({ settings, onSettingsSave }) => {
         <div className="flex justify-end border-t border-border-light dark:border-border-dark pt-6 mt-2">
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all"
           >
             <Save size={16} /> Save Goal Settings
           </button>

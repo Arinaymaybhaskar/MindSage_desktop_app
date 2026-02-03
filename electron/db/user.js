@@ -38,7 +38,6 @@ export function updateUserProfile(userId, { username, email, full_name }) {
         )
         .get(userId);
     if (!user) return null;
-    console.log(user, "+++++++++++++++++++++++++++++++++++++++++++++USER");
     return user;
 }
 

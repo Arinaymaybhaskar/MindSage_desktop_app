@@ -1,58 +1,55 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Loader } from "lucide-react"; // Using a loader icon for a better look
+import { dashboardService } from "../api/dashBoardService";
+import { useAuth } from "../hooks/useAuth";
 
-// Define the interface for a single data point for type safety
-interface DataPoint {
-  mood_score: number | null;
-  created_at: string;
-  sentiment_score: number;
+interface ScoreDataPoint {
+  day: string;
+  avgMood: number;
 }
 
-// Define the custom tooltip component
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="p-3 bg-[#262626] border border-gray-600 rounded-lg shadow-lg">
-        {/* Big font for the date (label) */}
+      <div className="p-3 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg shadow-lg">
         <p className="text-lg font-bold text-gray-50 mb-2">{label}</p>
-
-        {/* Small font for the data points (payload) */}
         <div className="text-sm">
-          <p style={{ color: payload[0].color }}>
+          <p className="text-text-light dark:text-text-dark">
             {`${payload[0].name} : ${payload[0].value.toFixed(2)}`}
-          </p>
-          <p style={{ color: payload[1].color }}>
-            {`${payload[1].name} : ${payload[1].value.toFixed(2)}`}
           </p>
         </div>
       </div>
     );
   }
-
   return null;
 };
 
-/**
- * A chart component to display mood and sentiment scores over time.
- */
 function MoodSentimentChart({
-  data,
+  initialData,
 }: {
-  data: DataPoint[] | null | undefined;
+  initialData: ScoreDataPoint[] | null | undefined;
 }) {
   const [isRangeOpen, setIsRangeOpen] = useState(false);
-  const [selectedRange, setSelectedRange] = useState("Monthly");
+  const [selectedRange, setSelectedRange] = useState("Last Week");
+  const [chartData, setChartData] = useState<
+    ScoreDataPoint[] | null | undefined
+  >(initialData);
+  const [isLoading, setIsLoading] = useState(false);
   const rangeDropdownRef = useRef<HTMLDivElement>(null);
-  const rangeOptions = ["Weekly", "Monthly"];
+  const rangeOptions = ["Last Week", "Last Month", "All Time"];
+  const { accessToken } = useAuth();
+  const authMode = (localStorage.getItem("authMode") || "offline") as
+    | "offline"
+    | "online";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -67,13 +64,50 @@ function MoodSentimentChart({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleRangeChange = (range: string) => {
-    setSelectedRange(range);
-    setIsRangeOpen(false);
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      // Don't show loader for initial data load
+      if (selectedRange !== "Last Week") {
+        setIsLoading(true);
+      }
+      try {
+        switch (selectedRange) {
+          case "Last Week": {
+            setChartData(initialData);
+            break;
+          }
+          case "Last Month": {
+            const monthlyData = await dashboardService.getMonthlyScore(
+              authMode,
+              accessToken!
+            );
+            setChartData(monthlyData);
+            break;
+          }
+          case "All Time": {
+            const allTimeData = await dashboardService.getAllTimeScore(
+              authMode,
+              accessToken!
+            );
+            setChartData(allTimeData);
+            break;
+          }
+          default: {
+            setChartData(initialData);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch chart data:", error);
+        setChartData([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Helper function to format the date for the X-axis
-  const formatXAxis = (tickItem: string) => {
+    fetchData();
+  }, [selectedRange, initialData, authMode, accessToken]);
+
+  const formatLabelDate = (tickItem: string) => {
     const date = new Date(tickItem);
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -82,101 +116,67 @@ function MoodSentimentChart({
     });
   };
 
-  // 1. Group data by day and calculate totals and counts
-  const dailyDataAggregator = (data || [])
-    .filter((item) => item.mood_score !== null)
-    .reduce((acc, item) => {
-      const dateKey = new Date(item.created_at).toISOString().split("T")[0];
-      if (!acc[dateKey]) {
-        acc[dateKey] = {
-          mood_score_total: 0,
-          sentiment_score_total: 0,
-          count: 0,
-          created_at: dateKey,
-        };
-      }
-      acc[dateKey].mood_score_total += item.mood_score!;
-      acc[dateKey].sentiment_score_total += item.sentiment_score;
-      acc[dateKey].count += 1;
-      return acc;
-    }, {} as Record<string, { mood_score_total: number; sentiment_score_total: number; count: number; created_at: string }>);
-
-  // 2. Calculate the average for each day and format the data for the chart
-  const processedData = Object.values(dailyDataAggregator)
-    .map((day) => ({
-      mood_score: day.mood_score_total / day.count,
-      sentiment_score: day.sentiment_score_total / day.count,
-      created_at: day.created_at,
-      created_at_formatted: formatXAxis(day.created_at),
-    }))
-    .sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
-
-  // 3. Filter data based on selected range
-  const chartData = useMemo(() => {
-    if (selectedRange === "Weekly" && processedData.length > 0) {
-      const lastDate = new Date(
-        processedData[processedData.length - 1].created_at
+  const formattedChartData = useMemo(() => {
+    if (!chartData) return [];
+    return chartData
+      .map((item) => ({
+        mood_score: item.avgMood,
+        created_at: item.day,
+        created_at_formatted: formatLabelDate(item.day),
+      }))
+      .sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
-      const sevenDaysAgo = new Date(lastDate);
-      sevenDaysAgo.setUTCDate(lastDate.getUTCDate() - 6); // Inclusive 7-day period
-
-      return processedData.filter((d) => {
-        const currentDate = new Date(d.created_at);
-        return currentDate >= sevenDaysAgo && currentDate <= lastDate;
-      });
-    }
-    return processedData; // Default to 'Monthly' which shows all data
-  }, [processedData, selectedRange]);
-
-  // 4. Create the date range string for display
-  const dateRangeDisplay = useMemo(() => {
-    if (chartData.length === 0) return null;
-
-    const formatDate = (dateString: string) =>
-      new Date(dateString).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        timeZone: "UTC",
-      });
-
-    const fromDate = formatDate(chartData[0].created_at);
-    const toDate = formatDate(chartData[chartData.length - 1].created_at);
-
-    return `${fromDate} - ${toDate}`;
   }, [chartData]);
 
-  // If there is no data to display, show a message.
-  if (processedData.length === 0) {
-    return (
-      <div className="w-3/4 h-[500px] bg-gray-900 text-white p-4 rounded-lg flex flex-col items-center justify-center">
-        <h2 className="text-2xl font-bold mb-4 text-center">
-          Mood & Sentiment Over Time
-        </h2>
-        <p className="text-gray-400">No data available to display.</p>
-      </div>
+  const dateRangeDisplay = useMemo(() => {
+    if (!formattedChartData || formattedChartData.length === 0) return null;
+    const fromDate = formatLabelDate(formattedChartData[0].created_at);
+    const toDate = formatLabelDate(
+      formattedChartData[formattedChartData.length - 1].created_at
     );
+    return `${fromDate} - ${toDate}`;
+  }, [formattedChartData]);
+
+  const handleRangeChange = (range: string) => {
+    setSelectedRange(range);
+    setIsRangeOpen(false);
+  };
+
+  function getTailwindColor(className: string) {
+    const tempEl = document.createElement("div");
+    tempEl.className = className;
+    tempEl.style.display = "none";
+    document.body.appendChild(tempEl);
+    const color = getComputedStyle(tempEl).backgroundColor;
+    document.body.removeChild(tempEl);
+    return color;
   }
 
+  const infoColor = getTailwindColor("bg-light1 dark:bg-dark1");
+
+  // Animation variants for smooth transitions
+  const motionVariants = {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -10 },
+    transition: { duration: 0.3, ease: "easeInOut" },
+  };
+
   return (
-    <div className="w-3/4 border-border-light dark:border-border-dark border h-[500px] bg-secondary-light dark:bg-secondary-dark rounded-xl mt-6 p-4 flex flex-col">
-      <div className="flex justify-between items-center w-full px-4 pt-2 pb-6">
+    <div className=" border-border-light dark:border-border-dark border h-[500px] bg-secondary-light dark:bg-secondary-dark rounded-xl flex flex-col overflow-hidden">
+      {/* Chart Header */}
+      <div className="flex justify-between items-center w-full px-8 pt-6 pb-6 z-10">
         <h1 className="text-xl text-text-light dark:text-text-dark font-bold">
           Score Chart
         </h1>
-
-        {/* Controls container for date range and dropdown */}
         <div className="flex items-center gap-4">
-          {/* NEW: Date Range Display */}
           {dateRangeDisplay && (
             <p className="text-sm text-text-light-sub dark:text-text-dark-sub whitespace-nowrap">
               {dateRangeDisplay}
             </p>
           )}
-
-          {/* Custom Dropdown */}
           <div className="relative" ref={rangeDropdownRef}>
             <button
               onClick={() => setIsRangeOpen(!isRangeOpen)}
@@ -187,7 +187,6 @@ function MoodSentimentChart({
                 <ChevronDown size={16} />
               </motion.div>
             </button>
-
             <AnimatePresence>
               {isRangeOpen && (
                 <motion.div
@@ -213,39 +212,86 @@ function MoodSentimentChart({
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={chartData} // Use the filtered data
-          margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-        >
-          <XAxis dataKey="created_at_formatted" hide />
-          <YAxis yAxisId="left" domain={[1, 5]} hide />
-          <YAxis yAxisId="right" domain={[-1, 1]} hide />
-          <Tooltip cursor={false} content={<CustomTooltip />} />
-
-          <Line
-            yAxisId="left"
-            type="monotone"
-            dataKey="mood_score"
-            stroke="#8b8dda"
-            strokeWidth={2}
-            activeDot={{ r: 4, strokeWidth: 0 }}
-            name="Mood Score"
-            dot={false}
-          />
-          <Line
-            yAxisId="right"
-            type="monotone"
-            dataKey="sentiment_score"
-            stroke="#65cc65"
-            strokeWidth={2}
-            activeDot={{ r: 4, strokeWidth: 0 }}
-            name="Sentiment Score"
-            dot={false}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      {/* Chart Content with Animated Transitions */}
+      <div className="flex-1 relative -mt-10">
+        <AnimatePresence mode="wait">
+          {isLoading ? (
+            <motion.div
+              key="loader"
+              variants={motionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="w-full h-full flex flex-col items-center justify-center text-gray-400"
+            >
+              <Loader className="animate-spin h-8 w-8 mb-2" />
+              <p>Loading Data...</p>
+            </motion.div>
+          ) : !formattedChartData || formattedChartData.length === 0 ? (
+            <motion.div
+              key="no-data"
+              variants={motionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="w-full h-full flex flex-col items-center justify-center"
+            >
+              <h2 className="text-xl font-bold mb-2 text-center text-text-light dark:text-text-dark">
+                No Data Available
+              </h2>
+              <p className="text-gray-400">
+                There are no mood scores to display for this period.
+              </p>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="chart"
+              variants={motionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="w-full h-full"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={formattedChartData}
+                  margin={{ top: 0, right: 0, left: 0, bottom: 10 }}
+                >
+                  <defs>
+                    <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="5%"
+                        stopColor={infoColor}
+                        stopOpacity={0.4}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor={infoColor}
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="created_at_formatted" hide />
+                  <YAxis domain={[1, 5]} hide />
+                  <Tooltip cursor={false} content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="mood_score"
+                    stroke={infoColor}
+                    strokeWidth={2}
+                    activeDot={{ r: 1, strokeWidth: 1 }}
+                    name="Mood Score"
+                    dot={false}
+                    fill="url(#colorMood)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
+
 export default MoodSentimentChart;

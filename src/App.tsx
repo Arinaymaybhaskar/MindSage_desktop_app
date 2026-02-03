@@ -1,16 +1,15 @@
 import {
-  BrowserRouter,
   Routes,
   Route,
   useLocation,
   useNavigate,
   HashRouter,
 } from "react-router-dom";
+import { useEffect, useState } from "react";
 import Login from "./pages/auth/login";
 import PrivateRoute from "./routes/privateRoute";
 import Dashboard from "./pages/dashBoard";
 import Register from "./pages/auth/register";
-import Navbar from "./components/navbar";
 import JournalList from "./pages/journalList";
 import JournalForm from "./pages/journalForm";
 import JournalDetail from "./pages/journalDetails";
@@ -20,7 +19,7 @@ import ChangePassword from "./pages/auth/changePassword";
 import { DeleteAccount } from "./pages/auth/deleteAccount";
 import ForgotPassword from "./pages/auth/forgotPassword";
 import DataExport from "./pages/dataExport";
-import { ChatComponent } from "./pages/chat";
+import { ChatPage } from "./pages/chat";
 import TitleBar from "./TitleBar";
 import {
   BookOpenIcon,
@@ -33,10 +32,65 @@ import {
 import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
 import OllamaTutorialPage from "./pages/OllamaTutorial";
+import QdrantViewer from "./pages/qdrantViewer";
+import { ColorThemeProvider } from "./context/ColorThemeContext";
+import { initializeColors } from "./utils/colorInitializer";
+import GoalDetail from "./pages/goalDetail";
+import GlobalSearch from "./components/globalSearch";
+import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
+import QuickCapture from "./components/quickCapture";
+import NotFoundPage from "./pages/NotFoundPage";
+import { ToastProvider } from "./context/ToastContext";
 
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [showSearch, setShowSearch] = useState(false);
+  const [showKeyboardModal, setShowKeyboardModal] = useState(false);
+
+  const isQuickCapturePage = location.pathname === "/quick-capture";
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key.toLowerCase() === "f") {
+          e.preventDefault(); // block browser's find
+          setShowSearch(true);
+        }
+        if (e.key.toLowerCase() === "n") {
+          e.preventDefault(); // block browser's new window
+          navigate("/journal/new", { replace: true });
+        }
+        if (e.key.toLowerCase() === ",") {
+          e.preventDefault();
+          navigate("/settings");
+        }
+        if (e.key.toLowerCase() === ".") {
+          e.preventDefault();
+          setShowKeyboardModal(true);
+        }
+      } else if (e.key === "Escape") {
+        setShowSearch(false);
+      }
+      if (e.key === "Backspace") {
+        const activeElement = document.activeElement as HTMLElement;
+        if (
+          activeElement &&
+          (activeElement.tagName === "INPUT" ||
+            activeElement.tagName === "TEXTAREA" ||
+            activeElement.isContentEditable)
+        ) {
+          // Let the event propagate if the focus is on an input, textarea, or contenteditable element
+          return;
+        }
+        e.preventDefault();
+        navigate(-1);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
   const isAuthPage =
     location.pathname === "/login" ||
     location.pathname === "/register" ||
@@ -55,6 +109,26 @@ function AppLayout() {
       icon: <TrophyIcon size={18} />,
       label: "Daily Challenge",
     },
+    {
+      path: "/qdrant",
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="lucide lucide-database"
+        >
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"></path>
+          <path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"></path>
+        </svg>
+      ),
+      label: "Qdrant",
+    },
     { path: "/chat", icon: <MessageSquareDot size={18} />, label: "Chat" },
     { path: "/goals", icon: <Target size={18} />, label: "Goals" },
   ].map((item) => ({
@@ -64,13 +138,21 @@ function AppLayout() {
 
   return (
     <>
-      <div className="relative z-[9999]">
-        <TitleBar />
-      </div>
-      <div
-        className={`flex h-screen font-inter bg-gradient-to-b from-base-light to-white dark:from-base-dark dark:to-[hsl(0,0%,12%)]`}
-      >
-        {!isAuthPage && (
+      {showSearch && <GlobalSearch onClose={() => setShowSearch(false)} />}
+      {showKeyboardModal && (
+        <KeyboardShortcutsModal
+          isOpen={showKeyboardModal}
+          onClose={() => setShowKeyboardModal(false)}
+        />
+      )}
+
+      {!isQuickCapturePage && (
+        <div className="relative z-[9999]">
+          <TitleBar />
+        </div>
+      )}
+      <div className={`flex h-screen font-inter`}>
+        {!isQuickCapturePage && !isAuthPage && (
           <Dock
             items={items}
             panelHeight={30}
@@ -78,7 +160,11 @@ function AppLayout() {
             magnification={80}
           />
         )}
-        <div className={`flex flex-col h-screen w-full overflow-hidden pt-15`}>
+        <div
+          className={`flex flex-col h-screen w-full overflow-hidden ${
+            isQuickCapturePage ? "" : "pt-10"
+          }`}
+        >
           {/* {!isAuthPage && <Navbar />} */}
           <main className="flex-1 overflow-y-auto  no-scrollbar">
             <Routes>
@@ -99,12 +185,23 @@ function AppLayout() {
                   </PrivateRoute>
                 }
               />
+              <Route path="/qdrant" element={<QdrantViewer />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               {/* CHANGED: The root path "/" now renders JournalForm. */}
               <Route
                 path="/"
+                element={
+                  <PrivateRoute>
+                    <JournalForm />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="/quick-capture" element={<QuickCapture />} />
+
+              <Route
+                path="/journal/new"
                 element={
                   <PrivateRoute>
                     <JournalForm />
@@ -172,19 +269,28 @@ function AppLayout() {
                 path="/chat"
                 element={
                   <PrivateRoute>
-                    <ChatComponent />
+                    <ChatPage />
                   </PrivateRoute>
                 }
               />
               <Route path="/ollama-tutorial" element={<OllamaTutorialPage />} />
               <Route
-                path="/goals"
+                path="/goals/view/:id"
+                element={
+                  <PrivateRoute>
+                    <GoalDetail />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/goals/*"
                 element={
                   <PrivateRoute>
                     <GoalsPage />
                   </PrivateRoute>
                 }
               />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </main>
         </div>
@@ -194,12 +300,27 @@ function AppLayout() {
 }
 
 function App() {
+  // Initialize colors on app startup
+  useEffect(() => {
+    initializeColors();
+  }, []);
+  useEffect(() => {
+    const savedZoom = localStorage.getItem("zoom_scale");
+    if (savedZoom && window.electron?.zoom) {
+      window.electron.zoom.set(parseInt(savedZoom, 10) / 100);
+    }
+  }, []);
+
   // Use Vite's build flag so the router choice is correct in the production bundle
   // const Router = import.meta.env.PROD ? HashRouter : BrowserRouter;
   return (
-    <HashRouter>
-      <AppLayout />
-    </HashRouter>
+    <ColorThemeProvider>
+      <ToastProvider>
+        <HashRouter>
+          <AppLayout />
+        </HashRouter>
+      </ToastProvider>
+    </ColorThemeProvider>
   );
 }
 

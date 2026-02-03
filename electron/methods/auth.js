@@ -5,7 +5,6 @@ import axios from 'axios'
 import http from 'http'
 import url from 'url';
 import { shell } from "electron";
-import { profile } from "console";
 
 const offlineAccessTokenSecret = "be1e968105e3d8c510625e7ae117d3b376913c6359b5063bc5ff07f1cc43cfa3229405930cdeb7bcc9e9ebf3199c0b85b1a0c2396018eee4985f2d1a0abf6002";
 
@@ -15,7 +14,6 @@ const generateAccessToken = (user) => {
 
 export const handleLogin = async (event, mode, credentials) => {
     const { identifier, password } = credentials;
-    console.log(`Login attempt for ${identifier} in ${mode} mode.`);
     if (mode === 'online') {
         try {
             // Call your local backend server
@@ -52,7 +50,6 @@ export const handleLogin = async (event, mode, credentials) => {
 };
 
 export const handleRegister = async (event, mode, details) => {
-    console.log(`Registration attempt in ${mode} mode.`);
     if (mode === 'online') {
         try {
             // Call your local backend server started with startServer()

@@ -78,7 +78,7 @@ const ForgotPassword = () => {
         {/* Back to Login Link */}
         <Link
           to={"/login"}
-          className="text-sm flex items-center text-text-dark-sub hover:text-info transition-colors"
+          className="text-sm flex items-center text-text-dark-sub hover:text-dark1 dark:text-light1 transition-colors"
         >
           <ArrowLeftIcon size={16} className="mr-2" />
           Back to Login
@@ -128,7 +128,7 @@ const ForgotPassword = () => {
                   disabled={isLoading}
                   whileHover={{ scale: 1.02, filter: "brightness(1.1)" }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-text-dark bg-info focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-dark focus:ring-info disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-text-dark bg-light1 dark:bg-dark1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-dark focus:ring-info disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <LoaderCircle className="animate-spin" />
@@ -161,7 +161,7 @@ const ForgotPassword = () => {
                       type="button"
                       onClick={() => handleSendOTP()}
                       disabled={isLoading}
-                      className="text-sm text-info hover:underline disabled:opacity-50"
+                      className="text-sm text-dark1 dark:text-light1 hover:underline disabled:opacity-50"
                     >
                       Resend OTP
                     </button>
@@ -172,7 +172,7 @@ const ForgotPassword = () => {
                   disabled={isLoading}
                   whileHover={{ scale: 1.02, filter: "brightness(1.1)" }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-text-dark bg-info focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-dark focus:ring-info disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-text-dark bg-light1 dark:bg-dark1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-dark focus:ring-info disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <LoaderCircle className="animate-spin" />

@@ -22,8 +22,6 @@ export const mediaService = {
     filename: string
   ): Promise<{ success: boolean; key?: string; message?: string }> => {
     checkElectron();
-    console.log("buffer in service", arrayBuffer);
-    console.log("filename in service", filename);
     return await window.electron.ipcRenderer.invoke("media:save", {
       journalId,
       mediaType,
@@ -38,7 +36,6 @@ export const mediaService = {
    */
   openFile: async (filePath: string): Promise<{ success: boolean }> => {
     checkElectron();
-    console.log(`mediaService.openFile: ${filePath}`);
     return await window.electron.ipcRenderer.invoke("media:open", filePath);
   },
 };

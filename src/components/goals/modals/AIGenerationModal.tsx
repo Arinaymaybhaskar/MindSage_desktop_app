@@ -51,9 +51,28 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   const [goals, setGoals] = useState<GeneratedGoal[]>([]);
   const [error, setError] = useState("");
   const { accessToken } = useAuth();
-  const selectedModel =
-    typeof window !== "undefined" ? localStorage.getItem("selectedModel") : "";
+  const [selectedModel, setSelectedModel] = useState<string>("");
 
+  useEffect(() => {
+    const fetchModel = async () => {
+      try {
+        const models = await window.electron.ipcRenderer.invoke(
+          "models:get-selected"
+        );
+        // Use the chat model since we're doing text generation
+        if (models?.chat) {
+          setSelectedModel(models.chat);
+        } else {
+          console.warn("No chat model selected in settings");
+          setError("Please select a chat model in Settings first.");
+        }
+      } catch (err) {
+        console.error("Failed to load selected model:", err);
+        setError("Failed to load AI model configuration.");
+      }
+    };
+    fetchModel();
+  }, []);
   // All logic (useMemo, handlers, etc.) remains the same...
   const categoryIndexByName = useMemo(() => {
     const map = new Map<string, Category>();
@@ -121,7 +140,6 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
         .trim();
       const parsed = JSON.parse(cleaned);
       const normalized = normalizeAIResponseToGoals(parsed);
-      console.log(normalized, goals);
       setGoals(normalized);
     } catch (err) {
       console.error("Error generating goals:", err);
@@ -199,7 +217,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
       {!goals.length ? (
         <div className="flex flex-col items-center text-center gap-4 p-4">
           <div className="p-4 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
-            <BrainCircuit size={40} className="text-info" />
+            <BrainCircuit size={40} className="text-dark1 dark:text-light1" />
           </div>
           <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">
             Describe Your Ambition
@@ -222,7 +240,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
           <button
             onClick={handleGenerateGoals}
             disabled={isLoading || !ambition.trim()}
-            className="w-full flex items-center justify-center gap-3 mt-2 px-4 py-3 rounded-lg bg-info text-white font-semibold hover:bg-info/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300"
+            className="w-full flex items-center justify-center gap-3 mt-2 px-4 py-3 rounded-lg bg-light1 dark:bg-dark1 text-white font-semibold hover:bg-light1 dark:bg-dark1/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300"
           >
             {isLoading ? <Loader /> : <Sparkles size={20} />}
             <span>{isLoading ? "Generating..." : "Generate Goals"}</span>
@@ -233,7 +251,9 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
           <div className="text-center">
             <p className="text-text-light-sub dark:text-text-dark-sub">
               For your ambition:{" "}
-              <span className="font-semibold text-info">{ambition}</span>
+              <span className="font-semibold text-dark1 dark:text-light1">
+                {ambition}
+              </span>
             </p>
           </div>
           <motion.div

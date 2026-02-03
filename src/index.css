@@ -75,15 +75,11 @@
 }
 
 /* Hide scrollbar in Chrome, Safari, and Opera */
-.no-scrollbar::-webkit-scrollbar {
+/* .no-scrollbar::-webkit-scrollbar {
   display: none;
-}
+} */
 
 /* Hide scrollbar in IE, Edge, and Firefox */
-.no-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
 
 #drag-region {
   -webkit-app-region: drag;
@@ -94,7 +90,6 @@
 }
 
 @layer base {
-  /* For your Electron app (Chromium) */
   ::-webkit-scrollbar {
     width: 8px; /* Width of the vertical scrollbar */
     height: 8px; /* Height of the horizontal scrollbar */

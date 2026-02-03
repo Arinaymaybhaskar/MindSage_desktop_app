@@ -3,13 +3,13 @@ import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, Save, AlertTriangle, ArrowLeft } from "lucide-react";
 import { userService } from "../../api/userService";
 import { useAuth } from "../../hooks/useAuth";
-import { Toaster, toast } from "react-hot-toast";
 import clsx from "clsx";
+import { useToast } from "../../context/ToastContext";
 
 const ChangePassword = () => {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
-
+  const { showToast } = useToast();
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
@@ -52,7 +52,7 @@ const ChangePassword = () => {
     }
 
     setIsLoading(true);
-    const toastId = toast.loading("Updating password...");
+    showToast("Updating password...", "info");
 
     try {
       const payload = {
@@ -61,13 +61,13 @@ const ChangePassword = () => {
       };
       await userService.changePassword(authMode, accessToken!, payload);
 
-      toast.success("Password updated successfully.", { id: toastId });
+      showToast("Password updated successfully.", "success");
       navigate("/settings#security");
     } catch (err) {
       console.error(err);
-      toast.error(
+      showToast(
         "Failed to change password. Please check your old password.",
-        { id: toastId }
+        "danger"
       );
       setInvalidOldPassword(true);
     } finally {
@@ -86,18 +86,11 @@ const ChangePassword = () => {
 
   return (
     <>
-      <Toaster
-        position="bottom-center"
-        toastOptions={{
-          className:
-            "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark border border-border-light dark:border-border-dark",
-        }}
-      />
       <div className="bg-base-light dark:bg-base-dark min-h-screen py-12 px-4">
         <div className="max-w-md mx-auto">
           <Link
             to="/settings#security"
-            className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-info dark:hover:text-info font-semibold transition-colors mb-6"
+            className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 font-semibold transition-colors mb-6"
           >
             <ArrowLeft size={18} />
             Back to Settings
@@ -202,7 +195,7 @@ const ChangePassword = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-info hover:bg-info/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-light1 dark:bg-dark1 hover:bg-light1 dark:bg-dark1/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
               <Save size={16} />
               {isLoading ? "Updating..." : "Update Password"}

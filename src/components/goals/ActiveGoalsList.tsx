@@ -75,7 +75,7 @@ const ActiveGoalsList: React.FC<ActiveGoalsListProps> = (props) => {
           // --- CHANGE: Themed action button ---
           <button
             onClick={onAddGoalClick}
-            className="flex items-center gap-2 px-5 py-2.5 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 bg-light1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1 transition-all"
           >
             <span>Add Your First Goal</span>
           </button>
@@ -90,7 +90,7 @@ const ActiveGoalsList: React.FC<ActiveGoalsListProps> = (props) => {
       {pinnedGoals.length > 0 && (
         <div>
           <h3 className="flex items-center gap-2 text-2xl font-semibold mb-4 px-2 text-text-light dark:text-text-dark">
-            <Pin size={22} className="text-info" />
+            <Pin size={22} className="text-dark1 dark:text-light1" />
             Pinned
           </h3>
           {renderGrid(pinnedGoals)}

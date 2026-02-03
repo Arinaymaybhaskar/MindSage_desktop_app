@@ -45,7 +45,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     localStorage.setItem("accessToken", access);
 
-    console.log("User info set in localStorage:", clonedUserInfo);
     localStorage.setItem("userInfo", JSON.stringify(clonedUserInfo));
   };
 

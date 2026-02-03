@@ -10,6 +10,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 interface GoalCardProps {
   goal: Goal;
@@ -39,6 +40,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
     100,
     Math.round((goal.current_value / goal.target_value) * 100)
   );
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -67,7 +69,12 @@ const GoalCard: React.FC<GoalCardProps> = ({
             >
               {category?.name || "Uncategorized"}
             </span>
-            <h4 className="text-lg font-bold mt-2 break-words">{goal.title}</h4>
+            <button
+              onClick={() => navigate(`/goals/view/${goal.id}`)}
+              className="text-lg font-bold mt-2 flex text-start break-words cursor-pointer hover:underline"
+            >
+              {goal.title}
+            </button>
           </div>
 
           {/* Menu Dropdown */}

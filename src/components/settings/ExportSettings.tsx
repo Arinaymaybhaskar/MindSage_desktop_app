@@ -1,4 +1,3 @@
-import React from "react";
 import { Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -27,7 +26,7 @@ const ExportSettings = () => {
         <div className="flex justify-end">
           <button
             onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1  transition-all"
           >
             <Download size={16} /> Export All Data
           </button>

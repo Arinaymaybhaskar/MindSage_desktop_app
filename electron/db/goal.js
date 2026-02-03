@@ -9,7 +9,6 @@ export const getActiveGoals = async (userId) => {
 }
 
 export const getCompletedGoals = async (userId) => {
-    console.log("USING .all() version of getCompletedGoals");
     const stmt = db.prepare(`
         SELECT * FROM goals WHERE user_id = ? AND is_completed = 1
     `);
@@ -17,7 +16,6 @@ export const getCompletedGoals = async (userId) => {
     return goals;
 };
 export const AddGoal = async (userId, goalData) => {
-    console.log("goalData", goalData);
     const {
         category_id,
         title,
@@ -63,7 +61,6 @@ export const AddGoal = async (userId, goalData) => {
 };
 
 export const updateGoal = async (userId, goal_id, goalData) => {
-    console.log(goalData, "goalData")
     const { category_id, title, description, parent_goal, current_value, target_value, unit, is_pinned, is_completed } = goalData;
     const stmt = db.prepare(`
         UPDATE goals SET category_id = ?, title = ?, description = ?, parent_goal_title = ?, current_value = ?, target_value = ?, unit = ?, is_pinned = ?, is_completed = ? WHERE id = ? AND user_id = ?
@@ -112,4 +109,23 @@ export const getPinnedGoals = async (userId) => {
     const stmt = db.prepare("SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1");
     return stmt.all(userId);
 }
+
+export const getGoalById = async (goalId, userId) => {
+    const goalStmt = db.prepare("SELECT * FROM goals WHERE user_id = ? AND id = ?");
+    const goal = goalStmt.get(userId, goalId);
+
+    if (!goal) return null;
+
+    const logsStmt = db.prepare("SELECT * FROM progress_logs WHERE goal_id = ? ORDER BY logged_at DESC");
+    const logs = logsStmt.all(goalId);
+
+    const categoryId = goal.category_id
+    const categoryStmt = db.prepare("SELECT * FROM categories WHERE id = ?");
+
+    const category = categoryStmt.get(categoryId);
+
+    goal.category = category;
+    goal.logs = logs;
+    return goal;
+};
 

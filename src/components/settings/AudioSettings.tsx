@@ -79,7 +79,7 @@ const AudioSettings = ({ settings, onSettingsSave }) => {
         <div className="flex justify-end border-t border-border-light dark:border-border-dark pt-6">
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all"
           >
             <Save size={16} /> Save Audio Settings
           </button>

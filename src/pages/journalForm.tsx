@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, KeyboardEvent, ChangeEvent } from "react"; // START: Added useRef, KeyboardEvent, ChangeEvent
 import { Link, useNavigate, useParams } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
-// START: Added imports for speech-to-text
 import whisperService from "../api/whisperService";
 import {
   ArrowLeft,
@@ -9,15 +8,14 @@ import {
   Paperclip,
   Save,
   Smile,
-  ChevronDown,
   X,
   Loader2,
-  UploadCloud,
   Mic,
   Trash2,
-  MicOff, // Added MicOff icon
+  MicOff,
+  ImagePlus,
+  PencilOff,
 } from "lucide-react";
-// END: Added imports
 import { motion, AnimatePresence } from "framer-motion";
 import { MoodTagSelector } from "../components/moodOptions";
 import { MoodSlider } from "../components/moodSlider";
@@ -27,10 +25,8 @@ import { mediaService } from "../api/mediaService";
 import VoiceRecorderUI from "../components/voiceRecorder";
 import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
 import { ollamaService } from "../api/ollamaService";
-import {
-  getAutoPopulateValues,
-  getFollowUpQuestionsPrompt,
-} from "../utils/prompts/Journal";
+import { getFollowUpQuestionsPrompt } from "../utils/prompts/Journal";
+import { SidebarPanel } from "../components/journal/SidebarPanel";
 
 const emptyJournal: JournalEntry = {
   title: "",
@@ -38,47 +34,6 @@ const emptyJournal: JournalEntry = {
   mood_score: 0,
   sentiment_score: 0,
   mood_tags: [],
-};
-
-// A reusable panel component for the sidebar
-const SidebarPanel = ({ title, icon: Icon, children }) => {
-  const [isOpen, setIsOpen] = useState(true);
-  return (
-    <div className="bg-secondary-light dark:bg-secondary-dark border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
-      <button
-        type="button"
-        className="w-full flex justify-between items-center p-4"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <div className="flex items-center gap-3">
-          <Icon size={18} className="text-info" />
-          <h3 className="font-semibold text-text-light dark:text-text-dark">
-            {title}
-          </h3>
-        </div>
-        <motion.div animate={{ rotate: isOpen ? 0 : -90 }}>
-          <ChevronDown
-            size={20}
-            className="text-text-light-sub dark:text-text-dark-sub transition-transform"
-          />
-        </motion.div>
-      </button>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-          >
-            <div className="p-4 border-t border-border-light dark:border-border-dark">
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 };
 
 export default function JournalForm() {
@@ -96,52 +51,89 @@ export default function JournalForm() {
   const voiceRecorderState = useVoiceRecorder();
   const { recordingBlob, resetRecording } = voiceRecorderState;
   const { accessToken } = useAuth();
-  const selectedModel = localStorage.getItem("selectedModel");
+  const [selectedModel, setSelectedModel] = useState<string>("");
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const models = await window.electron.ipcRenderer.invoke(
+          "models:get-selected"
+        );
+        // Use the chat model for journal responses
+        if (models?.chat) {
+          setSelectedModel(models.chat);
+        } else {
+          console.error("[JournalForm] No chat model selected");
+        }
+      } catch (err) {
+        console.error("[JournalForm] Failed to load model settings:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // START: Added state for live transcription
   const [isTranscribing, setIsTranscribing] = useState(false);
-  // END: Added state
+
+  // START: Added state for inline autocomplete suggestions
+  const [suggestion, setSuggestion] = useState("");
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const [showEmptyContentPopup, setShowEmptyContentPopup] = useState(false);
+
+  // Keyboard listener for Ctrl+Enter / Cmd+Enter
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isSubmit =
+        (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "enter";
+
+      if (!isSubmit) return;
+
+      e.preventDefault();
+
+      if (!entry.content.trim()) {
+        setShowEmptyContentPopup(true);
+        setTimeout(() => setShowEmptyContentPopup(false), 2500);
+        return;
+      }
+
+      // Trigger submit programmatically
+      handleSubmit(new Event("submit") as unknown as React.FormEvent);
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [entry.content, isSubmitting]);
 
   // Load draft or fetch entry
   useEffect(() => {
     const loadEntry = async () => {
-      console.log(
-        `[JournalForm] Component mounted. Mode: ${isEdit ? "Edit" : "Create"}`
-      );
       if (isEdit && id) {
-        console.log(`[JournalForm] Fetching entry with ID: ${id}`);
         const fetchedEntry = await journalService.getOne(
           authMode,
           accessToken!,
           +id
         );
-        console.log("[JournalForm] Fetched entry from DB:", fetchedEntry);
 
         const entryToSet = {
           ...fetchedEntry,
           mood_tags: fetchedEntry.mood_tags || [],
         };
         setEntry(entryToSet);
-        console.log("[JournalForm] State set for editing:", entryToSet);
 
         // If the fetched entry has an image key, get the URL and set it for preview.
         if (fetchedEntry.image_key) {
-          console.log(
-            `[JournalForm] Entry has an image_key: ${fetchedEntry.image_key}. Fetching image URL.`
-          );
           try {
             const url = await window.electron.ipcRenderer.invoke(
               "media:getImage",
               fetchedEntry.image_key.toString()
             );
             setImagePreview(url);
-            console.log("[JournalForm] Image preview URL set:", url);
           } catch (error) {
             console.error(
               "[JournalForm] Failed to fetch image for preview:",
@@ -152,16 +144,12 @@ export default function JournalForm() {
 
         // If the fetched entry has an audio key, get the URL for playback.
         if (fetchedEntry.audio_key) {
-          console.log(
-            `[JournalForm] Entry has an audio_key: ${fetchedEntry.audio_key}. Fetching audio URL.`
-          );
           try {
             const url = await window.electron.ipcRenderer.invoke(
               "media:getAudio",
               fetchedEntry.audio_key.toString()
             );
             setExistingAudioUrl(url);
-            console.log("[JournalForm] Existing audio URL set:", url);
           } catch (error) {
             console.error(
               "[JournalForm] Failed to fetch audio for preview:",
@@ -172,15 +160,11 @@ export default function JournalForm() {
       } else {
         const savedDraft = localStorage.getItem(DRAFT_KEY);
         if (savedDraft) {
-          console.log("[JournalForm] Found saved draft in localStorage.");
           const draft = JSON.parse(savedDraft);
           const draftToSet = { ...draft, mood_tags: draft.mood_tags || [] };
           setEntry(draftToSet);
-          console.log("[JournalForm] Loaded draft into state:", draftToSet);
         } else {
-          console.log(
-            "[JournalForm] No draft found. Starting with an empty entry."
-          );
+          setEntry(emptyJournal);
         }
       }
     };
@@ -199,13 +183,32 @@ export default function JournalForm() {
     return () => clearTimeout(timer);
   }, [entry, isEdit, DRAFT_KEY]);
 
-  // START: Added useEffect for live transcription
+  // Save draft immediately when user presses Ctrl/Cmd+S
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const key = (e.key || "").toLowerCase();
+      const isSave = (e.ctrlKey || e.metaKey) && key === "s";
+      if (!isSave) return;
+      e.preventDefault();
+      if (isEdit) return; // don't save drafts for existing entries
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(entry));
+        setShowSaved(true);
+        setTimeout(() => setShowSaved(false), 2000);
+      } catch (err) {
+        console.error("[JournalForm] Failed to save draft via shortcut:", err);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [entry, isEdit, DRAFT_KEY]);
+
+  // Live transcription
   useEffect(() => {
     const unsubscribe = whisperService.onLiveData((data) => {
       if (data?.text) {
         setEntry((prev) => ({
           ...prev,
-          // Append new text, handling potential empty initial content
           content:
             (prev.content ? prev.content.trim() + " " : "") + data.text.trim(),
         }));
@@ -213,9 +216,49 @@ export default function JournalForm() {
     });
     return () => unsubscribe();
   }, []);
-  // END: Added useEffect
 
-  // START: Added handler for live transcription
+  // START: Add useEffect for debounced autocomplete suggestions
+  useEffect(() => {
+    if (!entry.content || entry.content.trim().length < 20) {
+      setSuggestion("");
+      return;
+    }
+
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    debounceTimeout.current = setTimeout(async () => {
+      try {
+        const prompt = entry.content.trim();
+
+        const result = await window.electron.ipcRenderer.invoke(
+          "ollama:generate-suggestion",
+          prompt,
+          5
+        );
+
+        if (result && typeof result === "string") {
+          const cleanedSuggestion = result
+            .replace(/"/g, "")
+            .replace(/\n/g, " ")
+            .trim();
+          setSuggestion("  " + cleanedSuggestion);
+        }
+      } catch (error) {
+        console.error("Failed to generate suggestion:", error);
+        setSuggestion("");
+      }
+    }, 2000); // High debounce of 2 seconds
+
+    return () => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+    };
+  }, [entry.content]);
+  // END: Add useEffect
+
   const toggleLiveTranscription = async () => {
     if (isTranscribing) {
       await whisperService.stopLive();
@@ -225,18 +268,14 @@ export default function JournalForm() {
       setIsTranscribing(true);
     }
   };
-  // END: Added handler
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!entry.content || isSubmitting) return;
 
-    console.log("--- [handleSubmit] Starting Submission ---");
-    console.log("Initial entry state:", entry);
     setIsSubmitting(true);
 
     try {
-      // No AI completion — use the values provided by the user (or sensible defaults)
       const mergedEntry: JournalEntry = {
         ...entry,
         title: entry.title?.trim() ? entry.title : "",
@@ -244,32 +283,25 @@ export default function JournalForm() {
         mood_tags: entry.mood_tags ?? [],
       };
 
-      console.log("[handleSubmit] Entry to submit:", mergedEntry);
       setEntry(mergedEntry);
 
       let res;
       if (isEdit && id) {
-        console.log(`[handleSubmit] Updating entry with ID: ${id}`);
         res = await journalService.update(
           authMode,
           accessToken!,
           +Number(id),
           mergedEntry
         );
-        console.log("[handleSubmit] Update response:", res);
       } else {
-        console.log("[handleSubmit] Creating new entry.");
         res = await journalService.create(authMode, accessToken!, mergedEntry);
-        console.log("[handleSubmit] Create response:", res);
       }
 
       const journalId = isEdit ? +id! : res.id;
-      console.log(`[handleSubmit] Journal ID for media upload: ${journalId}`);
-      let imageKey = entry.image_key; // Start with existing key
-      let audioKey = entry.audio_key; // Start with existing key
+      let imageKey = entry.image_key;
+      let audioKey = entry.audio_key;
 
       if (imageFile) {
-        console.log("[handleSubmit] Uploading new image...");
         const arrayBuffer = await imageFile.arrayBuffer();
         const result = await mediaService.saveFileForJournal(
           journalId,
@@ -277,12 +309,10 @@ export default function JournalForm() {
           arrayBuffer,
           imageFile.name
         );
-        console.log("[handleSubmit] Image upload result:", result);
         if (result.success) imageKey = result.key;
       }
 
       if (recordingBlob) {
-        console.log("[handleSubmit] Uploading audio...");
         const arrayBuffer = await recordingBlob.arrayBuffer();
         const result = await mediaService.saveFileForJournal(
           journalId,
@@ -290,39 +320,39 @@ export default function JournalForm() {
           arrayBuffer,
           `audio-${Date.now()}.webm`
         );
-        console.log("[handleSubmit] Audio upload result:", result);
         if (result.success) {
           audioKey = result.key;
           resetRecording();
         }
       }
 
-      // Only update with media keys if there's a new key or a key was changed.
       const needsMediaUpdate =
         imageKey !== res.image_key || audioKey !== res.audio_key;
 
       if (needsMediaUpdate) {
-        console.log("[handleSubmit] Updating entry with media keys:", {
-          imageKey,
-          audioKey,
-        });
         await journalService.update(authMode, accessToken!, journalId, {
           ...mergedEntry,
           image_key: imageKey,
           audio_key: audioKey,
         });
       }
+      await window.electron.ipcRenderer.invoke(
+        "qdrant:sync-journal",
+        journalId
+      );
 
-      console.log("[handleSubmit] Cleaning up and navigating...");
       localStorage.removeItem(DRAFT_KEY);
       navigate("/dashboard");
     } catch (error) {
       console.error("❌ [handleSubmit] Submission error:", error);
     } finally {
       setIsSubmitting(false);
-      console.log("--- [handleSubmit] Submission Finished ---");
     }
   };
+
+  useEffect(() => {
+    contentRef.current?.focus();
+  }, []);
 
   const handleGenerateQuestions = async () => {
     setIsGeneratingQuestions(true);
@@ -343,6 +373,43 @@ export default function JournalForm() {
     }
   };
 
+  // START: Add handlers for autocomplete suggestion
+  const handleContentChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    // As the user types, clear the current suggestion to prevent it from lingering.
+    if (suggestion) {
+      setSuggestion("");
+    }
+    setEntry({ ...entry, content: e.target.value });
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    const isAtEnd = e.currentTarget.selectionStart === entry.content.length;
+
+    // Accept with Tab key (kept as an option)
+    const isTabAccept = e.key === "Tab" && suggestion;
+
+    const isWordAccept =
+      (e.ctrlKey || e.metaKey) &&
+      e.key === "ArrowRight" &&
+      suggestion &&
+      isAtEnd;
+
+    if (isTabAccept) {
+      e.preventDefault();
+      setEntry({ ...entry, content: entry.content + suggestion });
+      setSuggestion("");
+    } else if (isWordAccept) {
+      e.preventDefault();
+      const suggestionWords = suggestion.trim().split(" ");
+      const firstWord = suggestionWords[0];
+      const remainingSuggestion = suggestionWords.slice(1).join(" ");
+
+      setEntry({ ...entry, content: entry.content + " " + firstWord });
+      setSuggestion(remainingSuggestion ? " " + remainingSuggestion : "");
+    }
+  };
+  // END: Add handlers
+
   const processImageFile = (file: File) => {
     if (file && file.type.startsWith("image/")) {
       setImageFile(file);
@@ -358,16 +425,14 @@ export default function JournalForm() {
   };
 
   const handleRemoveImage = () => {
-    console.log("[JournalForm] Removing image.");
-    setImageFile(null); // Clear any newly selected file
-    setImagePreview(null); // Clear the preview
-    setEntry((prev) => ({ ...prev, image_key: null })); // Clear the key from the entry state
+    setImageFile(null);
+    setImagePreview(null);
+    setEntry((prev) => ({ ...prev, image_key: null }));
   };
 
   const handleRemoveAudio = () => {
-    console.log("[JournalForm] Removing existing audio.");
-    setExistingAudioUrl(null); // Clear the preview URL
-    setEntry((prev) => ({ ...prev, audio_key: null })); // Clear the key from the entry state
+    setExistingAudioUrl(null);
+    setEntry((prev) => ({ ...prev, audio_key: null }));
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
@@ -394,6 +459,19 @@ export default function JournalForm() {
 
   return (
     <div className="w-full h-screen overflow-hidden bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark">
+      <AnimatePresence>
+        {showEmptyContentPopup && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="fixed bottom-6 right-6 z-30 justify-center items-center bg-warning text-black flex p-5 gap-3  px-4 py-2 rounded-lg shadow-lg"
+          >
+            <PencilOff size={18} />
+            <p>You have to write something before submitting.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <form onSubmit={handleSubmit} className="flex flex-col h-full">
         {/* Header */}
         <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark">
@@ -430,7 +508,7 @@ export default function JournalForm() {
               className={` p-2 rounded-full shadow-lg transition-all ${
                 isTranscribing
                   ? "bg-red-500 text-white animate-pulse"
-                  : "bg-info text-white hover:bg-info/90"
+                  : "bg-light1 dark:bg-dark1 text-white hover:bg-light1 "
               }`}
             >
               {isTranscribing ? <MicOff size={22} /> : <Mic size={22} />}
@@ -447,7 +525,7 @@ export default function JournalForm() {
             <button
               type="submit"
               disabled={isSubmitting || !entry.content.trim()}
-              className="flex items-center justify-center gap-2 px-4 py-2 w-40 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 px-4 py-2 w-44 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
@@ -469,7 +547,7 @@ export default function JournalForm() {
         {/* Main Content */}
         <div className="flex-grow flex overflow-hidden">
           {/* Editor Column */}
-          <div className="flex-grow flex flex-col p-6 overflow-y-auto">
+          <div className="flex-grow flex flex-col m-6 p-6 rounded-xl overflow-y-auto bg-tertiary-light dark:bg-tertiary-dark">
             <input
               id="title"
               type="text"
@@ -478,16 +556,27 @@ export default function JournalForm() {
               onChange={(e) => setEntry({ ...entry, title: e.target.value })}
               className="text-3xl font-[fraunces] font-bold bg-transparent focus:outline-none mb-4 placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
             />
-            {/* START: Modified editor area for transcription button */}
+
+            {/* START: Modified editor area for ghost text autocomplete */}
             <div className="relative flex-grow">
+              {/* Ghost text layer - sits behind the textarea */}
+              <div
+                className="absolute inset-0 font-inter text-lg leading-relaxed pointer-events-none"
+                aria-hidden="true"
+              >
+                <span className="text-transparent">{entry.content}</span>
+                <span className="text-text-light-sub/50 dark:text-text-dark-sub/50">
+                  {suggestion}
+                </span>
+              </div>
               <textarea
                 id="content"
+                ref={contentRef}
                 placeholder="Write freely, or click the mic to start speaking..."
                 value={entry.content}
-                onChange={(e) =>
-                  setEntry({ ...entry, content: e.target.value })
-                }
-                className="w-full h-full font-inter text-lg bg-transparent focus:outline-none resize-none leading-relaxed placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
+                onChange={handleContentChange}
+                onKeyDown={handleKeyDown}
+                className="relative z-10 w-full h-full font-inter text-lg bg-transparent focus:outline-none resize-none leading-relaxed placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
               />
             </div>
             {/* END: Modified editor area */}
@@ -501,13 +590,9 @@ export default function JournalForm() {
                 onChange={(score) => setEntry({ ...entry, mood_score: score })}
               />
               <MoodTagSelector
-                key={JSON.stringify(entry.mood_tags)} // FIX: Force re-mount when tags change from parent
+                key={JSON.stringify(entry.mood_tags)}
                 selected={entry.mood_tags ?? []}
                 onChange={(tags) => {
-                  console.log(
-                    "[MoodTagSelector] onChange triggered. New tags:",
-                    tags
-                  );
                   setEntry({ ...entry, mood_tags: tags });
                 }}
               />
@@ -537,16 +622,16 @@ export default function JournalForm() {
                     onDrop={handleDrop}
                     className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
                       isDragging
-                        ? "border-info bg-info/10"
+                        ? "border-info bg-light1 dark:bg-dark1/10"
                         : "border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
                     }`}
                   >
                     <div className="text-center">
-                      <UploadCloud
+                      <ImagePlus
                         size={32}
                         className={`mx-auto mb-2 transition-transform ${
                           isDragging
-                            ? "text-info scale-110"
+                            ? "text-dark1 dark:text-light1 scale-110"
                             : "text-text-light-sub dark:text-text-dark-sub"
                         }`}
                       />
@@ -567,7 +652,6 @@ export default function JournalForm() {
                 )}
 
                 {/* --- START: UPDATED AUDIO SECTION --- */}
-                {/* Show existing audio if it exists and a new one hasn't been recorded */}
                 {isEdit && existingAudioUrl && !recordingBlob && (
                   <div className="relative w-full">
                     <p className="text-sm font-semibold mb-2 text-text-light-sub dark:text-text-dark-sub">
@@ -584,10 +668,8 @@ export default function JournalForm() {
                   </div>
                 )}
 
-                {/* Show the voice recorder if there's no new recording blob */}
                 {!recordingBlob && <VoiceRecorderUI {...voiceRecorderState} />}
 
-                {/* Show player for the new recording once it's available */}
                 {recordingBlob && (
                   <div className="relative w-full">
                     <p className="text-sm font-semibold mb-2 text-text-light-sub dark:text-text-dark-sub">
@@ -616,12 +698,12 @@ export default function JournalForm() {
                 type="button"
                 onClick={handleGenerateQuestions}
                 disabled={isGeneratingQuestions || !entry.content.trim()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-info font-semibold rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 disabled:opacity-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 font-semibold rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 disabled:opacity-50 transition-colors"
               >
                 {isGeneratingQuestions ? (
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
-                  <BrainCircuit size={18} /> // Corrected icon for this button
+                  <BrainCircuit size={18} />
                 )}
                 <span>
                   {isGeneratingQuestions

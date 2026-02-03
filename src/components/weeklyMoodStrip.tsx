@@ -20,7 +20,7 @@ interface Props {
 const MOOD_COLOR_CLASSES = [
   "bg-danger",
   "bg-warning",
-  "bg-info",
+  "bg-light1 dark:bg-dark1",
   "bg-success/80",
   "bg-success",
 ];
@@ -104,7 +104,7 @@ const WeeklyMoodStrip: React.FC<Props> = ({ moodData, selectedDate }) => {
             <span
               // --- CHANGE: Themed text colors ---
               className={clsx("mt-2 text-xs font-semibold", {
-                "text-info": isSelected || isTodaysDate,
+                "text-dark1 dark:text-light1": isSelected || isTodaysDate,
                 "text-text-light-sub dark:text-text-dark-sub":
                   !isSelected && !isTodaysDate,
               })}

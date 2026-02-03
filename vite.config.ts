@@ -1,38 +1,47 @@
-import { defineConfig } from 'vite'
-import path from 'node:path'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-import electron from 'vite-plugin-electron/simple'
-import pkg from './package.json' // Import your package.json
+import { defineConfig } from "vite";
+import path from "node:path";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import electron from "vite-plugin-electron/simple";
+import pkg from "./package.json";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     electron({
       main: {
-        // The entry file for the main process.
-        entry: 'electron/main.js',
-
+        entry: "electron/main.js",
         vite: {
           build: {
-            outDir: 'dist-electron',
+            outDir: "dist-electron",
             rollupOptions: {
-              // Dynamically mark all production dependencies as external
               external: Object.keys(pkg.dependencies || {}),
-              output: {
-                // Tell Rollup to output an ES Module
-                format: 'esm',
-              },
+              output: { format: "esm" },
             },
           },
+          plugins: [
+            viteStaticCopy({
+              targets: [
+                {
+                  src: "electron/qdrantWorker.js",
+                  dest: ".", // copy into dist-electron root
+                },
+                { src: "electron/db/*", dest: "db" },
+                { src: "electron/methods/*", dest: "methods" },
+                { src: "electron/store.js", dest: "." },
+                { src: "electron/services/*", dest: "services" },
+                { src: "electron/eventBus.js", dest: "." },
+              ],
+            }),
+          ],
         },
       },
+
       preload: {
-        // The entry file for the preload script.
-        input: path.join(__dirname, 'electron/preload.js'),
+        input: path.join(__dirname, "electron/preload.js"),
       },
     }),
   ],
-})
+});

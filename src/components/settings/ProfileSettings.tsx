@@ -184,7 +184,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
                   setPreviewSrc(cropped);
                   setIsCropping(false);
                 }}
-                className="px-4 py-2 text-sm font-semibold bg-info text-white rounded-lg hover:bg-info/90 transition-colors flex items-center gap-2"
+                className="px-4 py-2 text-sm font-semibold bg-light1 dark:bg-dark1 text-white rounded-lg hover:bg-light1 transition-colors flex items-center gap-2"
               >
                 Crop & Save
               </button>
@@ -209,7 +209,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
           <div>
             <label className={labelClasses}>Profile Picture</label>
             <div className="flex items-center gap-4">
-              <div className="relative w-20 h-20 rounded-full">
+              <div className="relative w-40 h-40 rounded-full">
                 <div className="group w-full h-full rounded-full relative">
                   <div className="w-full h-full rounded-full overflow-hidden bg-tertiary-light dark:bg-tertiary-dark flex items-center justify-center border border-border-light dark:border-border-dark">
                     {previewSrc ? (
@@ -219,7 +219,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <UserIcon className="w-10 h-10 text-text-light-sub dark:text-text-dark-sub" />
+                      <UserIcon className="w-20 h-20 text-text-light-sub dark:text-text-dark-sub" />
                     )}
                   </div>
 
@@ -300,7 +300,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center justify-center gap-2 w-50 px-4 py-2 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all disabled:opacity-60"
+              className="flex items-center justify-center gap-2 w-50 px-4 py-2 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all disabled:opacity-60"
             >
               {isSaving ? (
                 <Loader2 size={18} className="animate-spin" />

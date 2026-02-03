@@ -1,273 +1,460 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Bot, User, Send, Sparkles, Info, Trash2 } from "lucide-react";
-import TextareaAutosize from "react-textarea-autosize";
+import { motion } from "framer-motion";
+import { Sidebar } from "../components/chat/Sidebar";
+import { chatService } from "../api/chatService";
+import { useAuth } from "../hooks/useAuth";
+import whisperService from "../api/whisperService";
+import { LOADING_MESSAGES, STARTER_PROMPTS } from "../constants/chatConstants";
+import { getGreeting } from "../utils/chatUtils";
+import { MessageList } from "../components/chat/MessageList";
+import { ChatWelcome } from "../components/chat/ChatWelcome";
+import { ChatInput } from "../components/chat/ChatInput";
 
-// --- Feature Flag ---
-const isFeatureEnabled = false;
+// ---- TYPES ----
+import type { Chat, Message, MessageFile } from "../types/Chat";
+// ---- CORRECTED LINE: Use 'import type' for the ref interface ----
+import type { ChatInputRef } from "../components/chat/ChatInput";
+import ComingSoonPlaceholder from "../components/chat/ComingSoonPlaceholder";
+import ImageLightbox from "../components/chat/ImageLightbox";
+import PdfLightbox from "../components/chat/PdfLightbox";
 
-// --- TYPE DEFINITIONS ---
-interface Message {
-  id: number;
-  text: string;
-  sender: "user" | "ai";
-}
-type Provider = "ollama" | "gemini";
+const isFeatureEnabled = true;
 
-// --- MOCK API & DATA (remains the same) ---
-const loadingMessages = [
-  "Consulting the digital consciousness...",
-  "Analyzing your entries for patterns...",
-  "Crafting a thoughtful response...",
-  "Connecting insights from your journal...",
-];
-
-const fetchAiResponse = async (
-  userInput: string,
-  provider: Provider
-): Promise<{ answer: string }> => {
-  console.log(`Fetching response for "${userInput}" from ${provider}`);
-  await new Promise((resolve) =>
-    setTimeout(resolve, 2000 + Math.random() * 2000)
-  );
-  return {
-    answer: `This is a simulated response from ${provider} regarding "${userInput}". In a real application, this would contain meaningful insights based on your journal entries.`,
-  };
-};
-
-// --- Themed Sub-components ---
-
-const ChatBubble: React.FC<{ message: Message }> = ({ message }) => {
-  const isUser = message.sender === "user";
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-      transition={{ type: "spring", stiffness: 300, damping: 25 }}
-      className={`flex items-start gap-3 ${isUser ? "justify-end" : ""}`}
-    >
-      {!isUser && (
-        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-tertiary-light dark:bg-tertiary-dark rounded-full">
-          <Bot size={18} className="text-info" />
-        </div>
-      )}
-      <div
-        className={`max-w-xs md:max-w-md lg:max-w-2xl px-4 py-3 rounded-2xl shadow-sm ${
-          isUser
-            ? "bg-info text-white rounded-br-lg"
-            : "bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark rounded-bl-lg border border-border-light dark:border-border-dark"
-        }`}
-      >
-        <p className="text-sm break-words leading-relaxed">{message.text}</p>
-      </div>
-      {isUser && (
-        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-tertiary-light dark:bg-tertiary-dark rounded-full">
-          <User
-            size={18}
-            className="text-text-light-sub dark:text-text-dark-sub"
-          />
-        </div>
-      )}
-    </motion.div>
-  );
-};
-
-const LoadingBubble: React.FC<{ message: string }> = ({ message }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -10 }}
-    className="flex items-start gap-3"
-  >
-    <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-tertiary-light dark:bg-tertiary-dark rounded-full">
-      <Bot size={18} className="text-info" />
-    </div>
-    <div className="bg-surface-light dark:bg-surface-dark text-text-light-sub dark:text-text-dark-sub px-4 py-3 rounded-2xl rounded-bl-lg shadow-sm border border-border-light dark:border-border-dark">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1">
-          <span className="h-2 w-2 bg-text-light-sub/50 rounded-full animate-pulse [animation-delay:-0.3s]"></span>
-          <span className="h-2 w-2 bg-text-light-sub/50 rounded-full animate-pulse [animation-delay:-0.15s]"></span>
-          <span className="h-2 w-2 bg-text-light-sub/50 rounded-full animate-pulse"></span>
-        </div>
-        <span className="text-sm italic">{message}</span>
-      </div>
-    </div>
-  </motion.div>
-);
-
-const ComingSoonPlaceholder: React.FC = () => {
-  return (
-    <div className="flex-grow flex flex-col items-center justify-center text-center p-8 bg-secondary-light dark:bg-secondary-dark">
-      <div className="p-4 bg-info/10 rounded-full mb-4">
-        <Sparkles size={32} className="text-info" />
-      </div>
-      <h3 className="text-xl font-bold text-text-light dark:text-text-dark">
-        AI Insights are Coming Soon!
-      </h3>
-      <p className="max-w-sm mt-2 text-sm text-text-light-sub dark:text-text-dark-sub">
-        We're putting the final touches on our new AI chat feature. Soon, you'll
-        be able to ask questions and get powerful insights from your journal
-        entries.
-      </p>
-    </div>
-  );
-};
-
-// --- Main Chat Component ---
-export const ChatComponent: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: "Hello! I'm your AI assistant. Ask me anything about your journal entries to discover patterns, insights, or summaries.",
-      sender: "ai",
-    },
-  ]);
-  const [inputValue, setInputValue] = useState("");
+export const ChatPage: React.FC = () => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
-  const [provider, setProvider] = useState<Provider>("gemini");
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
+  const [prompt, setPrompt] = useState("");
+  const { accessToken } = useAuth();
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [pdfLightbox, setPdfLightbox] = useState<{
+    path: string;
+    name?: string;
+  } | null>(null);
+  const [isSwitchingChats, setIsSwitchingChats] = useState(false);
+  const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
+  const [attachedImage, setAttachedImage] = useState<{
+    file: File;
+    previewUrl: string;
+  } | null>(null);
+  const [attachedPdf, setAttachedPdf] = useState<{
+    file: File;
+  } | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [model, setModel] = useState<string>("");
+  const [greeting, setGreeting] = useState("");
+  const chatInputRef = useRef<ChatInputRef>(null);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    const randomPrompt =
+      STARTER_PROMPTS[Math.floor(Math.random() * STARTER_PROMPTS.length)];
+    setPrompt(randomPrompt);
+  }, []);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const models = await window.electron.ipcRenderer.invoke(
+          "models:get-selected"
+        );
+        if (models?.chat) setModel(models.chat);
+        else console.error("[Chat] No chat model selected");
+      } catch (err) {
+        console.error("[Chat] Failed to load model settings:", err);
+      }
+    };
+    fetchSettings();
+    const user = localStorage.getItem("userInfo");
+    const userName = user ? JSON.parse(user).full_name.split(" ")[0] : "User";
+    setGreeting(getGreeting(userName));
+  }, []);
+
+  useEffect(() => {
+    const fetchChats = async () => {
+      try {
+        const recentChats = await chatService.getChats(
+          "offline",
+          accessToken!,
+          1,
+          10
+        );
+        setChats(recentChats);
+      } catch (err) {
+        console.error("Failed to load chats:", err as Error);
+      }
+    };
+    fetchChats();
+  }, [accessToken]);
 
   useEffect(() => {
     if (!isLoading) return;
     const interval = setInterval(() => {
       setLoadingMessage((prev) => {
         const nextIndex =
-          (loadingMessages.indexOf(prev) + 1) % loadingMessages.length;
-        return loadingMessages[nextIndex];
+          (LOADING_MESSAGES.indexOf(prev) + 1) % LOADING_MESSAGES.length;
+        return LOADING_MESSAGES[nextIndex];
       });
     }, 2500);
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  const handleSendMessage = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmedInput = inputValue.trim();
-    if (!trimmedInput || isLoading) return;
+  useEffect(() => {
+    const unsubscribe = whisperService.onLiveData((data) => {
+      if (data?.text) {
+        chatInputRef.current?.appendText(data.text);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const toggleLiveTranscription = async () => {
+    if (isTranscribing) {
+      await whisperService.stopLive();
+      setIsTranscribing(false);
+    } else {
+      await whisperService.startLive();
+      setIsTranscribing(true);
+      chatInputRef.current?.focus();
+    }
+  };
+
+  const handleSendMessage = async (inputValue: string) => {
+    setIsLoading(true);
+    setLoadingMessage("Sending message...");
 
     const userMessage: Message = {
       id: Date.now(),
-      text: trimmedInput,
+      text: inputValue,
       sender: "user",
     };
     setMessages((prev) => [...prev, userMessage]);
-    setInputValue("");
-    setIsLoading(true);
 
     try {
-      const { answer } = await fetchAiResponse(trimmedInput, provider);
+      const result = await chatService.sendMessage(
+        "offline",
+        accessToken!,
+        activeChatId,
+        inputValue,
+        model,
+        [],
+        []
+      );
+      console.log(result, "aiRes");
+
+      if ("error" in result) throw new Error(result.error);
+
+      const { chatId: newChatId, messageId: newMessageId } = result;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === userMessage.id ? { ...m, id: newMessageId } : m
+        )
+      );
+
+      if (!activeChatId && newChatId) {
+        setActiveChatId(newChatId);
+        const title =
+          inputValue.length > 0 && inputValue.length < 20
+            ? inputValue
+            : attachedImage?.file.name ?? "New Chat";
+        setChats((prev) => [{ id: newChatId, title }, ...prev]);
+      }
+
+      if (attachedImage && newChatId && newMessageId) {
+        setLoadingMessage("Uploading image...");
+        const arrayBuffer = await attachedImage.file.arrayBuffer();
+        const uploadResult = await window.electron.ipcRenderer.invoke(
+          "media:save-chat-media",
+          {
+            messageId: newMessageId,
+            chatId: newChatId,
+            filetype: "image",
+            arrayBuffer,
+            filename: attachedImage.file.name,
+          }
+        );
+        if (!uploadResult?.success)
+          throw new Error(uploadResult.message || "Failed to upload image.");
+        await chatService.linkMediaToMessage(
+          "offline",
+          accessToken!,
+          newMessageId,
+          newChatId,
+          uploadResult.key!
+        );
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === newMessageId
+              ? {
+                  ...m,
+                  files: [
+                    ...(m.files || []),
+                    { type: "image", url: attachedImage.previewUrl },
+                  ],
+                }
+              : m
+          )
+        );
+      }
+
+      if (attachedPdf && newChatId && newMessageId) {
+        setLoadingMessage("Uploading PDF...");
+        const arrayBuffer = await attachedPdf.file.arrayBuffer();
+        const uploadResult = await window.electron.ipcRenderer.invoke(
+          "media:save-chat-media",
+          {
+            messageId: newMessageId,
+            chatId: newChatId,
+            filetype: "pdf",
+            arrayBuffer,
+            filename: attachedPdf.file.name,
+          }
+        );
+        if (!uploadResult?.success)
+          throw new Error(uploadResult.message || "Failed to upload PDF.");
+        await chatService.linkMediaToMessage(
+          "offline",
+          accessToken!,
+          newMessageId,
+          newChatId,
+          uploadResult.key!
+        );
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === newMessageId
+              ? {
+                  ...m,
+                  files: [
+                    ...(m.files || []),
+                    {
+                      type: "pdf",
+                      url: "",
+                      path: uploadResult.key,
+                      name: attachedPdf.file.name,
+                    },
+                  ],
+                }
+              : m
+          )
+        );
+      }
+
+      setAttachedImage(null);
+      setAttachedPdf(null);
+
+      setLoadingMessage("Crafting a thoughtful response...");
       const aiMessage: Message = {
         id: Date.now() + 1,
-        text: answer,
+        text: result.aiRes.chatResponse.response,
         sender: "ai",
+        followUpQuestion: result.aiRes.chatResponse.suggested_user_prompt,
+        sources: result.aiRes.semanticResult,
       };
       setMessages((prev) => [...prev, aiMessage]);
-    } catch (error) {
-      const errorMessage: Message = {
-        id: Date.now() + 1,
-        text: "Sorry, I encountered an error. Please try again.",
-        sender: "ai",
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+    } catch (err) {
+      console.error("Error sending message:", err as Error);
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== userMessage.id),
+        {
+          id: Date.now(),
+          text: `Failed to send message: ${(err as Error).message}`,
+          sender: "ai",
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleClearChat = () => {
-    setMessages([
-      {
-        id: 1,
-        text: "Chat cleared. How can I help you reflect today?",
-        sender: "ai",
-      },
-    ]);
+    setMessages([]);
+    setActiveChatId(null);
+    setAttachedImage(null);
+    setAttachedPdf(null);
   };
 
-  return (
-    <div className="w-full h-full flex flex-col bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark overflow-hidden">
-      <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark">
-        <div className="flex items-center gap-3">
-          <Sparkles className="text-info" />
-          <h2 className="text-lg font-bold">MindSage AI Chat</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          {isFeatureEnabled && (
-            <button
-              onClick={handleClearChat}
-              className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-danger"
-              title="Clear chat"
-            >
-              <Trash2 size={18} />
-            </button>
-          )}
-        </div>
-      </header>
-
-      {isFeatureEnabled ? (
-        <>
-          {provider === "ollama" && (
-            <div className="p-3 bg-info/10 border-b border-info/20 text-info text-xs flex items-start gap-2">
-              <Info size={16} className="flex-shrink-0 mt-0.5" />
-              <p>
-                You're using a local model. Performance depends on your
-                hardware. The first query may take a moment to load the model.
-              </p>
-            </div>
-          )}
-
-          <div className="flex-grow p-4 md:p-6 overflow-y-auto">
-            <div className="space-y-6 pb-4">
-              <AnimatePresence>
-                {messages.map((msg) => (
-                  <ChatBubble key={msg.id} message={msg} />
-                ))}
-              </AnimatePresence>
-              {isLoading && <LoadingBubble message={loadingMessage} />}
-              <div ref={chatEndRef} />
-            </div>
-          </div>
-
-          <div className="flex-shrink-0 border-t border-border-light dark:border-border-dark p-4 bg-surface-light dark:bg-surface-dark">
-            <form
-              onSubmit={handleSendMessage}
-              className="flex items-start gap-3"
-            >
-              <TextareaAutosize
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
+  const handleSelectChat = async (chatId: number) => {
+    if (chatId === activeChatId) return;
+    setActiveChatId(chatId);
+    setIsLoading(true);
+    setIsSwitchingChats(true);
+    try {
+      const chatData = await chatService.getChatById(
+        "offline",
+        accessToken!,
+        chatId
+      );
+      if (chatData?.messages) {
+        const formattedMessages: Message[] = await Promise.all(
+          chatData.messages.map(async (m: any) => {
+            let files: MessageFile[] | undefined;
+            if (m.files && m.files.length > 0) {
+              files = await Promise.all(
+                m.files.map(async (f: any): Promise<MessageFile> => {
+                  if (f.file_type === "image") {
+                    const base64: string =
+                      await window.electron.ipcRenderer.invoke(
+                        "media:getImage",
+                        f.file_path
+                      );
+                    return { type: "image", path: f.file_path, url: base64 };
                   }
+                  return {
+                    type: "pdf",
+                    path: f.file_path,
+                    url: "",
+                    name: f.file_path.split(/[/\\]/).pop(),
+                  };
+                })
+              );
+            }
+            return { id: m.id, text: m.content, sender: m.sender, files };
+          })
+        );
+        setMessages(formattedMessages);
+      }
+    } catch (err) {
+      console.error("Failed to load chat messages:", err);
+      setMessages([
+        {
+          id: Date.now(),
+          text: "Failed to load messages. Please try again.",
+          sender: "ai",
+        },
+      ]);
+    } finally {
+      setIsSwitchingChats(false);
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteChat = async (chatId: number) => {
+    try {
+      await chatService.deleteChat("offline", accessToken!, chatId);
+      setChats((prev) => prev.filter((chat) => chat.id !== chatId));
+      if (chatId === activeChatId) handleClearChat();
+    } catch (error) {
+      console.error("Failed to delete chat:", error);
+    }
+  };
+
+  const handleRenameChat = async (chatId: number, newTitle: string) => {
+    try {
+      await chatService.changeTitle("offline", accessToken!, chatId, newTitle);
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === chatId ? { ...chat, title: newTitle } : chat
+        )
+      );
+    } catch (error) {
+      console.error("Failed to edit chat title:", error);
+    }
+  };
+
+  const handlePdfOpen = async (path: string, name?: string) => {
+    try {
+      const dataUrl = await window.electron.ipcRenderer.invoke(
+        "media:getPdf",
+        path
+      );
+      if (dataUrl) {
+        setPdfDataUrl(dataUrl);
+        setPdfLightbox({ path, name });
+      }
+    } catch (e) {
+      console.error("Failed to load PDF", e);
+    }
+  };
+
+  const handleImageAttached = (file: File) => {
+    if (attachedImage) URL.revokeObjectURL(attachedImage.previewUrl);
+    setAttachedImage({ file, previewUrl: URL.createObjectURL(file) });
+  };
+
+  const handleRemoveImage = () => {
+    if (attachedImage) URL.revokeObjectURL(attachedImage.previewUrl);
+    setAttachedImage(null);
+  };
+
+  const isChatEmpty = messages.length === 0 && !isLoading;
+
+  return (
+    <>
+      <div className="flex h-full w-full bg-secondary-light dark:bg-secondary-dark">
+        <Sidebar
+          chats={chats}
+          handleClearChat={handleClearChat}
+          handleSelectChat={handleSelectChat}
+          handleDeleteChat={handleDeleteChat}
+          handleRenameChat={handleRenameChat}
+        />
+        <div className="flex-1 flex flex-col bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark shadow-lg border border-border-light dark:border-border-dark overflow-hidden relative">
+          {isFeatureEnabled ? (
+            <>
+              <MessageList
+                messages={messages}
+                isLoading={isLoading}
+                isSwitchingChats={isSwitchingChats}
+                loadingMessage={loadingMessage}
+                onImageClick={setLightboxUrl}
+                onPdfOpen={handlePdfOpen}
+                onFollowUpClick={(question: string) => {
+                  chatInputRef.current?.appendText(question);
+                  chatInputRef.current?.focus();
                 }}
-                placeholder="Ask about your journal entries..."
-                className="flex-1 p-3 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-xl resize-none focus:ring-2 focus:ring-info focus:outline-none transition"
-                rows={1}
-                maxRows={5}
-                disabled={isLoading}
               />
-              <button
-                type="submit"
-                className="p-3 bg-info text-white font-semibold rounded-full hover:bg-info/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all transform hover:scale-105"
-                disabled={isLoading || !inputValue.trim()}
-                aria-label="Send message"
+              <div className="absolute bottom-0 left-0 right-0 h-48 pointer-events-none z-10 bg-gradient-to-t from-secondary-light dark:from-secondary-dark to-transparent" />
+              <motion.div
+                layout
+                animate={{
+                  justifyContent: isChatEmpty ? "center" : "flex-end",
+                }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+                className="w-full flex flex-col absolute left-0 right-0 z-20"
+                style={{
+                  bottom: isChatEmpty ? "50%" : "2.5rem",
+                  transform: isChatEmpty ? "translateY(50%)" : "translateY(0)",
+                }}
               >
-                <Send size={20} />
-              </button>
-            </form>
-          </div>
-        </>
-      ) : (
-        <ComingSoonPlaceholder />
+                {isChatEmpty && (
+                  <ChatWelcome greeting={greeting} prompt={prompt} />
+                )}
+                <ChatInput
+                  ref={chatInputRef}
+                  isLoading={isLoading}
+                  isTranscribing={isTranscribing}
+                  attachedImage={attachedImage}
+                  attachedPdf={attachedPdf}
+                  onSendMessage={handleSendMessage}
+                  onToggleTranscription={toggleLiveTranscription}
+                  onImageAttached={handleImageAttached}
+                  onPdfAttached={setAttachedPdf}
+                  onRemoveImage={handleRemoveImage}
+                  onRemovePdf={() => setAttachedPdf(null)}
+                />
+              </motion.div>
+            </>
+          ) : (
+            <ComingSoonPlaceholder />
+          )}
+        </div>
+      </div>
+      <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      {pdfLightbox && (
+        <PdfLightbox
+          name={pdfLightbox.name}
+          path={pdfLightbox.path}
+          dataUrl={pdfDataUrl}
+          onClose={() => {
+            setPdfLightbox(null);
+            setPdfDataUrl(null);
+          }}
+        />
       )}
-    </div>
+    </>
   );
 };

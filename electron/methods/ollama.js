@@ -1,43 +1,71 @@
 import { execSync, exec } from 'child_process';
 import { getUserIdFromToken } from '../../src/utils/electronUtils';
 import { eventBus } from "../eventBus.js";
-import { AISummaryPrompt, getAutoPopulateValues } from './AIPrompts.js';
-// import { getAutoPopulateValues } from '../utils/prompts/journal.js';
+import { spawn } from "child_process";
+import { AISummaryPrompt, generateContextTimeAndBaseQueryPrompt, getAutoPopulateValues, respondWithContext, respondWithoutContext } from './AIPrompts.js';
+import { modelStore } from '../store.js';
+import { SemanticSearch } from './qdrant.js';
+import z from 'zod';
 
-export const handleGetOllamaModels = (event, token) => {
+export const handleGetOllamaModels = async (event, token) => {
     const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
+    if (!userId) return { error: "Invalid token" };
+
     try {
-        // Run 'ollama list' to get models
-        const output = execSync('ollama list', { encoding: 'utf-8' });
-
-        // Split into lines and skip the header
-        const lines = output.trim().split('\n').slice(1);
-
-        // Map each line into an object { name, size, modified }
-        const models = lines.map(line => {
-            const parts = line.trim().split(/\s{2,}/); // split by 2+ spaces
+        // 1️⃣ Get the basic list of models
+        const listOutput = execSync("ollama list", { encoding: "utf-8" });
+        const lines = listOutput.trim().split("\n").slice(1);
+        const models = lines.map((line) => {
+            const parts = line.trim().split(/\s{2,}/);
             return {
                 name: parts[0],
                 size: parts[1],
-                modified: parts[2]
+                modified: parts[2],
             };
         });
 
-        return models;
-    } catch (error) {
-        console.error('Error fetching Ollama models:', error);
+        // 2️⃣ Enrich with API show info in parallel
+        const enrichedModels = await Promise.all(
+            models.map(async (model) => {
+                try {
+                    const res = await fetch("http://localhost:11434/api/show", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ model: model.name, verbose: true }),
+                    });
+                    const info = await res.json();
+
+                    if (info && info.model_info) {
+                        delete info.model_info["tokenizer.ggml.merges"];
+                        delete info.model_info["tokenizer.ggml.scores"];
+                        delete info.model_info["tokenizer.ggml.token_type"];
+                        delete info.model_info["tokenizer.ggml.tokens"];
+                        delete info["tensors"];
+                        delete info["modelfile"];
+                        delete info["license"];
+                    }
+                    return { ...model, info };
+                } catch (err) {
+                    console.error(`Error fetching info for ${model.name}`, err);
+                    return model; // fallback to basic info
+                }
+            })
+        );
+
+        return enrichedModels;
+    } catch (err) {
+        console.error("Error fetching Ollama models:", err);
         return [];
     }
 };
 
-export const handleOllamaPrompt = async (event, token, model, prompt, jsonMode = false) => {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
+
+export const handleOllamaPrompt = async (event, token, model, prompt, jsonMode = false,) => {
+    // const userId = getUserIdFromToken(token);
+    // if (!userId) {
+    //     return { error: "Invalid token" };
+    // }
+    console.log(model, prompt, "model", "prompt");
     if (!model || !prompt) {
         return { error: 'Model name and prompt are required.' };
     }
@@ -73,7 +101,48 @@ export const handleOllamaPrompt = async (event, token, model, prompt, jsonMode =
     }
 };
 
-console.log('ollama methods loaded — registering journal:created listener');
+export const handleOllamaImagePrompt = async (
+    event,
+    token,
+    model,
+    prompt,
+    imagePath
+) => {
+    const userId = getUserIdFromToken(token);
+    if (!userId) {
+        return { error: "Invalid token" };
+    }
+    if (!model || !prompt || !imagePath) {
+        return { error: "Model name, prompt, and image path are required." };
+    }
+
+    try {
+        const requestBody = {
+            model,
+            prompt,
+            images: [imagePath], // 👈 Ollama vision API expects an array of image paths/base64
+            stream: false,
+            num_predict: 300,
+        };
+
+        const res = await fetch("http://localhost:11434/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!res.ok) {
+            throw new Error(`Ollama HTTP error: ${res.status} ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        return data.response;
+    } catch (err) {
+        console.error("Ollama image error:", err);
+        return { error: err.message };
+    }
+};
+
 
 // Define a TypeScript type for the journal:created event payload
 /**
@@ -92,36 +161,48 @@ eventBus.on("journal:created", async ({ entry }) => {
     if (needsAiCompletion) {
         eventBus.emit("journal:aiStarted", { entryId: entry.id });
         const prompt = getAutoPopulateValues(entry.content);
+
+        // Get the selected chat model from settings
+        const selectedModels = modelStore.get('selectedModels');
+        const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
+        console.log(model, "model used for filing up missing details")
         const res2 = await fetch('http://localhost:11434/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: "llama3.2:latest",
+                model,
                 prompt,
-                stream: false, // full output as one JSON
-                num_predict: 300 // limit tokens for speed
+                stream: false,
+                num_predict: 300
             })
         });
+        console.log(res2, "ollama response");
         const aiRes = await res2.json();
-        console.log("[handleSubmit] AI Response received:", aiRes.response);
         const res3 = aiRes.response
         eventBus.emit("journal:aiCompleted", { entry, res3 });
-    } else {
-        return;
     }
 });
 
+// Update the journal:created event handler for summary generation
 eventBus.on("journal:created", async ({ entry }) => {
     eventBus.emit("ollama:summary-started", { entryId: entry.id });
     const prompt = AISummaryPrompt(entry.content);
+    if (entry.content.length < 100) {
+        eventBus.emit("ollama:summary-skipped", { entryId: entry.id });
+        return; // Skip summary for very short entries
+    }
+    // Get the selected chat model from settings
+    const selectedModels = modelStore.get('selectedModels');
+    const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
+
     const res2 = await fetch('http://localhost:11434/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            model: "llama3.2:latest",
+            model,
             prompt,
-            stream: false, // full output as one JSON
-            num_predict: 300 // limit tokens for speed
+            stream: false,
+            num_predict: 300
         })
     });
 
@@ -131,4 +212,231 @@ eventBus.on("journal:created", async ({ entry }) => {
     const userId = entry.user_id;
 
     eventBus.emit("ollama:summary-generated", { summary, id, userId });
-})
+});
+
+// Schemas
+const propsResSchema = z.object({
+    requires_context: z.boolean(),
+    requires_time_filter: z.boolean(),
+    time_filter_from: z.string().nullable(),
+    time_filter_to: z.string().nullable(),
+    base_query: z.string(),
+    notes: z.string()
+});
+
+const chatResponseSchema = z.object({
+    response: z.string(),
+    follow_up_question: z.string()
+});
+
+// Helper: parse and retry AI JSON
+async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log("calling ai");
+            const raw = await rawFn();
+            console.log("ai response", raw);
+            const jsonMatch = raw.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error("No JSON found");
+
+            return schema.parse(JSON.parse(jsonMatch[0]));
+        } catch (err) {
+            console.log(`Attempt ${attempt} failed: ${err.message}`);
+            if (attempt === maxRetries) throw new Error(`Failed after ${maxRetries} attempts`);
+        }
+    }
+}
+
+eventBus.on("chat:new-message", async ({ content, chatId, messageId, model, userId }) => {
+    try {
+        const now = new Date();
+        const currentTimeISO = now.toISOString();
+
+        // 1️⃣ Generate propsRes
+        const queryPropsPrompt = generateContextTimeAndBaseQueryPrompt(content, currentTimeISO);
+        const propsRes = await parseAIWithRetries(
+            () => handleOllamaPrompt("", "", model, queryPropsPrompt, true),
+            propsResSchema,
+            3
+        );
+        console.log("Validated propsRes:", propsRes);
+
+        let semanticResult = [];
+
+        // 2️⃣ Semantic search logic
+        if (propsRes.requires_context) {
+            // Use original user content
+            console.log("requires context")
+            const vector = await generateEmbedding(content);
+            semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries");
+        } else if (propsRes.requires_time_filter) {
+            console.log("requires context with time filter")
+            // Use base_query and time filter
+            const vector = await generateEmbedding(propsRes.base_query);
+            semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries", {
+                from: propsRes.time_filter_from,
+                to: propsRes.time_filter_to
+            });
+        }
+
+        let mainPrompt;
+
+        if (!propsRes.requires_context && semanticResult.length == 0) {
+            console.log("No context needed")
+            mainPrompt = respondWithoutContext(content);
+        } else {
+            // 3️⃣ Generate prompt for main AI response
+            mainPrompt = respondWithContext(
+                content,
+                semanticResult,
+            );
+        }
+
+        // 4️⃣ Get final chat response
+        const chatResponse = await parseAIWithRetries(
+            () => handleOllamaPrompt("", "", model, mainPrompt, true),
+            chatResponseSchema,
+            3
+        );
+        console.log(chatResponse, "ai chat res")
+        // 5️⃣ Emit validated response
+        eventBus.emit("chat:response-generated", { response: chatResponse, chatId, messageId, semanticResult });
+
+    } catch (error) {
+        console.log(error, "error occcured");
+        eventBus.emit("chat:error", error);
+    }
+});
+
+
+// Update generateSuggestion to use selected model
+export async function generateSuggestion(prompt, maxTokens = 20) {
+    try {
+        // Get the selected chat model from settings
+        const selectedModels = modelStore.get('selectedModels');
+        const model = selectedModels?.decision || "llama3.2:latest"; // Fallback model
+
+        const response = await fetch("http://localhost:11434/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model,
+                prompt,
+                options: {
+                    num_predict: maxTokens,
+                },
+                system: "You are a raw text completion model. Your only job is to continue the user's text. Do not add any commentary, greetings, or conversational filler. Directly output the next sequence of words.",
+                temperature: 0.2,
+                stream: false,
+            }),
+        });
+
+        // Handle non-successful HTTP responses
+        if (!response.ok) {
+            throw new Error(`API request failed with status ${response.status}`);
+        }
+
+        // Since stream is false, parse the entire JSON body at once
+        const data = await response.json();
+
+        // The generated text is in the 'response' property
+        return data.response.trim();
+
+    } catch (error) {
+        console.error("[generateSuggestion] Error fetching suggestion:", error);
+        // Return an empty string on failure so the frontend doesn't break
+        return "";
+    }
+}
+
+export const handleDownloadOllamaModel = (event, token, modelName) => {
+    const userId = getUserIdFromToken(token);
+    if (!userId) {
+        return { error: "Invalid token" };
+    }
+    if (!modelName) {
+        return { error: "Model name is required" };
+    }
+
+    return new Promise((resolve, reject) => {
+        const child = spawn("ollama", ["pull", modelName]);
+
+        let output = "";
+        let errorOutput = "";
+
+        child.stdout.on("data", (data) => {
+            output += data.toString();
+            // 🔹 You can also stream progress to renderer:
+            // eventBus.emit("ollama:download-progress", { model: modelName, chunk: data.toString() });
+        });
+
+        child.stderr.on("data", (data) => {
+            errorOutput += data.toString();
+        });
+
+        child.on("close", (code) => {
+            if (code === 0) {
+                resolve({ success: true, message: `${modelName} downloaded` });
+            } else {
+                reject({ error: `Download failed: ${errorOutput}` });
+            }
+        });
+    });
+};
+
+export const handleDeleteOllamaModel = (event, token, modelName) => {
+    const userId = getUserIdFromToken(token);
+    if (!userId) {
+        return { error: "Invalid token" };
+    }
+    if (!modelName) {
+        return { error: "Model name is required" };
+    }
+
+    return new Promise((resolve, reject) => {
+        const child = spawn("ollama", ["rm", modelName]);
+
+        let output = "";
+        let errorOutput = "";
+
+        child.stdout.on("data", (data) => {
+            output += data.toString();
+        });
+
+        child.stderr.on("data", (data) => {
+            errorOutput += data.toString();
+        });
+
+        child.on("close", (code) => {
+            if (code === 0) {
+                resolve({ success: true, message: `${modelName} deleted` });
+            } else {
+                reject({ error: `Delete failed: ${errorOutput || output}` });
+            }
+        });
+    });
+};
+
+export async function generateEmbedding(text) {
+    try {
+        const response = await fetch('http://localhost:11434/api/embeddings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'nomic-embed-text:v1.5',
+                prompt: text
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama embedding API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data.embedding;
+    } catch (error) {
+        console.error('Error generating embedding:', error);
+        throw error;
+    }
+}
+

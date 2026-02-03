@@ -8,7 +8,6 @@ export function getUserIdFromToken(token) {
         }
         const decoded = jwt.decode(token);
         // 2. Ensure the token was successfully decoded and has an id
-        console.log(decoded, "decoded");
         return decoded.id;
     } catch (e) {
         console.error("Error decoding token:", e);

@@ -10,7 +10,6 @@ import { db } from './connection.js';
  */
 export function linkMediaToJournal(journalId, mediaKey, mediaType) {
     try {
-        console.log("saving audio", journalId, mediaKey, mediaType)
         let column;
         if (mediaType === 'image') {
             column = 'image_key';
@@ -29,6 +28,20 @@ export function linkMediaToJournal(journalId, mediaKey, mediaType) {
     `);
 
         const result = stmt.run({ mediaKey, journalId });
+        return result.changes > 0;
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+export function linkMediaToMessage(messageId, chatId, mediaKey, filetype) {
+    console.log("linkMediaToMessage", messageId, chatId, mediaKey, filetype);
+    try {
+        const stmt = db.prepare(`
+            INSERT INTO files (chat_id, message_id, file_type, file_path) 
+            VALUES (@chatId, @messageId, @filetype, @mediaKey)
+        `);
+        const result = stmt.run({ chatId, messageId, mediaKey, filetype });
         return result.changes > 0;
     } catch (error) {
         console.log(error)

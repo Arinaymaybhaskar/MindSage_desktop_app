@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import AuthContext from "../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
-import { Settings, LogOut, ChevronDown, User as UserIcon } from "lucide-react";
-import { ollamaService } from "../api/ollamaService";
-import { useAuth } from "../hooks/useAuth";
+import {
+  Settings,
+  LogOut,
+  ChevronDown,
+  User as UserIcon,
+  Keyboard,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
 
 interface User {
   username: string;
@@ -15,84 +20,15 @@ interface User {
   timezone: string;
 }
 
-// --- NEW: Reusable Custom Dropdown Component ---
-const Dropdown = ({ options, selectedValue, onChange, placeholder }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedLabel =
-    options.find((opt) => opt.value === selectedValue)?.label || placeholder;
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-2 flex items-center justify-between text-left bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-info focus:border-info outline-none transition text-sm"
-      >
-        <span className="truncate text-text-light dark:text-text-dark">
-          {selectedLabel}
-        </span>
-        <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
-          <ChevronDown
-            size={16}
-            className="text-text-light-sub dark:text-text-dark-sub"
-          />
-        </motion.div>
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 5 }}
-            exit={{ opacity: 0, y: -5 }}
-            className="absolute top-full right-0 mt-1 w-full bg-surface-light dark:bg-surface-dark rounded-lg shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-20 p-2 max-h-48 overflow-y-auto"
-          >
-            {options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
-              >
-                {option.label}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
 export const ProfileDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
-  const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("");
   const { logout } = useContext(AuthContext);
-  const { accessToken } = useAuth();
   const navigate = useNavigate();
+  const [showKeyboardModal, setShowKeyboardModal] = useState(false);
 
   // close dropdown when clicking outside
   useEffect(() => {
@@ -164,34 +100,6 @@ export const ProfileDropdown: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const fetchedModels = await ollamaService.getModels(accessToken!);
-        const modelNames = fetchedModels.map(
-          (model: { name: string }) => model.name
-        );
-        setModels(modelNames);
-        const storedModel = localStorage.getItem("selectedModel");
-        if (storedModel && modelNames.includes(storedModel)) {
-          setSelectedModel(storedModel);
-        } else if (modelNames.length > 0) {
-          setSelectedModel(modelNames[0]);
-          localStorage.setItem("selectedModel", modelNames[0]);
-        }
-      } catch (error) {
-        console.error("Error fetching models: ", error);
-      }
-    };
-    fetchModels();
-  }, [accessToken]);
-
-  const handleModelChange = (model: string) => {
-    localStorage.setItem("selectedModel", model);
-    setSelectedModel(model);
-    setIsOpen(false);
-  };
-
   const handleLogout = () => {
     if (logout) logout();
     navigate("/login");
@@ -205,17 +113,17 @@ export const ProfileDropdown: React.FC = () => {
     <UserIcon size={20} />
   );
 
-  const modelOptions = models.map((model) => ({ value: model, label: model }));
-
   return (
     <>
       <div className="relative " ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 p-1.5 rounded-full transition-colors duration-200 border border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
+          className={`flex items-center ${
+            isOpen ? "gap-2 p-1.5 py-1" : ""
+          } rounded-full transition-colors duration-200 border border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark`}
         >
           {/* Avatar: show image if available, otherwise initials */}
-          <div className="flex items-center justify-center w-8 h-8 bg-info/10 rounded-full text-info font-semibold overflow-hidden">
+          <div className="flex items-center justify-center w-6 h-6 bg-light1 dark:bg-dark1/10 rounded-full text-info font-semibold overflow-hidden">
             {profileImageSrc ? (
               <img
                 src={profileImageSrc}
@@ -223,20 +131,27 @@ export const ProfileDropdown: React.FC = () => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-sm">{displayInitial}</span>
+              <span className="text-sm bg-tertiary-light dark:bg-tertiary-dark p-2">
+                {displayInitial}
+              </span>
             )}
           </div>
 
           {/* --- CHANGE: Themed display name --- */}
-          <span className="text-sm font-semibold text-text-light dark:text-text-dark hidden sm:block">
+          {/* <span className="text-sm font-semibold text-text-light dark:text-text-dark hidden sm:block">
             {displayName}
-          </span>
-          <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
-            <ChevronDown
-              size={18}
-              className="text-text-light-sub dark:text-text-dark-sub"
-            />
-          </motion.div>
+          </span> */}
+          {isOpen && (
+            <motion.div
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              animate={{ rotate: isOpen ? 180 : 0 }}
+            >
+              <ChevronDown
+                size={18}
+                className="text-text-light-sub dark:text-text-dark-sub"
+              />
+            </motion.div>
+          )}
         </button>
 
         <AnimatePresence>
@@ -246,10 +161,10 @@ export const ProfileDropdown: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="absolute top-full right-0 mt-2 w-72 bg-secondary-light dark:bg-secondary-dark rounded-xl shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-10"
+              className="absolute top-full right-0 mt-2 bg-secondary-light dark:bg-secondary-dark rounded-xl shadow-2xl border border-border-light dark:border-border-dark origin-top-right z-10"
             >
-              <div className="p-4 border-b border-border-light dark:border-border-dark flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-border-light dark:bg-border-dark flex items-center justify-center">
+              <div className="p-4 border-b border-border-light dark:border-border-dark flex flex-col items-center gap-3">
+                <div className="w-20 h-20 rounded-full overflow-hidden bg-border-light dark:bg-border-dark flex items-center justify-center">
                   {profileImageSrc ? (
                     <img
                       src={profileImageSrc}
@@ -262,7 +177,7 @@ export const ProfileDropdown: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <div>
+                <div className="w-full text-center">
                   <p className="font-semibold text-text-light dark:text-text-dark">
                     {displayName}
                   </p>
@@ -272,24 +187,18 @@ export const ProfileDropdown: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-2">
-                <div className="px-2 py-1.5 text-xs font-semibold text-text-light-sub dark:text-text-dark-sub">
-                  AI Model
-                </div>
-                {/* --- CHANGE: Replaced <select> with <Dropdown> --- */}
-                <div className="px-2">
-                  <Dropdown
-                    options={modelOptions}
-                    selectedValue={selectedModel}
-                    onChange={handleModelChange}
-                    placeholder={
-                      models.length > 0 ? "Select a model" : "No models found"
-                    }
-                  />
-                </div>
-              </div>
-              <hr className="border-border-light dark:border-border-dark my-1" />
               <div className="p-2 gap-1 flex flex-col">
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    setShowKeyboardModal(true);
+                  }}
+                  className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors whitespace-nowrap"
+                >
+                  <Keyboard size={16} className="mr-3" />
+                  Keyboard Shortcuts
+                </button>
+
                 <Link
                   to="/settings"
                   onClick={() => setIsOpen(false)}
@@ -313,6 +222,13 @@ export const ProfileDropdown: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
+
+      {showKeyboardModal && (
+        <KeyboardShortcutsModal
+          isOpen={showKeyboardModal}
+          onClose={() => setShowKeyboardModal(false)}
+        />
+      )}
 
       {showLogoutModal &&
         typeof document !== "undefined" &&

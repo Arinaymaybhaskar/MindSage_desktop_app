@@ -1,12 +1,9 @@
-// qdrantManager.js
-import { spawn } from "child_process";
-import path from "path";
-import fs from "fs";
-import http from "http";
+import { ipcMain } from "electron";
+import { QdrantClient } from "@qdrant/js-client-rest";
 import jwt from "jsonwebtoken";
+import { generateEmbedding } from "./ollama.js";
 
-let qdrantProcess = null;
-let qdrantPort = 6333;
+let client = null;
 
 function getUserIdFromToken(token) {
     try {
@@ -16,158 +13,195 @@ function getUserIdFromToken(token) {
         }
         const decoded = jwt.decode(token);
         // 2. Ensure the token was successfully decoded and has an id
-        console.log(decoded, "decoded");
-        return decoded.id;
+        return decoded;
     } catch (e) {
         console.error("Error decoding token:", e);
         return null;
     }
 }
 
-function getQdrantPath() {
-    const isDev = process.env.NODE_ENV === "development";
-    const qdrantBinaryDir = isDev
-        ? path.join(__dirname, "qdrant_bin")
-        : path.join(process.resourcesPath, "qdrant");
-
-    const qdrantBinaryName =
-        process.platform === "darwin"
-            ? process.arch === "arm64"
-                ? "qdrant-aarch64-apple-darwin"
-                : "qdrant-x86_64-apple-darwin"
-            : process.platform === "win32"
-                ? "qdrant.exe"
-                : "qdrant-x86_64-unknown-linux-gnu";
-
-    return path.join(qdrantBinaryDir, qdrantBinaryName);
-}
-
-function getAvailablePort(startPort, callback) {
-    const server = http.createServer();
-    server.listen(startPort, () => {
-        server.close(() => callback(startPort));
-    });
-    server.on("error", () => {
-        getAvailablePort(startPort + 1, callback);
-    });
-}
-
-function startQdrant(token, authMode) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    return new Promise((resolve, reject) => {
-        if (qdrantProcess) return resolve({ port: qdrantPort });
-
-        getAvailablePort(qdrantPort, (port) => {
-            qdrantPort = port;
-            const qdrantPath = path.join(
-                process.resourcesPath,
-                "qdrant", // folder where binary will be stored in packaged app
-                process.platform === "darwin"
-                    ? process.arch === "arm64"
-                        ? "qdrant-aarch64-apple-darwin"
-                        : "qdrant-x86_64-apple-darwin"
-                    : process.platform === "win32"
-                        ? "qdrant.exe"
-                        : "qdrant-x86_64-unknown-linux-gnu"
-            );
-
-            if (!fs.existsSync(qdrantPath)) {
-                return reject(new Error("Qdrant binary not found"));
+export async function SemanticSearch(vector, userId, limit, collection, threshold = 0.5) {
+    const userFilter = {
+        must: [
+            {
+                key: 'user_id',
+                match: { value: userId }
             }
+        ]
+    };
 
-            qdrantProcess = spawn(qdrantPath, ["--storage", path.join(process.cwd(), "qdrant_data"), "--port", port], {
-                cwd: path.dirname(qdrantPath),
-            });
+    const results = await client.search(collection, {
+        vector: { name: "text_embedding", vector },
+        limit,
+        filter: userFilter,
+    });
 
-            qdrantProcess.stdout.on("data", (data) => {
-                console.log(`Qdrant: ${data}`);
-            });
+    const filtered = results.filter(r => r.score >= threshold);
 
-            qdrantProcess.stderr.on("data", (data) => {
-                console.error(`Qdrant Error: ${data}`);
-            });
+    return filtered;
+}
 
-            setTimeout(() => resolve({ port }), 3000); // Wait for server to start
+export function registerQdrantIPC(runtime) {
+    client = new QdrantClient({ url: runtime.baseUrl });
+
+    ipcMain.handle("qdrant:get-collections", async () => {
+        return client.getCollections();
+    });
+
+    ipcMain.handle("qdrant:create-collection", async (_e, name, size, distance = "Cosine") => {
+        return client.createCollection(name, {
+            vectors: { size, distance }
         });
     });
-}
 
-function stopQdrant(token, authMode) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    if (qdrantProcess) {
-        qdrantProcess.kill();
-        qdrantProcess = null;
-    }
-}
-
-async function createCollection(token, authMode, name) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    const res = await fetch(`http://localhost:${qdrantPort}/collections/${name}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            vectors: { size: 1536, distance: "Cosine" },
-        }),
+    ipcMain.handle("qdrant:upsert", async (_e, collection, points) => {
+        return client.upsert(collection, { points });
     });
-    return res.json();
-}
-
-async function insertVector(token, authMode, collection, id, vector, payload = {}) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    const res = await fetch(`http://localhost:${qdrantPort}/collections/${collection}/points`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            points: [{ id, vector, payload }],
-        }),
+    ipcMain.handle("qdrant:search", async (_e, token, collection, queryInput, limit = 5, filter) => {
+        try {
+            const query = await generateEmbedding(queryInput); // flat number[]
+            const userId = getUserIdFromToken(token).id;
+            return SemanticSearch(query, userId, limit, collection);
+        } catch (error) {
+            console.error("Error in qdrant:search:", error);
+            return { success: false, error: error.message };
+        }
     });
-    return res.json();
-}
 
-async function searchVector(token, authMode, collection, vector, limit = 5) {
-    const userId = getUserIdFromToken(token);
-    if (!userId) {
-        return { error: "Invalid token" };
-    }
-    if (authMode === "online") {
-        console.log("online mode")
-    }
-    const res = await fetch(`http://localhost:${qdrantPort}/collections/${collection}/points/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vector, limit }),
+    ipcMain.handle("qdrant:delete-collection", async (_e, name) => {
+        return client.deleteCollection(name);
     });
-    return res.json();
-}
 
-module.exports = {
-    startQdrant,
-    stopQdrant,
-    createCollection,
-    insertVector,
-    searchVector,
-};
+    ipcMain.handle("qdrant:update-point", async (_e, collection, pointId, vector, payload = {}) => {
+        try {
+            const result = await client.upsert(collection, {
+                points: [
+                    {
+                        id: pointId,
+                        vector,
+                        payload
+                    }
+                ]
+            });
+            return { success: true, result };
+        } catch (error) {
+            console.error("Error updating point:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Update payload only (no vector overwrite)
+    ipcMain.handle("qdrant:update-payload", async (_e, collection, pointId, payload) => {
+        try {
+            const result = await client.setPayload(collection, {
+                payload,
+                points: [pointId]
+            });
+            return { success: true, result };
+        } catch (error) {
+            console.error("Error updating payload:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Update vector only (keep existing payload)
+    ipcMain.handle("qdrant:update-vector", async (_e, collection, pointId, vector) => {
+        try {
+            const result = await client.updateVectors(collection, {
+                points: [
+                    {
+                        id: pointId,
+                        vector
+                    }
+                ]
+            });
+            return { success: true, result };
+        } catch (error) {
+            console.error("Error updating vector:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Updated bulk sync handler to support journals, goals, and progress logs
+    ipcMain.handle("qdrant:bulk-sync", async () => {
+        try {
+            if (global.qdrantWorker) {
+                // Trigger bulk sync for all types
+                global.qdrantWorker.postMessage({ type: 'journal:bulk-sync-requested' });
+                global.qdrantWorker.postMessage({ type: 'goal:bulk-sync-requested' });
+                global.qdrantWorker.postMessage({ type: 'progress_log:bulk-sync-requested' });
+                console.log('IPC Handler: Bulk sync messages sent to worker for journals, goals, and progress logs');
+            } else {
+                console.error('Qdrant worker not available');
+                return { success: false, error: "Worker not available" };
+            }
+            return { success: true, message: "Bulk sync started for all types" };
+        } catch (error) {
+            console.error("Error starting bulk sync:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Add single journal sync handler
+    ipcMain.handle("qdrant:sync-journal", async (_e, journalId) => {
+        try {
+            console.log(`IPC Handler: Received request to sync journal ID ${journalId}`);
+            if (global.qdrantWorker) {
+                global.qdrantWorker.postMessage({
+                    type: 'journal:sync-requested',
+                    data: { journalId }
+                });
+                console.log(`IPC Handler: Message sent to worker for journal ID ${journalId}`);
+            } else {
+                console.error('Qdrant worker not available');
+                return { success: false, error: "Worker not available" };
+            }
+            return { success: true, message: "Journal sync started" };
+        } catch (error) {
+            console.error("Error starting journal sync:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // **NEW**: Add single goal sync handler
+    ipcMain.handle("qdrant:sync-goal", async (_e, goalId) => {
+        try {
+            console.log(`IPC Handler: Received request to sync goal ID ${goalId}`);
+            if (global.qdrantWorker) {
+                global.qdrantWorker.postMessage({
+                    type: 'goal:sync-requested',
+                    data: { goalId }
+                });
+                console.log(`IPC Handler: Message sent to worker for goal ID ${goalId}`);
+            } else {
+                console.error('Qdrant worker not available');
+                return { success: false, error: "Worker not available" };
+            }
+            return { success: true, message: "Goal sync started" };
+        } catch (error) {
+            console.error("Error starting goal sync:", error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // **NEW**: Add single progress log sync handler
+    ipcMain.handle("qdrant:sync-progress-log", async (_e, progressLogId) => {
+        try {
+            console.log(`IPC Handler: Received request to sync progress log ID ${progressLogId}`);
+            if (global.qdrantWorker) {
+                global.qdrantWorker.postMessage({
+                    type: 'progress_log:sync-requested',
+                    data: { progressLogId }
+                });
+                console.log(`IPC Handler: Message sent to worker for progress log ID ${progressLogId}`);
+            } else {
+                console.error('Qdrant worker not available');
+                return { success: false, error: "Worker not available" };
+            }
+            return { success: true, message: "Progress log sync started" };
+        } catch (error) {
+            console.error("Error starting progress log sync:", error);
+            return { success: false, error: error.message };
+        }
+    });
+}

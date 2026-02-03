@@ -1,5 +1,6 @@
 import localDB from "../db";
 import jwt from "jsonwebtoken";
+import { eventBus } from "../eventBus";
 
 function getUserIdFromToken(token) {
     try {
@@ -9,7 +10,6 @@ function getUserIdFromToken(token) {
         }
         const decoded = jwt.decode(token);
         // 2. Ensure the token was successfully decoded and has an id
-        console.log(decoded, "decoded");
         return decoded.id;
     } catch (e) {
         console.error("Error decoding token:", e);
@@ -31,7 +31,6 @@ export const handleGetActiveGoals = async (event, authMode, token) => {
 }
 
 export const handleGetCompletedGoals = async (event, authMode, token) => {
-    console.log("calling completed goals")
     const userId = getUserIdFromToken(token);
     if (!userId) {
         return { error: "Invalid token" };
@@ -44,9 +43,6 @@ export const handleGetCompletedGoals = async (event, authMode, token) => {
 }
 
 export const handleCreateGoal = async (event, authMode, token, goal) => {
-    console.log("create goal in methods.js", goal);
-    console.log("authMode", authMode);
-    console.log("token", token);
     const userId = getUserIdFromToken(token);
     if (!userId) {
         return { error: "Invalid token" };
@@ -54,7 +50,13 @@ export const handleCreateGoal = async (event, authMode, token, goal) => {
     if (authMode === "online") {
         console.log("online mode")
     } else {
-        return localDB.AddGoal(userId, goal);
+        const goalCreated = await localDB.AddGoal(userId, goal);
+        console.log(goalCreated, "goal created");
+        if (goalCreated.changes == 1) {
+            // Trigger Qdrant sync
+            eventBus.emit("goal:created", { entry: goal });
+        }
+        return goalCreated;
     }
 }
 
@@ -66,7 +68,11 @@ export const handleUpdateGoal = async (event, authMode, token, goalId, goalData)
     if (authMode === "online") {
         console.log("online mode")
     } else {
-        return localDB.updateGoal(userId, goalId, goalData);
+        const updatedGoal =  await localDB.updateGoal(userId, goalId, goalData);
+        if(updatedGoal) {
+            eventBus.emit("goal:updated", { entry: goalData });
+        }
+        return updatedGoal
     }
 }
 
@@ -83,7 +89,6 @@ export const handleDeleteGoal = async (event, authMode, token, goalId) => {
 }
 
 export const handleTogglePin = async (event, authMode, token, goalId) => {
-    console.log("+++++++++++", authMode, token, goalId, "++++++++++++++");
     const userId = getUserIdFromToken(token);
     if (!userId) {
         return { error: "Invalid token" };
@@ -91,7 +96,6 @@ export const handleTogglePin = async (event, authMode, token, goalId) => {
     if (authMode === "online") {
         console.log("online mode")
     } else {
-        console.log("-----", userId)
         return localDB.togglePinGoal(userId, goalId);
     }
 }
@@ -129,5 +133,55 @@ export const handleGetPinnedGoals = (event, authMode, token) => {
         console.log("online mode")
     } else {
         return localDB.getPinnedGoals(userId);
+    }
+}
+
+export const handleGetGoalById = (event, authMode, token, goalId) => {
+    const userId = getUserIdFromToken(token);
+    if (!userId) {
+        return { error: "Invalid token" };
+    }
+    if (authMode === "online") {
+        console.log("online mode")
+    } else {
+        return localDB.getGoalById(goalId, userId);
+    }
+}
+
+// Manual sync functions
+export function syncGoalToQdrant(goalId) {
+    if (qdrantWorker) {
+        qdrantWorker.postMessage({
+            type: 'goal:sync-requested',
+            data: { goalId }
+        });
+    }
+}
+
+export function syncProgressLogToQdrant(progressLogId) {
+    if (qdrantWorker) {
+        qdrantWorker.postMessage({
+            type: 'progress_log:sync-requested',
+            data: { progressLogId }
+        });
+    }
+}
+
+// Bulk sync functions
+export function bulkSyncGoalsToQdrant() {
+    if (qdrantWorker) {
+        qdrantWorker.postMessage({
+            type: 'goal:bulk-sync-requested',
+            data: {}
+        });
+    }
+}
+
+export function bulkSyncProgressLogsToQdrant() {
+    if (qdrantWorker) {
+        qdrantWorker.postMessage({
+            type: 'progress_log:bulk-sync-requested',
+            data: {}
+        });
     }
 }

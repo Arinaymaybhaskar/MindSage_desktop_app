@@ -10,7 +10,6 @@ function getUserIdFromToken(token) {
         }
         const decoded = jwt.decode(token);
         // 2. Ensure the token was successfully decoded and has an id
-        console.log(decoded);
         return decoded.id;
     } catch (e) {
         console.error("Error decoding token:", e);
@@ -27,7 +26,6 @@ export const handleGetCategories = async (event, authMode, token) => {
     if (authMode === "online") {
         console.log("online mode")
     } else {
-        console.log("userId in handleGetCategories:", userId);
         return localDB.getCategories(userId);
     }
 }

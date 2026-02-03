@@ -5,6 +5,25 @@ contextBridge.exposeInMainWorld('electron', {
   maximize: () => ipcRenderer.send('maximize-window'),
   close: () => ipcRenderer.send('close-window'),
 
+  zoom: {
+    set: (factor) => {
+      const { webFrame } = require("electron");
+      webFrame.setZoomFactor(factor);
+    },
+    get: () => {
+      const { webFrame } = require("electron");
+      return webFrame.getZoomFactor();
+    },
+  },
+
+  send: (channel, ...args) => ipcRenderer.send(channel, ...args),
+  onStatusUpdate: (callback) => {
+    ipcRenderer.on("status-update", (_, status) => callback(status));
+  },
+  removeStatusUpdateListener: () => {
+    ipcRenderer.removeAllListeners("status-update");
+  },
+
   // Function to subscribe to window state changes
   onWindowStateChange: (callback) => {
     const listener = (_event, value) => callback(value);
@@ -42,6 +61,9 @@ contextBridge.exposeInMainWorld('electron', {
         'media:save',
         'media:save-profile',
         "media:getAudio",
+        "media:linkMessage",
+        "media:save-chat-media",
+        "media:getPdf",
         'category:get-all',
         'category:delete',
         'category:add',
@@ -55,20 +77,43 @@ contextBridge.exposeInMainWorld('electron', {
         'goal:complete',
         'goal:update-progress',
         'goal:getPinned',
+        "goal:get-by-id",
         'logs:getAll',
         'logs:add',
         'ollama:models',
         "ollama:get-response",
-        "qdrant:start",
-        "qdrant:createCollection",
-        "qdrant:insertVector",
-        "qdrant:searchVector",
-        "qdrant:stop",
-
-        // --- NEW for Whisper ---
+        "ollama:generate-suggestion",
+        "ollama:download-model",
+        "ollama:delete-model",
+        "qdrant:get-collections",
+        "qdrant:create-collection",
+        "qdrant:upsert",
+        "qdrant:search",
+        "qdrant:delete-collection",
+        "dashboard:get-data",
+        "dashboard:get-monthly-scores",
+        "dashboard:get-all-time-scores",
+        "dashboard:get-stats",
         "whisper:transcribe-audio",      // one-shot transcription
         "whisper:start-live-transcription", // start live
         "whisper:stop-live-transcription",  // stop live
+        "settings:getSelectedModel",
+        "settings:setSelectedModel",
+        "qdrant:bulk-sync", // Add this new channel
+        "qdrant:sync-journal",
+        "qdrant:sync-goal",
+        "qdrant:sync-progress-log",
+        "chat:get-by-id",
+        "chat:get-chats",
+        "chat:send-message",
+        "chat:delete-chat",
+        "chat:change-title",
+        "user:export-data",
+        "dialog:show-save-export",
+        'models:get-selected',
+        'models:save-selected',
+        "quick-capture:close",
+        "eventBus:emit"
       ];
 
       if (validChannels.includes(channel)) {
@@ -83,7 +128,8 @@ contextBridge.exposeInMainWorld('electron', {
         'main-process-message',
         'sync-complete',
         'sync-error',
-        "live-transcription-data" // <-- added live transcription stream events
+        "live-transcription-data", // <-- added live transcription stream events
+        'services-ready'
       ];
       if (validChannels.includes(channel)) {
         ipcRenderer.on(channel, (event, ...args) => func(...args));
@@ -99,7 +145,13 @@ contextBridge.exposeInMainWorld('electron', {
 
   onAIStarted: (callback) => ipcRenderer.on("journal:aiStarted", (_event, data) => callback(data)),
   onAICompleted: (callback) => ipcRenderer.on("journal:aiCompleted", (_event, data) => callback(data)),
+  onChatResponseGenerated: (callback) => {
+    ipcRenderer.on("chat:response-generated", (_event, data) => callback(data));
+  },
 
+  onChatError: (callback) => {
+    ipcRenderer.on("chat:error", (_event, error) => callback(error));
+  },
   // // --- NEW helpers for Whisper ---
   // whisper: {
   //   transcribeAudio: (audioBlobPath) => ipcRenderer.invoke("whisper:transcribe-audio", audioBlobPath),

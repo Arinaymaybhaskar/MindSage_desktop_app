@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Pencil,
@@ -8,16 +8,61 @@ import {
   AudioLines,
   Tags,
   ArrowLeft,
-  X,
   FileText,
   ChevronDown,
   Captions,
+  Download,
 } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { motion, AnimatePresence } from "framer-motion";
 import DeleteConfirmationModal from "../components/goals/modals/DeleteConfirmationModal";
+import ImageLightbox from "../components/chat/ImageLightbox";
+import { format } from "date-fns";
+import { useToast } from "../context/ToastContext";
+
+// --- Helper: Export Journal to Markdown ---
+function exportJournalToMarkdown(entry: JournalEntry) {
+  console.log("Exporting journal entry:", entry);
+  if (!entry) return;
+
+  const createdAt = entry.created_at
+    ? format(new Date(entry.created_at), "PPPpp")
+    : "Unknown date";
+
+  const tags =
+    entry.mood_tags && typeof entry.mood_tags === "string"
+      ? entry.mood_tags
+      : JSON.stringify(entry.mood_tags || []);
+
+  const markdown = `# ${entry.title || "Untitled"}  
+
+**Date:** ${createdAt}  
+**Mood Score:** ${entry.mood_score || "-"} / 5  
+**Sentiment:** ${entry.sentiment_score?.toFixed(2) || "-"}  
+**Tags:** ${tags}  
+
+---
+
+${entry.content || ""}
+
+---
+${entry.transcription ? `## Transcription\n\n${entry.transcription}\n\n` : ""}${
+    entry.content_summary ? `## Summary\n\n${entry.content_summary}\n\n` : ""
+  }
+`;
+
+  const blob = new Blob([markdown], { type: "text/markdown" });
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${entry.title || "journal"}-${Date.now()}.md`;
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+}
 
 const parseMoodTags = (tags: string | string[] | undefined): string[] => {
   if (Array.isArray(tags)) return tags;
@@ -25,7 +70,8 @@ const parseMoodTags = (tags: string | string[] | undefined): string[] => {
   try {
     const parsed = JSON.parse(tags);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
+  } catch (e: any) {
+    console.error("Failed to parse mood tags:", e);
     return tags
       .split(",")
       .map((tag) => tag.trim())
@@ -37,6 +83,8 @@ export default function JournalDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [entry, setEntry] = useState<JournalEntry | null>(null);
+  const [loading, setLoading] = useState(true); // New loading state
+  const [error, setError] = useState(false); // New error state
   const [imageUrl, setImageUrl] = useState("");
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -47,33 +95,73 @@ export default function JournalDetail() {
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
     | "online";
+  const { showToast } = useToast();
 
-  // Data fetching logic remains the same...
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key.toLowerCase() === "e" && !e.shiftKey) {
+        e.preventDefault();
+        if (id) navigate(`/journal/edit/${id}`);
+      }
+      if (e.key === "Delete") {
+        e.preventDefault();
+        setIsDeleteModalOpen(true);
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        exportJournalToMarkdown(entry!);
+        showToast(
+          "Please select download location. The file will be available at that location.",
+          "success"
+        );
+      }
+    },
+    [id, navigate, entry]
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   useEffect(() => {
     if (!id) return;
+
     const fetchEntry = async () => {
+      setLoading(true);
+      setError(false);
+
       try {
+        console.log(authMode, accessToken, "ID:", id);
         const res = await journalService.getOne(authMode, accessToken!, +id);
-        setEntry(res);
-        if (res.image_key) {
-          const url = await window.electron.ipcRenderer.invoke(
-            "media:getImage",
-            res.image_key.toString()
-          );
-          setImageUrl(url);
+        console.log(res);
+        if (!res) {
+          setError(true);
+        } else {
+          setEntry(res);
+          if (res.image_key) {
+            const url = await window.electron.ipcRenderer.invoke(
+              "media:getImage",
+              res.image_key.toString()
+            );
+            setImageUrl(url);
+          }
+          if (res.audio_key) {
+            const url = await window.electron.ipcRenderer.invoke(
+              "media:getAudio",
+              res.audio_key.toString()
+            );
+            setAudioUrl(url);
+          }
         }
-        if (res.audio_key) {
-          const url = await window.electron.ipcRenderer.invoke(
-            "media:getAudio",
-            res.audio_key.toString()
-          );
-          setAudioUrl(url);
-        }
-      } catch (error) {
-        console.error("Failed to fetch journal entry:", error);
-        setEntry(null);
+      } catch (err) {
+        console.error("Failed to fetch journal entry:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchEntry();
   }, [id, authMode, accessToken]);
 
@@ -84,25 +172,45 @@ export default function JournalDetail() {
     navigate("/journals");
   };
 
-  if (!entry) {
+  // --- Render loading state ---
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-base-light dark:bg-base-dark text-text-light-sub dark:text-text-dark-sub">
-        Loading entry...
+        <span className="animate-pulse text-lg font-medium">
+          Loading your journal...
+        </span>
       </div>
     );
   }
 
+  // --- Render error / not found state ---
+  if (error || !entry) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-base-light dark:bg-base-dark text-text-light-sub dark:text-text-dark-sub">
+        <span className="text-2xl font-semibold mb-4">Journal not found</span>
+        <button
+          onClick={() => navigate("/journals")}
+          className="px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
+        >
+          Back to Journals
+        </button>
+      </div>
+    );
+  }
+
+  // --- Parse mood tags ---
   const moodTags = parseMoodTags(entry.mood_tags);
 
+  // --- Render the main entry view ---
   return (
     <>
       <div className="bg-base-light dark:bg-base-dark min-h-screen">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header Navigation */}
           <div className="mb-6">
             <Link
               to="/journals"
-              className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-info dark:hover:text-info font-semibold transition-colors"
+              className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 font-semibold transition-colors"
             >
               <ArrowLeft size={18} />
               Back to Journals
@@ -134,22 +242,23 @@ export default function JournalDetail() {
               )}
 
               {audioUrl && (
-                <div className="mb-8 bg-tertiary-light dark:bg-tertiary-dark p-4 rounded-lg">
-                  <audio controls className="w-full">
+                <div className="mb-8 p-4">
+                  <audio
+                    controls
+                    className="w-full bg-transparent audio-player"
+                  >
                     <source src={audioUrl} type="audio/webm" />
                     Your browser does not support the audio element.
                   </audio>
                 </div>
               )}
 
-              {/* Summary and Transcription have been moved to the sidebar */}
-
               <div className="prose prose-lg dark:prose-invert text-text-light-sub dark:text-text-dark-sub max-w-none leading-relaxed whitespace-pre-wrap">
                 {entry.content}
               </div>
             </article>
 
-            {/* Right Column: Sticky Sidebar for Metadata & Actions */}
+            {/* Right Column: Sticky Sidebar */}
             <aside className="w-full lg:w-1/3 lg:sticky top-8 h-fit mt-8 lg:mt-0">
               <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl p-6 border border-border-light dark:border-border-dark space-y-6">
                 {/* Actions */}
@@ -157,7 +266,7 @@ export default function JournalDetail() {
                   <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-3">
                     Actions
                   </h3>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => navigate(`/journal/edit/${id}`)}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
@@ -172,17 +281,31 @@ export default function JournalDetail() {
                       <Trash2 size={14} />
                       <span>Delete</span>
                     </button>
+                    <button
+                      onClick={() => {
+                        if (entry) {
+                          exportJournalToMarkdown(entry);
+                          showToast(
+                            "Please select download location. The file will be available at that location.",
+                            "success"
+                          );
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
+                    >
+                      <Download size={14} />
+                      <span>Export</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* NEW: AI Insights Section */}
+                {/* AI Insights */}
                 {(entry.content_summary || entry.transcription) && (
                   <div>
                     <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-3">
                       AI Insights
                     </h3>
                     <div className="space-y-2">
-                      {/* Collapsible Transcription Section */}
                       {entry.transcription && (
                         <div className="border border-border-light dark:border-border-dark rounded-xl bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
                           <button
@@ -193,7 +316,10 @@ export default function JournalDetail() {
                             aria-expanded={isTranscriptionOpen}
                           >
                             <div className="flex items-center gap-3">
-                              <Captions size={16} className="text-info" />
+                              <Captions
+                                size={16}
+                                className="text-dark1 dark:text-light1"
+                              />
                               <h4 className="font-semibold text-sm text-text-light dark:text-text-dark">
                                 Transcription
                               </h4>
@@ -231,7 +357,6 @@ export default function JournalDetail() {
                         </div>
                       )}
 
-                      {/* Collapsible Summary Section */}
                       {entry.content_summary && (
                         <div className="border border-border-light dark:border-border-dark rounded-xl bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
                           <button
@@ -240,7 +365,10 @@ export default function JournalDetail() {
                             aria-expanded={isSummaryOpen}
                           >
                             <div className="flex items-center gap-3">
-                              <FileText size={16} className="text-info" />
+                              <FileText
+                                size={16}
+                                className="text-dark1 dark:text-light1"
+                              />
                               <h4 className="font-semibold text-sm text-text-light dark:text-text-dark">
                                 Summary
                               </h4>
@@ -282,7 +410,7 @@ export default function JournalDetail() {
                 {/* Metadata */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <Smile size={18} className="text-info" />
+                    <Smile size={18} className="text-dark1 dark:text-light1" />
                     <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
                       Mood Score:
                     </span>
@@ -291,7 +419,10 @@ export default function JournalDetail() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <AudioLines size={18} className="text-info" />
+                    <AudioLines
+                      size={18}
+                      className="text-dark1 dark:text-light1"
+                    />
                     <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
                       Sentiment:
                     </span>
@@ -302,7 +433,10 @@ export default function JournalDetail() {
                   {moodTags.length > 0 && (
                     <div>
                       <div className="flex items-center gap-3 mb-2">
-                        <Tags size={18} className="text-info" />
+                        <Tags
+                          size={18}
+                          className="text-dark1 dark:text-light1"
+                        />
                         <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
                           Tags:
                         </span>
@@ -311,7 +445,7 @@ export default function JournalDetail() {
                         {moodTags.map((tag, idx) => (
                           <span
                             key={idx}
-                            className="bg-tertiary-light dark:bg-tertiary-dark text-info px-2.5 py-1 rounded-full text-xs font-semibold"
+                            className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
                           >
                             {tag}
                           </span>
@@ -326,44 +460,18 @@ export default function JournalDetail() {
         </div>
       </div>
 
-      {/* Modals are unchanged */}
       <DeleteConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDeleteConfirm}
         type="journal entry"
       />
-      <AnimatePresence>
-        {showImageModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-base-dark/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setShowImageModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              className="relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                className="absolute -top-3 -right-3 text-text-dark bg-secondary-dark rounded-full p-1.5 z-10 hover:bg-tertiary-dark transition-colors"
-                onClick={() => setShowImageModal(false)}
-              >
-                <X size={24} />
-              </button>
-              <img
-                src={imageUrl}
-                alt="Full View"
-                className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {showImageModal && (
+        <ImageLightbox
+          url={imageUrl}
+          onClose={() => setShowImageModal(false)}
+        />
+      )}
     </>
   );
 }

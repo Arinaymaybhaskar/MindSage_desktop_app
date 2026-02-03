@@ -9,6 +9,7 @@ export const ollamaService = {
     checkElectron();
     return await window.electron.ipcRenderer.invoke("ollama:models", token);
   },
+
   getResponse: async (
     token: string,
     model: string,
@@ -22,6 +23,26 @@ export const ollamaService = {
       model,
       prompt,
       jsonMode
+    );
+  },
+  downloadModel: async (
+    token: string,
+    modelName: string
+  ) => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke(
+      "ollama:download-model",
+      token,
+      modelName
+    );
+  },
+
+  deleteModel: async (token: string, modelName: string) => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke(
+      "ollama:delete-model",
+      token,
+      modelName
     );
   },
 };

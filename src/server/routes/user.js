@@ -9,7 +9,6 @@ const router = express.Router();
 // Get current user info
 router.get("/me", authenticateToken, async (req, res) => {
   try {
-    console.log("Fetching user info for ID:", req.user);
     const id = req.user.id || req.user.userId; // Handle both user.id and user.userId
     const username = req.user.username;
     
@@ -50,7 +49,6 @@ router.get("/me", authenticateToken, async (req, res) => {
     const user = result.rows[0];
     user.entriesCount = entriesCount; // Add entries count to user object
     user.lastEntryDate = lastEntry.rows.length > 0 ? lastEntry.rows[0].created_at : null; // Add last entry date
-    console.log("User streaks:", getstreaks.rows[0].count);
     res.json(user);
   } catch (err) {
     console.error("Error fetching user:", err);
@@ -182,7 +180,8 @@ router.put("/me/settings", authenticateToken, async (req, res) => {
     "send_to_ai", "journal_reminder", "challenge_alert", "check_in_frequency", "ai_tone",
     "breathing_reminder", "daily_challenge_type", "auto_summarize", "ai_tags", "insight_tone",
     "enable_ai_image", "enable_voice_mood", "enable_smart_prompts", "auto_save_timer",
-    "journal_streaks", "weekly_summary_email", "journaling_goal"
+    "journal_streaks", "weekly_summary_email", "journaling_goal", "custom_colors", 
+    "selected_theme", "use_custom_colors"
   ];
   // convert camelCase to snake_case for database compatibility
   const snakeCaseFields = allowedFields.map(field => field.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase());
@@ -238,7 +237,6 @@ router.delete("/me", authenticateToken, async (req, res) => {
 
 // change password
 router.put("/me/change-password", authenticateToken, async (req, res) => {
-  console.log("Changing password", req.body, req.user);
   const { old_password, new_password } = req.body;
   try {
     const result = await pool.query("SELECT * FROM users WHERE id = $1", [req.user.id]);

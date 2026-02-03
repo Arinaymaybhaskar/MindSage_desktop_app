@@ -1,40 +1,116 @@
 import { useState, useEffect } from "react";
-import { Save } from "lucide-react";
-// Assuming you have a custom Switch and a themed Dropdown component
 import { Switch } from "../ui/Switch";
 import { Dropdown } from "../ui/Dropdown";
 
-const AppearanceSettings = ({ settings, onSettingsSave }) => {
+const { webFrame } = window.require
+  ? window.require("electron")
+  : { webFrame: null };
+
+export const PathOnTitlebar = () => {
   const [localSettings, setLocalSettings] = useState({
-    dark_mode: false,
-    font_size: "medium",
+    path_on_titlebar: false,
   });
 
+  const settings = JSON.parse(localStorage.getItem("settings")) || {};
+
   useEffect(() => {
-    if (settings) {
-      setLocalSettings({
-        dark_mode: settings.dark_mode || false,
-        font_size: settings.font_size || "medium",
-      });
-    }
-  }, [settings]);
+    const storedPathSetting = localStorage.getItem("path_on_titlebar");
+    setLocalSettings({
+      path_on_titlebar:
+        storedPathSetting !== null
+          ? JSON.parse(storedPathSetting)
+          : settings?.path_on_titlebar || false,
+    });
+  }, []);
 
   const handleChange = (name, value) => {
-    setLocalSettings((prev) => ({ ...prev, [name]: value }));
+    setLocalSettings((prev) => {
+      const updated = { ...prev, [name]: value };
+      if (name === "path_on_titlebar") {
+        localStorage.setItem(name, JSON.stringify(value));
+      }
+      return updated;
+    });
+    window.location.reload();
   };
-
-  const handleSave = () => {
-    onSettingsSave({ ...settings, ...localSettings });
-  };
-
-  const fontSizeOptions = [
-    { value: "small", label: "Small" },
-    { value: "medium", label: "Medium" },
-    { value: "large", label: "Large" },
-  ];
 
   return (
-    // --- CHANGE: Themed main container ---
+    <div className="flex justify-between items-center p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
+      <div>
+        <label className="font-medium text-text-light dark:text-text-dark">
+          Path on Titlebar
+        </label>
+        <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+          Show the current path in the titlebar for easy navigation.
+        </p>
+      </div>
+      <Switch
+        checked={localSettings.path_on_titlebar}
+        onCheckedChange={(v) => handleChange("path_on_titlebar", v)}
+      />
+    </div>
+  );
+};
+
+// ----------------------
+// Zoom Scale Setting
+// ----------------------
+export const ZoomScaleSetting = () => {
+  const [zoom, setZoom] = useState(100);
+
+  useEffect(() => {
+    const savedZoom = localStorage.getItem("zoom_scale");
+    const zoomValue = savedZoom ? parseInt(savedZoom, 10) : 100;
+    setZoom(zoomValue);
+    if (webFrame) {
+      webFrame.setZoomFactor(zoomValue / 100);
+    }
+  }, []);
+
+  const handleZoomChange = (newZoom: number) => {
+    setZoom(newZoom);
+    localStorage.setItem("zoom_scale", newZoom.toString());
+
+    if (webFrame) {
+      webFrame.setZoomFactor(newZoom / 100);
+    }
+    window.location.reload();
+  };
+
+  return (
+    <div className="flex justify-between items-center p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
+      <div>
+        <label className="font-medium text-text-light dark:text-text-dark">
+          App Zoom Level
+        </label>
+        <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+          Adjust the interface scale for better readability.
+        </p>
+      </div>
+
+      <Dropdown
+        options={[
+          { label: "80%", value: 80 },
+          { label: "90%", value: 90 },
+          { label: "100%", value: 100 },
+          { label: "110%", value: 110 },
+          { label: "120%", value: 120 },
+          { label: "125%", value: 125 },
+          { label: "150%", value: 150 },
+        ]}
+        onSelect={handleZoomChange}
+        placeholder={`${zoom}%`}
+        selectedValue={zoom}
+      />
+    </div>
+  );
+};
+
+// ----------------------
+// Appearance Settings Wrapper
+// ----------------------
+const AppearanceSettings = ({ settings }) => {
+  return (
     <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
       <div className="p-6 border-b border-border-light dark:border-border-dark">
         <h2 className="text-xl font-bold text-text-light dark:text-text-dark">
@@ -44,52 +120,10 @@ const AppearanceSettings = ({ settings, onSettingsSave }) => {
           Customize how the app looks and feels.
         </p>
       </div>
+
       <div className="p-6 space-y-6">
-        {/* Dark Mode Setting */}
-        <div className="flex justify-between items-center p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
-          <div>
-            <label className="font-medium text-text-light dark:text-text-dark">
-              Dark Mode
-            </label>
-            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
-              Reduce eye strain in low-light environments.
-            </p>
-          </div>
-          <Switch
-            checked={localSettings.dark_mode}
-            onCheckedChange={(v) => handleChange("dark_mode", v)}
-          />
-        </div>
-
-        {/* Font Size Setting */}
-        <div className="flex justify-between items-center p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
-          <div>
-            <label className="font-medium text-text-light dark:text-text-dark">
-              Font Size
-            </label>
-            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
-              Adjust the text size for readability.
-            </p>
-          </div>
-          <div className="w-32 text-sm text-text-light dark:text-text-dark">
-            <Dropdown
-              placeholder={"Choose size"}
-              options={fontSizeOptions}
-              selectedValue={localSettings.font_size}
-              onSelect={(v) => handleChange("font_size", v)}
-            />
-          </div>
-        </div>
-
-        {/* Save Button */}
-        <div className="flex justify-end border-t border-border-light dark:border-border-dark pt-6">
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-info text-white font-semibold rounded-lg shadow-md hover:bg-info/90 transition-all"
-          >
-            <Save size={16} /> Save Appearance
-          </button>
-        </div>
+        <PathOnTitlebar />
+        <ZoomScaleSetting />
       </div>
     </div>
   );

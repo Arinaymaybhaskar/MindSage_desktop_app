@@ -51,7 +51,6 @@ router.post("/analyze-journal", authenticateToken, async (req, res) => {
     try {
         const rawData = await textResponse(prompt, model);
         const raw = rawData.result;
-        console.log("Gemini raw output:", raw);
         const jsonStart = raw.indexOf("{");
         const jsonEnd = raw.lastIndexOf("}") + 1;
         const jsonString = raw.slice(jsonStart, jsonEnd);
@@ -104,7 +103,6 @@ const journalFile = fs.readFileSync(journalPath, "utf8");
     try {
         const rawData = await textResponse(prompt, model);
         const raw = rawData.result;
-        console.log("Gemini raw output:", raw);
         const jsonStart = raw.indexOf("{");
         const jsonEnd = raw.lastIndexOf("}") + 1;
         const jsonString = raw.slice(jsonStart, jsonEnd);
