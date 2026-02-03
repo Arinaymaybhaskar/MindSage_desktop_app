@@ -1,11 +1,11 @@
 # <img src="./assets/iconDark.png" alt="MindSage Logo" width="28" style="vertical-align: middle;"/> MindSage – Features & Platforms
 
 MindSage is an AI-powered journaling platform that helps users reflect, track emotions, and grow through writing and voice.
-It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
+It runs on ** Website** and ** Desktop App** (offline-first with sync).
 
 ---
 
-## 🛠️ Technologies
+## Technologies
 
 ### Frontend
 
@@ -45,9 +45,9 @@ It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
 ---
 
-## 🌐 Website Features
+##  Website Features
 
-### 1. 🔐 Authentication
+### 1.  Authentication
 
 - Login (username/email + password, “remember me”)
 - Register (unique username, full name, email, password)
@@ -59,7 +59,7 @@ It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
 ---
 
-### 2. 📊 Dashboard
+### 2.  Dashboard
 
 - **Pinned Goals:** Displays pinned goals with a visual progress percentage.
 - **Mood & Sentiment Chart:** A line chart visualizing mood and sentiment scores over time, with options to view data for the **last week** or **last month**.
@@ -71,7 +71,7 @@ It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
 ---
 
-### 3. 📓 Journals
+### 3.  Journals
 
 - Create / Edit / Delete entries
 - Journal fields: Title, Content, Mood score, Mood tags, Image, Audio
@@ -87,7 +87,7 @@ It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
 ---
 
-### 4. 🎯 Goals & Ambitions
+### 4.  Goals & Ambitions
 
 - **Goal Creation:**
   - **Manual Mode:** Create a goal by manually filling in the name, description, target date, target value, and target unit.
@@ -102,7 +102,7 @@ It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
 ---
 
-### 5. 🎤 Voice & Audio Journals
+### 5.  Voice & Audio Journals
 
 - **Live Speech-to-Text:**
   - Transcribes speech directly into the journal textarea in real-time.
@@ -119,7 +119,7 @@ It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
 ---
 
-### 6. 🏆 Daily Challenge
+### 6.  Daily Challenge
 
 - Accept challenges before 8 PM.
 - Upload proof (image).
@@ -128,7 +128,7 @@ It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
 ---
 
-### 7. ⚙️ Settings
+### 7.  Settings
 
 - **Profile:**
   - Update full name, username, and email.
@@ -139,7 +139,7 @@ It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
 ---
 
-### 8. 🤖 AI Features
+### 8.  AI Features
 
 - Follow-up questions (3 prompts based on entry).
 - Chatbot (answers based on journals, with links).
@@ -153,7 +153,7 @@ It runs on **🌐 Website** and **💻 Desktop App** (offline-first with sync).
 
 ---
 
-## 💻 Desktop App
+##  Desktop App
 
 The desktop app supports **all website features** + **offline-first architecture**:
 
@@ -162,7 +162,7 @@ The desktop app supports **all website features** + **offline-first architecture
 - Local AI model for generation.
 - Device-based media uploads.
 
-### 🔄 Online Sync
+###  Online Sync
 
 Users can switch online to:
 
@@ -172,11 +172,11 @@ Users can switch online to:
 - Cloud AI generation.
 - Cloud media storage (S3).
 
-📦 Executable available via the MindSage website.
+Executable available via the MindSage website.
 
 ---
 
-## 📊 System Workflows
+## System Workflows
 
 This section provides a visual overview of the core processes and data flows within the MindSage application.
 
@@ -226,7 +226,7 @@ _This diagram illustrates the RAG (Retrieval-Augmented Generation) pipeline for 
 
 ---
 
-## � Screenshots
+## Screenshots
 
 ### Dashboard & Core Pages
 
@@ -281,7 +281,7 @@ _This diagram illustrates the RAG (Retrieval-Augmented Generation) pipeline for 
 
 ---
 
-## �🚀 Roadmap (Future Enhancements)
+## Roadmap (Future Enhancements)
 
 - **Advanced RAG Pipeline (with LangChain.js):**
   - Implement a conversational chatbot with memory.
@@ -303,7 +303,7 @@ _This diagram illustrates the RAG (Retrieval-Augmented Generation) pipeline for 
 
 ---
 
-## ⚙️ Technical Notes
+## Technical Notes
 
 - **Event-Driven Architecture:**
   - Electron desktop app uses EventBus for background AI tasks (title, tags, moodscore, summaries, audio transcription).
