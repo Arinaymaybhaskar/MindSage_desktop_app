@@ -226,7 +226,62 @@ _This diagram illustrates the RAG (Retrieval-Augmented Generation) pipeline for 
 
 ---
 
-## 🚀 Roadmap (Future Enhancements)
+## � Screenshots
+
+### Dashboard & Core Pages
+
+|                                                                             |                                                                |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| ![Dashboard](./public/screenshots/dashboard.png)                            | ![Dashboard Alternative](./public/screenshots/dashboard_2.png) |
+| **Dashboard** - Overview with pinned goals, mood charts, and recent entries | **Dashboard Alternative View**                                 |
+| ![Settings](./public/screenshots/settingsPage.png)                          | ![Goals Page](./public/screenshots/goalsPage.png)              |
+| **Settings Page** - User preferences and configuration                      | **Goals Page** - View and manage all goals                     |
+| ![Journals](./public/screenshots/myjournals.png)                            | ![Global Search](./public/screenshots/GlobalSearch.png)        |
+| **My Journals** - Browse all journal entries                                | **Global Search** - Search across your journals                |
+
+### Journal Features
+
+|                                                             |                                                           |
+| ----------------------------------------------------------- | --------------------------------------------------------- |
+| ![New Journal](./public/screenshots/newJournal.png)         | ![Chat Page](./public/screenshots/chatPage.png)           |
+| **Create New Journal** - Write a new entry                  | **Chat Page** - AI-powered chatbot                        |
+| ![Journal Details](./public/screenshots/journalDetails.png) | ![Quick Write](./public/screenshots/quickWritePopup.png)  |
+| **Journal Details** - View full entry with media            | **Quick Write Popup** - Fast journal entry                |
+| ![Semantic Search](./public/screenshots/semanticSearch.png) | ![Reflections](./public/screenshots/reflectionsPopup.png) |
+| **Semantic Search** - AI-powered search results             | **Reflections Popup** - View goal reflections             |
+
+### Goal Management
+
+|                                                                |                                                            |
+| -------------------------------------------------------------- | ---------------------------------------------------------- |
+| ![Add Goal Manual](./public/screenshots/AddGoalManual.png)     | ![Add New Goal](./public/screenshots/AddnewGoal.png)       |
+| **Add Goal (Manual)** - Create goal manually                   | **Add New Goal** - Goal creation interface                 |
+| ![Add Goal AI](./public/screenshots/AddGoalAI.png)             | ![AI Result](./public/screenshots/AddGoalAIResult.png)     |
+| **AI Goal Assistant** - AI-powered goal suggestions            | **AI Goal Results** - Generated goal templates             |
+| ![Goal Completed](./public/screenshots/goalCompletedPopup.png) | ![Log Progress](./public/screenshots/logProgressPopup.png) |
+| **Goal Completed** - Celebration popup                         | **Log Progress** - Track goal progress                     |
+
+### AI Features
+
+|                                                     |                                                                       |
+| --------------------------------------------------- | --------------------------------------------------------------------- |
+| ![ChatBot](./public/screenshots/ChatBot.png)        | ![Keyboard Shortcuts](./public/screenshots/keyboardShortcutPopup.png) |
+| **ChatBot Interface** - AI assistant for journaling | **Keyboard Shortcuts** - Quick reference guide                        |
+
+### Settings & Customization
+
+|                                                                      |                                                                     |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| ![Color Settings](./public/screenshots/colorsSettings.png)           | ![Appearance Settings](./public/screenshots/appearanceSettings.png) |
+| **Color Settings** - Customize color scheme                          | **Appearance Settings** - UI preferences                            |
+| ![Security Settings](./public/screenshots/securitySettings.png)      | ![Model Settings](./public/screenshots/modelSettings.png)           |
+| **Security Settings** - Account security options                     | **Model Settings** - AI model configuration                         |
+| ![Data Export Settings](./public/screenshots/dataExportSettings.png) | ![Data Export Page](./public/screenshots/ExportDataPage.png)        |
+| **Data Export Settings** - Configure data export                     | **Export Data Page** - Export your journals                         |
+
+---
+
+## �🚀 Roadmap (Future Enhancements)
 
 - **Advanced RAG Pipeline (with LangChain.js):**
   - Implement a conversational chatbot with memory.
