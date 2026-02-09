@@ -75,6 +75,7 @@ const Settings = () => {
           userService.getMe(authMode, accessToken!),
           userService.getSettings(authMode, accessToken!),
         ]);
+        localStorage.setItem("userInfo", JSON.stringify(userResponse));
         setUser(userResponse);
         setSettings(settingsResponse);
       } catch (error) {
