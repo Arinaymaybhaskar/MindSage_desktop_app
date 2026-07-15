@@ -41,7 +41,7 @@ router.post("/chat", authenticateToken, async (req, res) => {
 // to post a journal
 // MODIFIED: Now calls the AI Core service to create an embedding.
 router.post("/", authenticateToken, async (req, res) => {
-    const { title, content, mood_score, mood_tags, provider } = req.body;
+    const { title, content, mood_score, mood_tags, provider, created_at } = req.body;
     try {
         // Step 1: Analyze sentiment
         const sentiment_score = analyzeSentiment(content);
@@ -49,10 +49,10 @@ router.post("/", authenticateToken, async (req, res) => {
         // Step 2: Save the entry to your main PostgreSQL database
         const result = await pool.query(
             `INSERT INTO journal_entries 
-       (user_id, title, content, mood_score, sentiment_score, mood_tags)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id`,
-            [req.user.id, title, content, mood_score, sentiment_score, mood_tags]
+       (user_id, title, content, mood_score, sentiment_score, mood_tags, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, NOW()))
+       RETURNING id, created_at`,
+            [req.user.id, title, content, mood_score, sentiment_score, mood_tags, created_at]
         );
 
         const journalId = result.rows[0].id;
@@ -64,7 +64,7 @@ router.post("/", authenticateToken, async (req, res) => {
             metadata: {
                 user_id: req.user.id,
                 journal_id: journalId, // Use the primary DB ID for linking
-                date: new Date().toISOString().split('T')[0],
+                date: result.rows[0].created_at.toISOString().split('T')[0],
                 mood_score,
                 mood_tags,
                 full_title: title
@@ -190,7 +190,7 @@ router.get("/mood_score/:id", authenticateToken, async (req, res) => {
 // MODIFIED: Now calls the AI Core service to update the embedding.
 router.put("/:id", authenticateToken, async (req, res) => {
     const journalId = req.params.id;
-    const { title, content, mood_score, mood_tags, provider } = req.body;
+    const { title, content, mood_score, mood_tags, provider, created_at } = req.body;
 
     try {
         // Step 1: Analyze new sentiment
@@ -199,9 +199,9 @@ router.put("/:id", authenticateToken, async (req, res) => {
         // Step 2: Update the entry in your main PostgreSQL database
         const result = await pool.query(
             `UPDATE journal_entries SET 
-         title = $1, content = $2, mood_score = $3, sentiment_score = $4, mood_tags = $5
+         title = $1, content = $2, mood_score = $3, sentiment_score = $4, mood_tags = $5, created_at = COALESCE($8, created_at)
        WHERE id = $6 AND user_id = $7 RETURNING *`,
-            [title, content, mood_score, sentiment_score, mood_tags, journalId, req.user.id]
+            [title, content, mood_score, sentiment_score, mood_tags, journalId, req.user.id, created_at]
         );
 
         if (result.rows.length === 0) {

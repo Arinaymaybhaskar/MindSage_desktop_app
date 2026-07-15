@@ -124,6 +124,24 @@ export function registerIPCHandlers(runtime) {
         }
     });
 
+    ipcMain.handle("whisper:transcribe-journal-audio", async (event, audioFilePath, journalId) => {
+        try {
+            const result = await transcribeAudioBlob(audioFilePath, event);
+            if (result && result.transcription && Array.isArray(result.transcription)) {
+                const transcriptionText = result.transcription
+                    .map(seg => seg.text)
+                    .join(" ")
+                    .replace(/\[.*?\]/g, "")
+                    .trim();
+                return transcriptionText;
+            }
+            return null;
+        } catch (err) {
+            console.error("Transcription error:", err);
+            return null;
+        }
+    });
+
     // Chat
     ipcMain.handle("chat:get-by-id", handleGetChatById);
     ipcMain.handle("chat:send-message", handleUserMessage);

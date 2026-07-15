@@ -27,10 +27,11 @@ const analyzeSentimentLocal = (text) => {
  * @returns {{journalId: number, userId: number}}
  */
 export function createJournalEntry(userId, entry) {
-  const { title, content, mood_score, mood_tags = [] } = entry;
+  const { title, content, mood_score, mood_tags = [], created_at } = entry;
 
   const sentiment_score = analyzeSentimentLocal(content || '');
   const now = new Date().toISOString();
+  const entryCreatedAt = created_at || now;
 
   const runTransaction = db.transaction(() => {
     const entryStmt = db.prepare(`
@@ -49,7 +50,7 @@ export function createJournalEntry(userId, entry) {
       content: content || '',
       mood_score: mood_score || null,
       sentiment_score,
-      created_at: now,
+      created_at: entryCreatedAt,
       updated_at: now
     });
 
@@ -264,7 +265,7 @@ export function getMoodScores(userId, range) {
  * @returns {object|null} The updated journal entry or null if not found.
  */
 export function updateJournalEntry(userId, journalId, entry) {
-  const { title, content, mood_score, mood_tags = [], transcription } = entry;
+  const { title, content, mood_score, mood_tags = [], transcription, created_at } = entry;
 
   const sentiment_score = analyzeSentimentLocal(content || '');
   const updated_at = new Date().toISOString();
@@ -279,6 +280,7 @@ export function updateJournalEntry(userId, journalId, entry) {
                 mood_score = @mood_score,
                 sentiment_score = @sentiment_score,
                 updated_at = @updated_at,
+                created_at = @created_at,
                 synced = 0,
                 sync_action = 'update',
                 transcription = @transcription
@@ -292,6 +294,7 @@ export function updateJournalEntry(userId, journalId, entry) {
       mood_score: mood_score || null,
       sentiment_score,
       updated_at,
+      created_at: created_at || new Date().toISOString(),
       journalId,
       userId,
       transcription

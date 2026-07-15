@@ -8,11 +8,11 @@ type Props = {
 };
 
 const moods = [
-  { value: 1, emoji: "😞", label: "Bad", color: "#ef4444" },
-  { value: 2, emoji: "😐", label: "Neutral", color: "#f97316" },
-  { value: 3, emoji: "🙂", label: "Good", color: "#eab308" },
-  { value: 4, emoji: "😊", label: "Great", color: "#84cc16" },
-  { value: 5, emoji: "😄", label: "Excellent", color: "#22c55e" },
+  { value: 1, emoji: "/emojis/1.png", label: "Bad", color: "#ef4444" },
+  { value: 2, emoji: "/emojis/2.png", label: "Neutral", color: "#f97316" },
+  { value: 3, emoji: "/emojis/3.png", label: "Good", color: "#eab308" },
+  { value: 4, emoji: "/emojis/4.png", label: "Great", color: "#84cc16" },
+  { value: 5, emoji: "/emojis/5.png", label: "Excellent", color: "#22c55e" },
 ];
 
 export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
@@ -101,7 +101,7 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
             type="button"
             key={mood.value}
             onClick={() => handleEmojiClick(mood.value)}
-            className="text-2xl transition-opacity duration-200"
+            className="transition-opacity duration-200"
             animate={{
               scale: roundedVisualValue === mood.value ? 1.4 : 1,
               opacity: roundedVisualValue === mood.value ? 1 : 0.5,
@@ -111,7 +111,7 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
               opacity: 1,
             }}
           >
-            {mood.emoji}
+            <img src={mood.emoji} alt={mood.label} className="h-8 w-8" />
           </motion.button>
         ))}
       </div>
