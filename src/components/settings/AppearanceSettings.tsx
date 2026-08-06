@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Switch } from "../ui/Switch";
 import { Dropdown } from "../ui/Dropdown";
+import { emitPathOnTitlebarChange } from "../../utils/appearanceEvents";
 
 const { webFrame } = window.require
   ? window.require("electron")
@@ -28,10 +29,10 @@ export const PathOnTitlebar = () => {
       const updated = { ...prev, [name]: value };
       if (name === "path_on_titlebar") {
         localStorage.setItem(name, JSON.stringify(value));
+        emitPathOnTitlebarChange(value);
       }
       return updated;
     });
-    window.location.reload();
   };
 
   return (
@@ -71,10 +72,10 @@ export const ZoomScaleSetting = () => {
     setZoom(newZoom);
     localStorage.setItem("zoom_scale", newZoom.toString());
 
+    // setZoomFactor applies immediately — no reload needed to see the change.
     if (webFrame) {
       webFrame.setZoomFactor(newZoom / 100);
     }
-    window.location.reload();
   };
 
   return (

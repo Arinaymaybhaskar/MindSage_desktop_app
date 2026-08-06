@@ -4,6 +4,7 @@ import { Minus, Square, Maximize2, X, Loader2 } from "lucide-react";
 import { ProfileDropdown } from "./components/profileDropdown"; // Ensure path is correct
 import { useLocation } from "react-router-dom";
 import OllamaStatus from "./components/OllamaStatus";
+import { onPathOnTitlebarChange } from "./utils/appearanceEvents";
 
 const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -25,6 +26,8 @@ const TitleBar: React.FC = () => {
     if (storedPathSetting !== null) {
       setShowPath(JSON.parse(storedPathSetting));
     }
+    // React live to changes made in Settings instead of requiring a reload.
+    return onPathOnTitlebarChange(setShowPath);
   }, []);
 
   // Auto-focus input when it opens

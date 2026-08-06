@@ -1,4 +1,11 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import {
+  useEffect,
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+  memo,
+} from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { qdrantService } from "../api/qdrantService";
@@ -53,7 +60,7 @@ const displayTitle = (title: string | null) => {
 };
 
 // --- JournalEntryCard Component ---
-const JournalEntryCard = ({
+const JournalEntryCardBase = ({
   entry,
   onDelete,
   selected,
@@ -145,6 +152,16 @@ const JournalEntryCard = ({
     </motion.div>
   );
 };
+
+// Re-renders are driven by unrelated list state (search, selection,
+// infinite-scroll pagination) far more often than any single card's own
+// data changes. onDelete/onSelect are fresh closures every render, but
+// they only ever reference this entry's stable id, so it's safe to ignore
+// their identity here and key re-renders off the entry + selected state.
+const JournalEntryCard = memo(
+  JournalEntryCardBase,
+  (prev, next) => prev.entry === next.entry && prev.selected === next.selected
+);
 
 // --- JournalList Page Component ---
 export default function JournalList() {
@@ -537,7 +554,6 @@ export default function JournalList() {
               {sortedDates.map((dateKey) => (
                 <motion.div
                   key={dateKey}
-                  layout
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
@@ -549,44 +565,51 @@ export default function JournalList() {
                     {dayjs(dateKey).format("MMMM D, YYYY")}
                   </h2>
 
-                  {/* Entries for this date */}
+                  {/* Entries for this date. Their own AnimatePresence means
+                      deleting one entry animates just that card out and lets
+                      siblings reflow, instead of the whole page re-animating. */}
                   <div className="space-y-6">
-                    {groupedEntries[dateKey].map((entry, index) => {
-                      const cardProps = {
-                        entry,
-                        onDelete: () =>
-                          setDeleteModalInfo({
-                            isOpen: true,
-                            entryId: entry.id!,
-                          }),
-                        selected: entry.id === selectedId,
-                        onSelect: () => {
-                          setSelectedId(entry.id!);
-                          showToast(
-                            "Double click an entry to open it.",
-                            "info"
-                          );
-                          setTimeout(() => setShowDoubleClickNote(false), 3000);
-                        },
-                      };
+                    <AnimatePresence mode="popLayout">
+                      {groupedEntries[dateKey].map((entry, index) => {
+                        const cardProps = {
+                          entry,
+                          onDelete: () =>
+                            setDeleteModalInfo({
+                              isOpen: true,
+                              entryId: entry.id!,
+                            }),
+                          selected: entry.id === selectedId,
+                          onSelect: () => {
+                            setSelectedId(entry.id!);
+                            showToast(
+                              "Double click an entry to open it.",
+                              "info"
+                            );
+                            setTimeout(
+                              () => setShowDoubleClickNote(false),
+                              3000
+                            );
+                          },
+                        };
 
-                      // Attach infinite-scroll ref only on the last entry of the last date group
-                      const isLastEntry =
-                        dateKey === sortedDates[sortedDates.length - 1] &&
-                        index === groupedEntries[dateKey].length - 1;
+                        // Attach infinite-scroll ref only on the last entry of the last date group
+                        const isLastEntry =
+                          dateKey === sortedDates[sortedDates.length - 1] &&
+                          index === groupedEntries[dateKey].length - 1;
 
-                      return (
-                        <div
-                          key={entry.id}
-                          ref={(el) => {
-                            entryRefs.current.set(entry.id!, el);
-                            if (isLastEntry) lastEntryRef(el);
-                          }}
-                        >
-                          <JournalEntryCard {...cardProps} />
-                        </div>
-                      );
-                    })}
+                        return (
+                          <div
+                            key={entry.id}
+                            ref={(el) => {
+                              entryRefs.current.set(entry.id!, el);
+                              if (isLastEntry) lastEntryRef(el);
+                            }}
+                          >
+                            <JournalEntryCard {...cardProps} />
+                          </div>
+                        );
+                      })}
+                    </AnimatePresence>
                   </div>
                 </motion.div>
               ))}
