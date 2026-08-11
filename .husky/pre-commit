@@ -1,0 +1,17 @@
+# Secret scanning: block commits that introduce secrets.
+# Requires gitleaks (https://github.com/gitleaks/gitleaks). If it isn't
+# installed we warn loudly but don't block, so a missing binary can't wedge
+# everyone's workflow — install it to get real protection.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --verbose
+  status=$?
+  if [ $status -ne 0 ]; then
+    echo ""
+    echo "✖ gitleaks found potential secrets in your staged changes (see above)."
+    echo "  Remove them, or if it's a false positive add an allowlist rule to .gitleaks.toml."
+    exit $status
+  fi
+else
+  echo "⚠ gitleaks not found — skipping secret scan."
+  echo "  Install it for pre-commit secret protection: https://github.com/gitleaks/gitleaks#installing"
+fi
