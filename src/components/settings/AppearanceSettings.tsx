@@ -1,16 +1,25 @@
 import { useState, useEffect } from "react";
+import { Minus, Plus } from "lucide-react";
 import { Switch } from "../ui/Switch";
 
-const { webFrame } = window.require
-  ? window.require("electron")
-  : { webFrame: null };
+const ZOOM_MIN = 50;
+const ZOOM_MAX = 200;
+const ZOOM_STEP = 10;
+
+// Apply the zoom through the preload bridge. `window.require` is unavailable
+// under contextIsolation, so the old webFrame lookup silently no-op'd — which
+// is why zoom used to only take effect after a reload (App.tsx re-applies it
+// from localStorage on startup via this same bridge).
+const applyZoom = (percent: number) => {
+  window.electron?.zoom?.set(percent / 100);
+};
 
 export const PathOnTitlebar = () => {
   const [localSettings, setLocalSettings] = useState({
     path_on_titlebar: false,
   });
 
-  const settings = JSON.parse(localStorage.getItem("settings")) || {};
+  const settings = JSON.parse(localStorage.getItem("settings") || "{}");
 
   useEffect(() => {
     const storedPathSetting = localStorage.getItem("path_on_titlebar");
@@ -62,22 +71,22 @@ export const ZoomScaleSetting = () => {
     const savedZoom = localStorage.getItem("zoom_scale");
     const zoomValue = savedZoom ? parseInt(savedZoom, 10) : 100;
     setZoom(zoomValue);
-    if (webFrame) {
-      webFrame.setZoomFactor(zoomValue / 100);
-    }
+    applyZoom(zoomValue);
   }, []);
 
   const handleZoomChange = (newZoom: number) => {
-    setZoom(newZoom);
-    localStorage.setItem("zoom_scale", newZoom.toString());
-    // Applies instantly — no reload needed.
-    if (webFrame) {
-      webFrame.setZoomFactor(newZoom / 100);
-    }
+    // Clamp and snap to the step so the buttons and slider stay in range.
+    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newZoom));
+    setZoom(clamped);
+    localStorage.setItem("zoom_scale", clamped.toString());
+    applyZoom(clamped); // applies instantly — no reload needed
   };
 
+  // Filled portion of the track, for the gradient fill.
+  const fillPercent = ((zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)) * 100;
+
   return (
-    <div className="flex justify-between items-center gap-4 p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
+    <div className="flex flex-col gap-4 p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark sm:flex-row sm:items-center sm:justify-between">
       <div>
         <label className="font-medium text-text-light dark:text-text-dark">
           App Zoom Level
@@ -87,18 +96,42 @@ export const ZoomScaleSetting = () => {
         </p>
       </div>
 
-      <div className="flex items-center gap-3 min-w-[220px] justify-end">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => handleZoomChange(zoom - ZOOM_STEP)}
+          disabled={zoom <= ZOOM_MIN}
+          aria-label="Decrease zoom"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary-light text-text-light-sub transition-colors hover:bg-border-light disabled:opacity-40 disabled:hover:bg-secondary-light dark:bg-secondary-dark dark:text-text-dark-sub dark:hover:bg-border-dark dark:disabled:hover:bg-secondary-dark"
+        >
+          <Minus size={16} />
+        </button>
+
         <input
           type="range"
-          min={50}
-          max={200}
-          step={5}
+          min={ZOOM_MIN}
+          max={ZOOM_MAX}
+          step={ZOOM_STEP}
           value={zoom}
           onChange={(e) => handleZoomChange(Number(e.target.value))}
           aria-label="App zoom level"
-          className="w-40 cursor-pointer accent-dark1 dark:accent-light1"
+          className="zoom-slider w-40"
+          style={{
+            background: `linear-gradient(to right, var(--slider-accent) ${fillPercent}%, color-mix(in srgb, var(--slider-accent) 20%, transparent) ${fillPercent}%)`,
+          }}
         />
-        <span className="w-12 text-right text-sm font-semibold tabular-nums text-text-light dark:text-text-dark">
+
+        <button
+          type="button"
+          onClick={() => handleZoomChange(zoom + ZOOM_STEP)}
+          disabled={zoom >= ZOOM_MAX}
+          aria-label="Increase zoom"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary-light text-text-light-sub transition-colors hover:bg-border-light disabled:opacity-40 disabled:hover:bg-secondary-light dark:bg-secondary-dark dark:text-text-dark-sub dark:hover:bg-border-dark dark:disabled:hover:bg-secondary-dark"
+        >
+          <Plus size={16} />
+        </button>
+
+        <span className="w-12 shrink-0 rounded-full bg-dark1/10 px-2 py-1 text-center text-sm font-semibold tabular-nums text-dark1 dark:bg-light1/10 dark:text-light1">
           {zoom}%
         </span>
       </div>
@@ -109,7 +142,7 @@ export const ZoomScaleSetting = () => {
 // ----------------------
 // Appearance Settings Wrapper
 // ----------------------
-const AppearanceSettings = ({ settings }) => {
+const AppearanceSettings = () => {
   return (
     <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
       <div className="p-6 border-b border-border-light dark:border-border-dark">

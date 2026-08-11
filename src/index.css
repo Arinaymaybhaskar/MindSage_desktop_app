@@ -74,6 +74,59 @@
   cursor: pointer;
 }
 
+/* ─── Modern zoom slider ─── */
+.zoom-slider {
+  --slider-accent: var(--color-dark1);
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+}
+.dark .zoom-slider {
+  --slider-accent: var(--color-light1);
+}
+
+/* Webkit thumb */
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--slider-accent);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.zoom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.zoom-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--slider-accent) 35%, transparent);
+}
+.dark .zoom-slider::-webkit-slider-thumb {
+  border-color: var(--color-secondary-dark);
+}
+
+/* Firefox thumb */
+.zoom-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--slider-accent);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.dark .zoom-slider::-moz-range-thumb {
+  border-color: var(--color-secondary-dark);
+}
+
 /* Hide scrollbar in Chrome, Safari, and Opera */
 /* .no-scrollbar::-webkit-scrollbar {
   display: none;
