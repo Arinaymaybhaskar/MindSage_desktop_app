@@ -120,6 +120,13 @@ export async function handleUpdateJournal(event, mode, token, journalId, payload
     return updatedJournal;
 }
 
+export async function handleUpdateAIStatus(event, token, journalId, fields) {
+    const userId = getUserIdFromToken(token).id;
+    if (!userId) throw new Error("Invalid token");
+    const changes = localDB.updateAIStatus(userId, journalId, fields || {});
+    return { success: changes > 0 };
+}
+
 export async function handleDeleteJournal(event, mode, token, journalId) {
     const userId = getUserIdFromToken(token).id;
     if (!userId) throw new Error("Invalid token");

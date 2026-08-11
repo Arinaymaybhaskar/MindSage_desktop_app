@@ -219,11 +219,10 @@ export const journalService = {
   },
 
   retryAIMetadata: async (
-    mode: "online" | "offline",
     token: string,
     journalId: number,
     type: "metadata" | "summary"
-  ): Promise<{ success: boolean; error?: string; skipped?: boolean }> => {
+  ): Promise<{ success: boolean; error?: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:retry-ai-metadata",

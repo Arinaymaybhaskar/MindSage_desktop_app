@@ -345,6 +345,39 @@ export function deleteJournalEntry(userId, journalId) {
   return result.changes;
 }
 
+/**
+ * Updates ONLY the AI status/error columns for a journal entry, leaving the
+ * user-authored content (title, content, mood, tags, created_at) untouched.
+ * Routing status changes through the generic updateJournalEntry would wipe the
+ * entry, so cancel/status transitions must go through here instead.
+ * @param {number} userId - The user's ID.
+ * @param {number} journalId - The ID of the journal entry.
+ * @param {object} fields - Any of ai_metadata_status, ai_metadata_error,
+ *   ai_summary_status, ai_summary_error.
+ * @returns {number} The number of rows changed.
+ */
+export function updateAIStatus(userId, journalId, fields) {
+  const allowed = [
+    'ai_metadata_status',
+    'ai_metadata_error',
+    'ai_summary_status',
+    'ai_summary_error',
+  ];
+  const columns = allowed.filter((col) => col in fields);
+  if (columns.length === 0) return 0;
+
+  const setClause = columns.map((col) => `${col} = @${col}`).join(', ');
+  const params = { journalId, userId };
+  for (const col of columns) params[col] = fields[col] ?? null;
+
+  const stmt = db.prepare(`
+        UPDATE journal_entries
+        SET ${setClause}
+        WHERE id = @journalId AND user_id = @userId
+    `);
+  return stmt.run(params).changes;
+}
+
 export function addContentSummary(summary, journalId, userId) {
   const stmt = db.prepare(`
         UPDATE journal_entries

@@ -193,18 +193,18 @@ export default function JournalDetail() {
       }
     };
 
-    window.electron.ipcRenderer.on("ai-status-event", handleAIStatusEvent);
-    return () => {
-      window.electron.ipcRenderer.removeAllListeners("ai-status-event");
-    };
+    const unsubscribe = window.electron.ipcRenderer.on(
+      "ai-status-event",
+      handleAIStatusEvent,
+    );
+    return unsubscribe;
   }, [entry?.id, showToast]);
 
   const handleRetryMetadata = async () => {
     if (!entry?.id) return;
     setIsRetryingMetadata(true);
     try {
-      const result = await window.electron.ipcRenderer.invoke(
-        "journal:retry-ai-metadata",
+      const result = await journalService.retryAIMetadata(
         accessToken!,
         entry.id,
         "metadata",
@@ -223,11 +223,12 @@ export default function JournalDetail() {
 
   const handleCancelMetadata = async () => {
     if (!entry?.id) return;
-    // Update DB status back to not_started so user can retry
+    // Update DB status back to not_started so user can retry.
+    // Route through the status-only handler — journal:update would rewrite the
+    // whole entry from the partial payload and wipe title/content/tags.
     try {
       await window.electron.ipcRenderer.invoke(
-        "journal:update",
-        "offline",
+        "journal:update-ai-status",
         accessToken!,
         entry.id,
         {
@@ -247,18 +248,13 @@ export default function JournalDetail() {
     if (!entry?.id) return;
     setIsRetryingSummary(true);
     try {
-      const result = await window.electron.ipcRenderer.invoke(
-        "journal:retry-ai-metadata",
+      const result = await journalService.retryAIMetadata(
         accessToken!,
         entry.id,
         "summary",
       );
       if (result.success) {
-        if (result.skipped) {
-          showToast("Summary skipped (entry too short)", "info");
-        } else {
-          showToast("AI summary generation started", "info");
-        }
+        showToast("AI summary generation started", "info");
       } else {
         showToast(`Retry failed: ${result.error}`, "danger");
       }
@@ -273,8 +269,7 @@ export default function JournalDetail() {
     if (!entry?.id) return;
     try {
       await window.electron.ipcRenderer.invoke(
-        "journal:update",
-        "offline",
+        "journal:update-ai-status",
         accessToken!,
         entry.id,
         {

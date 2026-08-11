@@ -62,10 +62,11 @@ export function useAIStatus(
       handleAIStatusEvent(event, data);
     };
 
-    window.electron.ipcRenderer.on("ai-status-event", handleEvent);
+    const unsubscribe = window.electron.ipcRenderer.on(
+      "ai-status-event",
+      handleEvent
+    );
 
-    return () => {
-      window.electron.ipcRenderer.removeAllListeners("ai-status-event");
-    };
+    return unsubscribe;
   }, [handleAIStatusEvent]);
 }

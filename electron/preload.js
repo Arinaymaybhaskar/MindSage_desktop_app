@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('electron', {
         'journal:get-all',
         'journal:get-by-id',
         'journal:update',
+        'journal:update-ai-status',
         'journal:delete',
         'journal:get-mood-scores',
         'journal:get-images',
@@ -134,9 +135,15 @@ contextBridge.exposeInMainWorld('electron', {
         'services-ready',
         'ai-status-event'
       ];
-      if (validChannels.includes(channel)) {
-        ipcRenderer.on(channel, (event, ...args) => func(...args));
+      if (!validChannels.includes(channel)) {
+        return () => {};
       }
+      // Wrap so the renderer callback doesn't receive the IpcRendererEvent.
+      // Return an unsubscribe that removes ONLY this listener, so one component
+      // unmounting doesn't clobber every other subscriber on the channel.
+      const listener = (event, ...args) => func(...args);
+      ipcRenderer.on(channel, listener);
+      return () => ipcRenderer.removeListener(channel, listener);
     },
 
     removeAllListeners: (channel) => {

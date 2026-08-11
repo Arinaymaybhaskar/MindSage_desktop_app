@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path, { dirname, join } from 'node:path';
 import { handleGoogleLogin, handleLogin, handleRegister } from "./methods/auth.js";
 import { userChangePassword, userDeleteAccount, userGetMe, userGetSettings, userUpdateProfile, userUpdateSettings } from "./methods/user.js";
-import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal, handleRetryAIMetadata } from "./methods/journal.js";
+import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal, handleRetryAIMetadata, handleUpdateAIStatus } from "./methods/journal.js";
 import { getAudioBase64, getImageBase64, getPdfBase64, handleOpenMedia, handleSaveChatMedia, handleSaveMedia, handleSaveProfileImage } from "./methods/media.js";
 import { handleAddCategory, handleDeleteCategory, handleGetCategories, handleUpdateCategory } from "./methods/categories.js";
 import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActiveGoals, handleGetCompletedGoals, handleGetGoalById, handleGetPinnedGoals, handleTogglePin, handleUpdateGoal, handleUpdateProgress } from "./methods/goal.js";
@@ -67,6 +67,7 @@ export function registerIPCHandlers(runtime) {
     ipcMain.handle("journal:get-images", handleGettingImages);
     ipcMain.handle("journal:get-chart-data", handleGetChartData);
     ipcMain.handle("journal:retry-ai-metadata", handleRetryAIMetadata);
+    ipcMain.handle("journal:update-ai-status", handleUpdateAIStatus);
     ipcMain.handle("chat:send", handleChat);
 
     // Categories
@@ -199,8 +200,11 @@ export function registerIPCHandlers(runtime) {
     ];
     aiEvents.forEach((eventName) => {
         eventBus.on(eventName, (data) => {
-            if (runtime.mainWindow && !runtime.mainWindow.isDestroyed()) {
-                runtime.mainWindow.webContents.send("ai-status-event", { event: eventName, data });
+            // `runtime` (from startQdrant) has no mainWindow, so resolve the live
+            // window the same way events.js does.
+            const win = BrowserWindow.getAllWindows()[0];
+            if (win && !win.isDestroyed()) {
+                win.webContents.send("ai-status-event", { event: eventName, data });
             }
         });
     });
