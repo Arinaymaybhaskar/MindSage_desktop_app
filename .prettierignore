@@ -1,0 +1,18 @@
+# Build output
+dist/
+dist-electron/
+release/
+
+# Dependencies
+node_modules/
+
+# Native binaries and large assets
+resources/
+assets/
+
+# Generated / vendored
+*.min.js
+package-lock.json
+
+# Docs and data that shouldn't be reflowed
+*.md

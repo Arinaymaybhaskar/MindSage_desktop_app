@@ -12,7 +12,11 @@
     "dev": "vite",
     "build": "vite build && electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "postinstall": "npm run rebuild"
+    "postinstall": "npm run rebuild",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "build": {
     "copyright": "Copyright © 2025 Arinaymay",
@@ -132,6 +136,7 @@
     "globals": "^16.3.0",
     "nodemon": "^3.1.10",
     "postcss": "^8.5.6",
+    "prettier": "^3.9.6",
     "tailwindcss": "^4.1.11",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.35.1",
