@@ -111,12 +111,80 @@ ${content}
 }
 
 export function AISummaryPrompt(entry) {
-  const prompt = `
-  Summarize the following journal entry in 3-5 sentences, capturing the main feelings, events, and key takeaways.
+  const prompt = `You are a summarization engine. Write a 2-4 sentence summary of the journal entry below, capturing the main feelings, events, and key takeaways, written in the third person.
+
+Rules:
+- Output ONLY the summary text. No preamble, no headings, no labels, no markdown.
+- Do NOT address the user, ask questions, or request clarification or more context.
+- Do NOT comment on the quality, length, or repetitiveness of the entry.
+- If the entry does not contain enough meaningful content to summarize, output exactly this single word and nothing else: UNSUMMARIZABLE
+
 Journal Entry:
-  ${entry}
-`
+${entry}
+
+Summary:`;
   return prompt;
+}
+
+// Phrases that signal the model refused / produced meta-commentary instead of a
+// real summary. These are multi-word so they won't false-positive on a genuine
+// third-person summary of an entry.
+const SUMMARY_REFUSAL_PATTERNS = [
+  /provide (more|additional) (context|information|detail)/i,
+  /could you (please )?(provide|clarify|specify|elaborate)/i,
+  /clarify what you/i,
+  /i('| wi)ll do my best to (assist|help)/i,
+  /how can i (help|assist)/i,
+  /\bas an ai\b/i,
+  /i('m| am)( just| only)? an ai/i,
+  /no (relevant|meaningful|useful) (information|content|context)/i,
+  /(does not|doesn't|do not|don't) (provide|contain) any (useful|relevant|meaningful)/i,
+  /it (appears|seems)( that)? you (have )?(provided|entered|written)/i,
+  /repetition of (a|the) (sentence|phrase|word|line)/i,
+  /what would you like (me|to|us)/i,
+  /let me know if you/i,
+  /feel free to (ask|provide|share|clarify)/i,
+  /unable to (summarize|generate|produce|create)/i,
+  /(can ?not|cannot|can't) (summarize|generate|produce|create) a summary/i,
+];
+
+// Benign leading preamble the model sometimes adds despite instructions.
+const SUMMARY_PREAMBLE = /^(sure[,!.]?\s*)?(here('s| is)|below is)[^:]{0,60}:\s*/i;
+
+/**
+ * Validate + clean a raw summary response. Returns the cleaned summary text, or
+ * null if the model refused, produced meta-commentary, emitted the
+ * UNSUMMARIZABLE sentinel, or returned something too short to be a summary — in
+ * which case the caller should mark the summary failed rather than store junk.
+ */
+export function sanitizeSummary(raw) {
+  if (typeof raw !== "string") return null;
+  let text = raw.trim();
+  // Strip surrounding markdown fences and a benign "Here is a summary:" lead-in.
+  text = text.replace(/^```[a-z]*\s*/i, "").replace(/```$/, "").trim();
+  text = text.replace(SUMMARY_PREAMBLE, "").trim();
+
+  if (!text) return null;
+  if (/^unsummari[sz]able\b/i.test(text)) return null;
+  if (text.length < 20) return null; // too short to be a real summary
+  if (SUMMARY_REFUSAL_PATTERNS.some((re) => re.test(text))) return null;
+  return text;
+}
+
+// Minimum words an entry needs before an AI summary is worthwhile. Below this,
+// a 3-5 sentence summary would be longer than the entry itself and the model
+// tends to pad, echo, or hallucinate — which read as summary "failures".
+export const MIN_SUMMARY_WORDS = 25;
+
+/** Count whitespace-delimited words in a string. */
+export function countWords(text) {
+  if (!text || typeof text !== "string") return 0;
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/** Whether an entry has enough content to be worth summarizing. */
+export function isSummarizable(content) {
+  return countWords(content) >= MIN_SUMMARY_WORDS;
 }
 
 

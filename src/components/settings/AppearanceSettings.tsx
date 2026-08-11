@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
-import { Minus, Plus } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Minus, Plus, Loader2 } from "lucide-react";
 import { Switch } from "../ui/Switch";
 
-const ZOOM_MIN = 50;
-const ZOOM_MAX = 200;
+const ZOOM_MIN = 80;
+const ZOOM_MAX = 150;
 const ZOOM_STEP = 10;
+const ZOOM_SAVE_DELAY = 800; // debounce before persisting/applying zoom
 
 // Apply the zoom through the preload bridge. `window.require` is unavailable
 // under contextIsolation, so the old webFrame lookup silently no-op'd — which
@@ -19,9 +20,8 @@ export const PathOnTitlebar = () => {
     path_on_titlebar: false,
   });
 
-  const settings = JSON.parse(localStorage.getItem("settings") || "{}");
-
   useEffect(() => {
+    const settings = JSON.parse(localStorage.getItem("settings") || "{}");
     const storedPathSetting = localStorage.getItem("path_on_titlebar");
     setLocalSettings({
       path_on_titlebar:
@@ -66,6 +66,10 @@ export const PathOnTitlebar = () => {
 // ----------------------
 export const ZoomScaleSetting = () => {
   const [zoom, setZoom] = useState(100);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingZoomRef = useRef<number | null>(null);
 
   useEffect(() => {
     const savedZoom = localStorage.getItem("zoom_scale");
@@ -74,12 +78,58 @@ export const ZoomScaleSetting = () => {
     applyZoom(zoomValue);
   }, []);
 
+  const clampZoom = useCallback(
+    (value: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value)),
+    [],
+  );
+
+  const saveZoom = useCallback(
+    (value: number) => {
+      const clamped = clampZoom(value);
+      setZoom(clamped);
+      setIsSaving(true);
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        localStorage.setItem("zoom_scale", clamped.toString());
+        applyZoom(clamped);
+        setIsSaving(false);
+      }, ZOOM_SAVE_DELAY);
+    },
+    [clampZoom],
+  );
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handlePointerUp = () => {
+      setIsDragging(false);
+      if (pendingZoomRef.current !== null) {
+        const zoomToSave = pendingZoomRef.current;
+        pendingZoomRef.current = null;
+        saveZoom(zoomToSave);
+      }
+    };
+
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => window.removeEventListener("pointerup", handlePointerUp);
+  }, [isDragging, saveZoom]);
+
+  // Clear any pending save if the component unmounts mid-debounce.
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
+
   const handleZoomChange = (newZoom: number) => {
-    // Clamp and snap to the step so the buttons and slider stay in range.
-    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newZoom));
+    const clamped = clampZoom(newZoom);
     setZoom(clamped);
-    localStorage.setItem("zoom_scale", clamped.toString());
-    applyZoom(clamped); // applies instantly — no reload needed
+    if (isDragging) {
+      pendingZoomRef.current = clamped;
+      return;
+    }
+    pendingZoomRef.current = null;
+    saveZoom(clamped);
   };
 
   // Filled portion of the track, for the gradient fill.
@@ -113,6 +163,7 @@ export const ZoomScaleSetting = () => {
           max={ZOOM_MAX}
           step={ZOOM_STEP}
           value={zoom}
+          onPointerDown={() => setIsDragging(true)}
           onChange={(e) => handleZoomChange(Number(e.target.value))}
           aria-label="App zoom level"
           className="zoom-slider w-40"
@@ -131,9 +182,18 @@ export const ZoomScaleSetting = () => {
           <Plus size={16} />
         </button>
 
-        <span className="w-12 shrink-0 rounded-full bg-dark1/10 px-2 py-1 text-center text-sm font-semibold tabular-nums text-dark1 dark:bg-light1/10 dark:text-light1">
-          {zoom}%
-        </span>
+        <div className="flex w-[70px] shrink-0 items-center justify-end gap-1.5">
+          {isSaving && (
+            <Loader2
+              size={14}
+              className="animate-spin text-dark1 dark:text-light1"
+              aria-label="Saving"
+            />
+          )}
+          <span className="rounded-full bg-dark1/10 px-2 py-1 text-sm font-semibold tabular-nums text-dark1 dark:bg-light1/10 dark:text-light1">
+            {zoom}%
+          </span>
+        </div>
       </div>
     </div>
   );

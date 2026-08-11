@@ -58,8 +58,10 @@ export function useAIStatus(
   useEffect(() => {
     if (!window.electron?.ipcRenderer) return;
 
-    const handleEvent = (event: string, data: AIStatusEvent["data"]) => {
-      handleAIStatusEvent(event, data);
+    // The bridge delivers a single { event, data } payload — unpack it rather
+    // than expecting two positional args.
+    const handleEvent = (payload: AIStatusEvent) => {
+      handleAIStatusEvent(payload.event, payload.data);
     };
 
     const unsubscribe = window.electron.ipcRenderer.on(

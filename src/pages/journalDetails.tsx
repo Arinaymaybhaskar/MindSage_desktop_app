@@ -196,8 +196,13 @@ export default function JournalDetail() {
 
   // Listen for AI status events from main process
   useEffect(() => {
-    const handleAIStatusEvent = (event: string, data: any) => {
-      if (data.entryId !== entry?.id) return;
+    // The main process sends a single { event, data } payload, and the preload
+    // `on` bridge forwards it as one argument — so destructure it here rather
+    // than expecting two positional args (which left `data` undefined and made
+    // this handler silently throw, so status/refresh never updated live).
+    const handleAIStatusEvent = (payload: { event: string; data: any }) => {
+      const { event, data } = payload ?? {};
+      if (!data || data.entryId !== entry?.id) return;
 
       switch (event) {
         case "journal:aiStarted":
@@ -253,7 +258,9 @@ export default function JournalDetail() {
         "metadata",
       );
       if (result.success) {
-        showToast("AI metadata generation started", "info");
+        // The retry handler completes generation before returning, so this
+        // fires on completion, not merely on start.
+        showToast("AI metadata generated successfully", "success");
       } else {
         showToast(`Retry failed: ${result.error}`, "danger");
       }
@@ -297,7 +304,11 @@ export default function JournalDetail() {
         "summary",
       );
       if (result.success) {
-        showToast("AI summary generation started", "info");
+        if (result.skipped) {
+          showToast("Entry too short to summarize", "info");
+        } else {
+          showToast("AI summary generated successfully", "success");
+        }
       } else {
         showToast(`Retry failed: ${result.error}`, "danger");
       }
@@ -686,7 +697,8 @@ export default function JournalDetail() {
                       )}
                       <div className="flex gap-2">
                         {(aiMetadataStatus === "failed" ||
-                          aiMetadataStatus === "not_started") && (
+                          aiMetadataStatus === "not_started" ||
+                          aiMetadataStatus === "completed") && (
                           <button
                             onClick={handleRetryMetadata}
                             disabled={isRetryingMetadata}
@@ -695,12 +707,16 @@ export default function JournalDetail() {
                             {isRetryingMetadata ? (
                               <>
                                 <Loader2 size={14} className="animate-spin" />
-                                Retrying...
+                                {aiMetadataStatus === "completed"
+                                  ? "Regenerating..."
+                                  : "Retrying..."}
                               </>
                             ) : (
                               <>
                                 <RefreshCw size={14} />
-                                Retry
+                                {aiMetadataStatus === "completed"
+                                  ? "Regenerate"
+                                  : "Retry"}
                               </>
                             )}
                           </button>
@@ -752,7 +768,8 @@ export default function JournalDetail() {
                       <div className="flex gap-2">
                         {(aiSummaryStatus === "failed" ||
                           aiSummaryStatus === "not_started" ||
-                          aiSummaryStatus === "skipped") && (
+                          aiSummaryStatus === "skipped" ||
+                          aiSummaryStatus === "completed") && (
                           <button
                             onClick={handleRetrySummary}
                             disabled={isRetryingSummary}
@@ -761,12 +778,16 @@ export default function JournalDetail() {
                             {isRetryingSummary ? (
                               <>
                                 <Loader2 size={14} className="animate-spin" />
-                                Retrying...
+                                {aiSummaryStatus === "completed"
+                                  ? "Regenerating..."
+                                  : "Retrying..."}
                               </>
                             ) : (
                               <>
                                 <RefreshCw size={14} />
-                                Retry
+                                {aiSummaryStatus === "completed"
+                                  ? "Regenerate"
+                                  : "Retry"}
                               </>
                             )}
                           </button>

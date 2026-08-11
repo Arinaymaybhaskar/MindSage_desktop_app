@@ -2,7 +2,7 @@ import { execSync, exec } from 'child_process';
 import { getUserIdFromToken } from '../../src/utils/electronUtils';
 import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
-import { AISummaryPrompt, generateContextTimeAndBaseQueryPrompt, getAutoPopulateValues, parseJournalMetadata, respondWithContext, respondWithoutContext } from './AIPrompts.js';
+import { AISummaryPrompt, generateContextTimeAndBaseQueryPrompt, getAutoPopulateValues, isSummarizable, parseJournalMetadata, sanitizeSummary, respondWithContext, respondWithoutContext } from './AIPrompts.js';
 import { modelStore } from '../store.js';
 import { SemanticSearch } from './qdrant.js';
 import z from 'zod';
@@ -207,10 +207,10 @@ eventBus.on("journal:created", async ({ entry }) => {
     eventBus.emit("ollama:summary-started", { entryId: entry.id });
     db.prepare(`UPDATE journal_entries SET ai_summary_status = 'pending' WHERE id = ?`).run(entry.id);
     const prompt = AISummaryPrompt(entry.content);
-    if (entry.content.length < 100) {
+    if (!isSummarizable(entry.content)) {
         db.prepare(`UPDATE journal_entries SET ai_summary_status = 'skipped' WHERE id = ?`).run(entry.id);
         eventBus.emit("ollama:summary-skipped", { entryId: entry.id });
-        return; // Skip summary for very short entries
+        return; // Too few words to produce a meaningful summary
     }
     // Get the selected chat model from settings
     const selectedModels = modelStore.get('selectedModels');
@@ -232,11 +232,17 @@ eventBus.on("journal:created", async ({ entry }) => {
         }
 
         const aiRes = await res2.json();
-        const summary = aiRes.response;
+        const summary = sanitizeSummary(aiRes.response);
+        if (!summary) {
+            const error = "AI could not produce a valid summary";
+            db.prepare(`UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ? WHERE id = ?`).run(error, entry.id);
+            eventBus.emit("ollama:summary-failed", { entryId: entry.id, error });
+            return;
+        }
         const id = entry.id;
         const userId = entry.user_id;
 
-        db.prepare(`UPDATE journal_entries SET ai_summary_status = 'completed' WHERE id = ?`).run(entry.id);
+        db.prepare(`UPDATE journal_entries SET ai_summary_status = 'completed', ai_summary_error = NULL WHERE id = ?`).run(entry.id);
         eventBus.emit("ollama:summary-generated", { summary, id, userId, entryId: entry.id });
     } catch (err) {
         console.error("AI summary generation failed:", err);
