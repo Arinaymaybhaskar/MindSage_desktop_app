@@ -38,3 +38,7 @@ jobs:
       - name: Lint
         run: npm run lint
         continue-on-error: true
+
+      # Tests are green, so this step blocks on failure.
+      - name: Test
+        run: npm test
