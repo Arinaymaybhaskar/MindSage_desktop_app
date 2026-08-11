@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Switch } from "../ui/Switch";
-import { Dropdown } from "../ui/Dropdown";
 
 const { webFrame } = window.require
   ? window.require("electron")
@@ -23,15 +22,16 @@ export const PathOnTitlebar = () => {
     });
   }, []);
 
-  const handleChange = (name, value) => {
-    setLocalSettings((prev) => {
-      const updated = { ...prev, [name]: value };
-      if (name === "path_on_titlebar") {
-        localStorage.setItem(name, JSON.stringify(value));
-      }
-      return updated;
-    });
-    window.location.reload();
+  const handleChange = (name: string, value: boolean) => {
+    setLocalSettings((prev) => ({ ...prev, [name]: value }));
+    if (name === "path_on_titlebar") {
+      localStorage.setItem(name, JSON.stringify(value));
+      // Notify the TitleBar (same window) to update live. The native `storage`
+      // event only fires in *other* windows, so we dispatch our own — no reload.
+      window.dispatchEvent(
+        new CustomEvent("path_on_titlebar-changed", { detail: value }),
+      );
+    }
   };
 
   return (
@@ -70,15 +70,14 @@ export const ZoomScaleSetting = () => {
   const handleZoomChange = (newZoom: number) => {
     setZoom(newZoom);
     localStorage.setItem("zoom_scale", newZoom.toString());
-
+    // Applies instantly — no reload needed.
     if (webFrame) {
       webFrame.setZoomFactor(newZoom / 100);
     }
-    window.location.reload();
   };
 
   return (
-    <div className="flex justify-between items-center p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
+    <div className="flex justify-between items-center gap-4 p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
       <div>
         <label className="font-medium text-text-light dark:text-text-dark">
           App Zoom Level
@@ -88,20 +87,21 @@ export const ZoomScaleSetting = () => {
         </p>
       </div>
 
-      <Dropdown
-        options={[
-          { label: "80%", value: 80 },
-          { label: "90%", value: 90 },
-          { label: "100%", value: 100 },
-          { label: "110%", value: 110 },
-          { label: "120%", value: 120 },
-          { label: "125%", value: 125 },
-          { label: "150%", value: 150 },
-        ]}
-        onSelect={handleZoomChange}
-        placeholder={`${zoom}%`}
-        selectedValue={zoom}
-      />
+      <div className="flex items-center gap-3 min-w-[220px] justify-end">
+        <input
+          type="range"
+          min={50}
+          max={200}
+          step={5}
+          value={zoom}
+          onChange={(e) => handleZoomChange(Number(e.target.value))}
+          aria-label="App zoom level"
+          className="w-40 cursor-pointer accent-dark1 dark:accent-light1"
+        />
+        <span className="w-12 text-right text-sm font-semibold tabular-nums text-text-light dark:text-text-dark">
+          {zoom}%
+        </span>
+      </div>
     </div>
   );
 };

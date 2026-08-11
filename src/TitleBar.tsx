@@ -25,6 +25,14 @@ const TitleBar: React.FC = () => {
     if (storedPathSetting !== null) {
       setShowPath(JSON.parse(storedPathSetting));
     }
+
+    // Update live when the appearance setting changes (no app reload).
+    const handlePathChange = (e: Event) => {
+      setShowPath(Boolean((e as CustomEvent).detail));
+    };
+    window.addEventListener("path_on_titlebar-changed", handlePathChange);
+    return () =>
+      window.removeEventListener("path_on_titlebar-changed", handlePathChange);
   }, []);
 
   // Auto-focus input when it opens

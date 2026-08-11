@@ -143,6 +143,45 @@ export default function JournalDetail() {
   const [isRetryingMetadata, setIsRetryingMetadata] = useState(false);
   const [isRetryingSummary, setIsRetryingSummary] = useState(false);
 
+  // Extracted so AI-status events can refresh the entry in place (silent mode
+  // skips the loading/error screen so a background refresh doesn't flicker).
+  const fetchEntry = useCallback(
+    async (silent = false) => {
+      if (!id) return;
+      if (!silent) setLoading(true);
+      setError(false);
+
+      try {
+        const res = await journalService.getOne(authMode, accessToken!, +id);
+        if (!res) {
+          if (!silent) setError(true);
+        } else {
+          setEntry(res);
+          if (res.image_key) {
+            const url = await window.electron.ipcRenderer.invoke(
+              "media:getImage",
+              res.image_key.toString(),
+            );
+            setImageUrl(url);
+          }
+          if (res.audio_key) {
+            const url = await window.electron.ipcRenderer.invoke(
+              "media:getAudio",
+              res.audio_key.toString(),
+            );
+            setAudioUrl(url);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch journal entry:", err);
+        if (!silent) setError(true);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [id, authMode, accessToken],
+  );
+
   // Sync AI status from entry when it loads/changes
   useEffect(() => {
     if (entry) {
@@ -168,6 +207,8 @@ export default function JournalDetail() {
         case "journal:aiCompleted":
           setAiMetadataStatus("completed");
           setAiMetadataError("");
+          // Pull the freshly generated title / mood / tags into the view.
+          fetchEntry(true);
           break;
         case "journal:aiFailed":
           setAiMetadataStatus("failed");
@@ -181,6 +222,8 @@ export default function JournalDetail() {
         case "ollama:summary-generated":
           setAiSummaryStatus("completed");
           setAiSummaryError("");
+          // Pull the freshly generated summary into the view.
+          fetchEntry(true);
           break;
         case "ollama:summary-failed":
           setAiSummaryStatus("failed");
@@ -198,7 +241,7 @@ export default function JournalDetail() {
       handleAIStatusEvent,
     );
     return unsubscribe;
-  }, [entry?.id, showToast]);
+  }, [entry?.id, showToast, fetchEntry]);
 
   const handleRetryMetadata = async () => {
     if (!entry?.id) return;
@@ -313,45 +356,8 @@ export default function JournalDetail() {
   }, [handleKeyDown]);
 
   useEffect(() => {
-    if (!id) return;
-
-    const fetchEntry = async () => {
-      setLoading(true);
-      setError(false);
-
-      try {
-        console.log(authMode, accessToken, "ID:", id);
-        const res = await journalService.getOne(authMode, accessToken!, +id);
-        console.log(res);
-        if (!res) {
-          setError(true);
-        } else {
-          setEntry(res);
-          if (res.image_key) {
-            const url = await window.electron.ipcRenderer.invoke(
-              "media:getImage",
-              res.image_key.toString(),
-            );
-            setImageUrl(url);
-          }
-          if (res.audio_key) {
-            const url = await window.electron.ipcRenderer.invoke(
-              "media:getAudio",
-              res.audio_key.toString(),
-            );
-            setAudioUrl(url);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch journal entry:", err);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchEntry();
-  }, [id, authMode, accessToken]);
+  }, [fetchEntry]);
 
   const handleDeleteConfirm = async () => {
     if (!id) return;
