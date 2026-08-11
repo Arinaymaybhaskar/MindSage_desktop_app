@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import axios from 'axios'
 import { eventBus } from "../eventBus.js";
 import { updateJournalEntry } from "../db/journal.js";
-import { AISummaryPrompt, getAutoPopulateValues } from "./AIPrompts.js";
+import { AISummaryPrompt, getAutoPopulateValues, parseJournalMetadata } from "./AIPrompts.js";
 import { modelStore } from "../store.js";
 
 function getUserIdFromToken(token) {
@@ -182,36 +182,31 @@ export const updateSyncStatus = (userId, journalId, status) => {
 const addContentSummary = (summary, journalId, userId) => {
     return localDB.addContentSummary(summary, journalId, userId);
 }
-function cleanAndParseJSON(inputStr) {
-    try {
-        // Remove Markdown code block markers like ```json ... ```
-        const cleaned = inputStr
-            .replace(/```json/i, "") // remove opening ```json
-            .replace(/```/g, "")     // remove closing ```
-            .trim();
 
-        return JSON.parse(cleaned);
-    } catch (err) {
-        console.error("Failed to parse JSON:", err.message);
-        return {};
+// `metadata` is already parsed + sanitized by parseJournalMetadata at the
+// generation site, so this persister just merges and writes. It also owns the
+// final 'completed' status transition so the entry is never marked completed
+// with empty fields.
+eventBus.on("journal:aiCompleted", ({ entry, metadata }) => {
+    if (!metadata) {
+        const error = "AI returned incomplete or invalid metadata";
+        db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`).run(error, entry.id);
+        eventBus.emit("journal:aiFailed", { entryId: entry.id, error });
+        return;
     }
-}
 
-eventBus.on("journal:aiCompleted", ({ entry, res3 }) => {
-    try {
-        res3 = typeof res3 === "string" ? cleanAndParseJSON(res3) : (res3 || {});
-    } catch (err) {
-        console.error("Failed to parse AI response (res3):", err);
-        res3 = {};
-    }
     const enrichedEntry = {
-        title: entry.title ?? res3.title,
-        mood_score: entry.mood_score ?? res3.mood_score,
-        mood_tags: (Array.isArray(entry.mood_tags) && entry.mood_tags.length > 0) ? entry.mood_tags : (Array.isArray(res3.mood_tags) ? res3.mood_tags : []),
+        // Preserve anything the user already filled in; only fill the blanks.
+        title: entry.title?.trim() || metadata.title,
+        mood_score: entry.mood_score ?? metadata.mood_score,
+        mood_tags: (Array.isArray(entry.mood_tags) && entry.mood_tags.length > 0)
+            ? entry.mood_tags
+            : metadata.mood_tags,
         content: entry.content,
     };
 
     const updated = localDB.updateJournalEntry(entry.user_id, entry.id, enrichedEntry);
+    db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'completed', ai_metadata_error = NULL WHERE id = ?`).run(entry.id);
     eventBus.emit("journal:updated", { entry: updated });
     // Trigger Qdrant update with the new fields via worker message
     if (global.qdrantWorker) {
@@ -262,12 +257,15 @@ export async function handleRetryAIMetadata(event, token, journalId, type) {
             const res2 = await fetch('http://localhost:11434/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model, prompt, stream: false, num_predict: 300 })
+                body: JSON.stringify({ model, prompt, stream: false, format: 'json', num_predict: 300 })
             });
             if (!res2.ok) throw new Error(`Ollama HTTP error: ${res2.status}`);
             const aiRes = await res2.json();
-            const res3 = aiRes.response;
-            eventBus.emit("journal:aiCompleted", { entry, res3 });
+            const metadata = parseJournalMetadata(aiRes.response);
+            if (!metadata) throw new Error("AI returned incomplete or invalid metadata");
+            // The journal:aiCompleted persister writes the fields and flips the
+            // status to 'completed'.
+            eventBus.emit("journal:aiCompleted", { entry, metadata, entryId: entry.id });
             return { success: true };
         } catch (err) {
             console.error("AI metadata retry failed:", err);
@@ -300,7 +298,7 @@ export async function handleRetryAIMetadata(event, token, journalId, type) {
             const summary = aiRes.response;
             db.prepare(`UPDATE journal_entries SET ai_summary_status = 'completed' WHERE id = ?`).run(journalId);
             localDB.addContentSummary(summary, entry.id, userId);
-            eventBus.emit("ollama:summary-generated", { summary, id: entry.id, userId });
+            eventBus.emit("ollama:summary-generated", { summary, id: entry.id, userId, entryId: entry.id });
             return { success: true };
         } catch (err) {
             console.error("AI summary retry failed:", err);

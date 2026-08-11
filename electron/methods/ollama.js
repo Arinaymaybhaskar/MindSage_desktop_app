@@ -2,7 +2,7 @@ import { execSync, exec } from 'child_process';
 import { getUserIdFromToken } from '../../src/utils/electronUtils';
 import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
-import { AISummaryPrompt, generateContextTimeAndBaseQueryPrompt, getAutoPopulateValues, respondWithContext, respondWithoutContext } from './AIPrompts.js';
+import { AISummaryPrompt, generateContextTimeAndBaseQueryPrompt, getAutoPopulateValues, parseJournalMetadata, respondWithContext, respondWithoutContext } from './AIPrompts.js';
 import { modelStore } from '../store.js';
 import { SemanticSearch } from './qdrant.js';
 import z from 'zod';
@@ -176,6 +176,7 @@ eventBus.on("journal:created", async ({ entry }) => {
                     model,
                     prompt,
                     stream: false,
+                    format: 'json', // constrain the model to valid JSON
                     num_predict: 300
                 })
             });
@@ -183,9 +184,14 @@ eventBus.on("journal:created", async ({ entry }) => {
                 throw new Error(`Ollama HTTP error: ${res2.status} ${res2.statusText}`);
             }
             const aiRes = await res2.json();
-            const res3 = aiRes.response
-            db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'completed' WHERE id = ?`).run(entry.id);
-            eventBus.emit("journal:aiCompleted", { entry, res3 });
+            const metadata = parseJournalMetadata(aiRes.response);
+            if (!metadata) {
+                throw new Error("AI returned incomplete or invalid metadata");
+            }
+            // Status is set to 'completed' by the journal:aiCompleted persister
+            // once the sanitized metadata is written, so it can't be marked
+            // completed with empty fields.
+            eventBus.emit("journal:aiCompleted", { entry, metadata, entryId: entry.id });
         } catch (err) {
             console.error("AI metadata generation failed:", err);
             db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`).run(err.message, entry.id);
@@ -231,7 +237,7 @@ eventBus.on("journal:created", async ({ entry }) => {
         const userId = entry.user_id;
 
         db.prepare(`UPDATE journal_entries SET ai_summary_status = 'completed' WHERE id = ?`).run(entry.id);
-        eventBus.emit("ollama:summary-generated", { summary, id, userId });
+        eventBus.emit("ollama:summary-generated", { summary, id, userId, entryId: entry.id });
     } catch (err) {
         console.error("AI summary generation failed:", err);
         db.prepare(`UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ? WHERE id = ?`).run(err.message, entry.id);
@@ -242,16 +248,17 @@ eventBus.on("journal:created", async ({ entry }) => {
 // Schemas
 const propsResSchema = z.object({
     requires_context: z.boolean(),
-    requires_time_filter: z.boolean(),
-    time_filter_from: z.string().nullable(),
-    time_filter_to: z.string().nullable(),
-    base_query: z.string(),
-    notes: z.string()
+    requires_time_filter: z.boolean().optional().default(false),
+    time_filter_from: z.string().nullish().default(null),
+    time_filter_to: z.string().nullish().default(null),
+    base_query: z.string().optional().default(""),
+    notes: z.string().optional().default("")
 });
 
 const chatResponseSchema = z.object({
     response: z.string(),
-    follow_up_question: z.string()
+    // Matches the key the prompt actually asks for and the renderer consumes.
+    suggested_user_prompt: z.string()
 });
 
 // Helper: parse and retry AI JSON
