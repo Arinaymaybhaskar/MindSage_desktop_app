@@ -4,14 +4,17 @@ import {
   Pencil,
   Trash2,
   Calendar,
-  Smile,
   AudioLines,
   Tags,
   ArrowLeft,
   FileText,
   ChevronDown,
-  Captions,
   Download,
+  AlertCircle,
+  RefreshCw,
+  Loader2,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
@@ -21,6 +24,7 @@ import DeleteConfirmationModal from "../components/goals/modals/DeleteConfirmati
 import ImageLightbox from "../components/chat/ImageLightbox";
 import { format } from "date-fns";
 import { useToast } from "../context/ToastContext";
+import MoodOrb from "../components/ui/MoodOrb";
 
 // --- Helper: Export Journal to Markdown ---
 function exportJournalToMarkdown(entry: JournalEntry) {
@@ -97,6 +101,195 @@ export default function JournalDetail() {
     | "online";
   const { showToast } = useToast();
 
+  // AI Metadata Status
+  const [aiMetadataStatus, setAiMetadataStatus] = useState<
+    "not_started" | "pending" | "completed" | "failed"
+  >(() => {
+    // Infer status from entry data if status column is not set
+    if (!entry) return "not_started";
+    if (entry.ai_metadata_status) return entry.ai_metadata_status;
+    // If entry has AI-populated fields but no status, infer completed
+    const tags = Array.isArray(entry.mood_tags)
+      ? entry.mood_tags
+      : entry.mood_tags
+        ? JSON.parse(entry.mood_tags)
+        : [];
+    if (
+      entry.title?.trim() &&
+      entry.mood_score !== undefined &&
+      tags.length > 0
+    ) {
+      return "completed";
+    }
+    return "not_started";
+  });
+  const [aiSummaryStatus, setAiSummaryStatus] = useState<
+    "not_started" | "pending" | "completed" | "failed" | "skipped"
+  >(() => {
+    if (!entry) return "not_started";
+    if (entry.ai_summary_status) return entry.ai_summary_status;
+    // If entry has summary but no status, infer completed
+    if (entry.content_summary) {
+      return "completed";
+    }
+    return "not_started";
+  });
+  const [aiMetadataError, setAiMetadataError] = useState<string>(
+    entry?.ai_metadata_error || "",
+  );
+  const [aiSummaryError, setAiSummaryError] = useState<string>(
+    entry?.ai_summary_error || "",
+  );
+  const [isRetryingMetadata, setIsRetryingMetadata] = useState(false);
+  const [isRetryingSummary, setIsRetryingSummary] = useState(false);
+
+  // Sync AI status from entry when it loads/changes
+  useEffect(() => {
+    if (entry) {
+      // Only override if status is explicitly set in DB, otherwise keep inferred
+      if (entry.ai_metadata_status)
+        setAiMetadataStatus(entry.ai_metadata_status);
+      if (entry.ai_summary_status) setAiSummaryStatus(entry.ai_summary_status);
+      setAiMetadataError(entry.ai_metadata_error || "");
+      setAiSummaryError(entry.ai_summary_error || "");
+    }
+  }, [entry]);
+
+  // Listen for AI status events from main process
+  useEffect(() => {
+    const handleAIStatusEvent = (event: string, data: any) => {
+      if (data.entryId !== entry?.id) return;
+
+      switch (event) {
+        case "journal:aiStarted":
+          setAiMetadataStatus("pending");
+          setAiMetadataError("");
+          break;
+        case "journal:aiCompleted":
+          setAiMetadataStatus("completed");
+          setAiMetadataError("");
+          break;
+        case "journal:aiFailed":
+          setAiMetadataStatus("failed");
+          setAiMetadataError(data.error || "Unknown error");
+          showToast("AI metadata generation failed", "danger");
+          break;
+        case "ollama:summary-started":
+          setAiSummaryStatus("pending");
+          setAiSummaryError("");
+          break;
+        case "ollama:summary-generated":
+          setAiSummaryStatus("completed");
+          setAiSummaryError("");
+          break;
+        case "ollama:summary-failed":
+          setAiSummaryStatus("failed");
+          setAiSummaryError(data.error || "Unknown error");
+          showToast("AI summary generation failed", "danger");
+          break;
+        case "ollama:summary-skipped":
+          setAiSummaryStatus("skipped");
+          break;
+      }
+    };
+
+    window.electron.ipcRenderer.on("ai-status-event", handleAIStatusEvent);
+    return () => {
+      window.electron.ipcRenderer.removeAllListeners("ai-status-event");
+    };
+  }, [entry?.id, showToast]);
+
+  const handleRetryMetadata = async () => {
+    if (!entry?.id) return;
+    setIsRetryingMetadata(true);
+    try {
+      const result = await window.electron.ipcRenderer.invoke(
+        "journal:retry-ai-metadata",
+        accessToken!,
+        entry.id,
+        "metadata",
+      );
+      if (result.success) {
+        showToast("AI metadata generation started", "info");
+      } else {
+        showToast(`Retry failed: ${result.error}`, "danger");
+      }
+    } catch (err: any) {
+      showToast(`Retry failed: ${err.message}`, "danger");
+    } finally {
+      setIsRetryingMetadata(false);
+    }
+  };
+
+  const handleCancelMetadata = async () => {
+    if (!entry?.id) return;
+    // Update DB status back to not_started so user can retry
+    try {
+      await window.electron.ipcRenderer.invoke(
+        "journal:update",
+        "offline",
+        accessToken!,
+        entry.id,
+        {
+          ai_metadata_status: "not_started",
+          ai_metadata_error: "Cancelled by user",
+        },
+      );
+      setAiMetadataStatus("not_started");
+      setAiMetadataError("Cancelled by user");
+      showToast("AI metadata generation cancelled", "info");
+    } catch (err: any) {
+      showToast(`Cancel failed: ${err.message}`, "danger");
+    }
+  };
+
+  const handleRetrySummary = async () => {
+    if (!entry?.id) return;
+    setIsRetryingSummary(true);
+    try {
+      const result = await window.electron.ipcRenderer.invoke(
+        "journal:retry-ai-metadata",
+        accessToken!,
+        entry.id,
+        "summary",
+      );
+      if (result.success) {
+        if (result.skipped) {
+          showToast("Summary skipped (entry too short)", "info");
+        } else {
+          showToast("AI summary generation started", "info");
+        }
+      } else {
+        showToast(`Retry failed: ${result.error}`, "danger");
+      }
+    } catch (err: any) {
+      showToast(`Retry failed: ${err.message}`, "danger");
+    } finally {
+      setIsRetryingSummary(false);
+    }
+  };
+
+  const handleCancelSummary = async () => {
+    if (!entry?.id) return;
+    try {
+      await window.electron.ipcRenderer.invoke(
+        "journal:update",
+        "offline",
+        accessToken!,
+        entry.id,
+        {
+          ai_summary_status: "not_started",
+          ai_summary_error: "Cancelled by user",
+        },
+      );
+      setAiSummaryStatus("not_started");
+      setAiSummaryError("Cancelled by user");
+      showToast("AI summary generation cancelled", "info");
+    } catch (err: any) {
+      showToast(`Cancel failed: ${err.message}`, "danger");
+    }
+  };
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key.toLowerCase() === "e" && !e.shiftKey) {
@@ -112,11 +305,11 @@ export default function JournalDetail() {
         exportJournalToMarkdown(entry!);
         showToast(
           "Please select download location. The file will be available at that location.",
-          "success"
+          "success",
         );
       }
     },
-    [id, navigate, entry]
+    [id, navigate, entry],
   );
 
   useEffect(() => {
@@ -142,14 +335,14 @@ export default function JournalDetail() {
           if (res.image_key) {
             const url = await window.electron.ipcRenderer.invoke(
               "media:getImage",
-              res.image_key.toString()
+              res.image_key.toString(),
             );
             setImageUrl(url);
           }
           if (res.audio_key) {
             const url = await window.electron.ipcRenderer.invoke(
               "media:getAudio",
-              res.audio_key.toString()
+              res.audio_key.toString(),
             );
             setAudioUrl(url);
           }
@@ -204,7 +397,7 @@ export default function JournalDetail() {
   // --- Render the main entry view ---
   return (
     <>
-      <div className="bg-base-light dark:bg-base-dark min-h-screen">
+      <div className="bg-base-light dark:bg-base-dark h-full overflow-y-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header Navigation */}
           <div className="mb-6">
@@ -261,51 +454,30 @@ export default function JournalDetail() {
             {/* Right Column: Sticky Sidebar */}
             <aside className="w-full lg:w-1/3 lg:sticky top-8 h-fit mt-8 lg:mt-0">
               <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl p-6 border border-border-light dark:border-border-dark space-y-6">
-                {/* Actions */}
-                <div>
-                  <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-3">
-                    Actions
-                  </h3>
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      onClick={() => navigate(`/journal/edit/${id}`)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
-                    >
-                      <Pencil size={14} />
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      onClick={() => setIsDeleteModalOpen(true)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-danger bg-danger/10 rounded-lg hover:bg-danger/20 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                      <span>Delete</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (entry) {
-                          exportJournalToMarkdown(entry);
-                          showToast(
-                            "Please select download location. The file will be available at that location.",
-                            "success"
-                          );
-                        }
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
-                    >
-                      <Download size={14} />
-                      <span>Export</span>
-                    </button>
+                {/* Mood Orb - Prominent at top */}
+                <div className="flex flex-col items-center gap-4 text-center pt-2">
+                  <MoodOrb level={entry.mood_score || 3} size="lg" />
+                  <div className="flex items-center justify-center gap-3 text-sm">
+                    <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
+                      Mood Score:
+                    </span>
+                    <span className="font-bold text-text-light dark:text-text-dark">
+                      {entry.mood_score} / 5
+                    </span>
                   </div>
                 </div>
 
                 {/* AI Insights */}
                 {(entry.content_summary || entry.transcription) && (
-                  <div>
-                    <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-3">
+                  <div className="border-t border-border-light dark:border-border-dark pt-6">
+                    <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-4 flex items-center gap-2">
+                      <FileText
+                        size={18}
+                        className="text-dark1 dark:text-light1"
+                      />
                       AI Insights
                     </h3>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {entry.transcription && (
                         <div className="border border-border-light dark:border-border-dark rounded-xl bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
                           <button
@@ -316,7 +488,7 @@ export default function JournalDetail() {
                             aria-expanded={isTranscriptionOpen}
                           >
                             <div className="flex items-center gap-3">
-                              <Captions
+                              <FileText
                                 size={16}
                                 className="text-dark1 dark:text-light1"
                               />
@@ -407,45 +579,49 @@ export default function JournalDetail() {
                   </div>
                 )}
 
-                {/* Metadata */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Smile size={18} className="text-dark1 dark:text-light1" />
-                    <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
-                      Mood Score:
-                    </span>
-                    <span className="font-bold text-text-light dark:text-text-dark">
-                      {entry.mood_score} / 5
-                    </span>
+                {/* Metadata & Tags */}
+                <div className="border-t border-border-light dark:border-border-dark pt-6 space-y-5">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm mb-3">
+                      <AudioLines
+                        size={16}
+                        className="text-dark1 dark:text-light1"
+                      />
+                      <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
+                        Sentiment
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-text-light dark:text-text-dark">
+                        {entry.sentiment_score?.toFixed(2) || "—"}
+                      </span>
+                      <div className="w-32 h-2 bg-tertiary-light dark:bg-tertiary-dark rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-dark1 dark:bg-light1 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.max(0, Math.min(100, ((entry.sentiment_score || 0) + 1) * 50))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <AudioLines
-                      size={18}
-                      className="text-dark1 dark:text-light1"
-                    />
-                    <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
-                      Sentiment:
-                    </span>
-                    <span className="font-bold text-text-light dark:text-text-dark">
-                      {entry.sentiment_score?.toFixed(2)}
-                    </span>
-                  </div>
+
                   {moodTags.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-2 text-sm mb-3">
                         <Tags
-                          size={18}
+                          size={16}
                           className="text-dark1 dark:text-light1"
                         />
                         <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
-                          Tags:
+                          Tags
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         {moodTags.map((tag, idx) => (
                           <span
                             key={idx}
-                            className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
+                            className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-3 py-1.5 rounded-full text-xs font-medium"
                           >
                             {tag}
                           </span>
@@ -453,6 +629,198 @@ export default function JournalDetail() {
                       </div>
                     </div>
                   )}
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
+                      Created
+                    </span>
+                    <span className="font-medium text-text-light dark:text-text-dark">
+                      {format(new Date(entry.created_at!), "PPP p")}
+                    </span>
+                  </div>
+                </div>
+
+                {/* AI Metadata Status */}
+                <div className="border-t border-border-light dark:border-border-dark pt-6">
+                  <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-4 flex items-center gap-2">
+                    <AlertCircle
+                      size={18}
+                      className="text-dark1 dark:text-light1"
+                    />
+                    AI Metadata
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
+                          Auto-populate (Title, Mood, Tags)
+                        </span>
+                        <span className="font-semibold text-text-light dark:text-text-dark flex items-center gap-1">
+                          {aiMetadataStatus === "pending" && (
+                            <Loader2
+                              size={14}
+                              className="animate-spin inline mr-1"
+                            />
+                          )}
+                          {aiMetadataStatus === "completed" && (
+                            <CheckCircle2
+                              size={14}
+                              className="text-green-500 inline mr-1"
+                            />
+                          )}
+                          {aiMetadataStatus === "failed" && (
+                            <AlertCircle
+                              size={14}
+                              className="text-red-500 inline mr-1"
+                            />
+                          )}
+                          {aiMetadataStatus.charAt(0).toUpperCase() +
+                            aiMetadataStatus.slice(1).replace("_", " ")}
+                        </span>
+                      </div>
+                      {aiMetadataStatus === "failed" && aiMetadataError && (
+                        <p className="text-xs text-red-500 mb-2">
+                          {aiMetadataError}
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        {(aiMetadataStatus === "failed" ||
+                          aiMetadataStatus === "not_started") && (
+                          <button
+                            onClick={handleRetryMetadata}
+                            disabled={isRetryingMetadata}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isRetryingMetadata ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin" />
+                                Retrying...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw size={14} />
+                                Retry
+                              </>
+                            )}
+                          </button>
+                        )}
+                        {aiMetadataStatus === "pending" && (
+                          <button
+                            onClick={handleCancelMetadata}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-danger bg-danger/10 rounded-lg hover:bg-danger/20 transition-colors"
+                          >
+                            <XCircle size={14} />
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="border-t border-border-light dark:border-border-dark pt-4">
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
+                          AI Summary
+                        </span>
+                        <span className="font-semibold text-text-light dark:text-text-dark flex items-center gap-1">
+                          {aiSummaryStatus === "pending" && (
+                            <Loader2
+                              size={14}
+                              className="animate-spin inline mr-1"
+                            />
+                          )}
+                          {aiSummaryStatus === "completed" && (
+                            <CheckCircle2
+                              size={14}
+                              className="text-green-500 inline mr-1"
+                            />
+                          )}
+                          {aiSummaryStatus === "failed" && (
+                            <AlertCircle
+                              size={14}
+                              className="text-red-500 inline mr-1"
+                            />
+                          )}
+                          {aiSummaryStatus.charAt(0).toUpperCase() +
+                            aiSummaryStatus.slice(1).replace("_", " ")}
+                        </span>
+                      </div>
+                      {aiSummaryStatus === "failed" && aiSummaryError && (
+                        <p className="text-xs text-red-500 mb-2">
+                          {aiSummaryError}
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        {(aiSummaryStatus === "failed" ||
+                          aiSummaryStatus === "not_started" ||
+                          aiSummaryStatus === "skipped") && (
+                          <button
+                            onClick={handleRetrySummary}
+                            disabled={isRetryingSummary}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isRetryingSummary ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin" />
+                                Retrying...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw size={14} />
+                                Retry
+                              </>
+                            )}
+                          </button>
+                        )}
+                        {aiSummaryStatus === "pending" && (
+                          <button
+                            onClick={handleCancelSummary}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold text-text-light dark:text-text-dark bg-danger/10 dark:bg-danger/20 rounded-lg hover:bg-danger/20 dark:hover:bg-danger/30 transition-colors text-danger"
+                          >
+                            <XCircle size={14} />
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions - Bottom */}
+                <div className="border-t border-border-light dark:border-border-dark pt-6">
+                  <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-4 flex items-center gap-2">
+                    <FileText
+                      size={18}
+                      className="text-dark1 dark:text-light1"
+                    />
+                    Actions
+                  </h3>
+                  <div className="flex flex-row gap-2">
+                    <button
+                      onClick={() => navigate(`/journal/edit/${id}`)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (entry) {
+                          exportJournalToMarkdown(entry);
+                          showToast(
+                            "Please select download location. The file will be available at that location.",
+                            "success",
+                          );
+                        }
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
+                    >
+                      <Download size={16} />
+                    </button>
+                    <button
+                      onClick={() => setIsDeleteModalOpen(true)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-danger bg-danger/10 rounded-lg hover:bg-danger/20 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </aside>

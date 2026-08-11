@@ -386,6 +386,26 @@ export function initDatabase() {
         console.error("Error ensuring profile_picture column exists:", err);
     }
 
+    // Add AI metadata status columns to journal_entries
+    try {
+        const journalInfo = db.prepare(`PRAGMA table_info(journal_entries)`).all();
+        const cols = journalInfo.map(c => c.name);
+        if (!cols.includes('ai_metadata_status')) {
+            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_metadata_status TEXT DEFAULT 'not_started' CHECK(ai_metadata_status IN ('not_started','pending','completed','failed'))`).run();
+        }
+        if (!cols.includes('ai_summary_status')) {
+            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_summary_status TEXT DEFAULT 'not_started' CHECK(ai_summary_status IN ('not_started','pending','completed','failed','skipped'))`).run();
+        }
+        if (!cols.includes('ai_metadata_error')) {
+            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_metadata_error TEXT`).run();
+        }
+        if (!cols.includes('ai_summary_error')) {
+            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_summary_error TEXT`).run();
+        }
+    } catch (err) {
+        console.error("Error ensuring AI metadata columns exist:", err);
+    }
+
     // Insert a system user if it doesn't exist
     const insertSystemUser = db.prepare(`
         INSERT OR IGNORE INTO users (id, username, email, password_hash, full_name)
@@ -407,9 +427,9 @@ export function initDatabase() {
         VALUES (0, ?, ?)
     `);
 
-    for (const cat of categories) {
+    categories.forEach((cat) => {
         insertCategory.run(cat.name, cat.color);
-    }
+    });
 
     console.log('Local database with normalized tags and chat tables initialized successfully.');
 }

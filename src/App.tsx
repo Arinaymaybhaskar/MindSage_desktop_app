@@ -160,13 +160,8 @@ function AppLayout() {
             magnification={80}
           />
         )}
-        <div
-          className={`flex flex-col h-screen w-full overflow-hidden ${
-            isQuickCapturePage ? "" : "pt-10"
-          }`}
-        >
-          {/* {!isAuthPage && <Navbar />} */}
-          <main className="flex-1 overflow-y-auto  no-scrollbar">
+        <div className="flex flex-col h-full w-full overflow-hidden">
+          <main className="flex-1 overflow-hidden no-scrollbar pt-10">
             <Routes>
               <Route
                 path="/journals"

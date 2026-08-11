@@ -8,6 +8,26 @@ import { shell } from "electron";
 
 const offlineAccessTokenSecret = "be1e968105e3d8c510625e7ae117d3b376913c6359b5063bc5ff07f1cc43cfa3229405930cdeb7bcc9e9ebf3199c0b85b1a0c2396018eee4985f2d1a0abf6002";
 
+function describeApiConnectionError(error, fallbackMessage) {
+    const code = error?.code || error?.cause?.code;
+    const isNetworkCode = ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ECONNRESET", "ECONNABORTED", "ETIMEDOUT"].includes(code);
+
+    if (isNetworkCode || (!error?.response && !error?.request)) {
+        const apiCode = code || "UNREACHABLE";
+        return `Can't reach the API server — check your internet or DNS (${apiCode})`;
+    }
+
+    if (error?.response?.data?.message) {
+        return error.response.data.message;
+    }
+
+    if (error?.message) {
+        return error.message;
+    }
+
+    return fallbackMessage;
+}
+
 const generateAccessToken = (user) => {
     return jwt.sign(user, offlineAccessTokenSecret, { expiresIn: '15m' });
 };
@@ -21,7 +41,7 @@ export const handleLogin = async (event, mode, credentials) => {
             return response.data;
         } catch (error) {
             console.error('Online login error:', error.response?.data || error.message);
-            throw new Error(error.response?.data.message || 'Online login failed');
+            throw new Error(describeApiConnectionError(error, 'Online login failed'));
         }
     } else { // Offline Mode
         try {
@@ -57,7 +77,7 @@ export const handleRegister = async (event, mode, details) => {
             return response.data;
         } catch (error) {
             console.error('Online registration error:', error.response?.data || error.message);
-            throw new Error(error.response?.data.message || 'Online registration failed');
+            throw new Error(describeApiConnectionError(error, 'Online registration failed'));
         }
     } else { // Offline Mode
         try {

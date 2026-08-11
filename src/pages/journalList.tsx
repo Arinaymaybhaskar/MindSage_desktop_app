@@ -468,7 +468,7 @@ export default function JournalList() {
   }, [filteredEntries, selectedId, deleteModalInfo.isOpen]);
 
   return (
-    <div className="bg-base-light dark:bg-base-dark min-h-screen">
+    <div className="bg-base-light dark:bg-base-dark h-full overflow-y-auto">
       {DeleteModal(
         () => setDeleteModalInfo({ isOpen: false, entryId: null }),
         deleteModalInfo.isOpen

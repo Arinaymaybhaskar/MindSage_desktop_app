@@ -217,7 +217,7 @@ const GoalsPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark min-h-screen">
+    <div className="bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark overflow-y-auto h-full">
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
           <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">

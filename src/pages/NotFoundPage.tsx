@@ -18,7 +18,7 @@ const NotFoundPage = () => {
   }, []);
 
   return (
-    <div className="bg-base-light dark:bg-base-dark min-h-screen flex items-center justify-center text-center px-4">
+    <div className="bg-base-light dark:bg-base-dark min-h-[calc(100vh-40px)] flex items-center justify-center text-center px-4">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}

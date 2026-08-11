@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('electron', {
         'journal:get-mood-scores',
         'journal:get-images',
         "journal:get-chart-data",
+        "journal:retry-ai-metadata",
         'media:getImage',
         'media:save',
         'media:save-profile',
@@ -113,7 +114,8 @@ contextBridge.exposeInMainWorld('electron', {
         'models:get-selected',
         'models:save-selected',
         "quick-capture:close",
-        "eventBus:emit"
+        "eventBus:emit",
+        "journal:retry-ai-metadata"
       ];
 
       if (validChannels.includes(channel)) {
@@ -129,7 +131,8 @@ contextBridge.exposeInMainWorld('electron', {
         'sync-complete',
         'sync-error',
         "live-transcription-data", // <-- added live transcription stream events
-        'services-ready'
+        'services-ready',
+        'ai-status-event'
       ];
       if (validChannels.includes(channel)) {
         ipcRenderer.on(channel, (event, ...args) => func(...args));
@@ -152,6 +155,9 @@ contextBridge.exposeInMainWorld('electron', {
   onChatError: (callback) => {
     ipcRenderer.on("chat:error", (_event, error) => callback(error));
   },
+
+  onAIStatusEvent: (callback) => ipcRenderer.on("ai-status-event", (_event, { event, data }) => callback(event, data)),
+
   // // --- NEW helpers for Whisper ---
   // whisper: {
   //   transcribeAudio: (audioBlobPath) => ipcRenderer.invoke("whisper:transcribe-audio", audioBlobPath),

@@ -6,6 +6,7 @@ import { AISummaryPrompt, generateContextTimeAndBaseQueryPrompt, getAutoPopulate
 import { modelStore } from '../store.js';
 import { SemanticSearch } from './qdrant.js';
 import z from 'zod';
+import { db } from '../db/connection.js';
 
 export const handleGetOllamaModels = async (event, token) => {
     const userId = getUserIdFromToken(token);
@@ -160,12 +161,56 @@ eventBus.on("journal:created", async ({ entry }) => {
         !entry?.mood_tags?.length;
     if (needsAiCompletion) {
         eventBus.emit("journal:aiStarted", { entryId: entry.id });
+        db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'pending' WHERE id = ?`).run(entry.id);
         const prompt = getAutoPopulateValues(entry.content);
 
         // Get the selected chat model from settings
         const selectedModels = modelStore.get('selectedModels');
         const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
         console.log(model, "model used for filing up missing details")
+        try {
+            const res2 = await fetch('http://localhost:11434/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model,
+                    prompt,
+                    stream: false,
+                    num_predict: 300
+                })
+            });
+            if (!res2.ok) {
+                throw new Error(`Ollama HTTP error: ${res2.status} ${res2.statusText}`);
+            }
+            const aiRes = await res2.json();
+            const res3 = aiRes.response
+            db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'completed' WHERE id = ?`).run(entry.id);
+            eventBus.emit("journal:aiCompleted", { entry, res3 });
+        } catch (err) {
+            console.error("AI metadata generation failed:", err);
+            db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`).run(err.message, entry.id);
+            eventBus.emit("journal:aiFailed", { entryId: entry.id, error: err.message });
+        }
+    } else {
+        db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'completed' WHERE id = ?`).run(entry.id);
+    }
+});
+
+// Update the journal:created event handler for summary generation
+eventBus.on("journal:created", async ({ entry }) => {
+    eventBus.emit("ollama:summary-started", { entryId: entry.id });
+    db.prepare(`UPDATE journal_entries SET ai_summary_status = 'pending' WHERE id = ?`).run(entry.id);
+    const prompt = AISummaryPrompt(entry.content);
+    if (entry.content.length < 100) {
+        db.prepare(`UPDATE journal_entries SET ai_summary_status = 'skipped' WHERE id = ?`).run(entry.id);
+        eventBus.emit("ollama:summary-skipped", { entryId: entry.id });
+        return; // Skip summary for very short entries
+    }
+    // Get the selected chat model from settings
+    const selectedModels = modelStore.get('selectedModels');
+    const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
+
+    try {
         const res2 = await fetch('http://localhost:11434/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -176,42 +221,22 @@ eventBus.on("journal:created", async ({ entry }) => {
                 num_predict: 300
             })
         });
-        console.log(res2, "ollama response");
+        if (!res2.ok) {
+            throw new Error(`Ollama HTTP error: ${res2.status} ${res2.statusText}`);
+        }
+
         const aiRes = await res2.json();
-        const res3 = aiRes.response
-        eventBus.emit("journal:aiCompleted", { entry, res3 });
+        const summary = aiRes.response;
+        const id = entry.id;
+        const userId = entry.user_id;
+
+        db.prepare(`UPDATE journal_entries SET ai_summary_status = 'completed' WHERE id = ?`).run(entry.id);
+        eventBus.emit("ollama:summary-generated", { summary, id, userId });
+    } catch (err) {
+        console.error("AI summary generation failed:", err);
+        db.prepare(`UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ? WHERE id = ?`).run(err.message, entry.id);
+        eventBus.emit("ollama:summary-failed", { entryId: entry.id, error: err.message });
     }
-});
-
-// Update the journal:created event handler for summary generation
-eventBus.on("journal:created", async ({ entry }) => {
-    eventBus.emit("ollama:summary-started", { entryId: entry.id });
-    const prompt = AISummaryPrompt(entry.content);
-    if (entry.content.length < 100) {
-        eventBus.emit("ollama:summary-skipped", { entryId: entry.id });
-        return; // Skip summary for very short entries
-    }
-    // Get the selected chat model from settings
-    const selectedModels = modelStore.get('selectedModels');
-    const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
-
-    const res2 = await fetch('http://localhost:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            model,
-            prompt,
-            stream: false,
-            num_predict: 300
-        })
-    });
-
-    const aiRes = await res2.json();
-    const summary = aiRes.response;
-    const id = entry.id;
-    const userId = entry.user_id;
-
-    eventBus.emit("ollama:summary-generated", { summary, id, userId });
 });
 
 // Schemas

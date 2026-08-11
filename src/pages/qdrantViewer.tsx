@@ -207,7 +207,7 @@ export default function QdrantViewer() {
   }, []);
 
   return (
-    <div className="bg-base-light dark:bg-base-dark min-h-screen p-6 font-sans">
+    <div className="bg-base-light dark:bg-base-dark h-full overflow-y-auto p-6 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header, Error, and Collections sections remain the same... */}
         {/* Header */}{" "}

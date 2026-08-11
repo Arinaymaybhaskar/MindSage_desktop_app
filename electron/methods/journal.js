@@ -1,8 +1,11 @@
 import localDB from "../db";
+import { db } from "../db/connection.js";
 import jwt from "jsonwebtoken";
 import axios from 'axios'
 import { eventBus } from "../eventBus.js";
 import { updateJournalEntry } from "../db/journal.js";
+import { AISummaryPrompt, getAutoPopulateValues } from "./AIPrompts.js";
+import { modelStore } from "../store.js";
 
 function getUserIdFromToken(token) {
     try {
@@ -228,3 +231,77 @@ eventBus.on("whisper:transcribe-ended", ({ entry, transcriptionText }) => {
 eventBus.on("custom:test-event", (data) => {
     console.log("Custom test event received with data:", data);
 });
+
+// --- AI Metadata Retry Handler ---
+export async function handleRetryAIMetadata(event, token, journalId, type) {
+    const userId = getUserIdFromToken(token).id;
+    if (!userId) throw new Error("Invalid token");
+
+    const entry = localDB.getJournalById(userId, journalId);
+    if (!entry) throw new Error("Journal entry not found");
+
+    if (type === 'metadata') {
+        // Reset status to pending
+        db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'pending', ai_metadata_error = NULL WHERE id = ?`).run(journalId);
+
+        // Trigger the AI metadata generation again
+        eventBus.emit("journal:aiStarted", { entryId: entry.id });
+
+        const prompt = getAutoPopulateValues(entry.content);
+        const selectedModels = (await import("../store.js")).modelStore.get('selectedModels');
+        const model = selectedModels?.chat || "llama3.2:latest";
+
+        try {
+            const res2 = await fetch('http://localhost:11434/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model, prompt, stream: false, num_predict: 300 })
+            });
+            if (!res2.ok) throw new Error(`Ollama HTTP error: ${res2.status}`);
+            const aiRes = await res2.json();
+            const res3 = aiRes.response;
+            eventBus.emit("journal:aiCompleted", { entry, res3 });
+            return { success: true };
+        } catch (err) {
+            console.error("AI metadata retry failed:", err);
+            db.prepare(`UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`).run(err.message, journalId);
+            eventBus.emit("journal:aiFailed", { entryId: entry.id, error: err.message });
+            return { success: false, error: err.message };
+        }
+    } else if (type === 'summary') {
+        // Reset status to pending
+        db.prepare(`UPDATE journal_entries SET ai_summary_status = 'pending', ai_summary_error = NULL WHERE id = ?`).run(journalId);
+
+        eventBus.emit("ollama:summary-started", { entryId: entry.id });
+
+        const prompt = AISummaryPrompt(entry.content);
+        // Allow retry even for short entries
+        if (entry.content.length < 100) {
+            console.log("Entry content < 100 chars, but retrying anyway on user request");
+        }
+        const selectedModels = (await import("../store.js")).modelStore.get('selectedModels');
+        const model = selectedModels?.chat || "llama3.2:latest";
+
+        try {
+            const res2 = await fetch('http://localhost:11434/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model, prompt, stream: false, num_predict: 300 })
+            });
+            if (!res2.ok) throw new Error(`Ollama HTTP error: ${res2.status}`);
+            const aiRes = await res2.json();
+            const summary = aiRes.response;
+            db.prepare(`UPDATE journal_entries SET ai_summary_status = 'completed' WHERE id = ?`).run(journalId);
+            localDB.addContentSummary(summary, entry.id, userId);
+            eventBus.emit("ollama:summary-generated", { summary, id: entry.id, userId });
+            return { success: true };
+        } catch (err) {
+            console.error("AI summary retry failed:", err);
+            db.prepare(`UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ? WHERE id = ?`).run(err.message, journalId);
+            eventBus.emit("ollama:summary-failed", { entryId: entry.id, error: err.message });
+            return { success: false, error: err.message };
+        }
+    }
+
+    throw new Error("Invalid type. Must be 'metadata' or 'summary'");
+}
