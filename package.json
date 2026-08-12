@@ -8,9 +8,13 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "homepage": "https://github.com/Arinaymaybhaskar/",
+  "engines": {
+    "node": "20.x || 22.x || 23.x || 24.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build && electron-builder",
+    "release": "vite build && electron-builder --publish always",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "postinstall": "npm run rebuild",
     "lint": "eslint .",
@@ -34,13 +38,17 @@
     ],
     "appId": "com.mindsage.app",
     "productName": "MindSage",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Arinaymaybhaskar",
+        "repo": "MindSage_desktop_app"
+      }
+    ],
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "servers/**/*",
-      "src/**/*",
       "public/**/*",
-      "electron/workers/**/*",
       "package.json"
     ],
     "directories": {
@@ -53,6 +61,14 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon2.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MindSage"
     },
     "linux": {
       "target": "AppImage",
@@ -76,6 +92,7 @@
     "dayjs": "^1.11.13",
     "dotenv": "^17.2.1",
     "electron-store": "^10.1.0",
+    "electron-updater": "^6.3.9",
     "express": "^5.1.0",
     "ffmpeg-static": "^5.2.0",
     "framer-motion": "^12.23.12",

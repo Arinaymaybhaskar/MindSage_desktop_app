@@ -1,0 +1,39 @@
+name: Release
+
+# Build and publish the Windows installer to a GitHub Release whenever a
+# version tag is pushed (e.g. `git tag v1.0.1 && git push origin v1.0.1`).
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-windows:
+    name: Build & publish (Windows)
+    runs-on: windows-latest
+    permissions:
+      contents: write # needed to create/update the GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Full install runs postinstall (electron-rebuild) so the native
+      # better-sqlite3 addon is compiled for the packaged app.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build & publish
+        run: npm run release
+        env:
+          # electron-builder publishes to GitHub Releases using this token.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing (optional but recommended to clear SmartScreen):
+          # add these as repo secrets to sign the installer. electron-builder
+          # reads them automatically; leaving them unset produces an unsigned
+          # build.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

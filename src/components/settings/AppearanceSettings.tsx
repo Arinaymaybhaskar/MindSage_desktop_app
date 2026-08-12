@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Minus, Plus, Loader2 } from "lucide-react";
 import { Switch } from "../ui/Switch";
+import { appPrefsService } from "../../api/setupService";
 
 const ZOOM_MIN = 80;
 const ZOOM_MAX = 150;
@@ -200,6 +201,39 @@ export const ZoomScaleSetting = () => {
 };
 
 // ----------------------
+// Launch at Startup Setting
+// ----------------------
+export const LaunchAtStartupSetting = () => {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    appPrefsService.get().then((prefs) => {
+      if (prefs) setEnabled(prefs.launchAtStartup);
+    });
+  }, []);
+
+  const handleChange = async (value: boolean) => {
+    setEnabled(value); // optimistic
+    const res = await appPrefsService.setLaunchAtStartup(value);
+    setEnabled(res.launchAtStartup);
+  };
+
+  return (
+    <div className="flex justify-between items-center p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
+      <div>
+        <label className="font-medium text-text-light dark:text-text-dark">
+          Launch at Startup
+        </label>
+        <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+          Open MindSage automatically when you sign in to your computer.
+        </p>
+      </div>
+      <Switch checked={enabled} onCheckedChange={handleChange} />
+    </div>
+  );
+};
+
+// ----------------------
 // Appearance Settings Wrapper
 // ----------------------
 const AppearanceSettings = () => {
@@ -217,6 +251,7 @@ const AppearanceSettings = () => {
       <div className="p-6 space-y-6">
         <PathOnTitlebar />
         <ZoomScaleSetting />
+        <LaunchAtStartupSetting />
       </div>
     </div>
   );

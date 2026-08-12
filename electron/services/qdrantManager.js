@@ -7,32 +7,50 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 
 let qdrantProc = null;
 
-// Logs folder and daily rotation
-const logsDir = path.join(process.cwd(), "logs");
-if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
-
 // Retain logs for 7 days
 const LOG_RETENTION_DAYS = 7;
-function cleanOldLogs() {
-    const files = fs.readdirSync(logsDir);
-    const now = Date.now();
-    files.forEach(file => {
-        const filePath = path.join(logsDir, file);
-        const stats = fs.statSync(filePath);
-        const ageDays = (now - stats.mtimeMs) / (1000 * 60 * 60 * 24);
-        if (ageDays > LOG_RETENTION_DAYS) fs.unlinkSync(filePath);
-    });
+
+// Resolve the logs folder lazily under userData. Using `process.cwd()/logs`
+// (the previous behaviour) points at the read-only install dir in a packaged
+// build, so the first log write throws.
+let cleanedOldLogs = false;
+function getLogsDir() {
+    const logsDir = path.join(app.getPath("userData"), "logs");
+    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+    if (!cleanedOldLogs) {
+        cleanedOldLogs = true;
+        cleanOldLogs(logsDir);
+    }
+    return logsDir;
 }
-cleanOldLogs();
+
+function cleanOldLogs(logsDir) {
+    try {
+        const files = fs.readdirSync(logsDir);
+        const now = Date.now();
+        files.forEach(file => {
+            const filePath = path.join(logsDir, file);
+            const stats = fs.statSync(filePath);
+            const ageDays = (now - stats.mtimeMs) / (1000 * 60 * 60 * 24);
+            if (ageDays > LOG_RETENTION_DAYS) fs.unlinkSync(filePath);
+        });
+    } catch {
+        // Non-fatal.
+    }
+}
 
 function getLogFilePath() {
     const date = new Date().toISOString().slice(0, 10);
-    return path.join(logsDir, `qdrant-${date}.log`);
+    return path.join(getLogsDir(), `qdrant-${date}.log`);
 }
 
 function writeLog(msg) {
-    const timestamp = new Date().toISOString();
-    fs.appendFileSync(getLogFilePath(), `[${timestamp}] [qdrant] ${msg}\n`, { encoding: "utf8" });
+    try {
+        const timestamp = new Date().toISOString();
+        fs.appendFileSync(getLogFilePath(), `[${timestamp}] [qdrant] ${msg}\n`, { encoding: "utf8" });
+    } catch {
+        // Swallow logging errors.
+    }
 }
 
 function ensureExecutable(file) {

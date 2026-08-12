@@ -116,7 +116,18 @@ contextBridge.exposeInMainWorld('electron', {
         'models:save-selected',
         "quick-capture:close",
         "eventBus:emit",
-        "journal:retry-ai-metadata"
+        "journal:retry-ai-metadata",
+        // First-run setup / AI-stack onboarding
+        "setup:get-status",
+        "setup:install-ollama",
+        "setup:start-ollama",
+        "setup:pull-model",
+        "setup:delete-model",
+        "setup:recommend-model",
+        "setup:ensure-embedding",
+        // App preferences
+        "settings:get-app",
+        "settings:set-launch-at-startup"
       ];
 
       if (validChannels.includes(channel)) {
@@ -133,7 +144,11 @@ contextBridge.exposeInMainWorld('electron', {
         'sync-error',
         "live-transcription-data", // <-- added live transcription stream events
         'services-ready',
-        'ai-status-event'
+        'ai-status-event',
+        'setup:progress',
+        'update:available',
+        'update:progress',
+        'update:downloaded'
       ];
       if (!validChannels.includes(channel)) {
         return () => {};

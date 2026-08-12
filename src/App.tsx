@@ -40,6 +40,8 @@ import GlobalSearch from "./components/globalSearch";
 import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
 import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
+import Onboarding, { SETUP_COMPLETE_KEY } from "./pages/Onboarding";
+import AIReadinessBanner from "./components/AIReadinessBanner";
 import { ToastProvider } from "./context/ToastContext";
 
 function AppLayout() {
@@ -49,6 +51,22 @@ function AppLayout() {
   const [showKeyboardModal, setShowKeyboardModal] = useState(false);
 
   const isQuickCapturePage = location.pathname === "/quick-capture";
+
+  // First-run gate: send new installs through the AI setup flow once. It's
+  // skippable (Onboarding sets SETUP_COMPLETE_KEY on Skip/Finish), so this
+  // never traps the user or loops.
+  useEffect(() => {
+    if (
+      window.electron?.ipcRenderer &&
+      localStorage.getItem(SETUP_COMPLETE_KEY) !== "1" &&
+      location.pathname !== "/setup" &&
+      location.pathname !== "/quick-capture"
+    ) {
+      navigate("/setup", { replace: true });
+    }
+    // Intentionally run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -96,7 +114,8 @@ function AppLayout() {
     location.pathname === "/register" ||
     location.pathname === "/forgot-password" ||
     location.pathname === "/reset-password" ||
-    location.pathname === "/ollama-tutorial";
+    location.pathname === "/ollama-tutorial" ||
+    location.pathname === "/setup";
 
   // CHANGED: Updated the paths for the dock items.
   // "Write" now points to the root "/" and "Dashboard" points to "/dashboard".
@@ -161,6 +180,7 @@ function AppLayout() {
           />
         )}
         <div className="flex flex-col h-full w-full overflow-hidden">
+          {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
           <main className="flex-1 overflow-hidden no-scrollbar pt-10">
             <Routes>
               <Route
@@ -269,6 +289,7 @@ function AppLayout() {
                 }
               />
               <Route path="/ollama-tutorial" element={<OllamaTutorialPage />} />
+              <Route path="/setup" element={<Onboarding />} />
               <Route
                 path="/goals/view/:id"
                 element={

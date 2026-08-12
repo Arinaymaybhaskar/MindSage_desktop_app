@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from "electron";
+import { app, ipcMain, BrowserWindow } from "electron";
 import { exec, spawn } from "child_process";
 import { EventEmitter } from "events";
 import fs from "fs";
@@ -7,41 +7,55 @@ import stripAnsi from "strip-ansi";
 
 export const eventBus = new EventEmitter();
 
-// Logs folder
-const logsDir = path.join(process.cwd(), "logs");
-if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
-
 // Log retention: number of days to keep
 const LOG_RETENTION_DAYS = 7;
 
-// Function to clean old logs
-function cleanOldLogs() {
-    const files = fs.readdirSync(logsDir);
-    const now = Date.now();
-
-    files.forEach(file => {
-        const filePath = path.join(logsDir, file);
-        const stats = fs.statSync(filePath);
-        const ageDays = (now - stats.mtimeMs) / (1000 * 60 * 60 * 24);
-        if (ageDays > LOG_RETENTION_DAYS) {
-            fs.unlinkSync(filePath);
-        }
-    });
+// Resolve the logs folder lazily under userData. The old code used
+// `process.cwd()/logs`, which in a packaged install points at the (read-only)
+// install dir — so the very first log write threw and could abort startup.
+let cleanedOldLogs = false;
+function getLogsDir() {
+    const logsDir = path.join(app.getPath("userData"), "logs");
+    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+    if (!cleanedOldLogs) {
+        cleanedOldLogs = true;
+        cleanOldLogs(logsDir);
+    }
+    return logsDir;
 }
 
-// Call cleanup on startup
-cleanOldLogs();
+// Function to clean old logs
+function cleanOldLogs(logsDir) {
+    try {
+        const files = fs.readdirSync(logsDir);
+        const now = Date.now();
+        files.forEach(file => {
+            const filePath = path.join(logsDir, file);
+            const stats = fs.statSync(filePath);
+            const ageDays = (now - stats.mtimeMs) / (1000 * 60 * 60 * 24);
+            if (ageDays > LOG_RETENTION_DAYS) {
+                fs.unlinkSync(filePath);
+            }
+        });
+    } catch {
+        // Non-fatal: logging must never crash setup.
+    }
+}
 
 // Function to get today's log file path
 function getLogFilePath() {
     const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    return path.join(logsDir, `ollama-${date}.log`);
+    return path.join(getLogsDir(), `ollama-${date}.log`);
 }
 
 // Append logs to today's file
 function writeLogToFile(msg) {
-    const logFilePath = getLogFilePath();
-    fs.appendFileSync(logFilePath, msg + "\n", { encoding: "utf8" });
+    try {
+        const logFilePath = getLogFilePath();
+        fs.appendFileSync(logFilePath, msg + "\n", { encoding: "utf8" });
+    } catch {
+        // Swallow logging errors so they can't take down the app.
+    }
 }
 
 // Logging function: file only
