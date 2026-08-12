@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path, { dirname, join } from 'node:path';
 import { handleGoogleLogin, handleLogin, handleRegister } from "./methods/auth.js";
 import { userChangePassword, userDeleteAccount, userGetMe, userGetSettings, userUpdateProfile, userUpdateSettings } from "./methods/user.js";
-import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal } from "./methods/journal.js";
+import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal, handleRetryAIMetadata, handleUpdateAIStatus } from "./methods/journal.js";
 import { getAudioBase64, getImageBase64, getPdfBase64, handleOpenMedia, handleSaveChatMedia, handleSaveMedia, handleSaveProfileImage } from "./methods/media.js";
 import { handleAddCategory, handleDeleteCategory, handleGetCategories, handleUpdateCategory } from "./methods/categories.js";
 import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActiveGoals, handleGetCompletedGoals, handleGetGoalById, handleGetPinnedGoals, handleTogglePin, handleUpdateGoal, handleUpdateProgress } from "./methods/goal.js";
@@ -66,6 +66,8 @@ export function registerIPCHandlers(runtime) {
     ipcMain.handle("journal:delete", handleDeleteJournal);
     ipcMain.handle("journal:get-images", handleGettingImages);
     ipcMain.handle("journal:get-chart-data", handleGetChartData);
+    ipcMain.handle("journal:retry-ai-metadata", handleRetryAIMetadata);
+    ipcMain.handle("journal:update-ai-status", handleUpdateAIStatus);
     ipcMain.handle("chat:send", handleChat);
 
     // Categories
@@ -111,7 +113,6 @@ export function registerIPCHandlers(runtime) {
     ipcMain.handle("ollama:download-model", handleDownloadOllamaModel);
     ipcMain.handle("ollama:delete-model", handleDeleteOllamaModel);
 
-
     // Whisper
     ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);
     ipcMain.handle("whisper:stop-live-transcription", stopLiveTranscription);
@@ -121,6 +122,24 @@ export function registerIPCHandlers(runtime) {
             event.sender.send("blob-transcription-result", result);
         } catch (err) {
             event.sender.send("blob-transcription-error", err.message);
+        }
+    });
+
+    ipcMain.handle("whisper:transcribe-journal-audio", async (event, audioFilePath, journalId) => {
+        try {
+            const result = await transcribeAudioBlob(audioFilePath, event);
+            if (result && result.transcription && Array.isArray(result.transcription)) {
+                const transcriptionText = result.transcription
+                    .map(seg => seg.text)
+                    .join(" ")
+                    .replace(/\[.*?\]/g, "")
+                    .trim();
+                return transcriptionText;
+            }
+            return null;
+        } catch (err) {
+            console.error("Transcription error:", err);
+            return null;
         }
     });
 
@@ -150,7 +169,7 @@ export function registerIPCHandlers(runtime) {
             ]
         });
 
-        return result; // Will contain { canceled: boolean, filePath: string | undefined }
+        return result;
     });
 
     // modelStore
@@ -167,5 +186,26 @@ export function registerIPCHandlers(runtime) {
     ipcMain.handle("eventBus:emit", (ipcEvent, { event, args }) => {
         eventBus.emit(event, ...args);
         return true;
+    });
+
+    // Forward AI status events to renderer
+    const aiEvents = [
+        "journal:aiStarted",
+        "journal:aiCompleted",
+        "journal:aiFailed",
+        "ollama:summary-started",
+        "ollama:summary-generated",
+        "ollama:summary-failed",
+        "ollama:summary-skipped",
+    ];
+    aiEvents.forEach((eventName) => {
+        eventBus.on(eventName, (data) => {
+            // `runtime` (from startQdrant) has no mainWindow, so resolve the live
+            // window the same way events.js does.
+            const win = BrowserWindow.getAllWindows()[0];
+            if (win && !win.isDestroyed()) {
+                win.webContents.send("ai-status-event", { event: eventName, data });
+            }
+        });
     });
 }

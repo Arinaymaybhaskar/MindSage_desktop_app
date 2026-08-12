@@ -53,10 +53,12 @@ contextBridge.exposeInMainWorld('electron', {
         'journal:get-all',
         'journal:get-by-id',
         'journal:update',
+        'journal:update-ai-status',
         'journal:delete',
         'journal:get-mood-scores',
         'journal:get-images',
         "journal:get-chart-data",
+        "journal:retry-ai-metadata",
         'media:getImage',
         'media:save',
         'media:save-profile',
@@ -113,7 +115,19 @@ contextBridge.exposeInMainWorld('electron', {
         'models:get-selected',
         'models:save-selected',
         "quick-capture:close",
-        "eventBus:emit"
+        "eventBus:emit",
+        "journal:retry-ai-metadata",
+        // First-run setup / AI-stack onboarding
+        "setup:get-status",
+        "setup:install-ollama",
+        "setup:start-ollama",
+        "setup:pull-model",
+        "setup:delete-model",
+        "setup:recommend-model",
+        "setup:ensure-embedding",
+        // App preferences
+        "settings:get-app",
+        "settings:set-launch-at-startup"
       ];
 
       if (validChannels.includes(channel)) {
@@ -129,11 +143,22 @@ contextBridge.exposeInMainWorld('electron', {
         'sync-complete',
         'sync-error',
         "live-transcription-data", // <-- added live transcription stream events
-        'services-ready'
+        'services-ready',
+        'ai-status-event',
+        'setup:progress',
+        'update:available',
+        'update:progress',
+        'update:downloaded'
       ];
-      if (validChannels.includes(channel)) {
-        ipcRenderer.on(channel, (event, ...args) => func(...args));
+      if (!validChannels.includes(channel)) {
+        return () => {};
       }
+      // Wrap so the renderer callback doesn't receive the IpcRendererEvent.
+      // Return an unsubscribe that removes ONLY this listener, so one component
+      // unmounting doesn't clobber every other subscriber on the channel.
+      const listener = (event, ...args) => func(...args);
+      ipcRenderer.on(channel, listener);
+      return () => ipcRenderer.removeListener(channel, listener);
     },
 
     removeAllListeners: (channel) => {
@@ -152,6 +177,9 @@ contextBridge.exposeInMainWorld('electron', {
   onChatError: (callback) => {
     ipcRenderer.on("chat:error", (_event, error) => callback(error));
   },
+
+  onAIStatusEvent: (callback) => ipcRenderer.on("ai-status-event", (_event, { event, data }) => callback(event, data)),
+
   // // --- NEW helpers for Whisper ---
   // whisper: {
   //   transcribeAudio: (audioBlobPath) => ipcRenderer.invoke("whisper:transcribe-audio", audioBlobPath),

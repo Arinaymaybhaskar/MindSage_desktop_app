@@ -13,7 +13,6 @@ import Register from "./pages/auth/register";
 import JournalList from "./pages/journalList";
 import JournalForm from "./pages/journalForm";
 import JournalDetail from "./pages/journalDetails";
-import DailyChallenge from "./pages/dailyChallenge";
 import Settings from "./pages/settings";
 import ChangePassword from "./pages/auth/changePassword";
 import { DeleteAccount } from "./pages/auth/deleteAccount";
@@ -27,7 +26,6 @@ import {
   MessageSquareDot,
   PenIcon,
   Target,
-  TrophyIcon,
 } from "lucide-react";
 import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
@@ -40,6 +38,8 @@ import GlobalSearch from "./components/globalSearch";
 import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
 import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
+import Onboarding, { SETUP_COMPLETE_KEY } from "./pages/Onboarding";
+import AIReadinessBanner from "./components/AIReadinessBanner";
 import { ToastProvider } from "./context/ToastContext";
 
 function AppLayout() {
@@ -49,6 +49,22 @@ function AppLayout() {
   const [showKeyboardModal, setShowKeyboardModal] = useState(false);
 
   const isQuickCapturePage = location.pathname === "/quick-capture";
+
+  // First-run gate: send new installs through the AI setup flow once. It's
+  // skippable (Onboarding sets SETUP_COMPLETE_KEY on Skip/Finish), so this
+  // never traps the user or loops.
+  useEffect(() => {
+    if (
+      window.electron?.ipcRenderer &&
+      localStorage.getItem(SETUP_COMPLETE_KEY) !== "1" &&
+      location.pathname !== "/setup" &&
+      location.pathname !== "/quick-capture"
+    ) {
+      navigate("/setup", { replace: true });
+    }
+    // Intentionally run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -96,7 +112,8 @@ function AppLayout() {
     location.pathname === "/register" ||
     location.pathname === "/forgot-password" ||
     location.pathname === "/reset-password" ||
-    location.pathname === "/ollama-tutorial";
+    location.pathname === "/ollama-tutorial" ||
+    location.pathname === "/setup";
 
   // CHANGED: Updated the paths for the dock items.
   // "Write" now points to the root "/" and "Dashboard" points to "/dashboard".
@@ -104,11 +121,6 @@ function AppLayout() {
     { path: "/dashboard", icon: <HomeIcon size={18} />, label: "Dashboard" },
     { path: "/", icon: <PenIcon size={18} />, label: "Write" },
     { path: "/journals", icon: <BookOpenIcon size={18} />, label: "Journals" },
-    {
-      path: "/daily-challenge",
-      icon: <TrophyIcon size={18} />,
-      label: "Daily Challenge",
-    },
     {
       path: "/qdrant",
       icon: (
@@ -160,13 +172,9 @@ function AppLayout() {
             magnification={80}
           />
         )}
-        <div
-          className={`flex flex-col h-screen w-full overflow-hidden ${
-            isQuickCapturePage ? "" : "pt-10"
-          }`}
-        >
-          {/* {!isAuthPage && <Navbar />} */}
-          <main className="flex-1 overflow-y-auto  no-scrollbar">
+        <div className="flex flex-col h-full w-full overflow-hidden">
+          {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
+          <main className="flex-1 overflow-hidden no-scrollbar pt-10">
             <Routes>
               <Route
                 path="/journals"
@@ -234,14 +242,6 @@ function AppLayout() {
                 }
               />
               <Route
-                path="/daily-challenge"
-                element={
-                  <PrivateRoute>
-                    <DailyChallenge />
-                  </PrivateRoute>
-                }
-              />
-              <Route
                 path="/change-password"
                 element={
                   <PrivateRoute>
@@ -274,6 +274,7 @@ function AppLayout() {
                 }
               />
               <Route path="/ollama-tutorial" element={<OllamaTutorialPage />} />
+              <Route path="/setup" element={<Onboarding />} />
               <Route
                 path="/goals/view/:id"
                 element={

@@ -27,10 +27,11 @@ const analyzeSentimentLocal = (text) => {
  * @returns {{journalId: number, userId: number}}
  */
 export function createJournalEntry(userId, entry) {
-  const { title, content, mood_score, mood_tags = [] } = entry;
+  const { title, content, mood_score, mood_tags = [], created_at } = entry;
 
   const sentiment_score = analyzeSentimentLocal(content || '');
   const now = new Date().toISOString();
+  const entryCreatedAt = created_at || now;
 
   const runTransaction = db.transaction(() => {
     const entryStmt = db.prepare(`
@@ -49,7 +50,7 @@ export function createJournalEntry(userId, entry) {
       content: content || '',
       mood_score: mood_score || null,
       sentiment_score,
-      created_at: now,
+      created_at: entryCreatedAt,
       updated_at: now
     });
 
@@ -264,7 +265,7 @@ export function getMoodScores(userId, range) {
  * @returns {object|null} The updated journal entry or null if not found.
  */
 export function updateJournalEntry(userId, journalId, entry) {
-  const { title, content, mood_score, mood_tags = [], transcription } = entry;
+  const { title, content, mood_score, mood_tags = [], transcription, created_at } = entry;
 
   const sentiment_score = analyzeSentimentLocal(content || '');
   const updated_at = new Date().toISOString();
@@ -279,6 +280,7 @@ export function updateJournalEntry(userId, journalId, entry) {
                 mood_score = @mood_score,
                 sentiment_score = @sentiment_score,
                 updated_at = @updated_at,
+                created_at = @created_at,
                 synced = 0,
                 sync_action = 'update',
                 transcription = @transcription
@@ -292,6 +294,7 @@ export function updateJournalEntry(userId, journalId, entry) {
       mood_score: mood_score || null,
       sentiment_score,
       updated_at,
+      created_at: created_at || new Date().toISOString(),
       journalId,
       userId,
       transcription
@@ -340,6 +343,39 @@ export function deleteJournalEntry(userId, journalId) {
     `);
   const result = stmt.run(journalId, userId);
   return result.changes;
+}
+
+/**
+ * Updates ONLY the AI status/error columns for a journal entry, leaving the
+ * user-authored content (title, content, mood, tags, created_at) untouched.
+ * Routing status changes through the generic updateJournalEntry would wipe the
+ * entry, so cancel/status transitions must go through here instead.
+ * @param {number} userId - The user's ID.
+ * @param {number} journalId - The ID of the journal entry.
+ * @param {object} fields - Any of ai_metadata_status, ai_metadata_error,
+ *   ai_summary_status, ai_summary_error.
+ * @returns {number} The number of rows changed.
+ */
+export function updateAIStatus(userId, journalId, fields) {
+  const allowed = [
+    'ai_metadata_status',
+    'ai_metadata_error',
+    'ai_summary_status',
+    'ai_summary_error',
+  ];
+  const columns = allowed.filter((col) => col in fields);
+  if (columns.length === 0) return 0;
+
+  const setClause = columns.map((col) => `${col} = @${col}`).join(', ');
+  const params = { journalId, userId };
+  for (const col of columns) params[col] = fields[col] ?? null;
+
+  const stmt = db.prepare(`
+        UPDATE journal_entries
+        SET ${setClause}
+        WHERE id = @journalId AND user_id = @userId
+    `);
+  return stmt.run(params).changes;
 }
 
 export function addContentSummary(summary, journalId, userId) {

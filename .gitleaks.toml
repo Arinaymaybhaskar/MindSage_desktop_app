@@ -1,0 +1,11 @@
+# gitleaks configuration.
+# Extends the built-in ruleset; add project-specific allowlist entries below.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Files that legitimately contain secret-shaped placeholders"
+paths = [
+  '''\.env\.example$''',
+  '''\.gitleaks\.toml$''',
+]

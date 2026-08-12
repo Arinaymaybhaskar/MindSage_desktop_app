@@ -11,6 +11,9 @@ import { registerIPCHandlers } from "./ipcHandlers.js";
 import { setupEventBusListeners } from "./events.js";
 import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
+import { registerSetupIPC } from "./services/appSetup.js";
+import { applyLaunchAtStartup, registerAppSettingsIPC } from "./appSettings.js";
+import { initAutoUpdater } from "./services/autoUpdater.js";
 import { Worker } from "node:worker_threads";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -120,6 +123,16 @@ app.whenReady().then(async () => {
 
   log("App ready");
 
+  // Register setup + app-settings IPC up front so the renderer's first-run
+  // onboarding flow can query/drive them before the heavier services finish.
+  try {
+    registerSetupIPC();
+    registerAppSettingsIPC();
+    applyLaunchAtStartup();
+  } catch (e) {
+    log(`Setup/settings IPC init error: ${e?.stack || e}`);
+  }
+
   // Show splash immediately
   try {
     splash = new BrowserWindow({
@@ -189,6 +202,12 @@ app.whenReady().then(async () => {
         try {
           if (!win.isDestroyed()) win.show();
         } catch {}
+        // Check for app updates once the UI is visible (packaged builds only).
+        try {
+          initAutoUpdater(win);
+        } catch (e) {
+          log(`Auto-updater init error: ${e?.stack || e}`);
+        }
       }
     } catch (e) {
       log(`Qdrant/IPC init error: ${e?.stack || e}`);
@@ -218,16 +237,9 @@ app.whenReady().then(async () => {
   });
 });
 
-// Enable launch at startup
-app.setLoginItemSettings({
-  openAtLogin: true, // Launch at startup
-  path: process.execPath, // Executable path
-  args: [], // Optional command-line args
-});
-
-// Optional: check if startup is enabled
-const loginItemSettings = app.getLoginItemSettings();
-console.log("Launch at startup enabled:", loginItemSettings.openAtLogin);
+// Launch-at-startup is now opt-in and applied from the stored preference in
+// `applyLaunchAtStartup()` (see app.whenReady above). The app no longer forces
+// itself into Windows startup on every launch.
 
 // ------------------- Command Line & Autofill -------------------
 app.commandLine.appendSwitch("disable-features", "AutofillServerCommunication");

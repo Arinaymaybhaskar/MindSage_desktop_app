@@ -9,12 +9,23 @@ import fs from "fs";
 
 const router = express.Router();
 
-const offlineAccessTokenSecret = "be1e968105e3d8c510625e7ae117d3b376913c6359b5063bc5ff07f1cc43cfa3229405930cdeb7bcc9e9ebf3199c0b85b1a0c2396018eee4985f2d1a0abf6002";
-const offlineRefreshTokenSecret = "835261b0476f6ab27b89e3f5584dab137ae30e8d73bc98b72b304373076e7c34c68cc2d92733b32bef0459582a389bc72f5f32f432f06cc87e90101bcbe47b9e";
+// Read secrets lazily: dotenv.config() runs in app.js *after* this module is
+// imported, so process.env is empty at module-eval time. These accessors are
+// only called inside request handlers, by which point .env is loaded.
+const getAccessTokenSecret = () => {
+  const secret = process.env.ACCESS_TOKEN_SECRET;
+  if (!secret) throw new Error("ACCESS_TOKEN_SECRET is not set");
+  return secret;
+};
+const getRefreshTokenSecret = () => {
+  const secret = process.env.REFRESH_TOKEN_SECRET;
+  if (!secret) throw new Error("REFRESH_TOKEN_SECRET is not set");
+  return secret;
+};
 
 // --- Helper function to generate Access Token ---
 const generateAccessToken = (user) => {
-  return jwt.sign(user, offlineAccessTokenSecret, { expiresIn: '15m' });
+  return jwt.sign(user, getAccessTokenSecret(), { expiresIn: '15m' });
 };
 
 const client = new OAuth2Client(process.env.O_AUTH_CLIENT_ID);
@@ -117,7 +128,7 @@ router.post("/login", async (req, res) => {
 
     const refreshToken = jwt.sign(
       { id: user.id },
-      offlineRefreshTokenSecret,
+      getRefreshTokenSecret(),
       { expiresIn: refreshTokenExpiry }
     );
 
@@ -158,7 +169,7 @@ router.post("/token", async (req, res) => {
     const result = await pool.query("SELECT * FROM refresh_tokens WHERE token = $1 AND is_revoked = FALSE", [refreshToken]);
     if (result.rows.length === 0) return res.sendStatus(403);
 
-    jwt.verify(refreshToken, offlineRefreshTokenSecret, (err, user) => {
+    jwt.verify(refreshToken, getRefreshTokenSecret(), (err, user) => {
       if (err) return res.sendStatus(403);
       // The user object from the JWT payload might contain 'id' or 'userId'
       const userId = user.id || user.userId;
@@ -214,7 +225,7 @@ router.post("/google-login", async (req, res) => {
     }
 
     const accessToken = generateAccessToken({ id: user.id, username: user.username });
-    const refreshToken = jwt.sign({ id: user.id }, offlineRefreshTokenSecret, { expiresIn: "7d" });
+    const refreshToken = jwt.sign({ id: user.id }, getRefreshTokenSecret(), { expiresIn: "7d" });
 
     await pool.query(
       "INSERT INTO refresh_tokens (user_id, token) VALUES ($1, $2)",
@@ -347,7 +358,7 @@ router.post("/verify-otp", async (req, res) => {
     // Using a standard 7-day refresh token for password reset login
     const refreshToken = jwt.sign(
       { id: user.id },
-      offlineRefreshTokenSecret,
+      getRefreshTokenSecret(),
       { expiresIn: "7d" }
     );
 

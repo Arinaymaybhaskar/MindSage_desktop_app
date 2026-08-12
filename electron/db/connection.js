@@ -102,33 +102,11 @@ export function initDatabase() {
             FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
         );
 
-        -- This table is likely read-only from the server, but we add sync columns for completeness
-        CREATE TABLE IF NOT EXISTS daily_challenges (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            description TEXT,
-            challenge_date TEXT NOT NULL UNIQUE,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS user_challenges (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            challenge_id INTEGER,
-            accepted INTEGER DEFAULT 0,
-            completed INTEGER DEFAULT 0,
-            image_key TEXT,
-            accepted_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            completed_at TEXT,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            -- Sync Columns --
-            is_deleted INTEGER DEFAULT 0,
-            synced INTEGER DEFAULT 0,
-            sync_action TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (challenge_id) REFERENCES daily_challenges(id) ON DELETE CASCADE
-        );
+        -- The Daily Challenge feature was removed. These tables were never
+        -- populated locally (offline mode), so drop them to clean up existing
+        -- installs. Child table first to satisfy the foreign key.
+        DROP TABLE IF EXISTS user_challenges;
+        DROP TABLE IF EXISTS daily_challenges;
 
         CREATE TABLE IF NOT EXISTS notifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -386,6 +364,26 @@ export function initDatabase() {
         console.error("Error ensuring profile_picture column exists:", err);
     }
 
+    // Add AI metadata status columns to journal_entries
+    try {
+        const journalInfo = db.prepare(`PRAGMA table_info(journal_entries)`).all();
+        const cols = journalInfo.map(c => c.name);
+        if (!cols.includes('ai_metadata_status')) {
+            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_metadata_status TEXT DEFAULT 'not_started' CHECK(ai_metadata_status IN ('not_started','pending','completed','failed'))`).run();
+        }
+        if (!cols.includes('ai_summary_status')) {
+            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_summary_status TEXT DEFAULT 'not_started' CHECK(ai_summary_status IN ('not_started','pending','completed','failed','skipped'))`).run();
+        }
+        if (!cols.includes('ai_metadata_error')) {
+            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_metadata_error TEXT`).run();
+        }
+        if (!cols.includes('ai_summary_error')) {
+            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_summary_error TEXT`).run();
+        }
+    } catch (err) {
+        console.error("Error ensuring AI metadata columns exist:", err);
+    }
+
     // Insert a system user if it doesn't exist
     const insertSystemUser = db.prepare(`
         INSERT OR IGNORE INTO users (id, username, email, password_hash, full_name)
@@ -407,9 +405,9 @@ export function initDatabase() {
         VALUES (0, ?, ?)
     `);
 
-    for (const cat of categories) {
+    categories.forEach((cat) => {
         insertCategory.run(cat.name, cat.color);
-    }
+    });
 
     console.log('Local database with normalized tags and chat tables initialized successfully.');
 }

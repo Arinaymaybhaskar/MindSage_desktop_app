@@ -12,7 +12,6 @@ const PlanStepSchema = z.object({
     tool: z.enum([
         "vector_search",
         "get_all_entries",
-        "retrieve_challenge_data",
         "conversational_reply"
     ]).describe("The name of the tool to use for this step."),
     parameters: z.record(z.any()).describe("An object of parameters for the tool.")
@@ -28,7 +27,7 @@ const createPlannerPrompt = (userQuery) => {
     // This prompt is much simpler and clearer for the AI.
     return `You are an expert query planner for a journaling app. Your task is to analyze the user's question and create a step-by-step JSON plan to answer it.
 
-You must choose one or more of the following tools: "vector_search", "get_all_entries", "retrieve_challenge_data", "conversational_reply".
+You must choose one or more of the following tools: "vector_search", "get_all_entries", "conversational_reply".
 In parameters, you must include a query which contains the search query, and a date filter to limit the search to a specific time period.
 Format for parameters (only this format is allowed): { "query": "query", "date_filter": {"from": ISO 8601 timestamp, "to": ISO 8601 timestamp} }
 For reference current date and time is: ${new Date().toISOString()}

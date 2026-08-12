@@ -39,19 +39,19 @@ export default function GoalDetail() {
   const progress = Math.round((data.current_value / data.target_value) * 100);
 
   return (
-    <div className="min-h-screen bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark p-6">
-      {/* Back button */}
-      <div className="mb-6">
-        <button
-          onClick={() => navigate("/goals")}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary-light dark:bg-secondary-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition"
-        >
-          <ArrowLeft size={18} />
-          Back to Goals
-        </button>
-      </div>
+    <div className="bg-surface-light dark:bg-surface-dark text-text-light dark:text-text-dark overflow-y-auto">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back button */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate("/goals")}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary-light dark:bg-secondary-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition"
+          >
+            <ArrowLeft size={18} />
+            Back to Goals
+          </button>
+        </div>
 
-      <div className="max-w-7xl mx-auto space-y-8">
         {/* Goal Header Card */}
         <div className="p-8 rounded-2xl shadow bg-surface-light dark:bg-secondary-dark border border-border-light dark:border-border-dark">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -132,7 +132,7 @@ export default function GoalDetail() {
             </p>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

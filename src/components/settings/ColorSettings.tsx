@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Save, RotateCcw, Palette, Sun, Moon } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Save, RotateCcw, Palette } from "lucide-react";
+import { motion } from "framer-motion";
 import { useColorTheme } from "../../hooks/useColorTheme";
 
 interface ColorSettingsProps {
@@ -111,13 +111,10 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
     colorSettings,
     isLoaded,
     saveColorSettings,
-    updateColor,
     resetToDefault,
-    applyTheme,
     loadFromDatabase,
   } = useColorTheme();
   const [localSettings, setLocalSettings] = useState(colorSettings);
-  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     if (isLoaded) {
@@ -146,12 +143,6 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
       }
     }
   }, [settings]);
-
-  useEffect(() => {
-    // Check if dark mode is enabled
-    const isDark = document.documentElement.classList.contains("dark");
-    setIsDarkMode(isDark);
-  }, []);
 
   const handleColorChange = (colorKey: string, value: string) => {
     setLocalSettings((prev) => ({
@@ -216,7 +207,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
         type="color"
         value={value}
         onChange={(e) => handleColorChange(colorKey, e.target.value)}
-        className="w-12 h-8 rounded border border-border-light dark:border-border-dark cursor-pointer"
+        className="w-12 h-8 cursor-pointer"
       />
     </div>
   );
@@ -224,29 +215,19 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
   const ThemePreview = ({ theme }: { theme: ColorTheme }) => (
     <motion.button
       onClick={() => handleThemeSelect(theme)}
-      className={`p-4 rounded-xl border-2 transition-all ${
+      className={` py-4 rounded-xl border-2 transition-all flex justify-center items-center ${
         localSettings.selectedTheme === theme.name
           ? "border-info bg-light1 dark:bg-dark1/10"
           : "border-border-light dark:border-border-dark hover:border-info/50"
       }`}
+      style={{ backgroundColor: theme.colors.dark1 }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
     >
-      <div className="flex items-center gap-2 mb-3">
-        <Palette size={16} className="text-text-light dark:text-text-dark" />
+      <div className="flex items-center gap-2 ">
         <span className="font-medium text-text-light dark:text-text-dark">
           {theme.name}
         </span>
-      </div>
-      <div className="grid grid-cols-4 gap-1">
-        {Object.entries(theme.colors).map(([key, color]) => (
-          <div
-            key={key}
-            className="w-6 h-6 rounded"
-            style={{ backgroundColor: color }}
-            title={`${key}: ${color}`}
-          />
-        ))}
       </div>
     </motion.button>
   );
@@ -293,7 +274,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
         <div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-text-light dark:text-text-dark">
-              Custom Colors
+              Custom Accent Color
             </h3>
             <button
               onClick={handleReset}
@@ -305,83 +286,16 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center gap-2 mb-4">
-              <Sun size={16} className="text-text-light dark:text-text-dark" />
-              <span className="font-medium text-text-light dark:text-text-dark">
-                Light Mode Colors
-              </span>
-            </div>
             <ColorPicker
-              label="Primary Accent"
+              label="Light Mode"
               colorKey="light1"
               value={localSettings.customColors.light1}
             />
             <ColorPicker
-              label="Secondary Accent"
-              colorKey="light2"
-              value={localSettings.customColors.light2}
-            />
-            <ColorPicker
-              label="Tertiary Accent"
-              colorKey="light3"
-              value={localSettings.customColors.light3}
-            />
-            <ColorPicker
-              label="Quaternary Accent"
-              colorKey="light4"
-              value={localSettings.customColors.light4}
-            />
-
-            <div className="flex items-center gap-2 mb-4 mt-6">
-              <Moon size={16} className="text-text-light dark:text-text-dark" />
-              <span className="font-medium text-text-light dark:text-text-dark">
-                Dark Mode Colors
-              </span>
-            </div>
-            <ColorPicker
-              label="Primary Accent"
+              label="Dark Mode"
               colorKey="dark1"
               value={localSettings.customColors.dark1}
             />
-            <ColorPicker
-              label="Secondary Accent"
-              colorKey="dark2"
-              value={localSettings.customColors.dark2}
-            />
-            <ColorPicker
-              label="Tertiary Accent"
-              colorKey="dark3"
-              value={localSettings.customColors.dark3}
-            />
-            <ColorPicker
-              label="Quaternary Accent"
-              colorKey="dark4"
-              value={localSettings.customColors.dark4}
-            />
-          </div>
-        </div>
-
-        {/* Live Preview */}
-        <div>
-          <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-4">
-            Live Preview
-          </h3>
-          <div className="p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {Object.entries(localSettings.customColors).map(
-                ([key, color]) => (
-                  <div key={key} className="text-center">
-                    <div
-                      className="w-full h-12 rounded-lg mb-2 border border-border-light dark:border-border-dark"
-                      style={{ backgroundColor: color }}
-                    />
-                    <p className="text-xs text-text-light-sub dark:text-text-dark-sub">
-                      {key}
-                    </p>
-                  </div>
-                )
-              )}
-            </div>
           </div>
         </div>
 

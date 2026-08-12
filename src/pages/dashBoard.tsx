@@ -383,7 +383,7 @@ export default function Dashboard() {
 
   if (!user || !stats) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-gray-500 text-xl">
+      <div className="h-screen flex flex-col items-center justify-center text-gray-500 text-xl">
         <p>Could not load user data.</p>
         <Link to="/login" className="mt-4 text-indigo-600 hover:underline">
           Go to Login
@@ -414,7 +414,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="bg-base-light dark:bg-base-dark">
+    <div className="bg-base-light dark:bg-base-dark h-full overflow-y-auto">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8 flex justify-between items-center">
           <div className="flex flex-col gap-4">

@@ -9,7 +9,6 @@ import authRoutes from "./routes/auth.js";
 import journalRoutes from "./routes/journal.js";
 import userRoutes from "./routes/user.js";
 import notificationRoutes from "./routes/notifications.js";
-import challengeRoutes from "./routes/challenge.js";
 import geminiRoutes from "./routes/ai/gemini.js";
 import insightsRoutes from "./routes/ai/insights.js";
 import interventionRoutes from "./routes/ai/interventions.js";
@@ -42,7 +41,6 @@ app.use("/api/journals", journalRoutes);
 app.use("/api/journal-analysis", journalAnalysisRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/challenges", challengeRoutes)
 
 
 const PORT = process.env.PORT || 4000;

@@ -79,6 +79,7 @@ export default function JournalForm() {
   const [isDragging, setIsDragging] = useState(false);
 
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [editedDate, setEditedDate] = useState<string>("");
 
   // START: Added state for inline autocomplete suggestions
   const [suggestion, setSuggestion] = useState("");
@@ -126,6 +127,19 @@ export default function JournalForm() {
         };
         setEntry(entryToSet);
 
+        // Set the edited date to the entry's created_at date
+        if (fetchedEntry.created_at) {
+          const dateObj = new Date(fetchedEntry.created_at);
+          // Format as datetime-local value (local time in YYYY-MM-DDTHH:mm format)
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          const hours = String(dateObj.getHours()).padStart(2, '0');
+          const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+          const dateString = `${year}-${month}-${day}T${hours}:${minutes}`;
+          setEditedDate(dateString);
+        }
+
         // If the fetched entry has an image key, get the URL and set it for preview.
         if (fetchedEntry.image_key) {
           try {
@@ -166,6 +180,16 @@ export default function JournalForm() {
         } else {
           setEntry(emptyJournal);
         }
+        
+        // Initialize editedDate to now for new entries
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const dateString = `${year}-${month}-${day}T${hours}:${minutes}`;
+        setEditedDate(dateString);
       }
     };
 
@@ -281,6 +305,7 @@ export default function JournalForm() {
         title: entry.title?.trim() ? entry.title : "",
         mood_score: entry.mood_score ?? 0,
         mood_tags: entry.mood_tags ?? [],
+        created_at: editedDate ? new Date(editedDate).toISOString() : entry.created_at,
       };
 
       setEntry(mergedEntry);
@@ -322,6 +347,31 @@ export default function JournalForm() {
         );
         if (result.success) {
           audioKey = result.key;
+          
+          // Trigger transcription for the saved audio file
+          try {
+            // The audioKey contains the file path after WAV conversion
+            const transcription = await window.electron.ipcRenderer.invoke(
+              "whisper:transcribe-journal-audio",
+              audioKey,
+              journalId
+            );
+            if (transcription) {
+              // Update the entry with the transcription
+              const entryWithTranscription = {
+                ...mergedEntry,
+                transcription: transcription,
+              };
+              await journalService.update(
+                authMode,
+                accessToken!,
+                journalId,
+                entryWithTranscription
+              );
+            }
+          } catch (err) {
+            console.error("Failed to transcribe audio:", err);
+          }
           resetRecording();
         }
       }
@@ -596,6 +646,20 @@ export default function JournalForm() {
                   setEntry({ ...entry, mood_tags: tags });
                 }}
               />
+            </SidebarPanel>
+
+            <SidebarPanel title="Entry Date" icon={Smile}>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-text-light dark:text-text-dark">
+                  Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editedDate}
+                  onChange={(e) => setEditedDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg text-text-light dark:text-text-dark focus:outline-none focus:ring-2 focus:ring-light1 dark:focus:ring-dark1"
+                />
+              </div>
             </SidebarPanel>
 
             <SidebarPanel title="Attachments" icon={Paperclip}>

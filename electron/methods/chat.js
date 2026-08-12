@@ -23,13 +23,17 @@ function getUserIdFromToken(token) {
 
 
 // Schemas
+// Be lenient about optional-ish fields: small local models routinely omit
+// `notes` or send null time filters. Only requires_context is truly required;
+// everything else has a sane fallback so a missing field doesn't fail parsing
+// (and blow up the whole chat after 3 retries).
 const propsResSchema = z.object({
     requires_context: z.boolean(),
-    requires_time_filter: z.boolean(),
-    time_filter_from: z.string().nullable(),
-    time_filter_to: z.string().nullable(),
-    base_query: z.string(),
-    notes: z.string()
+    requires_time_filter: z.boolean().optional().default(false),
+    time_filter_from: z.string().nullish().default(null),
+    time_filter_to: z.string().nullish().default(null),
+    base_query: z.string().optional().default(""),
+    notes: z.string().optional().default("")
 });
 
 const chatResponseSchema = z.object({
@@ -124,12 +128,15 @@ async function storeAIResponse(aiRes, chatId) {
         }
 
         const { chatResponse, semanticResult } = aiRes;
-        const { response, follow_up_question } = chatResponse;
+        // The schema/prompt produce `suggested_user_prompt`, not
+        // `follow_up_question` — read the correct key so the follow-up is
+        // actually stored with the message.
+        const { response, suggested_user_prompt } = chatResponse;
 
-        // Combine response and follow-up question (if exists)
+        // Combine response and follow-up prompt (if present)
         let finalContent = response;
-        if (follow_up_question) {
-            finalContent += `\n\nFollow-up: ${follow_up_question}`;
+        if (suggested_user_prompt) {
+            finalContent += `\n\nFollow-up: ${suggested_user_prompt}`;
         }
 
         // Extract relevant sources from semanticResult payload
@@ -155,7 +162,7 @@ async function storeAIResponse(aiRes, chatId) {
         return {
             aiMessageId,
             content: finalContent,
-            followUp: follow_up_question || null
+            followUp: suggested_user_prompt || null
         };
 
     } catch (error) {

@@ -19,11 +19,9 @@ interface UserSettings {
   biometric_lock: boolean;
   send_to_ai: boolean;
   journal_reminder: boolean;
-  challenge_alert: boolean;
   check_in_frequency: string;
   ai_tone: string;
   breathing_reminder: boolean;
-  daily_challenge_type: string;
   auto_summarize: boolean;
   ai_tags: boolean;
   insight_tone: string;

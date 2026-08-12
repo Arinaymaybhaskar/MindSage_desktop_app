@@ -10,15 +10,19 @@ export interface JournalEntry {
   created_at?: string;
   image_key?: string;
   audio_key?: string;
+  transcription?: string;
+  content_summary?: string;
+  tags?: string[];
   synced_to_qdrant?:
     | "not_synced"
     | "pending"
     | "in_progress"
     | "success"
     | "failed";
-  transcription?: string;
-  content_summary?: string;
-  tags?: string[];
+  ai_metadata_status?: "not_started" | "pending" | "completed" | "failed";
+  ai_summary_status?: "not_started" | "pending" | "completed" | "failed" | "skipped";
+  ai_metadata_error?: string;
+  ai_summary_error?: string;
 }
 
 interface MoodScoreData {
@@ -211,6 +215,20 @@ export const journalService = {
       authMode,
       token,
       range
+    );
+  },
+
+  retryAIMetadata: async (
+    token: string,
+    journalId: number,
+    type: "metadata" | "summary"
+  ): Promise<{ success: boolean; error?: string; skipped?: boolean }> => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke(
+      "journal:retry-ai-metadata",
+      token,
+      journalId,
+      type
     );
   },
 };

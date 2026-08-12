@@ -1,5 +1,31 @@
 import axios from "axios";
 
+function describeApiConnectionError(error: any, fallback = "The API request failed") {
+  const code = error?.code || error?.cause?.code || error?.message?.match(/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ECONNABORTED|ETIMEDOUT/i)?.[0];
+
+  if (
+    code === "ENOTFOUND" ||
+    code === "EAI_AGAIN" ||
+    code === "ECONNREFUSED" ||
+    code === "ECONNRESET" ||
+    code === "ECONNABORTED" ||
+    code === "ETIMEDOUT" ||
+    (typeof error?.message === "string" && /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ECONNABORTED|ETIMEDOUT/i.test(error.message))
+  ) {
+    return `Can't reach the API server — check your internet or DNS (${code || "NETWORK"})`;
+  }
+
+  if (error?.response?.data?.message) {
+    return error.response.data.message;
+  }
+
+  if (error?.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 const api = axios.create({
   baseURL: "http://localhost:4000/api",
   withCredentials: true,
@@ -17,6 +43,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   res => res,
   async (error) => {
+    if (!error.response) {
+      return Promise.reject(new Error(describeApiConnectionError(error, "API request failed")));
+    }
+
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
