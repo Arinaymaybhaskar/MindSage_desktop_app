@@ -13,7 +13,6 @@ import Register from "./pages/auth/register";
 import JournalList from "./pages/journalList";
 import JournalForm from "./pages/journalForm";
 import JournalDetail from "./pages/journalDetails";
-import DailyChallenge from "./pages/dailyChallenge";
 import Settings from "./pages/settings";
 import ChangePassword from "./pages/auth/changePassword";
 import { DeleteAccount } from "./pages/auth/deleteAccount";
@@ -27,7 +26,6 @@ import {
   MessageSquareDot,
   PenIcon,
   Target,
-  TrophyIcon,
 } from "lucide-react";
 import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
@@ -123,11 +121,6 @@ function AppLayout() {
     { path: "/dashboard", icon: <HomeIcon size={18} />, label: "Dashboard" },
     { path: "/", icon: <PenIcon size={18} />, label: "Write" },
     { path: "/journals", icon: <BookOpenIcon size={18} />, label: "Journals" },
-    {
-      path: "/daily-challenge",
-      icon: <TrophyIcon size={18} />,
-      label: "Daily Challenge",
-    },
     {
       path: "/qdrant",
       icon: (
@@ -245,14 +238,6 @@ function AppLayout() {
                 element={
                   <PrivateRoute>
                     <Settings />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/daily-challenge"
-                element={
-                  <PrivateRoute>
-                    <DailyChallenge />
                   </PrivateRoute>
                 }
               />

@@ -14,7 +14,6 @@ import {
   PencilLine,
   PenSquareIcon,
   Settings2Icon,
-  Target,
   Trash2,
   User,
 } from "lucide-react";
@@ -327,25 +326,6 @@ export const actionsCommands = [
       "diary",
       "thoughts",
       "memo",
-    ],
-  },
-  {
-    type: "Action",
-    title: "View Daily Challenge",
-    path: "/daily-challenge",
-    icon: Target,
-    keywords: [
-      "daily",
-      "challenge",
-      "task",
-      "goal",
-      "exercise",
-      "activity",
-      "mission",
-      "routine",
-      "objective",
-      "habit",
-      "quest",
     ],
   },
   {

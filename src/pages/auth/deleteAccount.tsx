@@ -86,7 +86,7 @@ export function DeleteAccount() {
             </p>
             <ul className="list-disc pl-5 mb-6 space-y-1 text-text-light-sub dark:text-text-dark-sub">
               <li>All your journal entries and media</li>
-              <li>Your daily challenge progress and goals</li>
+              <li>Your goals and progress</li>
               <li>Account settings and preferences</li>
             </ul>
             <div className="bg-danger/10 border border-danger/20 rounded-lg p-4 mb-6">

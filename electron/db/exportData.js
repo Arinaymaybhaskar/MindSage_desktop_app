@@ -51,7 +51,6 @@ export async function exportEverything(userId, destinationPath) {
         const tagsQuery = db.prepare('SELECT * FROM tags WHERE user_id = ?');
         const journalEntryTagsQuery = db.prepare('SELECT * FROM journal_entry_tags WHERE journal_entry_id IN (SELECT id FROM journal_entries WHERE user_id = ?)');
         const journalAnalysisQuery = db.prepare('SELECT * FROM journal_analysis WHERE journal_id IN (SELECT id FROM journal_entries WHERE user_id = ?)');
-        const userChallengesQuery = db.prepare('SELECT * FROM user_challenges WHERE user_id = ?');
         const notificationsQuery = db.prepare('SELECT * FROM notifications WHERE user_id = ?');
         const journalSummariesQuery = db.prepare('SELECT * FROM journal_summaries WHERE user_id = ?');
         const aiInsightsQuery = db.prepare('SELECT * FROM ai_insights WHERE user_id = ?');
@@ -74,7 +73,6 @@ export async function exportEverything(userId, destinationPath) {
             tags: tagsQuery.all(userId),
             journal_entry_tags: journalEntryTagsQuery.all(userId),
             journal_analysis: journalAnalysisQuery.all(userId),
-            user_challenges: userChallengesQuery.all(userId),
             notifications: notificationsQuery.all(userId),
             journal_summaries: journalSummariesQuery.all(userId),
             ai_insights: aiInsightsQuery.all(userId),
@@ -131,16 +129,6 @@ export async function exportEverything(userId, destinationPath) {
             }
         });
 
-        sourceData.user_challenges.forEach((challenge, index) => {
-            if (challenge.image_key) {
-                const baseFilename = path.basename(challenge.image_key);
-                const sourcePath = challenge.image_key; // Use absolute path from DB
-                copyAsset(sourcePath, rootImagesPath, baseFilename);
-                flatData.user_challenges[index].image_key = path.join('images', baseFilename).replace(/\\/g, '/');
-                structuredData.user_challenges[index].image_key = path.join('..', '..', '..', 'images', baseFilename).replace(/\\/g, '/');
-            }
-        });
-
         sourceData.files.forEach((file, index) => {
             const destFolder = file.file_type === 'image' ? 'images' : 'audio';
             const rootDestPath = destFolder === 'images' ? rootImagesPath : rootAudioPath;
@@ -179,7 +167,6 @@ export async function exportEverything(userId, destinationPath) {
             'chats/messages.json': structuredData.messages,
             'chats/files.json': structuredData.files,
             'chats/message_sources.json': structuredData.message_sources,
-            'challenges/user_challenges.json': structuredData.user_challenges,
             'general/categories.json': structuredData.categories,
             'ai/insights.json': structuredData.ai_insights,
             'ai/interventions.json': structuredData.ai_interventions,

@@ -37,19 +37,8 @@ const get_all_entries = async ({ date_filter }, userId) => {
     return result.rows.map(row => row.content);
 };
 
-const retrieve_challenge_data = async ({ date_filter, status }, userId) => {
-    // Similar date parsing logic would be needed here.
-    const interval = date_filter.includes("week") ? "7 days" : "30 days";
-    const result = await pool.query(
-        `SELECT title, status FROM daily_challenges WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '${interval}' AND status = $2`,
-        [userId, status]
-    );
-    return result.rows;
-};
-
 // The toolkit object maps tool names to their functions.
 export const toolKit = {
     vector_search,
     get_all_entries,
-    retrieve_challenge_data,
 };

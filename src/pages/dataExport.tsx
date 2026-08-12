@@ -65,7 +65,7 @@ const DataExportPage = () => {
             <ul className="list-disc list-inside space-y-2 mb-6 text-text-light-sub dark:text-text-dark-sub">
               <li>All journal entries and their content</li>
               <li>Profile information and account settings</li>
-              <li>Completed challenges and goal progress</li>
+              <li>Goals and goal progress</li>
               <li>Media attachments (images and audio)</li>
             </ul>
 

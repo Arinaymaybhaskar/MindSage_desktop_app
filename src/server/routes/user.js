@@ -177,8 +177,8 @@ router.get("/me/settings", authenticateToken, async (req, res) => {
 router.put("/me/settings", authenticateToken, async (req, res) => {
   const allowedFields = [
     "dark_mode", "font_size", "auto_save_interval", "speech_language", "biometric_lock",
-    "send_to_ai", "journal_reminder", "challenge_alert", "check_in_frequency", "ai_tone",
-    "breathing_reminder", "daily_challenge_type", "auto_summarize", "ai_tags", "insight_tone",
+    "send_to_ai", "journal_reminder", "check_in_frequency", "ai_tone",
+    "breathing_reminder", "auto_summarize", "ai_tags", "insight_tone",
     "enable_ai_image", "enable_voice_mood", "enable_smart_prompts", "auto_save_timer",
     "journal_streaks", "weekly_summary_email", "journaling_goal", "custom_colors", 
     "selected_theme", "use_custom_colors"

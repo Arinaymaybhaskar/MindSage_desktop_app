@@ -44,22 +44,6 @@ const NotificationsSettings = ({ settings, onSettingsSave }) => {
           />
         </div>
 
-        {/* Daily Challenge Alerts Setting */}
-        <div className="flex justify-between items-center p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
-          <div>
-            <label className="font-medium text-text-light dark:text-text-dark">
-              Daily Challenge Alerts
-            </label>
-            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
-              Notify about new journaling challenges.
-            </p>
-          </div>
-          <Switch
-            checked={localSettings?.challenge_alert}
-            onCheckedChange={(v) => handleChange("challenge_alert", v)}
-          />
-        </div>
-
         {/* Weekly Summary Email Setting */}
         <div className="flex justify-between items-center p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark">
           <div>
