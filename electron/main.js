@@ -38,7 +38,24 @@ function openQuickCaptureWindow() {
     title: "QuickCapture",
     width: 500,
     height: 400,
+    minWidth: 360,
+    minHeight: 320,
     frame: false,
+    // Windows still draws its own rounded-corner window background behind a
+    // frameless BrowserWindow's content. Without this it defaults to opaque
+    // white, which showed through as a solid bar above the app's own rounded,
+    // themed <div> until the page painted over it - transparent removes that
+    // native layer entirely so only the React content is ever visible.
+    transparent: true,
+    backgroundColor: "#00000000",
+    // DWM still draws its own drop shadow and (on Windows 11) rounds the raw
+    // window rect for a frameless window, even a transparent one. That native
+    // shadow/corner render uses the inactive-window colour, which is a light
+    // grey/white - it was showing through the app's own dark rounded corners
+    // the moment the window lost focus. Both are cosmetic OS chrome we don't
+    // want on top of a fully custom-drawn popup.
+    hasShadow: false,
+    roundedCorners: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     webPreferences: {
@@ -54,10 +71,6 @@ function openQuickCaptureWindow() {
 
   console.log("Loading QuickCapture URL:", url);
   quickCaptureWindow.loadURL(url);
-
-  if (process.env.VITE_DEV_SERVER_URL) {
-    quickCaptureWindow.webContents.openDevTools({ mode: "detach" });
-  }
 
   quickCaptureWindow.once("ready-to-show", () => {
     if (!quickCaptureWindow.isDestroyed()) quickCaptureWindow.show();
@@ -118,10 +131,45 @@ app.whenReady().then(async () => {
   const log = (message) => {
     try {
       fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`);
-    } catch {}
+    } catch { }
   };
 
   log("App ready");
+
+  // Sticky so it can be replayed to renderers that load later.
+  let servicesReady = false;
+  // The backend (DB/Ollama/Qdrant) finishing doesn't mean the renderer has
+  // painted anything yet - on a cold start the JS bundle can still be
+  // mounting React well after services-ready fires, which showed as a plain
+  // white window in the gap between the splash closing and the real UI
+  // appearing. The splash now stays up until both sides are ready.
+  let rendererVisuallyReady = false;
+  let mainWindowRevealed = false;
+
+  const revealMainWindowIfReady = () => {
+    if (
+      mainWindowRevealed ||
+      !servicesReady ||
+      !rendererVisuallyReady ||
+      !win ||
+      win.isDestroyed()
+    ) {
+      return;
+    }
+    mainWindowRevealed = true;
+    try {
+      if (splash && !splash.isDestroyed()) splash.close();
+    } catch { }
+    try {
+      win.show();
+    } catch { }
+    // Check for app updates once the UI is visible (packaged builds only).
+    try {
+      initAutoUpdater(win);
+    } catch (e) {
+      log(`Auto-updater init error: ${e?.stack || e}`);
+    }
+  };
 
   // Register setup + app-settings IPC up front so the renderer's first-run
   // onboarding flow can query/drive them before the heavier services finish.
@@ -142,6 +190,14 @@ app.whenReady().then(async () => {
       frame: false,
       alwaysOnTop: true,
       transparent: true,
+      backgroundColor: "#00000000",
+      // Same fix as the Quick Capture window: without these, DWM's own
+      // drop shadow and (Windows 11) corner rounding for the raw window
+      // rect show through in the inactive-window colour - a light
+      // grey/white edge around the transparent card the moment the
+      // window isn't focused.
+      hasShadow: false,
+      roundedCorners: false,
       show: true,
       webPreferences: {
         nodeIntegration: true,
@@ -160,10 +216,39 @@ app.whenReady().then(async () => {
   // Create main window in background; it will be shown after services are ready
   try {
     win = await createWindow();
+    // Replay services-ready for reloads. The event below is sent once, so a
+    // renderer that mounts afterwards - or any in-session reload, which is
+    // routine while capturing screenshots - would otherwise never see it.
+    win.webContents.on("did-finish-load", () => {
+      if (servicesReady && !win.isDestroyed()) {
+        win.webContents.send("services-ready");
+      }
+    });
     log("Main window created");
   } catch (e) {
     log(`Failed to create window: ${e?.stack || e}`);
   }
+
+  // The renderer pings this once it has actually painted (see App.tsx),
+  // after waiting a couple of animation frames past mount so this isn't just
+  // "the blank shell showed up". Registered before services finish so an
+  // early ping (fast machine, warm cache) isn't missed.
+  ipcMain.on("renderer:visually-ready", () => {
+    if (rendererVisuallyReady) return;
+    rendererVisuallyReady = true;
+    log("Renderer signaled visually ready");
+    revealMainWindowIfReady();
+  });
+
+  // Safety net: never let a lost/renamed IPC message strand the user on the
+  // splash screen forever.
+  setTimeout(() => {
+    if (!rendererVisuallyReady) {
+      log("Renderer visually-ready timed out; revealing anyway");
+      rendererVisuallyReady = true;
+      revealMainWindowIfReady();
+    }
+  }, 15000);
 
   // Start services asynchronously, and keep the UI up
   (async () => {
@@ -194,20 +279,10 @@ app.whenReady().then(async () => {
       createQdrantWorker();
       log("IPC handlers, event bus, and worker initialized");
       if (win && !win.isDestroyed()) {
+        servicesReady = true;
         win.webContents.send('services-ready');
         log("Sent services-ready to renderer");
-        try {
-          if (splash && !splash.isDestroyed()) splash.close();
-        } catch {}
-        try {
-          if (!win.isDestroyed()) win.show();
-        } catch {}
-        // Check for app updates once the UI is visible (packaged builds only).
-        try {
-          initAutoUpdater(win);
-        } catch (e) {
-          log(`Auto-updater init error: ${e?.stack || e}`);
-        }
+        revealMainWindowIfReady();
       }
     } catch (e) {
       log(`Qdrant/IPC init error: ${e?.stack || e}`);

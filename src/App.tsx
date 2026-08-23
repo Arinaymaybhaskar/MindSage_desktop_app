@@ -67,6 +67,38 @@ function AppLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Readiness marker for Playwright-driven screenshot and demo-video runs.
+  // Startup is slow and staged (database, Ollama models, the Qdrant binary,
+  // then IPC and the worker), so automation needs a real signal rather than a
+  // fixed sleep - the whole sequence can take 10-30s on a cold start.
+  useEffect(() => {
+    if (!window.electron?.ipcRenderer) return;
+    const unsubscribe = window.electron.ipcRenderer.on("services-ready", () => {
+      document.body.dataset.appReady = "true";
+    });
+    return () => unsubscribe?.();
+  }, []);
+
+  // Tell the main process this window has actually painted, so it can hold
+  // the splash screen up until there is real UI to reveal instead of a blank
+  // white frame - see the "renderer:visually-ready" handshake in main.js.
+  // Two nested rAFs land after the browser's next paint, not just after
+  // React's commit.
+  useEffect(() => {
+    if (isQuickCapturePage || !window.electron?.send) return;
+    let cancelled = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) window.electron.send("renderer:visually-ready");
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
@@ -160,7 +192,11 @@ function AppLayout() {
         )}
         <div className="flex flex-col h-full w-full overflow-hidden">
           {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
-          <main className="flex-1 overflow-hidden no-scrollbar pt-10">
+          <main
+            className={`flex-1 overflow-hidden no-scrollbar ${
+              isQuickCapturePage ? "" : "pt-10"
+            }`}
+          >
             <Routes>
               <Route
                 path="/journals"
