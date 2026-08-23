@@ -48,6 +48,16 @@ Caching opportunities found while auditing the data, media, and AI layers. Order
 
 ---
 
+## 🎨 UI components — evaluate
+
+- [x] 🟢 S — **Evaluated replacing the hand-built `MoodOrb` with RareUI "Fluid Orb"** ([rareui.com/components/fluidorb](https://www.rareui.com/components/fluidorb)). **Decision: keep `MoodOrb`.** Prototyped both side by side at all five mood levels (temporary `/orb-compare` page, since removed) and captured a 2x comparison. Findings:
+  - **Mood legibility is the deciding factor.** The fetched shader (`https://www.rareui.com/r/fluid-orb.json`) bases every colour on `vec3 white`: `col = white; col = mix(col, light, ...); col = mix(col, dark, ...)`. So the top of the orb is white at *every* mood and only the lower third carries the hue. Side by side, "Struggling" and "Great" read as the same white-capped object in two tints, where `MoodOrb`'s two-stop gradient (`mood.top`→`mood.bottom`) separates them clearly. For a semantic mood indicator that is a downgrade, however good the ambient motion is.
+  - **Silent failure without WebGL.** The component does `const gl = canvas.getContext('webgl'); if (!gl) return` — no fallback, just an empty canvas. Under this app's own `MS_DISABLE_GPU=1` escape hatch (for machines with broken drivers) the orb would simply vanish, on exactly the machines already in trouble.
+  - **Not installable as documented here.** shadcn is not configured (no `components.json`), and the file imports `cn` from `@/lib/utils` and is marked `"use client"`. It needs manual vendoring, not `npx shadcn add`. (It does pull zero npm runtime deps — raw WebGL — and the licence is permissive, so neither of those was the blocker.)
+  - **Follow-up done instead:** removed the coloured light leak from `MoodOrb` — the container's drop shadow was tinted `mood.top` and the `.animate-orb-glow` keyframes projected `currentColor` up to 140px outward, haloing the surrounding card. The shadow is now neutral and the glow keyframes are `inset`, so depth and the slow breathing remain but the colour stays inside the sphere.
+
+---
+
 ## 🔴 Critical — do first
 
 - [ ] 🔴 M — **Journal data is stored unencrypted (core-promise failure).** [connection.js:10](electron/db/connection.js#L10) opens the DB with a bare `new Database(dbPath)` — no SQLCipher, no `PRAGMA key`, no `safeStorage`. Every journal entry, mood score, and the bcrypt password hash sit in plaintext at `%APPDATA%/MindSage/mind-sage.db`, readable by any process or person with file access. For a privacy-first journaling app this makes the entire auth layer (below) decorative and contradicts the `biometric_lock` setting and the README's privacy claims. **Fix:** encrypt at rest (`better-sqlite3-multiple-ciphers` / SQLCipher) with the key held in Electron `safeStorage`. This is the single highest-value fix in the repo — see the 2026-08-12 review section for rationale.
