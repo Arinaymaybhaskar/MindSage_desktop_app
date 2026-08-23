@@ -14,7 +14,7 @@ function describeApiConnectionError(error, fallbackMessage) {
 
     if (isNetworkCode || (!error?.response && !error?.request)) {
         const apiCode = code || "UNREACHABLE";
-        return `Can't reach the API server — check your internet or DNS (${apiCode})`;
+        return `Can't reach the API server; check your internet or DNS (${apiCode})`;
     }
 
     if (error?.response?.data?.message) {

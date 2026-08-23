@@ -154,7 +154,7 @@ const SUMMARY_PREAMBLE = /^(sure[,!.]?\s*)?(here('s| is)|below is)[^:]{0,60}:\s*
 /**
  * Validate + clean a raw summary response. Returns the cleaned summary text, or
  * null if the model refused, produced meta-commentary, emitted the
- * UNSUMMARIZABLE sentinel, or returned something too short to be a summary — in
+ * UNSUMMARIZABLE sentinel, or returned something too short to be a summary, in
  * which case the caller should mark the summary failed rather than store junk.
  */
 export function sanitizeSummary(raw) {
@@ -173,7 +173,7 @@ export function sanitizeSummary(raw) {
 
 // Minimum words an entry needs before an AI summary is worthwhile. Below this,
 // a 3-5 sentence summary would be longer than the entry itself and the model
-// tends to pad, echo, or hallucinate — which read as summary "failures".
+// tends to pad, echo, or hallucinate, which read as summary "failures".
 export const MIN_SUMMARY_WORDS = 25;
 
 /** Count whitespace-delimited words in a string. */

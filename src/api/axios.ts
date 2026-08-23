@@ -12,7 +12,7 @@ function describeApiConnectionError(error: any, fallback = "The API request fail
     code === "ETIMEDOUT" ||
     (typeof error?.message === "string" && /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ECONNABORTED|ETIMEDOUT/i.test(error.message))
   ) {
-    return `Can't reach the API server — check your internet or DNS (${code || "NETWORK"})`;
+    return `Can't reach the API server; check your internet or DNS (${code || "NETWORK"})`;
   }
 
   if (error?.response?.data?.message) {
@@ -53,7 +53,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Don't need to send token — browser sends HttpOnly cookie
+        // Don't need to send token: browser sends HttpOnly cookie
         const res = await axios.post(
           "http://localhost:4000/api/auth/refresh-token",
           {},
