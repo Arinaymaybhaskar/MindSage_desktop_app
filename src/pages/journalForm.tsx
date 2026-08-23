@@ -601,27 +601,40 @@ export default function JournalForm() {
             <input
               id="title"
               type="text"
+              data-testid="journal-title-input"
               placeholder="A Title for Your Thoughts..."
               value={entry.title}
               onChange={(e) => setEntry({ ...entry, title: e.target.value })}
-              className="text-3xl font-[fraunces] font-bold bg-transparent focus:outline-none mb-4 placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
+              className="text-3xl font-display font-bold bg-transparent focus:outline-none mb-4 placeholder:text-text-light-sub/50 dark:placeholder:text-text-dark-sub/50"
             />
 
             {/* START: Modified editor area for ghost text autocomplete */}
             <div className="relative flex-grow">
-              {/* Ghost text layer - sits behind the textarea */}
+              {/* Ghost text layer - sits behind the textarea.
+                  whitespace-pre-wrap matches how a <textarea> intrinsically
+                  renders text: a plain <div> collapses blank lines and
+                  repeated spaces by default, while a textarea preserves them
+                  exactly. Without this, any entry with a paragraph break laid
+                  this invisible copy out shorter than the real text, so the
+                  visible suggestion span appended after it landed wherever
+                  that shorter layout ended - mid-paragraph, overlapping
+                  already-typed text - instead of at the real cursor. */}
               <div
-                className="absolute inset-0 font-inter text-lg leading-relaxed pointer-events-none"
+                className="absolute inset-0 font-inter text-lg leading-relaxed whitespace-pre-wrap break-words pointer-events-none"
                 aria-hidden="true"
               >
                 <span className="text-transparent">{entry.content}</span>
-                <span className="text-text-light-sub/50 dark:text-text-dark-sub/50">
+                <span
+                  data-testid="ai-ghost-suggestion"
+                  className="text-text-light-sub/50 dark:text-text-dark-sub/50"
+                >
                   {suggestion}
                 </span>
               </div>
               <textarea
                 id="content"
                 ref={contentRef}
+                data-testid="journal-body-input"
                 placeholder="Write freely, or click the mic to start speaking..."
                 value={entry.content}
                 onChange={handleContentChange}

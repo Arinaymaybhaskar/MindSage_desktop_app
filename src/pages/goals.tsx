@@ -19,7 +19,7 @@ import { progressLogsService } from "../api/progressLogsService";
 import LogProgressModal from "../components/goals/modals/logProgressModal";
 import GoalCardSkeleton from "../components/goals/GoalCardSkeleton";
 import ActiveGoalsList from "../components/goals/ActiveGoalsList";
-import { qdrantService } from "../api/qdrantService";
+import { qdrantService } from "../api/qDrantService";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const GoalsPage: React.FC = () => {

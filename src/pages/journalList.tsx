@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
-import { qdrantService } from "../api/qdrantService";
+import { qdrantService } from "../api/qDrantService";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import WeeklyMoodStrip from "../components/weeklyMoodStrip";
