@@ -63,6 +63,7 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
 
       <div className="relative w-full">
         <input
+          data-testid="mood-slider"
           type="range"
           min="1"
           max="5"

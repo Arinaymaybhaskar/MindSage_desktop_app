@@ -81,6 +81,8 @@ const JournalEntryCard = ({
   return (
     <motion.div
       layout
+      data-testid="journal-card"
+      data-journal-id={entry.id}
       onClick={onSelect}
       onDoubleClick={() => navigate(`/journal/view/${entry.id}`)}
       initial={{ opacity: 0, y: 20 }}
@@ -642,7 +644,10 @@ export default function JournalList() {
           </div>
 
           <aside className="sticky top-8 h-fit">
-            <div className="bg-secondary-light dark:bg-secondary-dark p-4 rounded-xl shadow-sm border border-border-light dark:border-border-dark">
+            <div
+              data-testid="mood-calendar"
+              className="bg-secondary-light dark:bg-secondary-dark p-4 rounded-xl shadow-sm border border-border-light dark:border-border-dark"
+            >
               <MoodCalendar
                 moodData={moodDataForCalendar}
                 onDateSelect={(date) => setSelectedDate(date)}

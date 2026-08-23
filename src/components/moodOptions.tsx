@@ -33,6 +33,7 @@ interface Props {
 const MoodButton = ({ mood, onClick, isSelected, color }) => (
   <button
     type="button"
+    data-testid={`mood-tag-${mood}`}
     onClick={onClick}
     className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors duration-200 shadow-sm border
       ${

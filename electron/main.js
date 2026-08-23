@@ -124,6 +124,21 @@ if (process.platform === "win32" && process.env.MS_DISABLE_GPU === "1") {
   app.commandLine.appendSwitch("disable-gpu");
 }
 
+// ------------------- Remote Debugging (capture automation) -------------------
+// Opt in with MS_REMOTE_DEBUG=9222 to expose a Chrome DevTools Protocol
+// endpoint. This is what lets Playwright attach to the *real* Electron
+// renderer for screenshot and demo-video runs. Without it the only reachable
+// surface is the bare Vite URL, which loads the UI with no `window.electron`
+// bridge - so every IPC call fails and the app renders empty.
+//
+// Off unless explicitly requested: an open CDP port grants full control of the
+// renderer to anything that can reach it, so it must never be on by default.
+if (process.env.MS_REMOTE_DEBUG) {
+  app.commandLine.appendSwitch("remote-debugging-port", process.env.MS_REMOTE_DEBUG);
+  // Bind to loopback only so the port is not exposed to the local network.
+  app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
+}
+
 // ------------------- App Ready -------------------
 app.whenReady().then(async () => {
   // Simple file logger in userData to debug startup on customer machines

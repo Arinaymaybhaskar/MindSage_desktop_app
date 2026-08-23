@@ -197,7 +197,7 @@ export default function JournalDetail() {
   // Listen for AI status events from main process
   useEffect(() => {
     // The main process sends a single { event, data } payload, and the preload
-    // `on` bridge forwards it as one argument — so destructure it here rather
+    // `on` bridge forwards it as one argument, so destructure it here rather
     // than expecting two positional args (which left `data` undefined and made
     // this handler silently throw, so status/refresh never updated live).
     const handleAIStatusEvent = (payload: { event: string; data: any }) => {
@@ -274,7 +274,7 @@ export default function JournalDetail() {
   const handleCancelMetadata = async () => {
     if (!entry?.id) return;
     // Update DB status back to not_started so user can retry.
-    // Route through the status-only handler — journal:update would rewrite the
+    // Route through the status-only handler: journal:update would rewrite the
     // whole entry from the partial payload and wipe title/content/tags.
     try {
       await window.electron.ipcRenderer.invoke(
@@ -467,7 +467,10 @@ export default function JournalDetail() {
             <aside className="w-full lg:w-1/3 lg:sticky top-8 h-fit mt-8 lg:mt-0">
               <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl p-6 border border-border-light dark:border-border-dark space-y-6">
                 {/* Mood Orb - Prominent at top */}
-                <div className="flex flex-col items-center gap-4 text-center pt-2">
+                <div
+                  data-testid="mood-orb"
+                  className="flex flex-col items-center gap-4 text-center pt-2"
+                >
                   <MoodOrb level={entry.mood_score || 3} size="lg" />
                   <div className="flex items-center justify-center gap-3 text-sm">
                     <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
@@ -493,6 +496,7 @@ export default function JournalDetail() {
                       {entry.transcription && (
                         <div className="border border-border-light dark:border-border-dark rounded-xl bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
                           <button
+                            data-testid="ai-transcription-accordion"
                             onClick={() =>
                               setIsTranscriptionOpen(!isTranscriptionOpen)
                             }
@@ -544,6 +548,7 @@ export default function JournalDetail() {
                       {entry.content_summary && (
                         <div className="border border-border-light dark:border-border-dark rounded-xl bg-tertiary-light dark:bg-tertiary-dark overflow-hidden">
                           <button
+                            data-testid="ai-summary-accordion"
                             onClick={() => setIsSummaryOpen(!isSummaryOpen)}
                             className="w-full flex justify-between items-center p-3 text-left"
                             aria-expanded={isSummaryOpen}
@@ -605,7 +610,7 @@ export default function JournalDetail() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-2xl font-bold text-text-light dark:text-text-dark">
-                        {entry.sentiment_score?.toFixed(2) || "—"}
+                        {entry.sentiment_score?.toFixed(2) || "–"}
                       </span>
                       <div className="w-32 h-2 bg-tertiary-light dark:bg-tertiary-dark rounded-full overflow-hidden">
                         <div
@@ -653,8 +658,13 @@ export default function JournalDetail() {
                 </div>
 
                 {/* AI Metadata Status */}
-                <div className="border-t border-border-light dark:border-border-dark pt-6">
-                  <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-4 flex items-center gap-2">
+                <div
+                  data-testid="ai-metadata-status"
+                  data-metadata-status={aiMetadataStatus}
+                  data-summary-status={aiSummaryStatus}
+                  className="border-t border-border-light dark:border-border-dark pt-6"
+                >
+                  <h3 className="font-display text-lg font-bold text-text-light dark:text-text-dark mb-4 flex items-center gap-2">
                     <AlertCircle
                       size={18}
                       className="text-dark1 dark:text-light1"

@@ -552,6 +552,8 @@ export default function JournalForm() {
             <button
               type="button"
               onClick={toggleLiveTranscription}
+              data-testid="mic-toggle"
+              data-recording={isTranscribing ? "true" : "false"}
               title={
                 isTranscribing ? "Stop Transcription" : "Start Transcription"
               }
@@ -567,6 +569,7 @@ export default function JournalForm() {
               type="button"
               onClick={() => setEntry(emptyJournal)}
               disabled={isSubmitting}
+              data-testid="journal-clear"
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-danger bg-danger/10 rounded-lg hover:bg-danger/20 transition-all disabled:opacity-50"
             >
               <Trash2 size={16} />
@@ -575,6 +578,7 @@ export default function JournalForm() {
             <button
               type="submit"
               disabled={isSubmitting || !entry.content.trim()}
+              data-testid="journal-save"
               className="flex items-center justify-center gap-2 px-4 py-2 w-44 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:bg-dark1/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (

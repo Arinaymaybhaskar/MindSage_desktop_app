@@ -13,9 +13,13 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:capture": "node scripts/run-dev-capture.mjs",
     "build": "vite build && electron-builder",
     "release": "vite build && electron-builder --publish always",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "seed:demo": "node scripts/run-seed.mjs",
+    "capture": "node scripts/capture-shots.mjs",
+    "gen:images": "node scripts/gen-demo-images.mjs",
     "postinstall": "npm run rebuild",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
