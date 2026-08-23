@@ -68,6 +68,25 @@ const ProfileSettings = ({ user, onProfileSave }) => {
     reader.readAsDataURL(file);
   };
 
+  /**
+   * Converts a data: URL into a File, so the bytes that get uploaded always
+   * match what the crop preview shows.
+   *
+   * Needed because `selectedFile` - the raw picture picked with the file
+   * input - never got replaced once the user actually cropped it. Only
+   * `previewSrc` was updated. `handleSubmit` uploads `selectedFile`, so it
+   * was reading the original, uncropped image; the crop the user just did
+   * was thrown away and never reached disk.
+   */
+  const dataUrlToFile = (dataUrl: string, filename: string): File => {
+    const [header, base64] = dataUrl.split(",");
+    const mime = /data:(.*?);base64/.exec(header)?.[1] || "image/jpeg";
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], filename, { type: mime });
+  };
+
   // Remove image
   const handleRemoveImage = () => {
     setSelectedFile(null);
@@ -182,6 +201,14 @@ const ProfileSettings = ({ user, onProfileSave }) => {
                     croppedAreaPixels
                   );
                   setPreviewSrc(cropped);
+                  // Keep selectedFile in sync with what is now shown - it is
+                  // what actually gets uploaded on submit.
+                  setSelectedFile(
+                    dataUrlToFile(
+                      cropped,
+                      selectedFile?.name || "avatar.jpg"
+                    )
+                  );
                   setIsCropping(false);
                 }}
                 className="px-4 py-2 text-sm font-semibold bg-light1 dark:bg-dark1 text-white rounded-lg hover:bg-light1 transition-colors flex items-center gap-2"

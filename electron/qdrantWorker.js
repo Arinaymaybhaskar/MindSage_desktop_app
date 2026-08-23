@@ -50,9 +50,14 @@ async function upsertJournalToQdrant(journal, embedding) {
     try {
         const baseUrl = `http://127.0.0.1:${process.env.QDRANT_HTTP_PORT || 6333}`;
         const client = new (await import('@qdrant/js-client-rest')).QdrantClient({ url: baseUrl });
-        const qdrantId = randomUUID();
+        // Reuse the point this entry already owns. Minting a fresh UUID on every
+        // call made this an insert rather than an upsert: the previous vector
+        // stayed in the collection with nothing pointing at it, so a re-synced
+        // entry came back twice in search - once with its current text and once
+        // with whatever it said before - and the collection grew without bound.
+        const qdrantId = journal.qdrant_id || randomUUID();
         const point = {
-            id: qdrantId, // Prefix to avoid ID conflicts
+            id: qdrantId,
             vectors: {
                 text_embedding: embedding
             },
@@ -88,9 +93,11 @@ async function upsertGoalToQdrant(goal, embedding) {
     try {
         const baseUrl = `http://127.0.0.1:${process.env.QDRANT_HTTP_PORT || 6333}`;
         const client = new (await import('@qdrant/js-client-rest')).QdrantClient({ url: baseUrl });
-        const qdrantId = randomUUID();
+        // See upsertJournalToQdrant: reusing the stored id is what makes this
+        // an upsert instead of an orphan-leaving insert.
+        const qdrantId = goal.qdrant_id || randomUUID();
         const point = {
-            id: qdrantId, // Prefix to avoid ID conflicts
+            id: qdrantId,
             vectors: {
                 text_embedding: embedding
             },
@@ -127,9 +134,11 @@ async function upsertProgressLogToQdrant(progressLog, goalTitle, embedding) {
     try {
         const baseUrl = `http://127.0.0.1:${process.env.QDRANT_HTTP_PORT || 6333}`;
         const client = new (await import('@qdrant/js-client-rest')).QdrantClient({ url: baseUrl });
-        const qdrantId = randomUUID();
+        // See upsertJournalToQdrant: reusing the stored id is what makes this
+        // an upsert instead of an orphan-leaving insert.
+        const qdrantId = progressLog.qdrant_id || randomUUID();
         const point = {
-            id: qdrantId, // Prefix to avoid ID conflicts
+            id: qdrantId,
             vectors: {
                 text_embedding: embedding
             },
@@ -528,8 +537,13 @@ parentPort?.on('message', async (message) => {
         parentPort?.postMessage("Received bulk sync request for journals");
         console.log("Worker: Received bulk sync request for journals");
 
+        // 'not_synced' is the column DEFAULT (see electron/db/connection.js), so
+        // it must be listed here. Without it, any row that never reached the
+        // per-entry sync path kept the default forever and bulk sync - the only
+        // repair mechanism there is - stepped straight over it, leaving the
+        // entry permanently absent from semantic search.
         const pendingJournals = db.prepare(
-            `SELECT * FROM journal_entries WHERE synced_to_qdrant IN ('pending', 'failed') OR synced_to_qdrant IS NULL ORDER BY created_at DESC`
+            `SELECT * FROM journal_entries WHERE synced_to_qdrant IN ('not_synced', 'pending', 'failed') OR synced_to_qdrant IS NULL ORDER BY created_at DESC`
         ).all();
 
         parentPort?.postMessage(`Found ${pendingJournals.length} journals to sync`);
@@ -658,7 +672,7 @@ eventBus.on("journal:bulk-sync-requested", async () => {
     parentPort?.postMessage("Received bulk sync request for journals");
 
     const pendingJournals = db.prepare(
-        `SELECT * FROM journal_entries WHERE synced_to_qdrant IN ('pending', 'failed') OR synced_to_qdrant IS NULL ORDER BY created_at DESC`
+        `SELECT * FROM journal_entries WHERE synced_to_qdrant IN ('not_synced', 'pending', 'failed') OR synced_to_qdrant IS NULL ORDER BY created_at DESC`
     ).all();
 
     parentPort?.postMessage(`Found ${pendingJournals.length} journals to sync`);

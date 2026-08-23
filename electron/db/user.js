@@ -27,14 +27,25 @@ export function getUserById(userId) {
     return user;
 }
 
-export function updateUserProfile(userId, { username, email, full_name }) {
+export function updateUserProfile(userId, { username, email, full_name, profile_picture }) {
+    // profile_picture was previously dropped by the destructure - it never
+    // reached the UPDATE, and was missing from the SELECT that builds the
+    // return value. The DB row itself survived (the column just wasn't in the
+    // SET clause), but the object handed back to the renderer had no
+    // profile_picture key at all, and that object is what overwrites the
+    // cached `userInfo` in localStorage that the dashboard's avatar reads
+    // from. The practical effect: save a new picture, and the very next write
+    // to localStorage - triggered by this same save - wiped it from the
+    // avatar until something else happened to refetch the full user record.
+    // It also meant removing a picture (which sends profile_picture: null)
+    // never actually cleared it from the database.
     const stmt = db.prepare(
-        "UPDATE users SET username = ?, email = ?, full_name = ? WHERE id = ?"
+        "UPDATE users SET username = ?, email = ?, full_name = ?, profile_picture = ? WHERE id = ?"
     );
-    stmt.run(username, email, full_name, userId);
+    stmt.run(username, email, full_name, profile_picture ?? null, userId);
     const user = db
         .prepare(
-            "SELECT id, username, email, created_at, full_name, timezone FROM users WHERE id = ?"
+            "SELECT id, username, email, created_at, full_name, timezone, profile_picture FROM users WHERE id = ?"
         )
         .get(userId);
     if (!user) return null;

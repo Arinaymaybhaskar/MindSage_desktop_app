@@ -101,7 +101,8 @@ export const getChatById = async (userId, chatId) => {
                         f.created_at as file_created_at,
                         s.id as source_id,
                         s.source_type,
-                        s.source_id as source_ref_id
+                        s.source_id as source_ref_id,
+                        s.source_title
                     FROM messages m
                     LEFT JOIN files f ON m.id = f.message_id
                     LEFT JOIN message_sources s ON m.id = s.message_id
@@ -140,10 +141,14 @@ export const getChatById = async (userId, chatId) => {
                     }
 
                     if (row.source_id && !message.sources.find(s => s.id === row.source_id)) {
+                        // source_title is stored when the reply is saved but was
+                        // never selected here, so reopening a conversation lost
+                        // the names of the entries it had been based on.
                         message.sources.push({
                             id: row.source_id,
                             source_type: row.source_type,
-                            source_id: row.source_ref_id
+                            source_id: row.source_ref_id,
+                            source_title: row.source_title
                         });
                     }
                 });
