@@ -145,6 +145,7 @@ contextBridge.exposeInMainWorld('electron', {
         "live-transcription-data", // <-- added live transcription stream events
         'services-ready',
         'ai-status-event',
+        'chat:stream', // token-by-token chat generation
         'setup:progress',
         'update:available',
         'update:progress',

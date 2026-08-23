@@ -61,6 +61,90 @@ export const handleGetOllamaModels = async (event, token) => {
 };
 
 
+/**
+ * Streaming counterpart to `handleOllamaPrompt`.
+ *
+ * `/api/generate` with `stream: true` answers NDJSON - one JSON object per
+ * line, each carrying the next fragment in its `response` field - so the body
+ * has to be read incrementally and split on newlines with a carry buffer; a
+ * single chunk from the socket routinely ends mid-line.
+ *
+ * `onToken` receives each fragment as it arrives. The full concatenated text is
+ * returned at the end, so a caller that also needs to parse the finished output
+ * (JSON mode, retries) can use this as a drop-in for the non-streaming call.
+ *
+ * Deliberately not an IPC handler: the renderer must not be able to open a
+ * generation stream directly, and callers need the per-token callback, which
+ * cannot cross the IPC boundary as a function.
+ */
+export const streamOllamaPrompt = async (
+    model,
+    prompt,
+    { jsonMode = false, numPredict = 300, onToken, signal } = {}
+) => {
+    if (!model || !prompt) throw new Error("Model name and prompt are required.");
+
+    const requestBody = { model, prompt, stream: true, num_predict: numPredict };
+    if (jsonMode) requestBody.format = 'json';
+
+    const res = await fetch('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+        signal,
+    });
+
+    if (!res.ok) {
+        throw new Error(`Ollama HTTP error: ${res.status} ${res.statusText}`);
+    }
+    if (!res.body) throw new Error("Ollama returned no response body.");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let carry = "";
+    let full = "";
+
+    /** Handles one complete NDJSON line. */
+    const consumeLine = (line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        let parsed;
+        try {
+            parsed = JSON.parse(trimmed);
+        } catch {
+            // A malformed line is not worth aborting a whole generation over.
+            return;
+        }
+        if (parsed.error) throw new Error(`Ollama error: ${parsed.error}`);
+        if (typeof parsed.response === "string" && parsed.response.length > 0) {
+            full += parsed.response;
+            onToken?.(parsed.response, full);
+        }
+    };
+
+    try {
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            carry += decoder.decode(value, { stream: true });
+
+            let newlineAt;
+            while ((newlineAt = carry.indexOf("\n")) !== -1) {
+                consumeLine(carry.slice(0, newlineAt));
+                carry = carry.slice(newlineAt + 1);
+            }
+        }
+        // The final line may arrive without a trailing newline.
+        consumeLine(carry + decoder.decode());
+    } finally {
+        // Releasing matters on the abort path: an unreleased reader keeps the
+        // socket open and the model loaded.
+        try { reader.releaseLock(); } catch { /* already released */ }
+    }
+
+    return full;
+};
+
 export const handleOllamaPrompt = async (event, token, model, prompt, jsonMode = false,) => {
     // const userId = getUserIdFromToken(token);
     // if (!userId) {

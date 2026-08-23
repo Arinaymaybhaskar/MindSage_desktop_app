@@ -2,7 +2,8 @@ import localDB from "../db";
 import jwt from "jsonwebtoken";
 import { eventBus } from "../eventBus";
 import { generateContextTimeAndBaseQueryPrompt, respondWithContext, respondWithoutContext } from "./AIPrompts";
-import { generateEmbedding, handleOllamaPrompt } from "./ollama";
+import { generateEmbedding, handleOllamaPrompt, streamOllamaPrompt } from "./ollama";
+import { partialJsonString } from "./jsonStream.js";
 import { SemanticSearch } from "./qdrant";
 import z from "zod";
 
@@ -41,6 +42,27 @@ const chatResponseSchema = z.object({
     suggested_user_prompt: z.string()
 });
 
+/**
+ * Sends generation progress to the window that asked for it.
+ *
+ * Returns a no-op when the caller did not supply a streamId, which keeps every
+ * other caller of handleUserMessage working unchanged.
+ */
+function makeStreamEmitter(event, streamId) {
+    if (!streamId || !event?.sender) return () => { };
+    return (type, payload = {}) => {
+        // The window can be closed or reloaded mid-generation. Sending to a
+        // destroyed WebContents throws, which would abort a run that is
+        // otherwise still worth finishing and storing.
+        if (event.sender.isDestroyed()) return;
+        try {
+            event.sender.send("chat:stream", { streamId, type, ...payload });
+        } catch (err) {
+            console.warn("[chat:stream] failed to emit", type, err.message);
+        }
+    };
+}
+
 // Helper: parse and retry AI JSON
 async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -59,13 +81,15 @@ async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
     }
 }
 
-async function aiResponse(content, chatId, messageId, model, userId) {
+async function aiResponse(content, chatId, messageId, model, userId, hooks = {}) {
+    const { onPhase = () => { }, onDelta = () => { }, onReset = () => { } } = hooks;
     try {
         console.log("aiResponse called with", "content: ", content, "chatId: ", chatId, "messageId: ", messageId, "model: ", model, "userId: ", userId);
         const now = new Date();
         const currentTimeISO = now.toISOString();
 
         // 1️⃣ Generate propsRes
+        onPhase("thinking");
         const queryPropsPrompt = generateContextTimeAndBaseQueryPrompt(content, currentTimeISO);
         const propsRes = await parseAIWithRetries(
             () => handleOllamaPrompt("", "", model, queryPropsPrompt, true),
@@ -80,10 +104,12 @@ async function aiResponse(content, chatId, messageId, model, userId) {
         if (propsRes.requires_context) {
             // Use original user content
             console.log("requires context")
+            onPhase("searching");
             const vector = await generateEmbedding(content);
             semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries");
         } else if (propsRes.requires_time_filter) {
             console.log("requires context with time filter")
+            onPhase("searching");
             // Use base_query and time filter
             const vector = await generateEmbedding(propsRes.base_query);
             semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries", {
@@ -105,9 +131,25 @@ async function aiResponse(content, chatId, messageId, model, userId) {
             );
         }
 
-        // 4️⃣ Get final chat response
+        // 4️⃣ Get final chat response, streaming it to the renderer as it forms.
+        onPhase("writing", { sources: semanticResult });
         const chatResponse = await parseAIWithRetries(
-            () => handleOllamaPrompt("", "", model, mainPrompt, true),
+            () => {
+                // A failed attempt may already have streamed a partial answer.
+                // Tell the renderer to throw it away before the retry starts,
+                // otherwise the second attempt appends to the first.
+                onReset();
+                let emitted = 0;
+                return streamOllamaPrompt(model, mainPrompt, {
+                    jsonMode: true,
+                    onToken: (_fragment, full) => {
+                        const partial = partialJsonString(full, "response");
+                        if (partial === null || partial.length <= emitted) return;
+                        onDelta(partial.slice(emitted));
+                        emitted = partial.length;
+                    },
+                });
+            },
             chatResponseSchema,
             3
         );
@@ -129,7 +171,7 @@ async function storeAIResponse(aiRes, chatId) {
 
         const { chatResponse, semanticResult } = aiRes;
         // The schema/prompt produce `suggested_user_prompt`, not
-        // `follow_up_question` — read the correct key so the follow-up is
+        // `follow_up_question`; read the correct key so the follow-up is
         // actually stored with the message.
         const { response, suggested_user_prompt } = chatResponse;
 
@@ -173,11 +215,12 @@ async function storeAIResponse(aiRes, chatId) {
 }
 
 
-export const handleUserMessage = async (event, authMode, token, chatId, message, model, sources = [], files = []) => {
+export const handleUserMessage = async (event, authMode, token, chatId, message, model, sources = [], files = [], streamId = null) => {
     const userId = getUserIdFromToken(token);
     if (!userId) {
         return { error: "Invalid token" };
     }
+    const emit = makeStreamEmitter(event, streamId);
     if (authMode === "online") {
         console.log("online mode")
     } else {
@@ -194,11 +237,42 @@ export const handleUserMessage = async (event, authMode, token, chatId, message,
         const messageId = userMessage.id;
         // eventBus.emit("chat:new-message", { content: message, chatId, messageId, model, userId });
         console.log("aiResponse called with", "content: ", message, "chatId: ", chatId, "messageId: ", messageId, "model: ", model, "userId: ", userId);
-        const aiRes = await aiResponse(message, chatId, messageId, model, userId);
+
+        // The chat id is only known here once a new chat has been created, and
+        // the renderer needs it before the reply finishes so a mid-generation
+        // chat switch can tell whose stream it is watching.
+        emit("start", { chatId, messageId });
+
+        let aiRes;
+        try {
+            aiRes = await aiResponse(message, chatId, messageId, model, userId, {
+                onPhase: (phase, extra) => emit("phase", { phase, ...extra }),
+                onDelta: (text) => emit("delta", { text }),
+                onReset: () => emit("reset"),
+            });
+        } catch (err) {
+            emit("error", { message: err?.message || "Generation failed." });
+            throw err;
+        }
+
+        // aiResponse swallows its own errors and returns undefined, so an empty
+        // result is a failure the renderer still has to be told about - without
+        // this it would sit on a half-streamed bubble forever.
+        if (!aiRes || !aiRes.chatResponse) {
+            emit("error", { message: "The model did not return a usable answer." });
+            return { error: "The model did not return a usable answer.", chatId, messageId };
+        }
 
         // Store AI response in DB
-        const { aiMessageId } = await storeAIResponse(aiRes, chatId);
-        return { chatId, aiMessageId, aiRes };
+        const stored = await storeAIResponse(aiRes, chatId);
+        const aiMessageId = stored?.aiMessageId ?? null;
+        emit("done", { aiMessageId });
+
+        // `messageId` is the id of the user's own message. The renderer
+        // destructures it to swap its optimistic id for the real one and gates
+        // image/PDF upload on it - omitting it left that gate permanently
+        // closed, so attachments silently never uploaded.
+        return { chatId, messageId, aiMessageId, aiRes };
     }
 };
 

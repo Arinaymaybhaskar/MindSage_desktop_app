@@ -9,7 +9,13 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // `electron/` is included so dependency-free main-process helpers can be
+    // tested. Anything there that reaches for better-sqlite3 or `electron`
+    // itself will not load under vitest, so keep such tests to pure modules.
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "electron/**/*.{test,spec}.{js,ts}",
+    ],
     // The default "forks" pool times out starting workers on Node 26; threads
     // is reliable here. Revisit once the toolchain targets an LTS Node.
     pool: "threads",
