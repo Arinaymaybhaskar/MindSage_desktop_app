@@ -8,7 +8,6 @@ import {
   FileDown,
   KeyRound,
   LayoutDashboardIcon,
-  LucideSparkles,
   MessageCirclePlus,
   Palette,
   PencilLine,
@@ -17,6 +16,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
+import { MindSageMark } from "../components/ui/MindSageMark";
 
 export const settingsCommands = [
   // --- Profile ---
@@ -406,7 +406,7 @@ export const actionsCommands = [
     type: "Action",
     title: "Create goal with AI",
     path: "/goals/create-with-ai",
-    icon: LucideSparkles,
+    icon: MindSageMark,
     keywords: [
       "goal",
       "ai",
