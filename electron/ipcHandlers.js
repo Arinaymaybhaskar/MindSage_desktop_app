@@ -3,7 +3,7 @@ import path, { dirname, join } from 'node:path';
 import { handleGoogleLogin, handleLogin, handleRegister } from "./methods/auth.js";
 import { userChangePassword, userDeleteAccount, userGetMe, userGetSettings, userUpdateProfile, userUpdateSettings } from "./methods/user.js";
 import { handleChat, handleCreateJournal, handleDeleteJournal, handleGetAllJournals, handleGetChartData, handleGetJournalById, handleGetRecentJournals, handleGettingImages, handleUpdateJournal, handleRetryAIMetadata, handleUpdateAIStatus } from "./methods/journal.js";
-import { getAudioBase64, getImageBase64, getPdfBase64, handleOpenMedia, handleSaveChatMedia, handleSaveMedia, handleSaveProfileImage } from "./methods/media.js";
+import { getAudioBase64, getImageBase64, getThumbnailBase64, getPdfBase64, handleOpenMedia, handleSaveChatMedia, handleSaveMedia, handleSaveProfileImage } from "./methods/media.js";
 import { handleAddCategory, handleDeleteCategory, handleGetCategories, handleUpdateCategory } from "./methods/categories.js";
 import { handleCompleteGoal, handleCreateGoal, handleDeleteGoal, handleGetActiveGoals, handleGetCompletedGoals, handleGetGoalById, handleGetPinnedGoals, handleTogglePin, handleUpdateGoal, handleUpdateProgress } from "./methods/goal.js";
 import { handleAddProgressLog, handleGetProgressLogs } from "./methods/progressLogs.js";
@@ -39,6 +39,7 @@ export function registerIPCHandlers(runtime) {
     ipcMain.handle("media:open", handleOpenMedia);
     ipcMain.handle("media:save-profile", handleSaveProfileImage);
     ipcMain.handle("media:getImage", (_e, imagePath) => getImageBase64(imagePath));
+    ipcMain.handle("media:getThumbnail", (_e, imagePath, maxWidth) => getThumbnailBase64(imagePath, maxWidth));
     ipcMain.handle("media:getAudio", (_e, audioPath) => getAudioBase64(audioPath));
     ipcMain.handle("media:getPdf", (_e, pdfPath) => getPdfBase64(pdfPath));
     ipcMain.handle("media:linkMessage", handleLinkMediaToMessage);

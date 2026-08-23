@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('electron', {
         "journal:get-chart-data",
         "journal:retry-ai-metadata",
         'media:getImage',
+        'media:getThumbnail',
         'media:save',
         'media:save-profile',
         "media:getAudio",
