@@ -121,7 +121,7 @@ const Header = () => {
           alt="MindSage Logo"
           className="w-8 h-8 hidden dark:block"
         />
-        <h1 className="text-xl hidden md:block font-[fraunces]">
+        <h1 className="text-xl hidden md:block font-display">
           <span className="font-bold text-gray-900 dark:text-white">Mind</span>
           <span className="text-gray-500 dark:text-gray-400">Sage</span>
         </h1>

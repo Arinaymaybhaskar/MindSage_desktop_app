@@ -55,7 +55,7 @@ export default function GoalDetail() {
         {/* Goal Header Card */}
         <div className="p-8 rounded-2xl shadow bg-surface-light dark:bg-secondary-dark border border-border-light dark:border-border-dark">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <h1 className="text-3xl font-bold">{data.title}</h1>
+            <h1 className="font-display text-3xl font-bold">{data.title}</h1>
             <span
               className="px-3 py-1 rounded-full text-sm font-medium"
               style={{ backgroundColor: data.category?.color || "#ccc" }}
@@ -108,7 +108,7 @@ export default function GoalDetail() {
 
         {/* Logs Section */}
         <div className="p-8 rounded-2xl shadow bg-surface-light dark:bg-secondary-dark border border-border-light dark:border-border-dark">
-          <h2 className="text-xl font-semibold mb-4">Progress Logs</h2>
+          <h2 className="font-display text-xl font-semibold mb-4">Progress Logs</h2>
           {data.logs && data.logs.length > 0 ? (
             <ul className="space-y-4">
               {data.logs.map((log: any) => (

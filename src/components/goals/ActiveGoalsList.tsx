@@ -89,7 +89,7 @@ const ActiveGoalsList: React.FC<ActiveGoalsListProps> = (props) => {
       {/* --- CHANGE: Added a clear header for Pinned Goals --- */}
       {pinnedGoals.length > 0 && (
         <div>
-          <h3 className="flex items-center gap-2 text-2xl font-semibold mb-4 px-2 text-text-light dark:text-text-dark">
+          <h3 className="flex items-center gap-2 font-display text-2xl font-semibold mb-4 px-2 text-text-light dark:text-text-dark">
             <Pin size={22} className="text-dark1 dark:text-light1" />
             Pinned
           </h3>
@@ -101,7 +101,7 @@ const ActiveGoalsList: React.FC<ActiveGoalsListProps> = (props) => {
       {Object.entries(groupedGoals).map(([groupName, groupGoals]) => (
         <div key={groupName}>
           {/* --- CHANGE: Themed group headers --- */}
-          <h3 className="text-2xl font-semibold mb-4 px-2 text-text-light dark:text-text-dark">
+          <h3 className="font-display text-2xl font-semibold mb-4 px-2 text-text-light dark:text-text-dark">
             {groupName === "General Goals" ? (
               groupName
             ) : (

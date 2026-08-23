@@ -16,7 +16,7 @@ const RecentEntryCard = ({ entry }) => {
         className="flex flex-col h-full p-5"
       >
         {/* Card Header */}
-        <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-1 truncate">
+        <h3 className="font-display text-lg font-bold text-text-light dark:text-text-dark mb-1 truncate">
           {entry.title}
         </h3>
         <p className="text-xs text-text-light-sub dark:text-text-dark-sub mb-3">

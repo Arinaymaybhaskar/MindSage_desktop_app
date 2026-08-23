@@ -86,7 +86,7 @@ const DownloadCard = ({
   url: string;
 }) => (
   <div className="bg-secondary-light dark:bg-secondary-dark p-6 rounded-xl border border-border-light dark:border-border-dark text-center flex flex-col items-center">
-    <h3 className="text-xl font-semibold text-text-light dark:text-text-dark mb-2">
+    <h3 className="font-display text-xl font-semibold text-text-light dark:text-text-dark mb-2">
       {os}
     </h3>
     <p className="text-text-light-sub dark:text-text-dark-sub mb-4 text-sm flex-grow">
@@ -109,7 +109,7 @@ const TerminalGuide = () => {
   const [activeTab, setActiveTab] = useState("windows");
   return (
     <div className="bg-secondary-light dark:bg-secondary-dark rounded-xl border border-border-light dark:border-border-dark p-6">
-      <h3 className="text-xl font-bold mb-4 text-center text-text-light dark:text-text-dark">
+      <h3 className="font-display text-xl font-bold mb-4 text-center text-text-light dark:text-text-dark">
         How to Open the Command Line
       </h3>
       <div className="flex justify-center mb-6 bg-tertiary-light dark:bg-tertiary-dark p-1 rounded-full">
@@ -243,7 +243,7 @@ const OllamaTutorialPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-5xl font-[fraunces] font-extrabold tracking-tight text-text-light dark:text-text-dark mb-4"
+            className="text-5xl font-display font-extrabold tracking-tight text-text-light dark:text-text-dark mb-4"
           >
             Run AI Locally with Ollama
           </motion.h1>
@@ -262,7 +262,7 @@ const OllamaTutorialPage = () => {
           <TutorialSection>
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="font-[fraunces] text-3xl font-bold text-text-light dark:text-text-dark mb-4">
+                <h2 className="font-display text-3xl font-bold text-text-light dark:text-text-dark mb-4">
                   What is Ollama?
                 </h2>
                 <div className="prose prose-lg dark:prose-invert text-text-light-sub dark:text-text-dark-sub max-w-none space-y-4">
@@ -294,7 +294,7 @@ const OllamaTutorialPage = () => {
             </div>
           </TutorialSection>
           <TutorialSection>
-            <h2 className="text-3xl font-[fraunces] font-bold text-text-light dark:text-text-dark text-center mb-6">
+            <h2 className="text-3xl font-display font-bold text-text-light dark:text-text-dark text-center mb-6">
               Step 1: Install Ollama
             </h2>
             <p className="text-lg text-text-light-sub dark:text-text-dark-sub text-center max-w-2xl mx-auto mb-12">
@@ -320,7 +320,7 @@ const OllamaTutorialPage = () => {
             </div>
           </TutorialSection>
           <TutorialSection>
-            <h2 className="font-[fraunces] text-3xl font-bold text-text-light dark:text-text-dark text-center mb-6">
+            <h2 className="font-display text-3xl font-bold text-text-light dark:text-text-dark text-center mb-6">
               Step 2: Verify the Installation
             </h2>
             <p className="text-lg text-text-light-sub dark:text-text-dark-sub text-center max-w-2xl mx-auto mb-12">
@@ -350,7 +350,7 @@ const OllamaTutorialPage = () => {
             </TerminalCommand>
           </TutorialSection>
           <TutorialSection>
-            <h2 className="font-[fraunces] text-3xl font-bold text-text-light dark:text-text-dark text-center mb-6">
+            <h2 className="font-display text-3xl font-bold text-text-light dark:text-text-dark text-center mb-6">
               Step 3: Download an AI Model
             </h2>
             <p className="text-lg text-text-light-sub dark:text-text-dark-sub text-center max-w-2xl mx-auto mb-12">
@@ -406,7 +406,7 @@ const OllamaTutorialPage = () => {
                 />
               </motion.div>
               <div>
-                <h2 className="font-[fraunces] text-3xl font-bold text-text-light dark:text-text-dark mb-4">
+                <h2 className="font-display text-3xl font-bold text-text-light dark:text-text-dark mb-4">
                   Step 4: Connect to MindSage
                 </h2>
                 <div className="prose prose-lg dark:prose-invert text-text-light-sub dark:text-text-dark-sub max-w-none space-y-4">

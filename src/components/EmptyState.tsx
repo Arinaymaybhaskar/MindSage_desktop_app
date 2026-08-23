@@ -32,7 +32,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <motion.div variants={iconAnimation} initial="initial" animate="animate">
         <Icon className="mx-auto h-12 w-12 text-text-light-sub dark:text-text-dark-sub" />
       </motion.div>
-      <h3 className="mt-4 text-lg font-semibold text-text-light dark:text-text-dark">
+      <h3 className="mt-4 font-display text-lg font-semibold text-text-light dark:text-text-dark">
         {title}
       </h3>
       <p className="mt-1 text-sm text-text-light-sub dark:text-text-dark-sub">

@@ -78,7 +78,7 @@ export function DeleteAccount() {
           <div className="bg-secondary-light dark:bg-secondary-dark rounded-2xl shadow-lg border border-border-light dark:border-border-dark p-6 sm:p-8">
             <div className="flex items-center mb-4 text-danger">
               <AlertCircle size={24} className="mr-3" />
-              <h1 className="text-xl font-bold">Delete Account</h1>
+              <h1 className="font-display text-xl font-bold">Delete Account</h1>
             </div>
             <p className="mb-4 text-text-light-sub dark:text-text-dark-sub">
               Deleting your account will permanently remove all your data,

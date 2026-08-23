@@ -168,7 +168,7 @@ function MoodSentimentChart({
     <div className=" border-border-light dark:border-border-dark border h-[500px] bg-secondary-light dark:bg-secondary-dark rounded-xl flex flex-col overflow-hidden">
       {/* Chart Header */}
       <div className="flex justify-between items-center w-full px-8 pt-6 pb-6 z-10">
-        <h1 className="text-xl text-text-light dark:text-text-dark font-bold">
+        <h1 className="font-display text-xl text-text-light dark:text-text-dark font-bold">
           Score Chart
         </h1>
         <div className="flex items-center gap-4">
@@ -236,7 +236,7 @@ function MoodSentimentChart({
               exit="exit"
               className="w-full h-full flex flex-col items-center justify-center"
             >
-              <h2 className="text-xl font-bold mb-2 text-center text-text-light dark:text-text-dark">
+              <h2 className="font-display text-xl font-bold mb-2 text-center text-text-light dark:text-text-dark">
                 No Data Available
               </h2>
               <p className="text-gray-400">

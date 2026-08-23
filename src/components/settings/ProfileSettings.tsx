@@ -147,7 +147,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
       {isCropping && previewSrc && (
         <div className="fixed inset-0 bg-base-dark/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl shadow-xl w-full max-w-lg border border-border-light dark:border-border-dark">
-            <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-4">
+            <h3 className="font-display text-lg font-bold text-text-light dark:text-text-dark mb-4">
               Crop Your Photo
             </h3>
             <div className="relative w-full h-64">
@@ -196,7 +196,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
       {/* Main Form */}
       <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
         <div className="p-6 border-b border-border-light dark:border-border-dark">
-          <h2 className="text-xl font-bold text-text-light dark:text-text-dark">
+          <h2 className="font-display text-xl font-bold text-text-light dark:text-text-dark">
             Profile Information
           </h2>
           <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">

@@ -59,7 +59,7 @@ const AddGoalChoiceModal: React.FC<AddGoalChoiceModalProps> = ({
           </div>
           <div className="text-content">
             {/* --- CHANGE: Themed text --- */}
-            <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
+            <h3 className="font-display text-lg font-bold text-text-light dark:text-text-dark">
               AI Assistant
             </h3>
             <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">
@@ -84,7 +84,7 @@ const AddGoalChoiceModal: React.FC<AddGoalChoiceModalProps> = ({
           </div>
           <div className="text-content">
             {/* --- CHANGE: Themed text --- */}
-            <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
+            <h3 className="font-display text-lg font-bold text-text-light dark:text-text-dark">
               Create Manually
             </h3>
             <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">

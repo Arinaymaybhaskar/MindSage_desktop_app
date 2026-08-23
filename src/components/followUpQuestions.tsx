@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react"; // Using a theme-consistent icon
+import { MindSageMark } from "./ui/MindSageMark";
 import clsx from "clsx";
 
 interface FollowUpQuestionProps {
@@ -14,7 +14,7 @@ export function FollowUpQuestions({ questions }: FollowUpQuestionProps) {
     // --- CHANGE: Themed main container ---
     <div className="bg-tertiary-light dark:bg-tertiary-dark rounded-xl p-4 border border-border-light dark:border-border-dark">
       <h3 className="text-sm font-semibold mb-3 text-text-light dark:text-text-dark flex items-center gap-2">
-        <Sparkles size={16} className="text-dark1 dark:text-light1" />
+        <MindSageMark size={16} className="text-dark1 dark:text-light1" />
         Follow-up Questions
       </h3>
       <div className="space-y-2">
