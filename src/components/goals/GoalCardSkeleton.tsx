@@ -2,7 +2,7 @@ import React from "react";
 
 const GoalCardSkeleton: React.FC = () => {
   return (
-    <div className="w-80 h-96 rounded-xl bg-secondary-light dark:bg-secondary-dark p-4 flex flex-col gap-4 animate-pulse">
+    <div className="w-80 min-h-72 rounded-xl bg-secondary-light dark:bg-secondary-dark p-4 flex flex-col gap-4 animate-pulse">
       <div className="flex justify-between items-start">
         <div className="w-2/3 space-y-3">
           <div className="h-4 bg-tertiary-light dark:bg-tertiary-dark rounded-full w-1/3"></div>

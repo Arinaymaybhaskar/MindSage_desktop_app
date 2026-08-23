@@ -58,7 +58,12 @@ const GoalCard: React.FC<GoalCardProps> = ({
   };
 
   return (
-    <div className="goal-card bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark p-4 rounded-xl shadow-md flex flex-col transition-all duration-300  hover:shadow-xl border border-border-light dark:border-border-dark w-80 h-96">
+    <div
+      data-testid="goal-card"
+      className="goal-card bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark p-4 rounded-xl shadow-md flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 border border-border-light dark:border-border-dark w-80 min-h-72">
+      {/* Sizes to content rather than a fixed h-96: goal descriptions are a
+          line or two, so the fixed height left a large empty band above the
+          progress bar in every single card. */}
       <div className="flex-grow overflow-y-auto custom-scrollbar">
         {/* Card Header */}
         <div className="flex justify-between items-start mb-3">
@@ -71,7 +76,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
             </span>
             <button
               onClick={() => navigate(`/goals/view/${goal.id}`)}
-              className="text-lg font-bold mt-2 flex text-start break-words cursor-pointer hover:underline"
+              className="font-display text-lg font-bold mt-2 flex text-start break-words cursor-pointer hover:underline"
             >
               {goal.title}
             </button>
@@ -182,8 +187,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
       {/* Action Button */}
       <button
         onClick={onLogProgress}
-        className="mt-5 w-full font-bold py-2.5 px-4 rounded-lg transition-opacity duration-300 hover:opacity-90 flex-shrink-0"
-        style={{ backgroundColor: bgColor, color: textColor }}
+        className="mt-5 w-full font-semibold py-2.5 px-4 rounded-lg flex-shrink-0 bg-light1 dark:bg-dark1 text-text-light dark:text-text-dark border border-border-light/60 dark:border-border-dark/60 hover:brightness-110 transition-all duration-200"
       >
         Log Progress
       </button>

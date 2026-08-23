@@ -392,7 +392,7 @@ export default function JournalDetail() {
   if (error || !entry) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-base-light dark:bg-base-dark text-text-light-sub dark:text-text-dark-sub">
-        <span className="text-2xl font-semibold mb-4">Journal not found</span>
+        <span className="font-display text-2xl font-semibold mb-4">Journal not found</span>
         <button
           onClick={() => navigate("/journals")}
           className="px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"
@@ -426,7 +426,7 @@ export default function JournalDetail() {
             {/* Left Column: Main Content */}
             <article className="w-full lg:w-2/3 bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl p-6 sm:p-10 border border-border-light dark:border-border-dark">
               <header className="mb-8 border-b border-border-light dark:border-border-dark pb-8">
-                <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-text-light dark:text-text-dark mb-4">
+                <h1 className="font-display text-3xl sm:text-5xl font-semibold tracking-tight text-text-light dark:text-text-dark mb-4">
                   {entry.title}
                 </h1>
                 <div className="text-sm text-text-light-sub dark:text-text-dark-sub flex items-center gap-2">
@@ -482,7 +482,7 @@ export default function JournalDetail() {
                 {/* AI Insights */}
                 {(entry.content_summary || entry.transcription) && (
                   <div className="border-t border-border-light dark:border-border-dark pt-6">
-                    <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-4 flex items-center gap-2">
+                    <h3 className="font-display text-lg font-bold text-text-light dark:text-text-dark mb-4 flex items-center gap-2">
                       <FileText
                         size={18}
                         className="text-dark1 dark:text-light1"
@@ -808,7 +808,7 @@ export default function JournalDetail() {
 
                 {/* Actions - Bottom */}
                 <div className="border-t border-border-light dark:border-border-dark pt-6">
-                  <h3 className="text-lg font-bold text-text-light dark:text-text-dark mb-4 flex items-center gap-2">
+                  <h3 className="font-display text-lg font-bold text-text-light dark:text-text-dark mb-4 flex items-center gap-2">
                     <FileText
                       size={18}
                       className="text-dark1 dark:text-light1"

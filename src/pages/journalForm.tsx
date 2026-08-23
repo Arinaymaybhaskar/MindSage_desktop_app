@@ -532,7 +532,7 @@ export default function JournalForm() {
             >
               <ArrowLeft size={20} />
             </Link>
-            <h1 className="text-xl font-bold ">
+            <h1 className="font-display text-xl font-bold ">
               {isEdit ? "Edit Entry" : "New Journal Entry"}
             </h1>
           </div>

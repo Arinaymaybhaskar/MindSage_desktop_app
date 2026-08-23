@@ -97,7 +97,7 @@ const JournalEntryCard = ({
       <div className="p-6">
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-text-light dark:text-text-dark transition-colors">
+            <h2 className="font-display text-xl font-bold text-text-light dark:text-text-dark transition-colors">
               {displayTitle(entry.title)}
             </h2>
             <p className="text-xs text-text-light-sub dark:text-text-dark-sub mt-1">
@@ -473,9 +473,9 @@ export default function JournalList() {
         () => setDeleteModalInfo({ isOpen: false, entryId: null }),
         deleteModalInfo.isOpen
       )}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
+          <h1 className="font-display text-4xl font-semibold tracking-tight text-text-light dark:text-text-dark">
             My Journals
           </h1>
           <div className="flex items-center gap-3">
@@ -545,7 +545,7 @@ export default function JournalList() {
                   className="space-y-4"
                 >
                   {/* Date Header */}
-                  <h2 className="text-lg font-semibold text-text-light dark:text-text-dark mb-2  pb-1">
+                  <h2 className="font-display text-lg font-semibold text-text-light dark:text-text-dark mb-2  pb-1">
                     {dayjs(dateKey).format("MMMM D, YYYY")}
                   </h2>
 
