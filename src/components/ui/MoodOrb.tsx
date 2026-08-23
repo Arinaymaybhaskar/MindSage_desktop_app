@@ -4,6 +4,12 @@ export interface MoodOrbProps {
   level: number;
   size?: "sm" | "md" | "lg";
   className?: string;
+  /**
+   * Hides the built-in "Neutral / OVERALL MOOD" caption. The dashboard tile
+   * supplies its own numeric readout, and two captions under one orb read as a
+   * mistake.
+   */
+  hideLabel?: boolean;
 }
 
 const SIZE_CLASSES = {
@@ -24,7 +30,7 @@ const LABEL_SIZES = {
   lg: "text-sm",
 };
 
-export default function MoodOrb({ level, size = "md", className = "" }: MoodOrbProps) {
+export default function MoodOrb({ level, size = "md", className = "", hideLabel = false }: MoodOrbProps) {
   const mood = MOODS[level - 1];
 
   return (
@@ -33,7 +39,11 @@ export default function MoodOrb({ level, size = "md", className = "" }: MoodOrbP
         className={`relative overflow-hidden rounded-full ${SIZE_CLASSES[size]}`}
         style={{
           background: `linear-gradient(to bottom, ${mood.top} 0%, color-mix(in oklch, ${mood.top}, ${mood.bottom} 55%) 45%, ${mood.bottom} 100%)`,
-          boxShadow: `0 20px 60px -15px ${mood.top}, inset 0 2px 10px rgba(255,255,255,0.35), inset 0 -18px 40px -20px rgba(0,0,0,0.25)`,
+          // Depth comes from a neutral shadow and the inset highlights only.
+          // The previous outer shadow was tinted `mood.top`, which threw a
+          // coloured halo well past the orb's edge and bled onto whatever sat
+          // behind it.
+          boxShadow: `0 14px 34px -16px rgba(0,0,0,0.55), inset 0 2px 10px rgba(255,255,255,0.35), inset 0 -18px 40px -20px rgba(0,0,0,0.25)`,
         }}
       >
         <svg className="animate-orb-drift-a absolute -inset-1/4 h-[150%] w-[150%]" aria-hidden="true">
@@ -108,10 +118,12 @@ export default function MoodOrb({ level, size = "md", className = "" }: MoodOrbP
         />
       </div>
 
-      <div className="flex flex-col items-center gap-1">
-        <span className={`font-semibold tracking-tight ${TEXT_SIZES[size]} text-text-light dark:text-text-dark`}>{mood.label}</span>
-        <span className={`font-medium uppercase tracking-widest ${LABEL_SIZES[size]} text-text-light-sub dark:text-text-dark-sub`}>Overall mood</span>
-      </div>
+      {!hideLabel && (
+        <div className="flex flex-col items-center gap-1">
+          <span className={`font-semibold tracking-tight ${TEXT_SIZES[size]} text-text-light dark:text-text-dark`}>{mood.label}</span>
+          <span className={`font-medium uppercase tracking-widest ${LABEL_SIZES[size]} text-text-light-sub dark:text-text-dark-sub`}>Overall mood</span>
+        </div>
+      )}
     </div>
   );
 }

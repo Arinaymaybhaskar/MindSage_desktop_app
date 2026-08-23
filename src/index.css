@@ -384,18 +384,21 @@ body {
   transform: translateZ(0);
 }
 
+/* Inset on purpose. The outward form of this glow projected `currentColor`
+   up to 140px past the orb, tinting the surrounding surface. Inset keeps the
+   same slow breathing while the colour stays inside the sphere. */
 @keyframes orb-glow {
   0% {
-    opacity: 0.15;
-    box-shadow: 0 0 60px -10px currentColor, 0 0 100px -20px currentColor;
+    opacity: 0.5;
+    box-shadow: inset 0 0 34px -8px currentColor, inset 0 0 60px -18px currentColor;
   }
   50% {
-    opacity: 0.25;
-    box-shadow: 0 0 80px -10px currentColor, 0 0 140px -20px currentColor;
+    opacity: 0.75;
+    box-shadow: inset 0 0 46px -8px currentColor, inset 0 0 84px -18px currentColor;
   }
   100% {
-    opacity: 0.15;
-    box-shadow: 0 0 60px -10px currentColor, 0 0 100px -20px currentColor;
+    opacity: 0.5;
+    box-shadow: inset 0 0 34px -8px currentColor, inset 0 0 60px -18px currentColor;
   }
 }
 

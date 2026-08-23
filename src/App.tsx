@@ -34,7 +34,8 @@ import QdrantViewer from "./pages/qdrantViewer";
 import { ColorThemeProvider } from "./context/ColorThemeContext";
 import { initializeColors } from "./utils/colorInitializer";
 import GoalDetail from "./pages/goalDetail";
-import GlobalSearch from "./components/globalSearch";
+import GlobalSearch from "./components/GlobalSearch";
+import Memories from "./pages/Memories";
 import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
 import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -117,30 +118,15 @@ function AppLayout() {
 
   // CHANGED: Updated the paths for the dock items.
   // "Write" now points to the root "/" and "Dashboard" points to "/dashboard".
+  //
+  // The Qdrant viewer is deliberately absent: it is a developer tool that dumps
+  // raw collections and embedding vectors, and it has no meaning for a user.
+  // The /qdrant route still exists and is reachable by URL for debugging.
   const items = [
     { path: "/dashboard", icon: <HomeIcon size={18} />, label: "Dashboard" },
     { path: "/", icon: <PenIcon size={18} />, label: "Write" },
     { path: "/journals", icon: <BookOpenIcon size={18} />, label: "Journals" },
-    {
-      path: "/qdrant",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="lucide lucide-database"
-        >
-          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-          <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"></path>
-          <path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"></path>
-        </svg>
-      ),
-      label: "Qdrant",
-    },
+
     { path: "/chat", icon: <MessageSquareDot size={18} />, label: "Chat" },
     { path: "/goals", icon: <Target size={18} />, label: "Goals" },
   ].map((item) => ({
@@ -193,6 +179,7 @@ function AppLayout() {
                   </PrivateRoute>
                 }
               />
+              <Route path="/memories" element={<Memories />} />
               <Route path="/qdrant" element={<QdrantViewer />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />

@@ -185,10 +185,22 @@ export function getAllEntries(userId, limit = 10, offset = 0, fromDate, toDate) 
 /**
  * Retrieves image keys and IDs from journal entries.
  * @param {number} userId - The user's ID.
- * @param {string} mode - "top" for latest, "random" for random.
+ * @param {string} mode - "top" for the latest 10, "random" for a random 10,
+ *   "all" for every entry that has one. The capped modes back the dashboard
+ *   strip; "all" backs the Memories page, which is the whole point of having
+ *   a page rather than a preview.
  * @returns {object[]}
  */
 export function getImageKeysAndIds(userId, mode = "top") {
+  if (mode === "all") {
+    return db.prepare(`
+      SELECT id, image_key, title, created_at
+      FROM journal_entries
+      WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL
+      ORDER BY created_at DESC
+    `).all(userId);
+  }
+
   // This function doesn't need to be changed as it doesn't interact with tags.
   if (mode === "random") {
     const countStmt = db.prepare(`SELECT COUNT(*) AS total FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL`);
