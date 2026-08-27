@@ -19,7 +19,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 20 is the local/Electron dev version (.nvmrc), but a transitive
+          # dependency of jsdom@30 (@asamuzakjp/css-color) requires Node
+          # >=22.13, which broke `npm ci` here since jsdom was bumped to v30.
+          # 22 is already in package.json's own declared engines range.
+          node-version: 22
           cache: npm
 
       # Skip lifecycle scripts: postinstall runs electron-rebuild (native
