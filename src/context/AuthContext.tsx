@@ -1,6 +1,6 @@
 import { createContext, useState, type ReactNode } from "react";
 
-interface AuthContextType {
+export interface AuthContextType {
   accessToken: string | null;
   user: UserInfo | null;
   login: (

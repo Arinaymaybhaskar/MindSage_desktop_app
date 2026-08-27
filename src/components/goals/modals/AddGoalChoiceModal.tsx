@@ -1,7 +1,7 @@
 import React from "react";
 import Modal from "../../Modal"; // Assuming Modal component is in this path
 import { Wand2, Edit3 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 
 interface AddGoalChoiceModalProps {
   isOpen: boolean;
@@ -16,7 +16,7 @@ const AddGoalChoiceModal: React.FC<AddGoalChoiceModalProps> = ({
   onManualClick,
   onAiClick,
 }) => {
-  const cardVariants = {
+  const cardVariants: Variants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,

@@ -31,6 +31,7 @@ const ForgotPassword = () => {
       await api.post("/auth/forgot-password", { identifier });
       setIsOTPSent(true);
     } catch (err) {
+      console.error("Failed to send OTP:", err);
       setError("Failed to send OTP. Please check the email or username.");
     } finally {
       setIsLoading(false);
@@ -46,9 +47,10 @@ const ForgotPassword = () => {
     setError("");
     try {
       const res = await api.post("/auth/verify-otp", { otp, identifier });
-      login(res.data.accessToken, res.data.userInfo);
+      login(res.data.accessToken, res.data.userInfo, "online");
       navigate("/");
     } catch (err) {
+      console.error("OTP verification failed:", err);
       setError("Invalid OTP. Please try again.");
     } finally {
       setIsLoading(false);
@@ -88,7 +90,8 @@ const ForgotPassword = () => {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            isOTPSent ? handleVerifyOTP() : handleSendOTP();
+            if (isOTPSent) handleVerifyOTP();
+            else handleSendOTP();
           }}
           className="space-y-6"
         >

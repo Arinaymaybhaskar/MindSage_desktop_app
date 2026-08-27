@@ -1,21 +1,29 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Save } from "lucide-react";
 import { Switch } from "../ui/Switch";
 import { Dropdown } from "../ui/Dropdown";
+import type { SettingsPanelProps, UserSettings } from "../../types/User";
 
-const AudioSettings = ({ settings, onSettingsSave }) => {
-  const [localSettings, setLocalSettings] = useState(settings);
+type AudioSettingsProps = Pick<SettingsPanelProps, "settings" | "onSettingsSave">;
+
+const AudioSettings = ({ settings, onSettingsSave }: AudioSettingsProps) => {
+  const [localSettings, setLocalSettings] = useState<UserSettings | null>(
+    settings
+  );
 
   useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
 
-  const handleChange = (name, value) => {
-    setLocalSettings((prev) => ({ ...prev, [name]: value }));
+  const handleChange = <K extends keyof UserSettings>(
+    key: K,
+    value: UserSettings[K]
+  ) => {
+    setLocalSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
 
   const handleSave = () => {
-    onSettingsSave(localSettings);
+    if (localSettings) onSettingsSave(localSettings);
   };
 
   const languageOptions = useMemo(
@@ -70,7 +78,7 @@ const AudioSettings = ({ settings, onSettingsSave }) => {
             </p>
           </div>
           <Switch
-            checked={localSettings?.enable_voice_mood}
+            checked={Boolean(localSettings?.enable_voice_mood)}
             onCheckedChange={(v) => handleChange("enable_voice_mood", v)}
           />
         </div>

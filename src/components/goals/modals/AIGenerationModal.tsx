@@ -1,9 +1,11 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Modal from "../../Modal";
 import { AmbitionNamePrompt, getGoalPrompt } from "../../../utils/prompts/goal";
 import { ollamaService } from "../../../api/ollamaService";
 import { useAuth } from "../../../hooks/useAuth";
-import type { Category } from "../../../types/Goals";
+import type { Category, Goal } from "../../../types/Goals";
+import type { SelectedModels } from "../../../types/Ollama";
+import type { DropdownOption } from "../../ui/Dropdown";
 import {
   BrainCircuit,
   Trash2,
@@ -29,7 +31,7 @@ interface GoalGeneratorModalProps {
   isOpen: boolean;
   onClose: () => void;
   categories: Category[];
-  onSubmit: (goalData: any) => void;
+  onSubmit: (goalData: Partial<Goal>) => void;
 }
 
 const Loader = () => (
@@ -56,9 +58,10 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   useEffect(() => {
     const fetchModel = async () => {
       try {
-        const models = await window.electron.ipcRenderer.invoke(
-          "models:get-selected"
-        );
+        const models =
+          await window.electron.ipcRenderer.invoke<SelectedModels | null>(
+            "models:get-selected"
+          );
         // Use the chat model since we're doing text generation
         if (models?.chat) {
           setSelectedModel(models.chat);
@@ -80,7 +83,12 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
     return map;
   }, [categories]);
 
-  const normalizeAIResponseToGoals = (raw: any): GeneratedGoal[] => {
+  /** One goal as the model emitted it, before any field is trusted. */
+  type RawAIGoal = Partial<
+    Record<keyof GeneratedGoal | "category", unknown>
+  >;
+
+  const normalizeAIResponseToGoals = (raw: unknown): GeneratedGoal[] => {
     const formatDateForInput = (dateStr?: string): string => {
       if (!dateStr || typeof dateStr !== "string") return "";
       // Handles DD-MM-YYYY format from the AI
@@ -97,19 +105,19 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
       return dateStr;
     };
 
-    const arr = Array.isArray(raw) ? raw : [];
-    return arr.map((g: any) => {
+    const arr: RawAIGoal[] = Array.isArray(raw) ? raw : [];
+    return arr.map((g) => {
       const aiCategoryName =
         typeof g.category === "string" ? g.category.trim().toLowerCase() : "";
       const resolvedCategoryId =
         categoryIndexByName.get(aiCategoryName)?.id || "";
       return {
-        title: g.title ?? "",
-        description: g.description ?? "",
+        title: String(g.title ?? ""),
+        description: String(g.description ?? ""),
         category_id: resolvedCategoryId,
-        target_value: g.target_value ?? "",
-        unit: g.unit ?? "",
-        target_date: formatDateForInput(g.target_date) ?? "",
+        target_value: (g.target_value as number | string) ?? "",
+        unit: String(g.unit ?? ""),
+        target_date: formatDateForInput(g.target_date as string | undefined),
       };
     });
   };
@@ -155,7 +163,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   const handleFieldChange = (
     index: number,
     field: keyof GeneratedGoal,
-    value: any
+    value: GeneratedGoal[keyof GeneratedGoal]
   ) => {
     const newGoals = [...goals];
     newGoals[index] = { ...newGoals[index], [field]: value };
@@ -200,9 +208,10 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   const inputClasses =
     "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-info focus:border-info outline-none transition";
 
-  const categoryOptions = useMemo(() => {
-    return categories.map((cat) => ({ value: cat.id, label: cat.name }));
-  }, [categories]);
+  const categoryOptions = useMemo<DropdownOption<string | number>[]>(
+    () => categories.map((cat) => ({ value: cat.id, label: cat.name })),
+    [categories]
+  );
 
   return (
     <Modal

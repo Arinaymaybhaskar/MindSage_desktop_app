@@ -18,7 +18,9 @@ contextBridge.exposeInMainWorld('electron', {
 
   send: (channel, ...args) => ipcRenderer.send(channel, ...args),
   onStatusUpdate: (callback) => {
-    ipcRenderer.on("status-update", (_, status) => callback(status));
+    const listener = (_, status) => callback(status);
+    ipcRenderer.on("status-update", listener);
+    return () => ipcRenderer.removeListener("status-update", listener);
   },
   removeStatusUpdateListener: () => {
     ipcRenderer.removeAllListeners("status-update");

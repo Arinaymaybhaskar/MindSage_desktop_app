@@ -26,8 +26,8 @@ export default function OllamaStatus() {
 
   useEffect(() => {
     // This assumes you have an event listener set up in your preload script
-    const removeListener = window.electron.onStatusUpdate(
-      (newStatus: Status) => {
+    const removeListener = window.electron.onStatusUpdate<Status>(
+      (newStatus) => {
         setStatus(newStatus);
       }
     );
@@ -50,8 +50,8 @@ export default function OllamaStatus() {
             className="animate-spin text-text-light-sub dark:text-text-dark-sub"
           />
         );
-      case "downloading":
-        const percent = (status as any).percent || 0;
+      case "downloading": {
+        const percent = status.percent || 0;
         return (
           <div className="relative w-full h-2 bg-tertiary-light dark:bg-tertiary-dark rounded-full overflow-hidden">
             <motion.div
@@ -62,6 +62,7 @@ export default function OllamaStatus() {
             />
           </div>
         );
+      }
       case "ollama-not-installed":
         return <Rocket size={16} className="text-danger" />;
       case "downloaded":

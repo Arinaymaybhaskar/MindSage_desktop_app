@@ -14,14 +14,18 @@ const DataExportPage = () => {
     setIsLoading(true);
     try {
       // Step 1: Ask the user where to save the file BEFORE generating it.
-      const saveDialogResult = await window.electron.ipcRenderer.invoke(
-        "dialog:show-save-export"
-      );
+      const saveDialogResult = await window.electron.ipcRenderer.invoke<{
+        canceled: boolean;
+        filePath?: string;
+      }>("dialog:show-save-export");
 
       // Step 2: If the user selected a path (didn't cancel), proceed.
       if (!saveDialogResult.canceled && saveDialogResult.filePath) {
         // Step 3: Call the export handler, now passing the chosen file path.
-        const exportResult = await window.electron.ipcRenderer.invoke(
+        const exportResult = await window.electron.ipcRenderer.invoke<{
+          success: boolean;
+          error?: string;
+        }>(
           "user:export-data",
           authMode,
           accessToken!,

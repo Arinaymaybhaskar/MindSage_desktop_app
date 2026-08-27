@@ -1,8 +1,15 @@
+import type { SqliteBoolean } from "./sqlite";
+
+export type { SqliteRunResult } from "./sqlite";
+
 export interface ProgressLog {
   id: number;
-  goal_id: string;
+  goal_id: number;
   value: number;
+  description?: string;
   logged_at: string;
+  synced_to_qdrant?: string;
+  qdrant_id?: string | null;
 }
 
 export interface Goal {
@@ -15,8 +22,8 @@ export interface Goal {
   current_value: number;
   target_value: number;
   unit: string;
-  is_pinned: boolean;
-  is_completed: boolean;
+  is_pinned: SqliteBoolean;
+  is_completed: SqliteBoolean;
   created_at: string;
   completed_date: string | null;
   target_date: string;
@@ -34,4 +41,10 @@ export interface AIGoalSuggestion {
   category: string;
   targetValue: number;
   unit: string;
+}
+
+/** `goal:get-by-id` returns the goal joined with its category and logs. */
+export interface GoalDetail extends Goal {
+  category?: Category;
+  logs?: ProgressLog[];
 }

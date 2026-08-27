@@ -1,4 +1,9 @@
-import { useEffect, useState, useRef, KeyboardEvent, ChangeEvent } from "react"; // START: Added useRef, KeyboardEvent, ChangeEvent
+import {
+  useEffect,
+  useState,
+  useRef,
+  type ChangeEvent,
+} from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
 import whisperService from "../api/whisperService";
@@ -27,6 +32,7 @@ import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
 import { ollamaService } from "../api/ollamaService";
 import { getFollowUpQuestionsPrompt } from "../utils/prompts/Journal";
 import { SidebarPanel } from "../components/journal/SidebarPanel";
+import type { SelectedModels } from "../types/Ollama";
 
 const emptyJournal: JournalEntry = {
   title: "",
@@ -59,9 +65,10 @@ export default function JournalForm() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const models = await window.electron.ipcRenderer.invoke(
-          "models:get-selected"
-        );
+        const models =
+          await window.electron.ipcRenderer.invoke<SelectedModels | null>(
+            "models:get-selected"
+          );
         // Use the chat model for journal responses
         if (models?.chat) {
           setSelectedModel(models.chat);
@@ -87,6 +94,10 @@ export default function JournalForm() {
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const [showEmptyContentPopup, setShowEmptyContentPopup] = useState(false);
 
+  // handleSubmit closes over most of the form state and so is a new function
+  // every render; the shortcut listener reads the latest one through a ref.
+  const handleSubmitRef = useRef<(e: React.FormEvent) => void>(() => {});
+
   // Keyboard listener for Ctrl+Enter / Cmd+Enter
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -104,7 +115,7 @@ export default function JournalForm() {
       }
 
       // Trigger submit programmatically
-      handleSubmit(new Event("submit") as unknown as React.FormEvent);
+      handleSubmitRef.current(new Event("submit") as unknown as React.FormEvent);
     };
 
     window.addEventListener("keydown", handler);
@@ -143,7 +154,7 @@ export default function JournalForm() {
         // If the fetched entry has an image key, get the URL and set it for preview.
         if (fetchedEntry.image_key) {
           try {
-            const url = await window.electron.ipcRenderer.invoke(
+            const url = await window.electron.ipcRenderer.invoke<string | null>(
               "media:getImage",
               fetchedEntry.image_key.toString()
             );
@@ -159,7 +170,7 @@ export default function JournalForm() {
         // If the fetched entry has an audio key, get the URL for playback.
         if (fetchedEntry.audio_key) {
           try {
-            const url = await window.electron.ipcRenderer.invoke(
+            const url = await window.electron.ipcRenderer.invoke<string | null>(
               "media:getAudio",
               fetchedEntry.audio_key.toString()
             );
@@ -322,7 +333,7 @@ export default function JournalForm() {
         res = await journalService.create(authMode, accessToken!, mergedEntry);
       }
 
-      const journalId = isEdit ? +id! : res.id;
+      const journalId = isEdit ? Number(id) : Number(res.id);
       let imageKey = entry.image_key;
       let audioKey = entry.audio_key;
 
@@ -351,11 +362,12 @@ export default function JournalForm() {
           // Trigger transcription for the saved audio file
           try {
             // The audioKey contains the file path after WAV conversion
-            const transcription = await window.electron.ipcRenderer.invoke(
-              "whisper:transcribe-journal-audio",
-              audioKey,
-              journalId
-            );
+            const transcription =
+              await window.electron.ipcRenderer.invoke<string | null>(
+                "whisper:transcribe-journal-audio",
+                audioKey,
+                journalId
+              );
             if (transcription) {
               // Update the entry with the transcription
               const entryWithTranscription = {
@@ -400,6 +412,8 @@ export default function JournalForm() {
     }
   };
 
+  handleSubmitRef.current = handleSubmit;
+
   useEffect(() => {
     contentRef.current?.focus();
   }, []);
@@ -432,7 +446,7 @@ export default function JournalForm() {
     setEntry({ ...entry, content: e.target.value });
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const isAtEnd = e.currentTarget.selectionStart === entry.content.length;
 
     // Accept with Tab key (kept as an option)

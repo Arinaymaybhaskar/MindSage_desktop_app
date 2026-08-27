@@ -4,7 +4,7 @@ import { Eye, EyeOff, Save, AlertTriangle, ArrowLeft } from "lucide-react";
 import { userService } from "../../api/userService";
 import { useAuth } from "../../hooks/useAuth";
 import clsx from "clsx";
-import { useToast } from "../../context/ToastContext";
+import { useToast } from "../../hooks/useToast";
 
 const ChangePassword = () => {
   const navigate = useNavigate();

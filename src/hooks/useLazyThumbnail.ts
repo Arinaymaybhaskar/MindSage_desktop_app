@@ -50,7 +50,7 @@ export function useLazyThumbnail(
     let cancelled = false;
 
     window.electron.ipcRenderer
-      .invoke("media:getThumbnail", String(imagePath), maxWidth)
+      .invoke<string | null>("media:getThumbnail", String(imagePath), maxWidth)
       .then((dataUrl: string | null) => {
         if (!cancelled) setSrc(dataUrl ?? null);
       })

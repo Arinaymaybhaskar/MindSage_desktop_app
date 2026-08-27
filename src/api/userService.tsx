@@ -1,41 +1,8 @@
-// Assuming you have a types file for shared interfaces
-// e.g., src/renderer/src/types/index.ts
-interface UserInfo {
-    id: number;
-    username: string;
-    email: string;
-    full_name?: string | null;
-    created_at?: string;
-    entriesCount?: number;
-    lastEntryDate?: string | null;
-}
-
-interface UserSettings {
-  user_id: number;
-  dark_mode?: boolean;
-  font_size?: string;
-  auto_save_interval: number;
-  speech_language: string;
-  biometric_lock: boolean;
-  send_to_ai: boolean;
-  journal_reminder: boolean;
-  check_in_frequency: string;
-  ai_tone: string;
-  breathing_reminder: boolean;
-  auto_summarize: boolean;
-  ai_tags: boolean;
-  insight_tone: string;
-  enable_ai_image: boolean;
-  enable_voice_mood: boolean;
-  enable_smart_prompts: boolean;
-  auto_save_timer: number;
-  journal_streaks: boolean;
-  weekly_summary_email: boolean;
-  journaling_goal: number;
-  custom_colors?: string;
-  selected_theme?: string;
-  use_custom_colors?: boolean;
-}
+import type {
+  ProfileUpdate,
+  UserInfo,
+  UserSettings,
+} from "../types/User";
 
 /**
  * Checks if the app is running in an Electron environment.
@@ -74,7 +41,7 @@ export const userService = {
   updateProfile: async (
     mode: "online" | "offline",
     token: string,
-    payload: { username: string; email: string; full_name?: string }
+    payload: ProfileUpdate
   ): Promise<{ user: UserInfo }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(

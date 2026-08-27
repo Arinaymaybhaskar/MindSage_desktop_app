@@ -4,7 +4,10 @@ import api from "../../api/axios";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthLayout } from "../../layouts/AuthLayout";
 import { Eye, EyeOff, AlertTriangle } from "lucide-react";
-import GoogleLoginElectron from "../../components/googleLoginElectron";
+import GoogleLoginElectron, {
+  type GoogleLoginResult,
+} from "../../components/googleLoginElectron";
+import { errorMessage } from "../../utils/errors";
 import { authService } from "../../api/authService";
 import { motion, AnimatePresence } from "framer-motion"; // Import motion components
 
@@ -34,14 +37,14 @@ export default function Login() {
       });
       login(res.accessToken, res.userInfo, authMode);
       navigate("/");
-    } catch (err: any) {
-      setError(err.message || "Invalid username or password");
+    } catch (err) {
+      setError(errorMessage(err, "Invalid username or password"));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSuccess = async (response: any) => {
+  const handleGoogleSuccess = async (response: GoogleLoginResult) => {
     setError("");
     setIsLoading(true);
     try {

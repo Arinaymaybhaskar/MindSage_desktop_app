@@ -3,8 +3,8 @@ import React, {
   Children,
   useRef,
   useLayoutEffect,
-  HTMLAttributes,
-  ReactNode,
+  type HTMLAttributes,
+  type ReactNode,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -345,7 +345,7 @@ function StepConnector({ isComplete }: StepConnectorProps) {
   );
 }
 
-interface CheckIconProps extends React.SVGProps<SVGSVGElement> {}
+type CheckIconProps = React.SVGProps<SVGSVGElement>;
 
 function CheckIcon(props: CheckIconProps) {
   return (

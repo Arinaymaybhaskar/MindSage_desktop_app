@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Sidebar } from "../components/chat/Sidebar";
-import { chatService } from "../api/chatService";
+import {
+  chatService,
+  type ChatMediaUploadResult,
+} from "../api/chatService";
+import type { SelectedModels } from "../types/Ollama";
 import { useAuth } from "../hooks/useAuth";
 import whisperService from "../api/whisperService";
 import { LOADING_MESSAGES, STARTER_PROMPTS } from "../constants/chatConstants";
@@ -10,6 +14,10 @@ import { MessageList } from "../components/chat/MessageList";
 import { ChatWelcome } from "../components/chat/ChatWelcome";
 import { ChatInput } from "../components/chat/ChatInput";
 import type { ChatPhase } from "../components/chat/LoadingBubble";
+import type {
+  StoredMessage,
+  StoredMessageFile,
+} from "../types/Chat";
 
 // ---- TYPES ----
 import type { Chat, Message, MessageFile } from "../types/Chat";
@@ -85,9 +93,10 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const models = await window.electron.ipcRenderer.invoke(
-          "models:get-selected"
-        );
+        const models =
+          await window.electron.ipcRenderer.invoke<SelectedModels | null>(
+            "models:get-selected"
+          );
         if (models?.chat) setModel(models.chat);
         else console.error("[Chat] No chat model selected");
       } catch (err) {
@@ -253,16 +262,17 @@ export const ChatPage: React.FC = () => {
       if (attachedImage && newChatId && newMessageId) {
         setLoadingMessage("Uploading image...");
         const arrayBuffer = await attachedImage.file.arrayBuffer();
-        const uploadResult = await window.electron.ipcRenderer.invoke(
-          "media:save-chat-media",
-          {
-            messageId: newMessageId,
-            chatId: newChatId,
-            filetype: "image",
-            arrayBuffer,
-            filename: attachedImage.file.name,
-          }
-        );
+        const uploadResult =
+          await window.electron.ipcRenderer.invoke<ChatMediaUploadResult>(
+            "media:save-chat-media",
+            {
+              messageId: newMessageId,
+              chatId: newChatId,
+              filetype: "image",
+              arrayBuffer,
+              filename: attachedImage.file.name,
+            }
+          );
         if (!uploadResult?.success)
           throw new Error(uploadResult.message || "Failed to upload image.");
         await chatService.linkMediaToMessage(
@@ -291,16 +301,17 @@ export const ChatPage: React.FC = () => {
       if (attachedPdf && newChatId && newMessageId) {
         setLoadingMessage("Uploading PDF...");
         const arrayBuffer = await attachedPdf.file.arrayBuffer();
-        const uploadResult = await window.electron.ipcRenderer.invoke(
-          "media:save-chat-media",
-          {
-            messageId: newMessageId,
-            chatId: newChatId,
-            filetype: "pdf",
-            arrayBuffer,
-            filename: attachedPdf.file.name,
-          }
-        );
+        const uploadResult =
+          await window.electron.ipcRenderer.invoke<ChatMediaUploadResult>(
+            "media:save-chat-media",
+            {
+              messageId: newMessageId,
+              chatId: newChatId,
+              filetype: "pdf",
+              arrayBuffer,
+              filename: attachedPdf.file.name,
+            }
+          );
         if (!uploadResult?.success)
           throw new Error(uploadResult.message || "Failed to upload PDF.");
         await chatService.linkMediaToMessage(
@@ -400,11 +411,11 @@ export const ChatPage: React.FC = () => {
       );
       if (chatData?.messages) {
         const formattedMessages: Message[] = await Promise.all(
-          chatData.messages.map(async (m: any) => {
+          chatData.messages.map(async (m: StoredMessage) => {
             let files: MessageFile[] | undefined;
             if (m.files && m.files.length > 0) {
               files = await Promise.all(
-                m.files.map(async (f: any): Promise<MessageFile> => {
+                m.files.map(async (f: StoredMessageFile): Promise<MessageFile> => {
                   if (f.file_type === "image") {
                     const base64: string =
                       await window.electron.ipcRenderer.invoke(
@@ -434,22 +445,15 @@ export const ChatPage: React.FC = () => {
             // The database returns flat rows; the bubble reads the Qdrant hit
             // shape that a live reply produces. Normalise so both paths render
             // through the same code.
-            const sources = (m.sources || []).map(
-              (s: {
-                id: number;
-                source_type: string;
-                source_id: string;
-                source_title?: string;
-              }) => ({
-                id: String(s.id),
-                payload: {
-                  title: s.source_title,
-                  source_type: s.source_type,
-                  source_id: s.source_id,
-                  goal_id: s.source_id,
-                },
-              })
-            );
+            const sources = (m.sources || []).map((s) => ({
+              id: String(s.id),
+              payload: {
+                title: s.source_title,
+                source_type: s.source_type,
+                source_id: s.source_id,
+                goal_id: s.source_id,
+              },
+            }));
 
             return {
               id: m.id,
@@ -502,7 +506,7 @@ export const ChatPage: React.FC = () => {
 
   const handlePdfOpen = async (path: string, name?: string) => {
     try {
-      const dataUrl = await window.electron.ipcRenderer.invoke(
+      const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
         "media:getPdf",
         path
       );
@@ -514,6 +518,8 @@ export const ChatPage: React.FC = () => {
       console.error("Failed to load PDF", e);
     }
   };
+
+  const handlePdfAttached = (file: File) => setAttachedPdf({ file });
 
   const handleImageAttached = (file: File) => {
     if (attachedImage) URL.revokeObjectURL(attachedImage.previewUrl);
@@ -583,7 +589,7 @@ export const ChatPage: React.FC = () => {
                   onSendMessage={handleSendMessage}
                   onToggleTranscription={toggleLiveTranscription}
                   onImageAttached={handleImageAttached}
-                  onPdfAttached={setAttachedPdf}
+                  onPdfAttached={handlePdfAttached}
                   onRemoveImage={handleRemoveImage}
                   onRemovePdf={() => setAttachedPdf(null)}
                 />

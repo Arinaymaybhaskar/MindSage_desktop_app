@@ -1,14 +1,9 @@
-import React, { createContext, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, type ReactNode } from 'react';
 import { useColorTheme } from '../hooks/useColorTheme';
 
-interface ColorThemeContextType {
-  colorSettings: any;
-  isLoaded: boolean;
-  saveColorSettings: (settings: any) => void;
-  updateColor: (colorKey: string, value: string) => void;
-  resetToDefault: () => void;
-  applyTheme: (themeName: string, themeColors: any) => void;
-}
+// Derived from the hook rather than restated, so adding a member to
+// useColorTheme cannot silently drop it from the context.
+export type ColorThemeContextType = ReturnType<typeof useColorTheme>;
 
 const ColorThemeContext = createContext<ColorThemeContextType | undefined>(undefined);
 
@@ -26,10 +21,4 @@ export const ColorThemeProvider: React.FC<ColorThemeProviderProps> = ({ children
   );
 };
 
-export const useColorThemeContext = () => {
-  const context = useContext(ColorThemeContext);
-  if (context === undefined) {
-    throw new Error('useColorThemeContext must be used within a ColorThemeProvider');
-  }
-  return context;
-};
+export default ColorThemeContext;

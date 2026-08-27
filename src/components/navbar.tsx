@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, useRef } from "react";
+import { useState } from "react";
 import {
   Search,
   // Bell,

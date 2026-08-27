@@ -139,7 +139,7 @@ function AppLayout() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [navigate]);
   const isAuthPage =
     location.pathname === "/login" ||
     location.pathname === "/register" ||

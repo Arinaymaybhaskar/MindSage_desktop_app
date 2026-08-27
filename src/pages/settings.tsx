@@ -1,12 +1,25 @@
-import { useEffect, useState, lazy, Suspense } from "react";
+import {
+  useEffect,
+  useState,
+  lazy,
+  Suspense,
+  useCallback,
+  type ComponentType,
+} from "react";
 import { useAuth } from "../hooks/useAuth";
 import { userService } from "../api/userService";
 import { User, Palette, Lock, Download, Boxes, MonitorCog } from "lucide-react";
-import { Toaster, toast } from "react-hot-toast";
+import type { LucideIcon } from "lucide-react";
 import SettingsSkeleton from "../components/Skeletons/SettingsSkeleton";
 import { motion } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../hooks/useToast";
+import type {
+  ProfileUpdate,
+  SettingsPanelProps,
+  UserInfo,
+  UserSettings,
+} from "../types/User";
 
 // Lazy-loaded settings components
 const ProfileSettings = lazy(
@@ -29,7 +42,13 @@ const AppearanceSettings = lazy(
 );
 
 // Mapping of sections
-const settingsSections = {
+interface SettingsSection {
+  label: string;
+  icon: LucideIcon;
+  component: ComponentType<SettingsPanelProps>;
+}
+
+const settingsSections: Record<string, SettingsSection> = {
   profile: { label: "Profile", icon: User, component: ProfileSettings },
   colors: { label: "Colors", icon: Palette, component: ColorSettings },
   appearance: {
@@ -48,24 +67,24 @@ const Settings = () => {
     | "offline"
     | "online";
 
-  const [user, setUser] = useState(null);
-  const [settings, setSettings] = useState(null);
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const location = useLocation();
   const { showToast } = useToast();
   // Determine active tab from current URL
-  const getActiveTabFromPath = () => {
+  const getActiveTabFromPath = useCallback(() => {
     const parts = location.pathname.split("/").filter(Boolean); // e.g., ["settings", "models"]
     const key = parts.length > 1 ? parts[1] : "profile";
     return settingsSections[key] ? key : "profile";
-  };
+  }, [location.pathname]);
 
   const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
 
   useEffect(() => {
     setActiveTab(getActiveTabFromPath());
-  }, [location.pathname]);
+  }, [getActiveTabFromPath]);
 
   // Fetch user and settings on mount
   useEffect(() => {
@@ -86,10 +105,10 @@ const Settings = () => {
       }
     };
     fetchInitialData();
-  }, [authMode, accessToken]);
+  }, [authMode, accessToken, showToast]);
 
   // Save handlers
-  const handleProfileSave = async (newProfile) => {
+  const handleProfileSave = async (newProfile: ProfileUpdate) => {
     try {
       showToast("Saving profile...", "info");
       const updatedUser = await userService.updateProfile(
@@ -101,11 +120,12 @@ const Settings = () => {
       localStorage.setItem("userInfo", JSON.stringify(updatedUser.user));
       showToast("Profile updated!", "success");
     } catch (error) {
+      console.error("Failed to update profile:", error);
       showToast("Failed to update profile.", "danger");
     }
   };
 
-  const handleSettingsSave = async (newSettings) => {
+  const handleSettingsSave = async (newSettings: UserSettings) => {
     showToast("Saving settings...", "info");
     try {
       const updatedSettings = await userService.updateSettings(
@@ -116,6 +136,7 @@ const Settings = () => {
       setSettings(updatedSettings);
       showToast("Settings saved!", "success");
     } catch (error) {
+      console.error("Failed to save settings:", error);
       showToast("Failed to save settings.", "danger");
     }
   };

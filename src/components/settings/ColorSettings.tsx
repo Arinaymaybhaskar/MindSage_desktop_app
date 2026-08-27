@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Save, RotateCcw, Palette } from "lucide-react";
 import { motion } from "framer-motion";
 import { useColorTheme } from "../../hooks/useColorTheme";
+import type { SettingsPanelProps } from "../../types/User";
 
-interface ColorSettingsProps {
-  settings: any;
-  onSettingsSave: (settings: any) => void;
-}
+type ColorSettingsProps = Pick<
+  SettingsPanelProps,
+  "settings" | "onSettingsSave"
+>;
 
 interface ColorTheme {
   name: string;
@@ -116,6 +117,15 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
   } = useColorTheme();
   const [localSettings, setLocalSettings] = useState(colorSettings);
 
+  // Read through refs so seeding from the database row stays keyed on
+  // `settings` alone and cannot re-trigger itself via the colours it sets.
+  const colorSettingsRef = useRef(colorSettings);
+  const loadFromDatabaseRef = useRef(loadFromDatabase);
+  useEffect(() => {
+    colorSettingsRef.current = colorSettings;
+    loadFromDatabaseRef.current = loadFromDatabase;
+  });
+
   useEffect(() => {
     if (isLoaded) {
       setLocalSettings(colorSettings);
@@ -125,13 +135,14 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
   // Load settings from database when they change
   useEffect(() => {
     if (settings) {
-      loadFromDatabase(settings);
+      loadFromDatabaseRef.current(settings);
       try {
         const dbSettings = {
           customColors: settings.custom_colors
             ? JSON.parse(settings.custom_colors)
-            : colorSettings.customColors,
-          selectedTheme: settings.selected_theme || colorSettings.selectedTheme,
+            : colorSettingsRef.current.customColors,
+          selectedTheme:
+            settings.selected_theme || colorSettingsRef.current.selectedTheme,
           useCustomColors:
             settings.use_custom_colors === 1 ||
             settings.use_custom_colors === true,
@@ -139,7 +150,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
         setLocalSettings(dbSettings);
       } catch (error) {
         console.error("Failed to parse color settings from database:", error);
-        setLocalSettings(colorSettings);
+        setLocalSettings(colorSettingsRef.current);
       }
     }
   }, [settings]);
@@ -171,7 +182,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
       selected_theme: localSettings.selectedTheme,
       use_custom_colors: localSettings.useCustomColors ? 1 : 0,
     };
-    onSettingsSave({ ...settings, ...dbSettings });
+    if (settings) onSettingsSave({ ...settings, ...dbSettings });
   };
 
   const handleReset = () => {

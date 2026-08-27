@@ -3,7 +3,7 @@
  * based on a user's selected primary accent colors.
  */
 
-interface AccentColors {
+export interface AccentColors {
   light1: string;
   light2: string;
   light3: string;
@@ -12,7 +12,6 @@ interface AccentColors {
   dark2: string;
   dark3: string;
   dark4: string;
-  [key: string]: string;
 }
 
 /**

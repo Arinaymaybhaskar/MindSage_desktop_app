@@ -10,13 +10,17 @@ const authIconLight = new URL("../../assets/iconLight.png", import.meta.url)
 interface AuthLayoutProps {
   children: ReactNode;
   title: string;
-  authMode: string;
-  setAuthMode: (authMode: "offline" | "online") => void;
+  /** Replaces the default mode blurb under the title. */
+  subtitle?: ReactNode;
+  /** Omit both to hide the offline/cloud toggle on screens with no choice. */
+  authMode?: string;
+  setAuthMode?: (authMode: "offline" | "online") => void;
 }
 
 export function AuthLayout({
   children,
   title,
+  subtitle,
   authMode,
   setAuthMode,
 }: AuthLayoutProps) {
@@ -79,13 +83,15 @@ export function AuthLayout({
                 {title}
               </h2>
               <p className="mt-2 text-sm text-text-light-sub dark:text-text-dark-sub">
-                {authMode === "offline"
-                  ? "Your data stays on this device, secure and private."
-                  : "Your data is synced securely to the cloud."}
+                {subtitle ??
+                  (authMode === "offline"
+                    ? "Your data stays on this device, secure and private."
+                    : "Your data is synced securely to the cloud.")}
               </p>
             </div>
 
             {/* --- REVAMPED: Auth Mode Toggle with Disabled State --- */}
+            {setAuthMode && (
             <div className="flex justify-center mb-6">
               <div className="relative flex w-full p-1 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
                 {toggleOptions.map((opt) => (
@@ -134,6 +140,7 @@ export function AuthLayout({
                 ))}
               </div>
             </div>
+            )}
             {children}
           </div>
         </div>

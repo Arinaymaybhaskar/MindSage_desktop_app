@@ -1,6 +1,6 @@
 import React from "react";
 
-interface MindSageMarkProps extends React.SVGProps<SVGSVGElement> {
+export interface MindSageMarkProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
 }
 

@@ -1,3 +1,12 @@
+import type { Chat, ChatDetail, MessageSource } from "../types/Chat";
+
+/** What `media:save-chat-media` answers with after storing an attachment. */
+export interface ChatMediaUploadResult {
+  success: boolean;
+  key?: string;
+  message?: string;
+}
+
 const checkElectron = () => {
   if (!window.electron?.ipcRenderer) {
     throw new Error("Not in an Electron environment.");
@@ -43,7 +52,7 @@ export const chatService = {
         aiMessageId: number | null;
         aiRes: {
           chatResponse: { response: string; suggested_user_prompt: string };
-          semanticResult?: unknown[];
+          semanticResult?: MessageSource[];
         };
       }
     | { error: string }
@@ -79,7 +88,7 @@ export const chatService = {
     token: string,
     page: number = 0,
     limit: number = 10
-  ): Promise<any[]> => {
+  ): Promise<Chat[]> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "chat:get-chats",
@@ -121,7 +130,7 @@ export const chatService = {
     authMode: "online" | "offline",
     token: string,
     chatId: number
-  ): Promise<any> => {
+  ): Promise<ChatDetail | null> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "chat:get-by-id",

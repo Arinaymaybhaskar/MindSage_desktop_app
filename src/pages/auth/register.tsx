@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import api from "../../api/axios";
 import { AuthLayout } from "../../layouts/AuthLayout";
 import {
@@ -13,7 +14,9 @@ import {
 } from "lucide-react";
 import zxcvbn from "zxcvbn";
 import { useAuth } from "../../hooks/useAuth";
-import GoogleLoginElectron from "../../components/googleLoginElectron";
+import GoogleLoginElectron, {
+  type GoogleLoginResult,
+} from "../../components/googleLoginElectron";
 import { authService } from "../../api/authService";
 import Stepper, { Step } from "../../components/ui/Stepper";
 import { motion, AnimatePresence } from "framer-motion"; // Import motion components
@@ -139,7 +142,7 @@ export default function Register() {
   const { login } = useAuth();
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [infoBadge, setInfoBadge] = useState<boolean>(true);
 
@@ -171,8 +174,8 @@ export default function Register() {
         if (res.status === 200) {
           setUsernameAvailable(true);
         }
-      } catch (err: any) {
-        if (err.response?.status === 409) {
+      } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.status === 409) {
           setUsernameAvailable(false);
         } else {
           setUsernameAvailable(null);
@@ -205,16 +208,14 @@ export default function Register() {
     }
   };
 
-  const handleGoogleSuccess = async (
-    response: google.accounts.id.CredentialResponse
-  ) => {
+  const handleGoogleSuccess = async (result: GoogleLoginResult) => {
     setError("");
     setIsLoading(true);
     try {
       const res = await api.post("/auth/google-login", {
-        credential: response.credential,
+        response: result,
       });
-      login(res.data.accessToken, res.data.refreshToken, authMode);
+      login(res.data.accessToken, res.data.userInfo, authMode);
       navigate("/");
     } catch (err) {
       console.error("Google login failed:", err);
@@ -266,14 +267,7 @@ export default function Register() {
       default:
         return false;
     }
-  }, [
-    currentStep,
-    isStep1Valid,
-    isStep2Valid,
-    isStep3Valid,
-    isStep4Valid,
-    form.password,
-  ]);
+  }, [currentStep, isStep1Valid, isStep2Valid, isStep3Valid, isStep4Valid]);
 
   const inputClasses =
     "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg text-text-light dark:text-text-dark focus:ring-2 focus:ring-info focus:border-info outline-none transition";

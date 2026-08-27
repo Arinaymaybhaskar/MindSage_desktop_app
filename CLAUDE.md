@@ -32,7 +32,16 @@ npx vitest run src/utils/DateFormatter.test.ts   # one file
 npx vitest run -t "formats a relative date"       # one test by name
 ```
 
-**Baseline matters more than pass/fail.** As of 2026-08-25 the repo has **131 typecheck errors** and **106 lint problems (92 errors, 14 warnings)** that predate any current work; tests are green (5 files, 35 tests). CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs typecheck and lint with `continue-on-error: true` and only *blocks* on `npm test`. So don't read a non-zero typecheck/lint exit as "I broke it" — compare error counts before and after, and keep the test suite passing.
+**Typecheck and lint are clean; keep them that way.** As of 2026-08-27 `npm run typecheck` and `npm run lint` both report **zero** problems, and tests are green (5 files, 35 tests). This replaces a long-standing baseline of 131 typecheck errors and 106 lint problems, cleared wholesale in a single pass. **A non-zero typecheck or lint exit now means you broke something**, so treat it as a real failure rather than comparing counts against a tolerated baseline.
+
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) still runs typecheck and lint with `continue-on-error: true` and only *blocks* on `npm test`, so neither gate will stop a regression for you. That `continue-on-error` is now worth removing.
+
+Two things that clean-up leaned on, so they are conventions rather than incidental style:
+
+- **The IPC bridge is typed, not `any`.** `window.electron.ipcRenderer.invoke` in [src/electron.d.ts](src/electron.d.ts) is generic and defaults to `unknown`. Callers state the shape they expect, usually through the declared return type of the `src/api/*Service` wrapper that owns the channel. When you add a channel, type its wrapper against what the handler in `electron/methods/*` actually returns.
+- **Row shapes live in `src/types/`.** `User.ts`, `Goals.ts`, `Dashboard.ts`, `Ollama.ts`, `Qdrant.ts` and `sqlite.ts` mirror the DDL in [electron/db/connection.js](electron/db/connection.js). SQLite has no boolean, so 0/1 columns are typed `SqliteBoolean`; prefer extending these over redeclaring a near-copy in a component.
+
+**Prettier is a separate story.** `npm run format:check` fails on 274 files and always has. It is unrelated to typecheck and lint, and running `npm run format` would touch most of the repo, so do not fold a formatting pass into an unrelated change.
 
 **Test conventions:** tests sit next to the module they cover (`electron/methods/jsonStream.test.js`, `src/api/journalService.test.ts`). [vitest.config.ts](vitest.config.ts) is deliberately separate from [vite.config.ts](vite.config.ts) so `vite-plugin-electron` doesn't boot during tests; it uses jsdom, `globals: true`, `src/test/setup.ts`, and `pool: "threads"` (the default `forks` pool hangs on newer Node). `electron/**` is in the include list, but only **pure modules** are testable there — anything importing `better-sqlite3` or `electron` won't load. `electron/methods/*.test.js` is explicitly excluded from the `viteStaticCopy` targets so tests don't ship in the package.
 

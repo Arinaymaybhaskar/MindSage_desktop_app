@@ -1,4 +1,4 @@
-import { generateFullTheme } from "./colorGenerator";
+import { generateFullTheme, type AccentColors } from "./colorGenerator";
 
 // Default colors used ONLY if localStorage is empty or corrupted.
 const DEFAULT_ACCENT_COLORS = {
@@ -16,7 +16,7 @@ const DEFAULT_ACCENT_COLORS = {
  * Applies a full theme to the document's root element.
  * @param colors The accent colors to generate the theme from.
  */
-const applyThemeToDocument = (colors: any) => {
+const applyThemeToDocument = (colors: AccentColors) => {
   const fullTheme = generateFullTheme(colors);
   const root = document.documentElement;
   Object.entries(fullTheme).forEach(([key, value]) => {

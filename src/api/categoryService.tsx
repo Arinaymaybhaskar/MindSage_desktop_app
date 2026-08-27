@@ -1,3 +1,5 @@
+import type { Category, SqliteRunResult } from "../types/Goals";
+
 const checkElectron = () => {
   if (!window.electron?.ipcRenderer) {
     throw new Error("Not in an Electron environment.");
@@ -5,7 +7,10 @@ const checkElectron = () => {
 };
 
 export const categoryService = {
-    getCategories: async (authMode: "online" | "offline", token: string) => {
+    getCategories: async (
+      authMode: "online" | "offline",
+      token: string
+    ): Promise<Category[]> => {
         checkElectron();
         return await window.electron.ipcRenderer.invoke(
           "category:get-all",
@@ -22,7 +27,12 @@ export const categoryService = {
           id
         );
     },
-    addCategory: async (authMode: "online" | "offline", token: string, name: string, color: string) => {
+    addCategory: async (
+      authMode: "online" | "offline",
+      token: string,
+      name: string,
+      color: string
+    ): Promise<SqliteRunResult> => {
         checkElectron();
         const category = {
             name: name,

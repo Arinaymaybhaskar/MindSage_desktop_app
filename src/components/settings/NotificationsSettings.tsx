@@ -1,20 +1,28 @@
 import { useState, useEffect } from "react";
 import { Save } from "lucide-react";
 import { Switch } from "../ui/Switch";
+import type { SettingsPanelProps, UserSettings } from "../../types/User";
 
-const NotificationsSettings = ({ settings, onSettingsSave }) => {
-  const [localSettings, setLocalSettings] = useState(settings);
+type NotificationsSettingsProps = Pick<SettingsPanelProps, "settings" | "onSettingsSave">;
+
+const NotificationsSettings = ({ settings, onSettingsSave }: NotificationsSettingsProps) => {
+  const [localSettings, setLocalSettings] = useState<UserSettings | null>(
+    settings
+  );
 
   useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
 
-  const handleChange = (name, value) => {
-    setLocalSettings((prev) => ({ ...prev, [name]: value }));
+  const handleChange = <K extends keyof UserSettings>(
+    key: K,
+    value: UserSettings[K]
+  ) => {
+    setLocalSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
 
   const handleSave = () => {
-    onSettingsSave(localSettings);
+    if (localSettings) onSettingsSave(localSettings);
   };
 
   return (
@@ -39,7 +47,7 @@ const NotificationsSettings = ({ settings, onSettingsSave }) => {
             </p>
           </div>
           <Switch
-            checked={localSettings?.journal_reminder}
+            checked={Boolean(localSettings?.journal_reminder)}
             onCheckedChange={(v) => handleChange("journal_reminder", v)}
           />
         </div>
@@ -55,7 +63,7 @@ const NotificationsSettings = ({ settings, onSettingsSave }) => {
             </p>
           </div>
           <Switch
-            checked={localSettings?.weekly_summary_email}
+            checked={Boolean(localSettings?.weekly_summary_email)}
             onCheckedChange={(v) => handleChange("weekly_summary_email", v)}
           />
         </div>

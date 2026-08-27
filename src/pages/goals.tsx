@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { goalService } from "../api/goalService";
 import { categoryService } from "../api/categoryService";
@@ -40,7 +40,7 @@ const GoalsPage: React.FC = () => {
   const navigate = useNavigate();
   const [isCompletedGoalsOpen, setIsCompletedGoalsOpen] = useState(true);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
-  const [progressLogs, setProgressLogs] = useState<ProgressLog[]>();
+  const [progressLogs, setProgressLogs] = useState<ProgressLog[]>([]);
   const [modalType, setModalType] = useState<
     | "edit"
     | "log"
@@ -53,7 +53,7 @@ const GoalsPage: React.FC = () => {
     | null
   >(null);
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
       const [active, completed, cats] = await Promise.all([
@@ -72,11 +72,11 @@ const GoalsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authMode, accessToken]);
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
 
   const filteredActiveGoals = selectedCategory
     ? activeGoals.filter((g) => g.category_id === selectedCategory.id)
@@ -105,13 +105,10 @@ const GoalsPage: React.FC = () => {
     }
   }, [location.pathname]);
 
-  const handleCreateOrUpdateGoal = async (
-    goalData: Goal,
-    newCategory?: Category
-  ) => {
+  const handleCreateOrUpdateGoal = async (goalData: Partial<Goal>) => {
     try {
       let goalAdded;
-      if (modalType === "edit") {
+      if (modalType === "edit" && goalData.id !== undefined) {
         goalAdded = await goalService.updateGoal(
           authMode,
           accessToken!,

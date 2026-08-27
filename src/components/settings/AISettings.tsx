@@ -3,9 +3,17 @@ import { Save } from "lucide-react";
 // Assuming you have a custom Switch and Select component
 import { Switch } from "../ui/Switch";
 import Select from "../ui/Select";
+import type { SettingsPanelProps, UserSettings } from "../../types/User";
 
-const AppearanceSettings = ({ settings, onSettingsSave }) => {
-  const [localSettings, setLocalSettings] = useState({
+type AISettingsProps = Pick<SettingsPanelProps, "settings" | "onSettingsSave">;
+
+interface AppearanceDraft {
+  dark_mode: boolean;
+  font_size: string;
+}
+
+const AISettings = ({ settings, onSettingsSave }: AISettingsProps) => {
+  const [localSettings, setLocalSettings] = useState<AppearanceDraft>({
     dark_mode: false,
     font_size: "medium",
   });
@@ -13,18 +21,21 @@ const AppearanceSettings = ({ settings, onSettingsSave }) => {
   useEffect(() => {
     if (settings) {
       setLocalSettings({
-        dark_mode: settings.dark_mode || false,
+        dark_mode: Boolean(settings.dark_mode),
         font_size: settings.font_size || "medium",
       });
     }
   }, [settings]);
 
-  const handleChange = (name, value) => {
-    setLocalSettings((prev) => ({ ...prev, [name]: value }));
+  const handleChange = <K extends keyof AppearanceDraft>(
+    key: K,
+    value: AppearanceDraft[K]
+  ) => {
+    setLocalSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = () => {
-    onSettingsSave({ ...settings, ...localSettings });
+    if (settings) onSettingsSave({ ...settings, ...localSettings } as UserSettings);
   };
 
   return (
@@ -62,6 +73,7 @@ const AppearanceSettings = ({ settings, onSettingsSave }) => {
             </p>
           </div>
           <Select
+            id="font-size"
             value={localSettings.font_size}
             onChange={(v) => handleChange("font_size", v)}
             options={[
@@ -84,4 +96,4 @@ const AppearanceSettings = ({ settings, onSettingsSave }) => {
   );
 };
 
-export default AppearanceSettings;
+export default AISettings;

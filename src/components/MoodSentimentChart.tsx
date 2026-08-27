@@ -11,20 +11,31 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Loader } from "lucide-react"; // Using a loader icon for a better look
 import { dashboardService } from "../api/dashBoardService";
 import { useAuth } from "../hooks/useAuth";
+import type { DayScore } from "../utils/dashboardInsights";
 
-interface ScoreDataPoint {
-  day: string;
-  avgMood: number;
+// The dashboard channels report `avgMood: null` for days with no entry, so
+// this mirrors DayScore rather than narrowing it to a number.
+type ScoreDataPoint = DayScore;
+
+interface TooltipEntry {
+  name?: string;
+  value?: number;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="p-3 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg shadow-lg">
         <p className="text-lg font-bold text-gray-50 mb-2">{label}</p>
         <div className="text-sm">
           <p className="text-text-light dark:text-text-dark">
-            {`${payload[0].name} : ${payload[0].value.toFixed(2)}`}
+            {`${payload[0].name} : ${(payload[0].value ?? 0).toFixed(2)}`}
           </p>
         </div>
       </div>

@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Save, Upload, User as UserIcon, Loader2, X } from "lucide-react";
-import Cropper from "react-easy-crop";
+import Cropper, { type Area } from "react-easy-crop";
+import type { SettingsPanelProps } from "../../types/User";
 
-const ProfileSettings = ({ user, onProfileSave }) => {
+type ProfileSettingsProps = Pick<SettingsPanelProps, "user" | "onProfileSave">;
+
+const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
   const [formData, setFormData] = useState({
     full_name: "",
     username: "",
@@ -16,7 +19,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -27,7 +30,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
       return;
     }
     try {
-      const dataUrl = await window.electron.ipcRenderer.invoke(
+      const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
         "media:getImage",
         imagePath
       );
@@ -45,7 +48,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
         username: user.username || "",
         email: user.email || "",
       });
-      loadProfileImage(user.profile_picture);
+      loadProfileImage(user.profile_picture ?? null);
     }
   }, [user]);
 
@@ -94,7 +97,7 @@ const ProfileSettings = ({ user, onProfileSave }) => {
   };
 
   // Utility: crop image to base64
-  const getCroppedImg = (imageSrc: string, crop: any): Promise<string> => {
+  const getCroppedImg = (imageSrc: string, crop: Area): Promise<string> => {
     return new Promise((resolve, reject) => {
       const image = new Image();
       image.src = imageSrc;
@@ -133,14 +136,13 @@ const ProfileSettings = ({ user, onProfileSave }) => {
 
       if (selectedFile && previewSrc) {
         const arrayBuffer = await selectedFile.arrayBuffer();
-        const res = await window.electron.ipcRenderer.invoke(
-          "media:save-profile",
-          {
-            arrayBuffer,
-            filename: selectedFile.name,
-            userId: user?.id,
-          }
-        );
+        const res = await window.electron.ipcRenderer.invoke<{
+          path?: string;
+        }>("media:save-profile", {
+          arrayBuffer,
+          filename: selectedFile.name,
+          userId: user?.id,
+        });
         finalImagePath = res?.path ?? finalImagePath;
       } else if (!previewSrc) {
         finalImagePath = null;

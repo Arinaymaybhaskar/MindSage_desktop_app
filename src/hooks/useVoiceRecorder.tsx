@@ -25,7 +25,8 @@ export function useVoiceRecorder() {
       setWaveformHistory([]);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext;
+      audioContextRef.current = new AudioContextCtor!();
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 2048;
       sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);

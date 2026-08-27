@@ -1,7 +1,27 @@
 import axios from "axios";
 
-function describeApiConnectionError(error: any, fallback = "The API request failed") {
-  const code = error?.code || error?.cause?.code || error?.message?.match(/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ECONNABORTED|ETIMEDOUT/i)?.[0];
+/**
+ * Loosely-typed view of what axios (or a raw fetch failure) can throw. Every
+ * field is optional because this runs on values caught from anywhere.
+ */
+interface ApiErrorLike {
+  code?: string;
+  message?: string;
+  cause?: { code?: string };
+  response?: { data?: { message?: string } };
+}
+
+function describeApiConnectionError(
+  caught: unknown,
+  fallback = "The API request failed"
+) {
+  const error = (caught ?? {}) as ApiErrorLike;
+  const code =
+    error?.code ||
+    error?.cause?.code ||
+    error?.message?.match(
+      /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ECONNABORTED|ETIMEDOUT/i
+    )?.[0];
 
   if (
     code === "ENOTFOUND" ||

@@ -2,8 +2,10 @@ import { useEffect, type RefObject } from "react";
 
 type Event = MouseEvent | TouchEvent;
 
+// `useRef<T>(null)` yields `RefObject<T | null>` under React 19, so the
+// parameter has to admit null for callers to pass their refs straight in.
 export const useClickOutside = <T extends HTMLElement = HTMLElement>(
-  ref: RefObject<T>,
+  ref: RefObject<T | null>,
   handler: (event: Event) => void
 ) => {
   useEffect(() => {

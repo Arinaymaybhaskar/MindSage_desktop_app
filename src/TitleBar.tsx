@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Minus, Square, Maximize2, X, Loader2 } from "lucide-react";
 import { ProfileDropdown } from "./components/profileDropdown"; // Ensure path is correct
 import { useLocation } from "react-router-dom";

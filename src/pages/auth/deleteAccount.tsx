@@ -4,7 +4,7 @@ import { AlertCircle, Lock, ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { userService } from "../../api/userService";
 import { AnimatePresence, motion } from "framer-motion";
-import { useToast } from "../../context/ToastContext";
+import { useToast } from "../../hooks/useToast";
 
 export function DeleteAccount() {
   const [password, setPassword] = useState("");

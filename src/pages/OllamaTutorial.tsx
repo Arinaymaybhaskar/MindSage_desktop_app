@@ -96,7 +96,7 @@ const DownloadCard = ({
       href={url}
       onClick={(e) => {
         e.preventDefault();
-        (window as any).electron.openExternal(url);
+        window.electron.openExternal(url);
       }}
       className="inline-flex items-center gap-2 bg-light1 dark:bg-dark1 text-white font-semibold px-6 py-2 rounded-lg hover:bg-light1 dark:bg-dark1/90 transition-colors"
     >
@@ -381,9 +381,7 @@ const OllamaTutorialPage = () => {
                 href="https://ollama.com/library"
                 onClick={(e) => {
                   e.preventDefault();
-                  (window as any).electron?.shell.openExternal(
-                    "https://ollama.com/library"
-                  );
+                  window.electron?.openExternal("https://ollama.com/library");
                 }}
                 className="text-dark1 dark:text-light1 hover:text-dark1 dark:text-light1/90 font-semibold"
               >

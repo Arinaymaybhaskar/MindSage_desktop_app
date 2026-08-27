@@ -1,3 +1,9 @@
+import type {
+  QdrantCollectionsResponse,
+  QdrantPoint,
+  QdrantSyncResult,
+} from "../types/Qdrant";
+
 const checkElectron = () => {
   if (!window.electron?.ipcRenderer) {
     throw new Error("Not in an Electron environment.");
@@ -7,7 +13,7 @@ const checkElectron = () => {
 type Distance = "Cosine" | "Dot" | "Euclid";
 
 export const qdrantService = {
-  listCollections: () => {
+  listCollections: (): Promise<QdrantCollectionsResponse> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke("qdrant:get-collections");
   },
@@ -24,7 +30,7 @@ export const qdrantService = {
       distance
     );
   },
-  addPoints: (collection: string, points: any[]) => {
+  addPoints: (collection: string, points: QdrantPoint[]) => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "qdrant:upsert",
@@ -37,8 +43,8 @@ export const qdrantService = {
     collection: string,
     query: string,
     limit = 5,
-    filter?: any
-  ) => {
+    filter?: Record<string, unknown>
+  ): Promise<QdrantPoint[] | { success: false; error: string }> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "qdrant:search",
@@ -53,21 +59,21 @@ export const qdrantService = {
     checkElectron();
     return window.electron.ipcRenderer.invoke("qdrant:delete-collection", name);
   },
-  bulkSync: () => {
+  bulkSync: (): Promise<QdrantSyncResult> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke("qdrant:bulk-sync");
   },
-  syncJournal: (journalId: number) => {
+  syncJournal: (journalId: number): Promise<QdrantSyncResult> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke("qdrant:sync-journal", journalId);
   },
   // **NEW**
-  syncGoal: (goalId: number) => {
+  syncGoal: (goalId: number): Promise<QdrantSyncResult> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke("qdrant:sync-goal", goalId);
   },
   // **NEW**
-  syncProgressLog: (progressLogId: number) => {
+  syncProgressLog: (progressLogId: number): Promise<QdrantSyncResult> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "qdrant:sync-progress-log",

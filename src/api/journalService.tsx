@@ -1,3 +1,5 @@
+import type { JournalImageEntry } from "../types/Dashboard";
+
 // --- Type Definitions ---
 
 export interface JournalEntry {
@@ -6,10 +8,10 @@ export interface JournalEntry {
   content: string;
   mood_score?: number;
   sentiment_score?: number;
-  mood_tags?: string;
+  mood_tags?: string[];
   created_at?: string;
-  image_key?: string;
-  audio_key?: string;
+  image_key?: string | null;
+  audio_key?: string | null;
   transcription?: string;
   content_summary?: string;
   tags?: string[];
@@ -83,7 +85,7 @@ export const journalService = {
     mode: "online" | "offline",
     token: string,
     data: JournalEntry
-  ): Promise<{ journalId: number; userId: number }> => {
+  ): Promise<JournalEntry> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:create",
@@ -155,7 +157,11 @@ export const journalService = {
     );
   },
 
-  getImages: async (authMode: string, token: string, mode: string) => {
+  getImages: async (
+    authMode: string,
+    token: string,
+    mode: string
+  ): Promise<JournalImageEntry[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-images",
@@ -196,7 +202,7 @@ export const journalService = {
   /**
    * Gets a temporary URL for viewing media. Online only.
    */
-  getMediaUrl: async (token: string, key: string) => {
+  getMediaUrl: async (_token: string, key: string) => {
     checkElectron();
     // This is an online-only feature.
     // You would need to add a 'media:get-media-url' IPC handler.

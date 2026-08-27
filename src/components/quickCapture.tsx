@@ -34,7 +34,7 @@ export default function QuickCapture() {
         content,
         title: title.trim(),
         mood_score: 0,
-        mood_tags: "",
+        mood_tags: [],
       };
 
       const res = await journalService.create(
@@ -45,7 +45,7 @@ export default function QuickCapture() {
 
       await window.electron.ipcRenderer.invoke(
         "qdrant:sync-journal",
-        res.journalId
+        res.id
       );
       toast.success("Journal entry saved!");
 

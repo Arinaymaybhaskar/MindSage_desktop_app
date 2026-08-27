@@ -30,26 +30,14 @@ import {
 } from "../utils/dashboardInsights";
 import DashboardSkeleton from "../components/Skeletons/DashboardSkeleton";
 import { dashboardService } from "../api/dashBoardService";
-import journalService from "../api/journalService";
+import journalService, { type JournalEntry } from "../api/journalService";
+import type {
+  DashboardStats,
+  JournalImageEntry,
+} from "../types/Dashboard";
+import type { UserInfo } from "../types/User";
 
 dayjs.extend(relativeTime);
-
-interface User {
-  username: string;
-  email: string;
-  created_at: string;
-  full_name: string;
-}
-
-interface JournalEntry {
-  id: number;
-  title: string;
-  content: string;
-  created_at: string;
-  mood_score: number;
-  mood_tags: string | string[];
-  image_key?: string;
-}
 
 interface PinnedGoal {
   id: number;
@@ -59,34 +47,14 @@ interface PinnedGoal {
   unit: string;
 }
 
-interface ImageKeyEntry {
-  id: number;
-  title: string;
-  image_key: string;
-}
-
-interface DashboardStats {
-  totalEntries: number;
-  totalWords: number;
-  firstEntry: string | null;
-  lastEntry: string | null;
-  longestStreak: number;
-  averageMood: number;
-  totalGoals: number;
-  completedGoals: number;
-  activeGoals: number;
-  mostUsedTag: string;
-  averageEntriesPerDayOfWeek?: { day: string; average: number }[];
-}
-
 
 export default function Dashboard() {
   const { accessToken, logout } = useAuth();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserInfo | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
   const [pinnedGoals, setPinnedGoals] = useState<PinnedGoal[]>([]);
-  const [imageKeys, setImageKeys] = useState<ImageKeyEntry[]>([]);
+  const [imageKeys, setImageKeys] = useState<JournalImageEntry[]>([]);
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [isMasonryLoading, setIsMasonryLoading] = useState(true);
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
@@ -151,7 +119,7 @@ export default function Dashboard() {
       return;
     }
     try {
-      const dataUrl = await window.electron.ipcRenderer.invoke(
+      const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
         "media:getImage",
         imagePath
       );
@@ -165,7 +133,7 @@ export default function Dashboard() {
   useEffect(() => {
     const userInfo = localStorage.getItem("userInfo");
     if (userInfo) {
-      const parsed = JSON.parse(userInfo);
+      const parsed = JSON.parse(userInfo) as UserInfo;
       setUser(parsed);
       void loadProfileImage(parsed?.profile_picture ?? null);
     }
