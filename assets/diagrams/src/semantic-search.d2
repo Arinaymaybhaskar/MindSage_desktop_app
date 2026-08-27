@@ -1,0 +1,79 @@
+# Global search: keyword and semantic search running side by side.
+# Derived from src/components/GlobalSearch.tsx, electron/methods/qdrant.js
+# and electron/methods/ollama.js.
+
+direction: down
+
+query: "User types in the palette\nCtrl + F" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+split: "Two lookups run in parallel" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+keyword: "Keyword search\nLIKE over titles and content,\nplus goals and progress logs" {
+  style.stroke-width: 2
+}
+
+local: "Local matches\nactions · settings · slash commands" {
+  style.stroke-width: 2
+}
+
+embed: "Embed the query\nnomic-embed-text:v1.5\nvia Ollama" {
+  style.stroke-width: 2
+}
+
+ollama: "Ollama\nlocalhost:11434" {
+  shape: hexagon
+  style.stroke-width: 2
+}
+
+search: "Qdrant similarity search\ntop k nearest neighbours" {
+  style.stroke-width: 2
+}
+
+qdrant: "Qdrant\nvector index" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+ids: "Qdrant returns ids\nand similarity scores\npayload stays minimal" {
+  style.stroke-width: 2
+}
+
+hydrate: "Hydrate full rows from SQLite\nby id" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\nmind-sage.db" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+merge: "Merge, de-duplicate and rank\nkeyword hits and semantic hits" {
+  style.stroke-width: 2
+}
+
+render: "Palette renders grouped results\nwith keyboard navigation" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+query -> split
+split -> keyword
+split -> local
+split -> embed
+embed -> ollama: "embed"
+embed -> search
+search -> qdrant: "query"
+search -> ids
+ids -> hydrate
+hydrate -> sqlite: "SELECT by id"
+keyword -> sqlite: "SELECT"
+keyword -> merge
+local -> merge
+hydrate -> merge
+merge -> render

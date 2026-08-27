@@ -1,0 +1,72 @@
+# First-run provisioning. The one part of MindSage that needs a network.
+# Derived from electron/services/appSetup.js and OllamaSetup.js.
+
+direction: down
+
+launch: "First launch\nOnboarding.tsx" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+status: "getSetupStatus\nis Ollama running, or at least on the PATH?" {
+  style.stroke-width: 2
+}
+
+installed: "Ollama present?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+auto: "Windows: download the official installer\nand run it unattended\nVERYSILENT · SUPPRESSMSGBOXES · NORESTART" {
+  style.stroke-width: 2
+}
+
+guided: "Elsewhere: open the download page\nand let the user install it" {
+  style.stroke-width: 2
+}
+
+wait: "waitForOllama\npoll the service for up to 30s, because the\ninstaller's exit code is not a reliable signal" {
+  style.stroke-width: 2
+}
+
+serve: "Service answering?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+startServe: "Start ollama serve\nbest effort, needs PATH" {
+  style.stroke-width: 2
+}
+
+models: "listInstalledModels" {
+  style.stroke-width: 2
+}
+
+embed: "Pull nomic-embed-text:v1.5 if absent\nroughly 274 MB, once, required for search" {
+  style.stroke-width: 2
+}
+
+gen: "Prompt for a generation model if none\nchat, summaries and autocomplete need one" {
+  style.stroke-width: 2
+}
+
+qdrant: "startQdrant\nspawn the bundled binary on a free port,\nexport QDRANT_HTTP_PORT to the worker" {
+  style.stroke-width: 2
+}
+
+ready: "services-ready   main window revealed\nfrom here on nothing leaves the machine" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+launch -> status -> installed
+installed -> auto: "no, on Windows"
+installed -> guided: "no, elsewhere"
+installed -> serve: "yes"
+auto -> wait
+guided -> wait
+wait -> serve
+serve -> startServe: "no"
+startServe -> models
+serve -> models: "yes"
+models -> embed -> gen -> qdrant -> ready

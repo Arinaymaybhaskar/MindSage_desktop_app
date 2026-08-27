@@ -1,0 +1,82 @@
+# MindSage system architecture
+# Render: see assets/diagrams/README.md
+#
+# Layout note: edges here connect containers, not their children. D2 falls back
+# to a horizontal arrangement when an edge crosses into a nested child, which
+# turns this diagram into one very wide row.
+
+direction: down
+
+renderer: "Renderer   src/" {
+  grid-columns: 2
+  style.stroke-width: 2
+  style.border-radius: 12
+
+  ui: "React 19 · TypeScript · Tailwind v4\nHashRouter · Context · no Node APIs"
+  api: "src/api/*Service.tsx\nthe only way out of the renderer"
+
+  ui -> api
+}
+
+main: "Main process   electron/" {
+  grid-columns: 4
+  style.stroke-width: 2
+  style.border-radius: 12
+
+  handlers: "ipcHandlers.js\nchannel routing"
+  methods: "methods/*.js\nbusiness logic"
+  data: "db/*.js\nSQL · all DDL in connection.js"
+  services: "services/\nQdrant · Ollama · updater"
+
+  handlers -> methods -> data
+}
+
+bus: "eventBus.js\njournal:created · journal:audio-saved · journal:aiCompleted" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+worker: "qdrantWorker.js   worker thread" {
+  grid-columns: 3
+  style.stroke-width: 2
+  style.border-radius: 12
+
+  embed: "Generate embedding"
+  upsert: "Upsert vector + payload"
+  mark: "Mark synced_to_qdrant"
+
+  embed -> upsert -> mark
+}
+
+sqlite: "SQLite\nmind-sage.db" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+qdrant: "Qdrant\nlocal vector index" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+ollama: "Ollama\nlocalhost:11434" {
+  shape: hexagon
+  style.stroke-width: 2
+}
+
+whisper: "whisper.cpp + FFmpeg\nbundled binaries" {
+  shape: hexagon
+  style.stroke-width: 2
+}
+
+renderer -> main: "ipcRenderer.invoke(channel)\ncontextBridge · preload.mjs"
+main -> sqlite: "read / write"
+main -> whisper: "transcribe"
+main -> ollama: "titles · moods · tags\nsummaries · chat · autocomplete"
+main -> bus: "emit"
+bus -> worker: "dispatch"
+worker -> ollama: "embed"
+worker -> qdrant: "upsert"
+worker -> sqlite: "mark synced"
+main -> renderer: "webContents.send\naiStarted / aiCompleted" {
+  style.stroke-dash: 4
+}
