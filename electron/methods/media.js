@@ -1,4 +1,5 @@
-import { app, shell } from 'electron';
+import { app, shell, nativeImage } from 'electron';
+import crypto from 'node:crypto';
 import fs from 'node:fs'
 import path from 'node:path'
 import localDB from '../db';
@@ -14,6 +15,59 @@ export async function getImageBase64(imagePath) {
   } catch (err) {
     console.error('Error loading image:', err);
     return null;
+  }
+}
+
+/**
+ * A small JPEG for grid views, generated once and cached on disk.
+ *
+ * Grids used to render `media:getImage`, which base64-encodes the original
+ * file: a page showing every photo in the journal shipped tens of megabytes of
+ * data URLs across IPC and held them all in renderer memory. A 480px JPEG is
+ * roughly two orders of magnitude smaller and indistinguishable at tile size.
+ *
+ * Uses Electron's own `nativeImage` rather than an image library on purpose -
+ * sharp and friends are native modules, and this project rebuilds native
+ * modules against Electron's ABI on every install.
+ *
+ * The full-resolution image is still what `media:getImage` returns, so opening
+ * an entry shows the real photograph.
+ */
+export async function getThumbnailBase64(imagePath, maxWidth = 480) {
+  try {
+    if (!imagePath || !fs.existsSync(imagePath)) return null;
+
+    // Key the cache on path, size and mtime, so replacing a photo in place
+    // does not keep serving the thumbnail of the old one.
+    const { mtimeMs, size } = fs.statSync(imagePath);
+    const key = crypto
+      .createHash('sha1')
+      .update(`${imagePath}|${maxWidth}|${mtimeMs}|${size}`)
+      .digest('hex');
+
+    const cacheDir = path.join(app.getPath('userData'), 'media', 'thumbs');
+    fs.mkdirSync(cacheDir, { recursive: true });
+    const cachePath = path.join(cacheDir, `${key}.jpg`);
+
+    if (fs.existsSync(cachePath)) {
+      return `data:image/jpeg;base64,${fs.readFileSync(cachePath).toString('base64')}`;
+    }
+
+    const image = nativeImage.createFromPath(imagePath);
+    if (image.isEmpty()) return getImageBase64(imagePath);
+
+    const { width } = image.getSize();
+    // Never upscale: a photo already smaller than the tile gains nothing and
+    // would only get softer.
+    const resized = width > maxWidth ? image.resize({ width: maxWidth, quality: 'good' }) : image;
+    const buffer = resized.toJPEG(72);
+
+    fs.writeFileSync(cachePath, buffer);
+    return `data:image/jpeg;base64,${buffer.toString('base64')}`;
+  } catch (err) {
+    console.error('Error creating thumbnail:', err);
+    // Fall back to the original rather than showing a hole in the grid.
+    return getImageBase64(imagePath);
   }
 }
 
@@ -161,7 +215,7 @@ export async function handleSaveProfileImage(event, { arrayBuffer, filename, use
             .run(destPath, userId);
         } else {
           console.warn(
-            "localDB has no known updateUser helper — caller should update users table separately."
+            "localDB has no known updateUser helper; caller should update users table separately."
           );
         }
       } catch (dbErr) {

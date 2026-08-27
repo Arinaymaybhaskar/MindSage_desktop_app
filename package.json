@@ -13,9 +13,16 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:capture": "node scripts/run-dev-capture.mjs",
     "build": "vite build && electron-builder",
     "release": "vite build && electron-builder --publish always",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "seed:demo": "node scripts/run-seed.mjs",
+    "bench": "node scripts/run-bench.mjs",
+    "bench:ipc": "node scripts/bench/bench-ipc.mjs",
+    "bench:full": "node scripts/run-bench.mjs --stages all",
+    "capture": "node scripts/capture-shots.mjs",
+    "gen:images": "node scripts/gen-demo-images.mjs",
     "postinstall": "npm run rebuild",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
@@ -23,7 +30,9 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepare": "husky"
+    "prepare": "husky",
+    "bench:board": "node scripts/bench/render-board.mjs",
+    "bench:publish": "node scripts/bench/publish-run.mjs"
   },
   "build": {
     "copyright": "Copyright © 2025 Arinaymay",
@@ -126,6 +135,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
+    "@rive-app/canvas": "^2.40.1",
     "@types/google.accounts": "^0.0.17",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",

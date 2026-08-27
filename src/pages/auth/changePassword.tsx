@@ -95,7 +95,7 @@ const ChangePassword = () => {
             <ArrowLeft size={18} />
             Back to Settings
           </Link>
-          <h1 className="text-3xl font-bold text-center text-text-light dark:text-text-dark mb-2">
+          <h1 className="font-display text-3xl font-bold text-center text-text-light dark:text-text-dark mb-2">
             Change Password
           </h1>
           <p className="text-center text-text-light-sub dark:text-text-dark-sub mb-8">

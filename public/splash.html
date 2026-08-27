@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'unsafe-inline'"
+      content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MindSage</title>
@@ -21,91 +21,105 @@
         justify-content: center;
         -webkit-user-select: none;
         user-select: none;
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-          Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji",
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Ubuntu,
+          Cantarell,
+          Noto Sans,
+          Arial,
+          "Apple Color Emoji",
           "Segoe UI Emoji";
       }
+      /* Matches the app's own dark surface + border tokens
+         (--color-surface-dark, --color-border-dark) rather than an
+         unrelated gradient, so the splash reads as the same product. */
       .card {
-        background: linear-gradient(
-          180deg,
-          rgba(17, 17, 22, 0.95),
-          rgba(25, 25, 32, 0.95)
-        );
-        color: white;
-        padding: 20px 28px;
-        border-radius: 16px;
-        box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5),
-          inset 0 1px 0 rgba(255, 255, 255, 0.05);
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 12px;
-        min-width: 280px;
+        gap: 14px;
+        min-width: 240px;
+        padding: 28px 32px;
+        background: hsl(0, 0%, 10%);
+        border: 1px solid hsl(0, 0%, 100%, 0.06);
+        border-radius: 14px;
       }
-      .spinner {
-        width: 28px;
-        height: 28px;
-        border: 3px solid rgba(255, 255, 255, 0.25);
-        border-top-color: #8b5cf6; /* violet-500 */
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
+      .logo-wrap {
+        position: relative;
+        width: 64px;
+        height: 64px;
       }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+      /* The static SVG paints instantly and shares the Rive artwork's exact
+         shapes/colors, so cross-fading the canvas in over it (once the wasm
+         runtime has actually loaded) reads as one continuous logo rather
+         than a pop-in - there's no gap where the card just sits empty. */
+      .logo-wrap svg,
+      .logo-wrap canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
       }
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 6px;
+      .logo-wrap canvas {
+        opacity: 0;
+        transition: opacity 0.25s ease;
       }
-      .logo {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        box-shadow: 0 6px 16px rgba(139, 92, 246, 0.35);
+      .logo-wrap canvas.ready {
+        opacity: 1;
       }
       .name {
-        font-weight: 700;
+        font-size: 15px;
+        font-weight: 600;
+        color: hsl(0, 0%, 95%);
         letter-spacing: 0.2px;
-      }
-      .tagline {
-        font-size: 12px;
-        opacity: 0.8;
-        margin-top: -2px;
       }
       .status {
         font-size: 12px;
-        opacity: 0.9;
+        color: hsl(0, 0%, 70%);
       }
     </style>
   </head>
   <body>
     <div class="card">
-      <div class="brand">
-        <img class="logo" src="./assets/icon.png" alt="MindSage" />
-        <div>
-          <div class="name">MindSage</div>
-          <div class="tagline">Your mindful productivity companion</div>
-        </div>
+      <div class="logo-wrap" aria-label="MindSage" role="img">
+        <svg
+          id="static-logo"
+          viewBox="0 0 755 774"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M694.5 171.128L629.5 417.128C627 422.628 619 435.462 604 444.628C589.6 453.428 458.333 526.962 394.5 562.628C388 568.128 374.2 586.428 371 615.628C367.8 644.828 369.667 729.795 371 768.628V773.628L447.5 667.128C452.5 660.462 466 645.428 480 638.628C491 631.128 500.833 628.128 502.5 627.128C502.5 627.128 522.5 690 523 691.628L585 591.628C589.5 583.5 601.5 567.5 617.5 559.628C630.3 552.028 661.833 534.795 676 527.128C693.5 515.628 702.5 502.628 707.5 481.628L752 338.628C755 325.628 758.2 307.128 747 287.128L694.5 171.128Z"
+            fill="#32344A"
+          />
+          <path
+            d="M254.5 383.128C238.5 389.628 232.5 401.628 232.5 414.628L223.5 486.128C218.5 517.628 235 526.628 249 531.628H380L586 414.628C595.288 405.712 596.381 402.575 598.893 395.363C599.086 394.81 599.286 394.234 599.5 393.628L658.5 171.128C671.314 128.891 654.848 111.879 644.59 101.28C644.04 100.712 643.508 100.162 643 99.6283C625.5 89.295 584.9 65.7283 562.5 54.1283C564.9 68.1283 561.5 78.295 559.5 81.6283C539.167 124.795 496.8 215.228 490 231.628C481.2 254.828 466.667 264.628 460.5 266.628L254.5 383.128Z"
+            fill="#314754"
+          />
+          <path
+            d="M158 377.628L188 483.628C191.167 465.128 197.8 422.828 199 401.628C203.5 377.628 217.833 364.462 226.5 359.128L432.5 242.628C447.278 235.943 450.372 230.186 453.626 224.133C454.071 223.304 454.519 222.471 455 221.628L526.5 72.1283C536.5 46.5284 520.5 26.6283 509 19.1283L407 0.628348C382 -2.37165 374 5.62835 365 19.1283L304 118.628C262.167 188.128 175.8 330.528 165 344.128C154.2 357.728 155.833 372.128 158 377.628Z"
+            fill="#4F737C"
+          />
+          <path
+            d="M15 283.128L234.5 163.628C222.495 184.12 204.234 213.524 186.386 242.262C161.123 282.942 136.688 322.287 132 333.128C118.4 350.728 120.333 371.795 123 380.128L140 446.628C120.333 442.962 78.2 434.628 67 430.628C55.8 426.628 45.3333 414.962 41.5 409.628L4 325.628C-6.8 302.828 6.83333 287.795 15 283.128Z"
+            fill="#79A184"
+          />
+          <path
+            d="M53.5 141.628L0 251.628C87.3333 203.295 263.1 106.228 267.5 104.628C271.9 103.028 276.333 96.6283 278 93.6283L328 9.12835C314.333 9.62835 284.6 10.7283 275 11.1283C265.4 11.5283 255 16.6283 251 19.1283C218.019 37.9594 162.004 68.4491 123.21 89.5653L123.207 89.5669C102.603 100.782 86.8564 109.353 82 112.128C68 117.328 57.1667 133.962 53.5 141.628Z"
+            fill="#B2EDC2"
+          />
+        </svg>
+        <canvas id="logo" width="184" height="182"></canvas>
       </div>
-      <div class="spinner" aria-hidden="true"></div>
-      <div id="status" class="status" role="status">
-        Starting Application...
-      </div>
+      <div class="name">MindSage</div>
+      <div id="status" class="status" role="status">Starting…</div>
     </div>
-    <script>
-      try {
-        const { ipcRenderer } = require("electron");
-        const statusEl = document.getElementById("status");
-        ipcRenderer.on("splash-status", (_evt, text) => {
-          if (statusEl && typeof text === "string") statusEl.textContent = text;
-        });
-      } catch (e) {
-        // non-Electron fallback: do nothing
-      }
-    </script>
+    <script src="./rive/rive.js"></script>
+    <script src="./splash.js"></script>
   </body>
 </html>

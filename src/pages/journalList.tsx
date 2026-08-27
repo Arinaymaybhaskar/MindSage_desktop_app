@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
-import { qdrantService } from "../api/qdrantService";
+import { qdrantService } from "../api/qDrantService";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import WeeklyMoodStrip from "../components/weeklyMoodStrip";
@@ -81,6 +81,8 @@ const JournalEntryCard = ({
   return (
     <motion.div
       layout
+      data-testid="journal-card"
+      data-journal-id={entry.id}
       onClick={onSelect}
       onDoubleClick={() => navigate(`/journal/view/${entry.id}`)}
       initial={{ opacity: 0, y: 20 }}
@@ -97,7 +99,7 @@ const JournalEntryCard = ({
       <div className="p-6">
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-text-light dark:text-text-dark transition-colors">
+            <h2 className="font-display text-xl font-bold text-text-light dark:text-text-dark transition-colors">
               {displayTitle(entry.title)}
             </h2>
             <p className="text-xs text-text-light-sub dark:text-text-dark-sub mt-1">
@@ -473,9 +475,9 @@ export default function JournalList() {
         () => setDeleteModalInfo({ isOpen: false, entryId: null }),
         deleteModalInfo.isOpen
       )}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
+          <h1 className="font-display text-4xl font-semibold tracking-tight text-text-light dark:text-text-dark">
             My Journals
           </h1>
           <div className="flex items-center gap-3">
@@ -545,7 +547,7 @@ export default function JournalList() {
                   className="space-y-4"
                 >
                   {/* Date Header */}
-                  <h2 className="text-lg font-semibold text-text-light dark:text-text-dark mb-2  pb-1">
+                  <h2 className="font-display text-lg font-semibold text-text-light dark:text-text-dark mb-2  pb-1">
                     {dayjs(dateKey).format("MMMM D, YYYY")}
                   </h2>
 
@@ -642,7 +644,10 @@ export default function JournalList() {
           </div>
 
           <aside className="sticky top-8 h-fit">
-            <div className="bg-secondary-light dark:bg-secondary-dark p-4 rounded-xl shadow-sm border border-border-light dark:border-border-dark">
+            <div
+              data-testid="mood-calendar"
+              className="bg-secondary-light dark:bg-secondary-dark p-4 rounded-xl shadow-sm border border-border-light dark:border-border-dark"
+            >
               <MoodCalendar
                 moodData={moodDataForCalendar}
                 onDateSelect={(date) => setSelectedDate(date)}

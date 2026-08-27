@@ -15,10 +15,10 @@ const MasonrySkeleton = () => {
           // Each item is a block with a pulsing animation.
           // The height varies based on its index to create a masonry-like effect.
           className={`
-            animate-pulse 
-            bg-gray-200/80 
-            dark:bg-surface-dark/80 
-            rounded-lg 
+            animate-pulse
+            bg-secondary-light/80
+            dark:bg-secondary-dark/80
+            rounded-lg
             w-full 
             break-inside-avoid 
             ${index % 3 === 0 ? "h-80" : index % 3 === 1 ? "h-96" : "h-64"}

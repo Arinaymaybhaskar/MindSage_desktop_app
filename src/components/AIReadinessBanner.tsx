@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, X } from "lucide-react";
+import { X } from "lucide-react";
 import { setupService, type SetupStatus } from "../api/setupService";
+import { MindSageMark } from "./ui/MindSageMark";
 
 const DISMISS_KEY = "ai_banner_dismissed";
 
 /**
  * Non-blocking notice shown when the local AI engine is running but no writing
- * (generation) model is installed yet — so AI features would otherwise fail
+ * (generation) model is installed yet, so AI features would otherwise fail
  * silently. Journaling stays fully usable; this just offers to finish setup
  * with a machine-appropriate model recommendation.
  */
@@ -37,7 +38,7 @@ export default function AIReadinessBanner() {
 
   return (
     <div className="flex items-center gap-3 border-b border-border-light bg-dark1/5 px-4 py-2 text-sm dark:border-border-dark dark:bg-light1/5">
-      <Sparkles size={16} className="shrink-0 text-dark1 dark:text-light1" />
+      <MindSageMark size={16} className="shrink-0 text-dark1 dark:text-light1" />
       <span className="flex-1 text-text-light dark:text-text-dark">
         AI writing features need a model.{" "}
         {rec && (

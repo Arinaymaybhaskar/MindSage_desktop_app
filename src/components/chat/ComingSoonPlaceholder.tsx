@@ -1,13 +1,13 @@
 import React from "react";
-import { Sparkles } from "lucide-react";
+import { MindSageMark } from "../ui/MindSageMark";
 
 export const ComingSoonPlaceholder: React.FC = () => {
   return (
     <div className="flex-grow flex flex-col items-center justify-center text-center p-8 bg-secondary-light dark:bg-secondary-dark">
       <div className="p-4 bg-light1 dark:bg-dark1/10 rounded-full mb-4">
-        <Sparkles size={32} className="text-dark1 dark:text-light1" />
+        <MindSageMark size={32} className="text-dark1 dark:text-light1" />
       </div>
-      <h3 className="text-xl font-bold text-text-light dark:text-text-dark">
+      <h3 className="font-display text-xl font-bold text-text-light dark:text-text-dark">
         AI Insights are Coming Soon!
       </h3>
       <p className="max-w-sm mt-2 text-sm text-text-light-sub dark:text-text-dark-sub">

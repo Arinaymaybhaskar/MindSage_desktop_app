@@ -248,7 +248,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
   return (
     <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
       <div className="p-6 border-b border-border-light dark:border-border-dark">
-        <h2 className="text-xl font-bold text-text-light dark:text-text-dark flex items-center gap-2">
+        <h2 className="font-display text-xl font-bold text-text-light dark:text-text-dark flex items-center gap-2">
           <Palette size={20} />
           Color Theme
         </h2>
@@ -260,7 +260,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
       <div className="p-6 space-y-6">
         {/* Preset Themes */}
         <div>
-          <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-4">
+          <h3 className="font-display text-lg font-semibold text-text-light dark:text-text-dark mb-4">
             Preset Themes
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -273,7 +273,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
         {/* Custom Colors */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-text-light dark:text-text-dark">
+            <h3 className="font-display text-lg font-semibold text-text-light dark:text-text-dark">
               Custom Accent Color
             </h3>
             <button

@@ -6,11 +6,14 @@ interface StatCardProps {
   label: string;
   value: string | number;
   color?: string;
+  /** Stable hook for Playwright-driven demo recordings. */
+  testId?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ label, value }) => {
+const StatCard: React.FC<StatCardProps> = ({ label, value, testId }) => {
   return (
     <motion.div
+      data-testid={testId}
       className="
     bg-secondary-light dark:bg-secondary-dark
     border border-border-light dark:border-border-dark

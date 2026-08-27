@@ -76,7 +76,7 @@ const journalFile = fs.readFileSync(journalPath, "utf8");
         1. **Recurring emotional themes** (e.g., anxiety, guilt, overwhelm)
         2. **Frequently mentioned topics or concerns** (e.g., self-worth, relationships, work stress)
         3. **Cognitive distortions** or negative thinking habits that repeat (e.g., catastrophizing, black-and-white thinking, overgeneralization)
-        4. **Day-of-week correlations** — determine if certain emotions or thought patterns consistently appear on specific days
+        4. **Day-of-week correlations**: determine if certain emotions or thought patterns consistently appear on specific days
         5. **Time-of-day effects** if noticeable
         6. **Shifts or changes in mood, tone, or self-perception** over time
 

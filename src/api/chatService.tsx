@@ -4,6 +4,28 @@ const checkElectron = () => {
   }
 };
 
+/**
+ * One frame of a chat generation, pushed from the main process.
+ *
+ * `phase` reports which stage of the pipeline is running - the reply is
+ * produced by two sequential model calls, and only the second one streams, so
+ * without this the first several seconds would look like nothing happening.
+ * `reset` means a parse attempt failed and its partial text must be discarded
+ * before the retry streams over it.
+ */
+export type ChatStreamEvent =
+  | { streamId: string; type: "start"; chatId: number; messageId: number }
+  | {
+      streamId: string;
+      type: "phase";
+      phase: "thinking" | "searching" | "writing";
+      sources?: unknown[];
+    }
+  | { streamId: string; type: "delta"; text: string }
+  | { streamId: string; type: "reset" }
+  | { streamId: string; type: "done"; aiMessageId: number | null }
+  | { streamId: string; type: "error"; message: string };
+
 export const chatService = {
   sendMessage: async (
     authMode: "online" | "offline",
@@ -12,12 +34,17 @@ export const chatService = {
     message: string,
     model: string,
     sources: string[] = [],
-    files: string[] = []
+    files: string[] = [],
+    streamId?: string
   ): Promise<
     | {
-        messageId: any;
+        messageId: number;
         chatId: number;
-        userMessage: any;
+        aiMessageId: number | null;
+        aiRes: {
+          chatResponse: { response: string; suggested_user_prompt: string };
+          semanticResult?: unknown[];
+        };
       }
     | { error: string }
   > => {
@@ -30,7 +57,21 @@ export const chatService = {
       message,
       model,
       sources,
-      files
+      files,
+      streamId
+    );
+  },
+
+  /**
+   * Subscribes to generation events. Returns an unsubscribe function; the
+   * preload bridge removes only this listener, so several subscribers can
+   * coexist safely.
+   */
+  onStream: (callback: (event: ChatStreamEvent) => void): (() => void) => {
+    checkElectron();
+    return window.electron.ipcRenderer.on(
+      "chat:stream",
+      callback as (...args: unknown[]) => void
     );
   },
   getChats: async (

@@ -14,7 +14,7 @@ export async function initAutoUpdater(win) {
     try {
         ({ autoUpdater } = await import("electron-updater"));
     } catch {
-        console.warn("[updater] electron-updater not installed — skipping auto-update");
+        console.warn("[updater] electron-updater not installed, skipping auto-update");
         return;
     }
 

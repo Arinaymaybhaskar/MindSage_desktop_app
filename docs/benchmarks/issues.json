@@ -1,0 +1,251 @@
+{
+  "$comment": [
+    "The optimisation ledger's issue list. Hand-written: id, title, severity,",
+    "target and the pointer to the metric. NEVER hand-written: the measured",
+    "values themselves - those are read out of results/*.json at render time by",
+    "scripts/bench/render-board.mjs, because typed copies drift.",
+    "",
+    "`metric.path` is an array of literal keys because scenario names contain",
+    "dots. `volume` applies to the db stage only. `target` is in the metric's",
+    "own unit; `higherIsBetter` flips the comparison for quality scores.",
+    "",
+    "Regenerate the board with: npm run bench:board"
+  ],
+  "$baselineComment": [
+    "Runs that measure the UNMODIFIED tree. They are never treated as an",
+    "'after', because an after column is a claim that something was fixed.",
+    "`baseline-extra` belongs here: it added the four stages the original",
+    "baseline predated, on the same code, and was merged into the baseline",
+    "record. Once every run carries a commit hash this list becomes redundant -",
+    "a run sharing the baseline's commit cannot be an after by definition."
+  ],
+  "baselineLabels": ["baseline", "baseline-extra"],
+  "issues": [
+    {
+      "id": "DB-1",
+      "title": "No indexes on `journal_entries`",
+      "severity": "high",
+      "status": "open",
+      "metricLabel": "`list.page1` p95 @ 50k",
+      "metric": {
+        "stage": "db",
+        "volume": 50000,
+        "path": ["results", "list.page1", "p95"],
+        "unit": "ms",
+        "target": 20
+      }
+    },
+    {
+      "id": "DB-2",
+      "title": "No WAL — writers block readers",
+      "severity": "high",
+      "status": "open",
+      "metricLabel": "read p95 under worker writes @ 150",
+      "metric": {
+        "stage": "db",
+        "volume": 150,
+        "path": ["results", "contention.listWhileWorkerWrites", "p95"],
+        "unit": "ms",
+        "target": 10
+      }
+    },
+    {
+      "id": "DB-3",
+      "title": "`getUserStats` does 18 table scans",
+      "severity": "high",
+      "status": "open",
+      "metricLabel": "`dashboard.stats` p95 @ 50k",
+      "metric": {
+        "stage": "db",
+        "volume": 50000,
+        "path": ["results", "dashboard.stats", "p95"],
+        "unit": "ms",
+        "target": 100
+      }
+    },
+    {
+      "id": "DB-4",
+      "title": "`DATE()`/`DATETIME()` defeat the index",
+      "severity": "high",
+      "status": "open",
+      "metricLabel": "`list.dateFiltered` p95 @ 50k",
+      "metric": {
+        "stage": "db",
+        "volume": 50000,
+        "path": ["results", "list.dateFiltered", "p95"],
+        "unit": "ms",
+        "target": 20
+      }
+    },
+    {
+      "id": "DB-5",
+      "title": "`ORDER BY RANDOM()` in the gallery",
+      "severity": "high",
+      "status": "open",
+      "metricLabel": "`gallery.random` p95 @ 50k",
+      "metric": {
+        "stage": "db",
+        "volume": 50000,
+        "path": ["results", "gallery.random", "p95"],
+        "unit": "ms",
+        "target": 50
+      }
+    },
+    {
+      "id": "AI-1",
+      "title": "Metadata + summary are two serial calls",
+      "severity": "high",
+      "status": "open",
+      "metricLabel": "`enrich.endToEnd` p50",
+      "metric": {
+        "stage": "ai",
+        "path": ["results", "enrich.endToEnd.medium", "p50"],
+        "unit": "ms",
+        "target": 5000
+      }
+    },
+    {
+      "id": "AI-2",
+      "title": "Unbounded backfill sweep",
+      "severity": "high",
+      "status": "open",
+      "metricLabel": "projected backfill @ 5k entries",
+      "metric": {
+        "stage": "ai",
+        "path": ["results", "embed.projectedBacklog", "5000 entries"],
+        "unit": "text"
+      }
+    },
+    {
+      "id": "AI-3",
+      "title": "No model pre-warm",
+      "severity": "moderate",
+      "status": "open",
+      "metricLabel": "first generation after launch",
+      "metric": {
+        "stage": "ai",
+        "path": ["results", "generate.coldStart", "wallMs"],
+        "unit": "ms",
+        "target": 1000
+      }
+    },
+    {
+      "id": "AI-4",
+      "title": "Ghost text slower than its budget",
+      "severity": "moderate",
+      "status": "open",
+      "metricLabel": "`ghostText` p95",
+      "metric": {
+        "stage": "ai",
+        "path": ["results", "ghostText.suggestion", "p95"],
+        "unit": "ms",
+        "target": 300
+      }
+    },
+    {
+      "id": "STT-1",
+      "title": "Whisper respawns per transcription",
+      "severity": "moderate",
+      "status": "open",
+      "metricLabel": "fixed overhead per call",
+      "metric": {
+        "stage": "whisper",
+        "path": ["results", "whisper.spawnAndModelLoad", "p50"],
+        "unit": "ms",
+        "target": 200
+      }
+    },
+    {
+      "id": "STT-2",
+      "title": "ffmpeg conversion on the critical path",
+      "severity": "low",
+      "status": "open",
+      "metricLabel": "per voice note",
+      "metric": {
+        "stage": "whisper",
+        "path": ["results", "ffmpeg.conversion", "p50"],
+        "unit": "ms",
+        "target": 0
+      }
+    },
+    {
+      "id": "PKG-1",
+      "title": "mac binaries inside the Windows build",
+      "severity": "moderate",
+      "status": "open",
+      "metricLabel": "installer size",
+      "metric": {
+        "stage": "size",
+        "derive": "largestInstaller",
+        "unit": "bytes",
+        "target": 188743680
+      }
+    },
+    {
+      "id": "CHAT-1",
+      "title": "RAG runs two serial generations",
+      "severity": "high",
+      "status": "open",
+      "metricLabel": "chat reply p50",
+      "metric": {
+        "stage": "rag",
+        "path": ["results", "rag.total", "p50"],
+        "unit": "ms",
+        "target": 6000
+      }
+    },
+    {
+      "id": "SEARCH-1",
+      "title": "Retrieval ranks the wrong entry first",
+      "severity": "high",
+      "status": "open",
+      "metricLabel": "precision@1",
+      "metric": {
+        "stage": "quality",
+        "path": ["summary", "precision@1"],
+        "unit": "score",
+        "target": 0.75,
+        "higherIsBetter": true
+      }
+    },
+    {
+      "id": "UI-1",
+      "title": "Journal list drops frames while scrolling",
+      "severity": "moderate",
+      "status": "open",
+      "metricLabel": "frames over 16.7ms",
+      "metric": {
+        "stage": "app",
+        "path": ["results", "render.journalListScroll", "droppedPercent"],
+        "unit": "pct",
+        "target": 2
+      }
+    },
+    {
+      "id": "PKG-2",
+      "title": "zxcvbn dominates the JS bundle",
+      "severity": "moderate",
+      "status": "open",
+      "metricLabel": "share of JS",
+      "metric": {
+        "stage": "bundle",
+        "derive": "shareOfJs",
+        "owner": "zxcvbn",
+        "unit": "pct",
+        "target": 5
+      }
+    },
+    {
+      "id": "MEDIA-1",
+      "title": "base64 media over IPC",
+      "severity": "closed",
+      "status": "closed, no action",
+      "metricLabel": "`media.getImage` round-trip",
+      "metric": {
+        "stage": "app",
+        "path": ["results", "media.getImage", "p95"],
+        "unit": "ms"
+      }
+    }
+  ]
+}

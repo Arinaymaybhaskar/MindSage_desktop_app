@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('electron', {
         "journal:get-chart-data",
         "journal:retry-ai-metadata",
         'media:getImage',
+        'media:getThumbnail',
         'media:save',
         'media:save-profile',
         "media:getAudio",
@@ -145,6 +146,7 @@ contextBridge.exposeInMainWorld('electron', {
         "live-transcription-data", // <-- added live transcription stream events
         'services-ready',
         'ai-status-event',
+        'chat:stream', // token-by-token chat generation
         'setup:progress',
         'update:available',
         'update:progress',

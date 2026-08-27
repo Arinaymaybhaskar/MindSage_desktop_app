@@ -9,7 +9,7 @@ const ZOOM_STEP = 10;
 const ZOOM_SAVE_DELAY = 800; // debounce before persisting/applying zoom
 
 // Apply the zoom through the preload bridge. `window.require` is unavailable
-// under contextIsolation, so the old webFrame lookup silently no-op'd — which
+// under contextIsolation, so the old webFrame lookup silently no-op'd, which
 // is why zoom used to only take effect after a reload (App.tsx re-applies it
 // from localStorage on startup via this same bridge).
 const applyZoom = (percent: number) => {
@@ -37,7 +37,7 @@ export const PathOnTitlebar = () => {
     if (name === "path_on_titlebar") {
       localStorage.setItem(name, JSON.stringify(value));
       // Notify the TitleBar (same window) to update live. The native `storage`
-      // event only fires in *other* windows, so we dispatch our own — no reload.
+      // event only fires in *other* windows, so we dispatch our own instead, with no reload.
       window.dispatchEvent(
         new CustomEvent("path_on_titlebar-changed", { detail: value }),
       );
@@ -240,7 +240,7 @@ const AppearanceSettings = () => {
   return (
     <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
       <div className="p-6 border-b border-border-light dark:border-border-dark">
-        <h2 className="text-xl font-bold text-text-light dark:text-text-dark">
+        <h2 className="font-display text-xl font-bold text-text-light dark:text-text-dark">
           Appearance
         </h2>
         <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">

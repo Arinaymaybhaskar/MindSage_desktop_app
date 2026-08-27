@@ -19,7 +19,7 @@ import { progressLogsService } from "../api/progressLogsService";
 import LogProgressModal from "../components/goals/modals/logProgressModal";
 import GoalCardSkeleton from "../components/goals/GoalCardSkeleton";
 import ActiveGoalsList from "../components/goals/ActiveGoalsList";
-import { qdrantService } from "../api/qdrantService";
+import { qdrantService } from "../api/qDrantService";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const GoalsPage: React.FC = () => {
@@ -218,12 +218,13 @@ const GoalsPage: React.FC = () => {
 
   return (
     <div className="bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark overflow-y-auto h-full">
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-4xl font-bold tracking-tight text-text-light dark:text-text-dark">
+          <h1 className="font-display text-4xl font-semibold tracking-tight text-text-light dark:text-text-dark">
             Your Goals
           </h1>
           <button
+            data-testid="goal-add"
             onClick={() => openModal("addChoice")}
             className="flex items-center gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 transition-all duration-200 hover:scale-105"
           >
@@ -259,7 +260,7 @@ const GoalsPage: React.FC = () => {
             {/* Completed Goals Section */}
             <section className="mt-12 mb-10">
               <div className="flex justify-between items-center mb-2 px-2">
-                <h2 className="text-2xl font-semibold text-text-light dark:text-text-dark">
+                <h2 className="font-display text-2xl font-semibold text-text-light dark:text-text-dark">
                   Completed Goals
                 </h2>
                 {filteredCompletedGoals.length > 0 && (

@@ -59,7 +59,7 @@ const Modal: React.FC<ModalProps> = ({
             onClick={(e) => e.stopPropagation()} // Prevent clicks inside the modal from closing it
           >
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold">{title}</h3>
+              <h3 className="font-display text-2xl font-bold">{title}</h3>
               {/* --- CHANGE: Themed close button with icon --- */}
               <button
                 onClick={onClose}

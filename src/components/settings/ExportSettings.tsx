@@ -10,7 +10,7 @@ const ExportSettings = () => {
   return (
     <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
       <div className="p-6 border-b border-border-light dark:border-border-dark">
-        <h2 className="text-xl font-bold text-text-light dark:text-text-dark">
+        <h2 className="font-display text-xl font-bold text-text-light dark:text-text-dark">
           Data Export
         </h2>
         <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">

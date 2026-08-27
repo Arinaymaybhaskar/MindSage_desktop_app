@@ -29,7 +29,7 @@ export function AuthLayout({
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-base-light dark:bg-base-dark">
       {/* --- Themed decorative panel --- */}
       <div className="hidden w-1/2 md:flex bg-secondary-light dark:bg-secondary-dark p-8 flex-col justify-between">
-        <div className="flex items-center gap-2 font-bold text-lg text-text-light font-[fraunces] dark:text-text-dark">
+        <div className="flex items-center gap-2 font-bold text-lg text-text-light font-display dark:text-text-dark">
           <img
             src={authIconLight}
             alt="MindSage Logo"
@@ -45,7 +45,7 @@ export function AuthLayout({
           </span>
         </div>
         <div className="text-text-light dark:text-text-dark space-y-6 max-w-md">
-          <h1 className="text-4xl font-bold font-[fraunces]">
+          <h1 className="text-4xl font-bold font-display">
             Capture your thoughts, one day at a time.
           </h1>
           <p className="text-text-light-sub dark:text-text-dark-sub">
@@ -68,14 +68,14 @@ export function AuthLayout({
         <div className="max-w-md w-full">
           <div className="flex lg:hidden md:hidden justify-center items-center gap-2 mb-8">
             <img src={authIconDark} alt="MindSage Logo" className="w-8 h-8" />
-            <p className="text-2xl font-[fraunces] text-text-light dark:text-text-dark font-medium">
+            <p className="text-2xl font-display text-text-light dark:text-text-dark font-medium">
               <span className="font-bold">Mind</span>Sage
             </p>
           </div>
 
           <div className=" bg-secondary-light dark:bg-secondary-dark p-8 rounded-2xl shadow-lg border border-border-light dark:border-border-dark">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">
+              <h2 className="font-display text-2xl font-bold text-text-light dark:text-text-dark">
                 {title}
               </h2>
               <p className="mt-2 text-sm text-text-light-sub dark:text-text-dark-sub">

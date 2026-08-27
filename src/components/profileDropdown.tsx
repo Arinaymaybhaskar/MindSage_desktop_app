@@ -247,7 +247,7 @@ export const ProfileDropdown: React.FC = () => {
                 transition={{ duration: 0.2 }}
                 className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl shadow-xl w-full max-w-sm border border-border-light dark:border-border-dark"
               >
-                <h2 className="text-lg font-bold text-text-light dark:text-text-dark text-center">
+                <h2 className="font-display text-lg font-bold text-text-light dark:text-text-dark text-center">
                   Confirm Logout
                 </h2>
                 <p className="text-sm text-text-light-sub dark:text-text-dark-sub text-center mt-2 mb-6">

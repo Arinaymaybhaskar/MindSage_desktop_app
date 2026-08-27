@@ -12,7 +12,7 @@ const LOG_RETENTION_DAYS = 7;
 
 // Resolve the logs folder lazily under userData. The old code used
 // `process.cwd()/logs`, which in a packaged install points at the (read-only)
-// install dir — so the very first log write threw and could abort startup.
+// install dir, so the very first log write threw and could abort startup.
 let cleanedOldLogs = false;
 function getLogsDir() {
     const logsDir = path.join(app.getPath("userData"), "logs");

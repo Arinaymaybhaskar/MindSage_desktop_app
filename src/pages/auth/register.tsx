@@ -297,7 +297,7 @@ export default function Register() {
         >
           <Step>
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+              <h2 className="font-display text-xl font-semibold text-text-light dark:text-text-dark">
                 Choose your username
               </h2>
               <div>
@@ -360,7 +360,7 @@ export default function Register() {
           </Step>
           <Step>
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+              <h2 className="font-display text-xl font-semibold text-text-light dark:text-text-dark">
                 What's your email address?
               </h2>
               <div>
@@ -382,7 +382,7 @@ export default function Register() {
           </Step>
           <Step>
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+              <h2 className="font-display text-xl font-semibold text-text-light dark:text-text-dark">
                 What should we call you?
               </h2>
               <div>
@@ -404,7 +404,7 @@ export default function Register() {
           </Step>
           <Step>
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+              <h2 className="font-display text-xl font-semibold text-text-light dark:text-text-dark">
                 Secure your account
               </h2>
               <div>

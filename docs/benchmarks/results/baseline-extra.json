@@ -1,0 +1,631 @@
+{
+  "label": "baseline-extra",
+  "timestamp": "2026-08-26T18:39:13.268Z",
+  "machine": {
+    "platform": "win32 10.0.26200",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "app",
+    "bundle",
+    "rag",
+    "quality"
+  ],
+  "dbRuns": [],
+  "media": null,
+  "size": null,
+  "ai": null,
+  "vector": null,
+  "whisper": null,
+  "startup": null,
+  "app": {
+    "entries": 5000,
+    "runs": 20,
+    "results": {
+      "ipc.journal:get-all (10)": {
+        "n": 20,
+        "min": 16.3,
+        "p50": 26.1,
+        "p95": 29.2,
+        "max": 29.7,
+        "mean": 26.13,
+        "payloadBytes": 22057
+      },
+      "ipc.journal:get-all (50)": {
+        "n": 20,
+        "min": 15.5,
+        "p50": 21.8,
+        "p95": 30.6,
+        "max": 31.7,
+        "mean": 23.055,
+        "payloadBytes": 114385
+      },
+      "ipc.journal:get-recent": {
+        "n": 20,
+        "min": 15.6,
+        "p50": 22.3,
+        "p95": 24.2,
+        "max": 24.8,
+        "mean": 21.46,
+        "payloadBytes": 7104
+      },
+      "ipc.journal:get-images (top)": {
+        "n": 20,
+        "min": 2.2,
+        "p50": 3.3,
+        "p95": 3.9,
+        "max": 5,
+        "mean": 3.21,
+        "payloadBytes": 667
+      },
+      "ipc.dashboard:get-data": {
+        "n": 20,
+        "min": 10.7,
+        "p50": 16.1,
+        "p95": 19.8,
+        "max": 19.8,
+        "mean": 15.655,
+        "payloadBytes": 7696
+      },
+      "ipc.dashboard:get-stats": {
+        "n": 20,
+        "min": 71.3,
+        "p50": 77.6,
+        "p95": 107.6,
+        "max": 125.1,
+        "mean": 83.97,
+        "payloadBytes": 477
+      },
+      "ipc.goal:get-active-goals": {
+        "n": 20,
+        "min": 0.3,
+        "p50": 0.4,
+        "p95": 0.5,
+        "max": 0.5,
+        "mean": 0.405,
+        "payloadBytes": 2
+      },
+      "media.getImage": {
+        "n": 6,
+        "min": 0.9,
+        "p50": 1,
+        "p95": 1.3,
+        "max": 1.3,
+        "mean": 1.05,
+        "payloadBytes": 125483
+      },
+      "media.getThumbnail": {
+        "n": 6,
+        "min": 0.6,
+        "p50": 0.8,
+        "p95": 1.8,
+        "max": 1.8,
+        "mean": 0.95,
+        "payloadBytes": 4823
+      },
+      "render.dashboardSettle": {
+        "n": 5,
+        "min": 362.1,
+        "p50": 379,
+        "p95": 458.7,
+        "max": 458.7,
+        "mean": 389.28,
+        "note": "Time until rendered text stops changing, minus a 200ms stability window."
+      },
+      "render.journalListScroll": {
+        "n": 922,
+        "min": 0.6,
+        "p50": 5.6,
+        "p95": 11,
+        "max": 46.5,
+        "mean": 6.861,
+        "framesSampled": 922,
+        "droppedFrames": 22,
+        "droppedPercent": 2.4,
+        "domNodes": 3628,
+        "cardsRendered": 0
+      },
+      "memory.overSession": {
+        "samples": [
+          {
+            "cycle": 0,
+            "route": "#/dashboard",
+            "rssBytes": 704327680,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 0,
+            "route": "#/journals",
+            "rssBytes": 716730368,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 0,
+            "route": "#/goals",
+            "rssBytes": 719106048,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 0,
+            "route": "#/memories",
+            "rssBytes": 724078592,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 0,
+            "route": "#/chat",
+            "rssBytes": 724791296,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/dashboard",
+            "rssBytes": 706117632,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/journals",
+            "rssBytes": 705560576,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/goals",
+            "rssBytes": 705179648,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/memories",
+            "rssBytes": 704679936,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/chat",
+            "rssBytes": 703815680,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/dashboard",
+            "rssBytes": 638861312,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/journals",
+            "rssBytes": 638869504,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/goals",
+            "rssBytes": 638873600,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/memories",
+            "rssBytes": 638881792,
+            "heapBytes": 42100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/chat",
+            "rssBytes": 638889984,
+            "heapBytes": 42100000
+          }
+        ],
+        "startRssBytes": 704327680,
+        "endRssBytes": 638889984,
+        "growthBytes": -65437696,
+        "startHeapBytes": 42100000,
+        "endHeapBytes": 42100000,
+        "note": "Three passes over five routes. Growth here is not proof of a leak - caches warm too."
+      }
+    }
+  },
+  "bundle": {
+    "sourcemapsAnalysed": 8,
+    "totals": {
+      "javascriptBytes": 1940358,
+      "javascriptGzipBytes": 745529,
+      "cssBytes": 93697,
+      "unattributedBytes": 2742
+    },
+    "byOwner": {
+      "zxcvbn": 819196,
+      "chart.js": 199451,
+      "react-dom": 174347,
+      "src/components": 174085,
+      "src/pages": 136345,
+      "framer-motion": 83137,
+      "gsap": 69926,
+      "lucide-react": 44395,
+      "motion-dom": 37881,
+      "axios": 35780,
+      "react-router": 32623,
+      "react-easy-crop": 19885,
+      "date-fns": 19855,
+      "src/utils": 13570,
+      "src/api": 10783,
+      "dayjs": 9129,
+      "react": 8243,
+      "@kurkle/color": 7806,
+      "src": 7551,
+      "react-hot-toast": 6027,
+      "src/hooks": 4592,
+      "src/layouts": 3732,
+      "scheduler": 3579,
+      "normalize-wheel": 3495,
+      "react-textarea-autosize": 3056
+    },
+    "largestChunks": [
+      {
+        "file": "index-Ds6zBrUv.js",
+        "bytes": 1804367,
+        "gzipBytes": 696939
+      },
+      {
+        "file": "masonry-DZJ1lTjU.js",
+        "bytes": 73477,
+        "gzipBytes": 29211
+      },
+      {
+        "file": "ProfileSettings-CnWyvKue.js",
+        "bytes": 30703,
+        "gzipBytes": 9616
+      },
+      {
+        "file": "ModelSettings-CXmpSfcB.js",
+        "bytes": 16553,
+        "gzipBytes": 4494
+      },
+      {
+        "file": "ColorSettings-CZ-0xk_P.js",
+        "bytes": 6252,
+        "gzipBytes": 2051
+      },
+      {
+        "file": "AppearanceSettings-Cf02sj1p.js",
+        "bytes": 5858,
+        "gzipBytes": 1982
+      },
+      {
+        "file": "SecuritySettings-lPWiqTDW.js",
+        "bytes": 1907,
+        "gzipBytes": 647
+      },
+      {
+        "file": "ExportSettings-BiFCUhwd.js",
+        "bytes": 1241,
+        "gzipBytes": 589
+      }
+    ],
+    "note": "Bytes attributed by decoding sourcemap mappings; unattributed bytes are bundler scaffolding."
+  },
+  "rag": {
+    "chatModel": "llama3.2:latest",
+    "embedModel": "nomic-embed-text:v1.5",
+    "corpusSize": 60,
+    "runs": 3,
+    "results": {
+      "rag.1.queryPlanning": {
+        "n": 9,
+        "min": 4123.677,
+        "p50": 5504.739,
+        "p95": 17237.195,
+        "max": 17237.195,
+        "mean": 6810.247,
+        "planParseRate": "9/9"
+      },
+      "rag.2.embedding": {
+        "n": 9,
+        "min": 20.941,
+        "p50": 26.929,
+        "p95": 65.232,
+        "max": 65.232,
+        "mean": 36.698
+      },
+      "rag.3.vectorSearch": {
+        "n": 9,
+        "min": 2.881,
+        "p50": 3.906,
+        "p95": 35.315,
+        "max": 35.315,
+        "mean": 7.353
+      },
+      "rag.4.answerGeneration": {
+        "n": 9,
+        "min": 4537.698,
+        "p50": 8579.073,
+        "p95": 11882.24,
+        "max": 11882.24,
+        "mean": 8392.126
+      },
+      "rag.total": {
+        "n": 9,
+        "min": 10112.243,
+        "p50": 13996.151,
+        "p95": 24626.07,
+        "max": 24626.07,
+        "mean": 15246.461
+      },
+      "rag.shareOfTotal": {
+        "rag.1.queryPlanning": "39.3%",
+        "rag.2.embedding": "0.2%",
+        "rag.3.vectorSearch": "0%",
+        "rag.4.answerGeneration": "61.3%"
+      }
+    }
+  },
+  "quality": {
+    "summary": {
+      "embedModel": "nomic-embed-text:v1.5",
+      "taskPrefixes": false,
+      "k": 5,
+      "corpusEntries": 18,
+      "queries": 15,
+      "recall@5": 0.767,
+      "mrr": 0.644,
+      "precision@1": 0.467
+    },
+    "perQuery": [
+      {
+        "query": "What have I written about my knee?",
+        "relevant": [
+          1
+        ],
+        "returned": [
+          13,
+          1,
+          15,
+          6,
+          14
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.5,
+        "topHitRelevant": false
+      },
+      {
+        "query": "When did I last talk to my sister?",
+        "relevant": [
+          2
+        ],
+        "returned": [
+          2,
+          13,
+          14,
+          5,
+          6
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Notes about things going wrong at work",
+        "relevant": [
+          3,
+          16
+        ],
+        "returned": [
+          14,
+          8,
+          3,
+          10,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 0.33,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Am I sleeping badly?",
+        "relevant": [
+          4,
+          17
+        ],
+        "returned": [
+          4,
+          13,
+          17,
+          3,
+          11
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "What is my mum up to these days?",
+        "relevant": [
+          5
+        ],
+        "returned": [
+          14,
+          2,
+          17,
+          5,
+          4
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.25,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Have I been reading anything?",
+        "relevant": [
+          6,
+          18
+        ],
+        "returned": [
+          6,
+          4,
+          14,
+          15,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Times I spent time outdoors",
+        "relevant": [
+          7,
+          15
+        ],
+        "returned": [
+          7,
+          15,
+          14,
+          5,
+          6
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Do I struggle to accept compliments?",
+        "relevant": [
+          8,
+          16
+        ],
+        "returned": [
+          8,
+          10,
+          15,
+          4,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "What am I worried about financially?",
+        "relevant": [
+          9
+        ],
+        "returned": [
+          9,
+          4,
+          14,
+          13,
+          8
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Am I looking after myself during the workday?",
+        "relevant": [
+          10,
+          4
+        ],
+        "returned": [
+          11,
+          7,
+          10,
+          14,
+          4
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.33,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Thoughts about where I live",
+        "relevant": [
+          11
+        ],
+        "returned": [
+          14,
+          11,
+          5,
+          13,
+          18
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.5,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Anything about cooking or food I made",
+        "relevant": [
+          12
+        ],
+        "returned": [
+          5,
+          10,
+          11,
+          13,
+          4
+        ],
+        "recall": 0,
+        "reciprocalRank": 0,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Have I been to any medical appointments?",
+        "relevant": [
+          13,
+          1
+        ],
+        "returned": [
+          7,
+          13,
+          18,
+          17,
+          14
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 0.5,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Which friendships have been on my mind?",
+        "relevant": [
+          14,
+          2
+        ],
+        "returned": [
+          6,
+          15,
+          10,
+          14,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 0.25,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Have I been drinking less?",
+        "relevant": [
+          17
+        ],
+        "returned": [
+          17,
+          4,
+          13,
+          14,
+          7
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      }
+    ]
+  }
+}

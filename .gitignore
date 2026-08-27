@@ -29,3 +29,8 @@ dist-electron
 release
 dist
 dist-electron
+scripts/demo-data/generated/
+
+# Marketing/demo screenshots. Regenerate with `npm run capture` rather than
+# carrying several MB of PNGs in history; nothing in the app loads them.
+public/screenshots/

@@ -6,13 +6,13 @@
 // - The app talks to Ollama over its local HTTP API (127.0.0.1:11434), NOT the
 //   CLI, wherever possible. After a fresh install the Ollama *service* is
 //   already running and reachable over HTTP even though the current process's
-//   PATH hasn't picked up the `ollama` binary yet — so HTTP detection is the
+//   PATH hasn't picked up the `ollama` binary yet, so HTTP detection is the
 //   only reliable signal right after an auto-install.
 // - Model policy (per product decision): the embedding model is REQUIRED and
 //   pulled automatically (small, needed for search/enrichment). A generation
 //   model is NEVER force-downloaded. We recommend a size-appropriate model
 //   based on the machine's RAM and let the user choose to pull it (or a small
-//   default they can delete later) — because every machine has different specs.
+//   default they can delete later), because every machine has different specs.
 
 import { app, ipcMain, BrowserWindow, shell } from "electron";
 import { exec, spawn } from "node:child_process";
@@ -280,7 +280,7 @@ async function pullModel(modelName) {
                     });
                 } catch (parseErr) {
                     if (parseErr.message && parseErr.message !== "Unexpected end of JSON input") {
-                        // A real pull error (e.g. model not found) — surface it.
+                        // A real pull error (e.g. model not found): surface it.
                         if (!/JSON/.test(parseErr.message)) throw parseErr;
                     }
                 }

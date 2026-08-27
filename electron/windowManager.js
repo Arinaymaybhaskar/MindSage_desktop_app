@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, shell } from "electron";
+import { BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,13 +8,22 @@ const __dirname = path.dirname(__filename);
 let win;
 
 export async function createWindow() {
+    // iconDark.png is the saturated mark meant for light backgrounds,
+    // iconLight.png the washed-out one meant for dark backgrounds (same
+    // pairing TitleBar.tsx uses) - pick whichever reads against the OS
+    // taskbar/dock's current theme instead of shipping a single flat icon.
+    const taskbarIcon = path.join(
+        __dirname,
+        nativeTheme.shouldUseDarkColors ? "../assets/iconLight.png" : "../assets/iconDark.png"
+    );
+
     win = new BrowserWindow({
         width: 1024,
         height: 800,
         minWidth: 1024,
         minHeight: 800,
         show: false,
-        icon: path.join(__dirname, "../assets/icon.png"),
+        icon: taskbarIcon,
         frame: false,
         titleBarStyle: "hidden",
         webPreferences: {

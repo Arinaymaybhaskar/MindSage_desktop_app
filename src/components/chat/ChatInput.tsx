@@ -258,6 +258,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 handleSendMessage();
               }
             }}
+            data-testid="chat-composer"
             placeholder="Ask about your journal entries..."
             className="flex-1 bg-transparent resize-none border-none focus:outline-none text-text-light dark:text-text-dark px-2 py-1"
             rows={1}
@@ -267,6 +268,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
           <button
             type="button"
+            data-testid="chat-mic-toggle"
             onClick={onToggleTranscription}
             className={`p-2 transition-colors ${
               isTranscribing
@@ -282,6 +284,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
           <button
             type="submit"
+            data-testid="chat-send"
             className="p-2 flex justify-center items-center text-dark1 dark:text-light1 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isLoading || (!inputValue.trim() && !attachedImage)}
             aria-label="Send message"

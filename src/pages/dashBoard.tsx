@@ -1,39 +1,38 @@
-import { useEffect, useState, lazy, Suspense, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { useAuth } from "../hooks/useAuth";
 import { userService } from "../api/userService";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   BookOpen,
-  TrendingUp,
   Plus,
   Target,
   FileText,
   ArrowRight,
   UserIcon,
+  Flame,
+  CalendarDays,
+  Image as ImageIcon,
 } from "lucide-react";
+import { MindSageMark } from "../components/ui/MindSageMark";
+import BentoCard, { TileLabel } from "../components/dashboard/BentoCard";
+import MoodHeatmap from "../components/dashboard/MoodHeatmap";
+import StreakRing from "../components/dashboard/StreakRing";
+import MoodOrb from "../components/ui/MoodOrb";
+import MiniDonut from "../components/dashboard/MiniDonut";
+import LazyThumb from "../components/LazyThumb";
 import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  Legend,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  LabelList,
-} from "recharts";
-import RecentEntryCard from "../components/RecentEntryCard";
-import MasonrySkeleton from "../components/Skeletons/MasonrySkeleton";
-import DashboardSkeleton from "../components/Skeletons/DashBoardSkeleton";
-import StatCard from "../components/StatCard";
-import MoodSentimentChart from "../components/MoodSentimentChart";
+  buildSummary,
+  currentStreak,
+  daysWrittenIn,
+  type DayScore,
+} from "../utils/dashboardInsights";
+import DashboardSkeleton from "../components/Skeletons/DashboardSkeleton";
 import { dashboardService } from "../api/dashBoardService";
 import journalService from "../api/journalService";
 
-const Masonry = lazy(() => import("../components/masonry"));
+dayjs.extend(relativeTime);
 
 interface User {
   username: string;
@@ -80,161 +79,6 @@ interface DashboardStats {
   averageEntriesPerDayOfWeek?: { day: string; average: number }[];
 }
 
-interface JournalingFrequency {
-  day: string;
-  entries: number;
-}
-
-function getTailwindColor(className: string) {
-  const tempEl = document.createElement("div");
-  tempEl.className = className;
-  tempEl.style.display = "none";
-  document.body.appendChild(tempEl);
-  const color = getComputedStyle(tempEl).backgroundColor;
-  document.body.removeChild(tempEl);
-  return color;
-}
-
-const borderColor = getTailwindColor(
-  "border-border-light dark:border-border-dark"
-);
-const infoColor = getTailwindColor("bg-light1 dark:bg-dark1");
-const successColor = getTailwindColor("bg-success dark:bg-success");
-
-const CustomLegend = ({ payload }) => {
-  if (!payload) return null;
-  return (
-    <div className="flex flex-wrap w-full justify-center gap-3 px-6 pb-4">
-      {payload.map((entry, index) => (
-        <div key={`legend-${index}`} className="flex items-center gap-2">
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: entry.color }}
-          ></div>
-          <span className="text-sm text-text-light dark:text-text-dark">
-            {entry.value}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const CustomTooltip = ({ active, payload }) => {
-  if (!active || !payload?.length) return null;
-  const data = payload[0];
-  return (
-    <div className="p-3 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg shadow-lg">
-      <p className="text-base font-semibold text-text-light dark:text-text-dark mb-1">
-        {data.name}
-      </p>
-      <p className="text-sm text-text-light dark:text-text-dark">
-        {data.value.toFixed(2)}
-      </p>
-    </div>
-  );
-};
-
-const GoalStatusDonutChart = ({ data }) => {
-  const COLORS = [infoColor, successColor];
-  return (
-    <div className="h-full w-full flex flex-col focus:outline-none">
-      <h3 className="text-lg font-bold text-text-light dark:text-text-dark p-6 pb-2">
-        Goal Status
-      </h3>
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="40%"
-            labelLine={false}
-            outerRadius={60}
-            fill="#8884d8"
-            dataKey="value"
-            stroke={borderColor}
-          >
-            {data.map((entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-          <Legend content={<CustomLegend />} />
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
-
-const CustomTooltipBar = ({ active, payload }) => {
-  if (!active || !payload?.length) return null;
-  const data = payload[0];
-  return (
-    <div className="p-3 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg shadow-lg">
-      <p className="text-base font-semibold text-text-light dark:text-text-dark mb-1">
-        {data.payload.day}
-      </p>
-      <p className="text-sm text-text-light dark:text-text-dark">
-        Entries: {data.value.toFixed(2)}
-      </p>
-    </div>
-  );
-};
-
-const JournalingFrequencyBarChart = ({ data }) => {
-  return (
-    <div className="h-full w-full flex flex-col">
-      {/* Title matches the image */}
-      <h3 className="text-xl font-bold text-text-light dark:text-text-dark p-6 pl-10 pb-2">
-        Weekly Journaling Habits
-      </h3>
-      {/* Adjusted container height and chart margin for better spacing */}
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart
-          data={data}
-          margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke={"#444444"}
-            vertical={false}
-          />
-          {/* Added styling to X-axis to match image (cleaner look) */}
-          <XAxis
-            dataKey="day"
-            tick={{ fill: "#9ca3af", fontSize: 12 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          {/* Set fixed domain [0, 10] and added styling */}
-          <YAxis
-            // domain={[0, 10]}
-            tickCount={6}
-            tick={{ fill: "#9ca3af", fontSize: 12 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip
-            content={<CustomTooltipBar payload={data} active={true} />}
-            cursor={{ fill: "rgba(156, 163, 175, 0.1)" }}
-          />
-          <Bar dataKey="entries" radius={[4, 4, 0, 0]}>
-            {data.map((entry, idx) => (
-              <Cell
-                key={`cell-${idx}`}
-                fill={entry.entries > 5 ? successColor : infoColor}
-              />
-            ))}
-            {/* DELETED: The <LabelList /> component was removed from here */}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
 
 export default function Dashboard() {
   const { accessToken, logout } = useAuth();
@@ -242,16 +86,12 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
   const [pinnedGoals, setPinnedGoals] = useState<PinnedGoal[]>([]);
-  const [chartData, setChartData] = useState<any>(null);
-  const [journalingFrequency, setJournalingFrequency] = useState<
-    JournalingFrequency[] | null
-  >(null);
   const [imageKeys, setImageKeys] = useState<ImageKeyEntry[]>([]);
-  const [processedImages, setProcessedImages] = useState<any[]>([]);
-  const navigate = useNavigate();
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [isMasonryLoading, setIsMasonryLoading] = useState(true);
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
+  /** Every day the user has ever written, for the heatmap and the streak. */
+  const [allTimeScores, setAllTimeScores] = useState<DayScore[]>([]);
 
   const authMode = (localStorage.getItem("authMode") || "offline") as
     | "offline"
@@ -278,24 +118,22 @@ export default function Dashboard() {
           authMode,
           accessToken
         );
+        // Already exposed for the chart's "All Time" range; reused here so the
+        // heatmap and streak need no new query.
+        const allTime = await dashboardService.getAllTimeScore(
+          authMode,
+          accessToken
+        );
 
         console.log(statsData, "Stats Data");
-
-        // Transform averageEntriesPerDayOfWeek -> day + entries
-        const frequencyData =
-          statsData.averageEntriesPerDayOfWeek?.map((item) => ({
-            day: item.day.slice(0, 3),
-            entries: item.average,
-          })) || [];
-
-        setJournalingFrequency(frequencyData);
         console.log(dashboardData, "dashBoard data");
         setUser(userData);
         setStats(statsData);
         setRecentEntries(dashboardData.recentJournals);
         setPinnedGoals(dashboardData.pinnedGoals);
         setImageKeys(imageData);
-        setChartData(dashboardData.dailyScores);
+        setIsMasonryLoading(false);
+        setAllTimeScores(Array.isArray(allTime) ? allTime : []);
       } catch (err) {
         console.error("Failed to fetch core dashboard data:", err);
         logout();
@@ -306,40 +144,6 @@ export default function Dashboard() {
 
     fetchCoreData();
   }, [accessToken, authMode, logout]);
-
-  useEffect(() => {
-    if (imageKeys.length === 0) {
-      setIsMasonryLoading(false);
-      return;
-    }
-    const processImages = async () => {
-      try {
-        const imgsWithSrc = await Promise.all(
-          imageKeys.map(async (entry) => {
-            const imageSrc = await window.electron.ipcRenderer.invoke(
-              "media:getImage",
-              entry.image_key.toString()
-            );
-            return { ...entry, image_key: imageSrc };
-          })
-        );
-        setProcessedImages(imgsWithSrc);
-      } catch (error) {
-        console.error("Failed to process images:", error);
-      } finally {
-        setIsMasonryLoading(false);
-      }
-    };
-    processImages();
-  }, [imageKeys]);
-
-  const goalChartData = useMemo(() => {
-    if (!stats) return [];
-    return [
-      { name: "Active", value: stats.activeGoals },
-      { name: "Completed", value: stats.completedGoals },
-    ];
-  }, [stats]);
 
   const loadProfileImage = async (imagePath?: string | null) => {
     if (!imagePath) {
@@ -367,15 +171,41 @@ export default function Dashboard() {
     }
   }, []);
 
-  const masonryItems = useMemo(() => {
-    return processedImages.map((entry) => ({
-      id: entry.id,
-      title: entry.title,
-      img: entry.image_key,
-      url: `/journal/view/${entry.id}`,
-      height: Math.floor(Math.random() * (500 - 250 + 1)) + 250,
-    }));
-  }, [processedImages]);
+  // Raw file paths, not data URLs: each tile fetches its own resized thumbnail
+  // when it scrolls into view. Converting them all up front is what made this
+  // section the slowest thing on the page.
+  const masonryItems = useMemo(
+    () =>
+      imageKeys.map((entry) => ({
+        id: entry.id,
+        title: entry.title,
+        img: String(entry.image_key),
+        url: `/journal/view/${entry.id}`,
+      })),
+    [imageKeys]
+  );
+
+  // Derived from data already fetched - no extra query needed. These sit above
+  // the early returns below: hooks must run in the same order on every render,
+  // and `stats` is null until the fetch resolves.
+  const streak = useMemo(() => currentStreak(allTimeScores), [allTimeScores]);
+  const daysWritten30 = useMemo(
+    () => daysWrittenIn(allTimeScores, 30),
+    [allTimeScores]
+  );
+  const summary = useMemo(
+    () =>
+      stats
+        ? buildSummary({
+            totalEntries: stats.totalEntries,
+            totalWords: stats.totalWords,
+            firstEntry: stats.firstEntry,
+            streak,
+            daysWritten30,
+          })
+        : "",
+    [stats, streak, daysWritten30]
+  );
 
   if (isDashboardLoading) {
     return <DashboardSkeleton />;
@@ -392,17 +222,11 @@ export default function Dashboard() {
     );
   }
 
-  const getProgressColors = (percentage: number) => {
-    if (percentage >= 100) {
-      return { bar: "bg-emerald-500", text: "text-emerald-500" };
-    }
-    if (percentage >= 70) {
-      return { bar: "bg-green-500", text: "text-green-500" };
-    }
-    if (percentage >= 40) {
-      return { bar: "bg-blue-500", text: "text-blue-500" };
-    }
-    // Default color for lower percentages
+  /** Progress bar colour by completion, shared by the pinned-goal rows. */
+  const getProgressColor = (percentage: number) => {
+    if (percentage >= 100) return { bar: "bg-emerald-500", text: "text-emerald-500" };
+    if (percentage >= 70) return { bar: "bg-green-500", text: "text-green-500" };
+    if (percentage >= 40) return { bar: "bg-blue-500", text: "text-blue-500" };
     return { bar: "bg-indigo-500", text: "text-indigo-500" };
   };
 
@@ -413,205 +237,281 @@ export default function Dashboard() {
     <UserIcon size={20} />
   );
 
+  const avgMoodLevel = Math.max(
+    1,
+    Math.min(5, Math.round(stats.averageMood || 3))
+  );
+  const wordsPerEntry = stats.totalEntries
+    ? Math.round(stats.totalWords / stats.totalEntries)
+    : 0;
+
   return (
     <div className="bg-base-light dark:bg-base-dark h-full overflow-y-auto">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <header className="mb-8 flex justify-between items-center">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h1 className="text-4xl font-[fraunces] font-semibold tracking-tight text-gray-900 dark:text-white">
-                Welcome back, {user.full_name?.split(" ")[0] || user.username}
-              </h1>
-              <p className="text-lg text-text-light-sub dark:text-text-dark-sub mt-1">
-                Here's a look at your recent activity and memories.
-              </p>
-            </div>
-            <div>
-              <Link
-                to="/journal/new"
-                className="flex w-[40%] items-center h-12 gap-2 px-5 py-2.5 bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark font-semibold rounded-lg shadow-md hover:bg-light1 dark:hover:bg-dark1 transition-all duration-200 hover:scale-101"
-              >
-                <Plus size={20} />
-                <span>New Entry</span>
-              </Link>
-            </div>
-          </div>
-          <div>
-            {profileImageSrc ? (
-              <img
-                src={profileImageSrc}
-                alt="Avatar"
-                className="w-80 h-80 object-cover rounded-full"
-              />
-            ) : (
-              <span className="text-sm bg-tertiary-light dark:bg-tertiary-dark p-2">
-                {displayInitial}
-              </span>
-            )}
-          </div>
-        </header>
-
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            icon={BookOpen}
-            label="Total Entries"
-            value={stats.totalEntries}
-            color="indigo"
-          />
-          <StatCard
-            icon={FileText}
-            label="Total Words"
-            value={stats.totalWords.toLocaleString()}
-            color="blue"
-          />
-          <StatCard
-            icon={TrendingUp}
-            label="Longest streak"
-            value={`${stats.longestStreak} days`}
-            color="green"
-          />
-          <StatCard
-            icon={Target}
-            label="Goals Completed"
-            value={stats.completedGoals}
-            color="purple"
-          />
-        </section>
-
-        {/* START: MODIFIED CHART SECTION */}
-        <section className="mt-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left side: Main charts (3/4 width) */}
-          <div className="lg:col-span-3 flex flex-col gap-6">
-            {/* Score Chart */}
-            <div className="flex w-full h-full justify-center gap-6 items-center">
-              <div className="flex-grow">
-                {chartData && <MoodSentimentChart initialData={chartData} />}
-              </div>
-            </div>
-
-            {/* Weekly Journaling Habit */}
-            <div className="bg-secondary-light dark:bg-secondary-dark border border-border-light dark:border-border-dark rounded-xl">
-              {journalingFrequency && (
-                <JournalingFrequencyBarChart data={journalingFrequency} />
-              )}
-            </div>
-          </div>
-
-          {/* Right side: Goal Status and Pinned Goals (1/4 width) */}
-          <div className="flex flex-col gap-6 lg:col-span-1">
-            {/* Goal Status */}
-            <div className="bg-secondary-light dark:bg-secondary-dark border border-border-light dark:border-border-dark rounded-xl h-[30%]">
-              <GoalStatusDonutChart data={goalChartData} />
-            </div>
-
-            {/* Pinned Goals */}
-            <div className="bg-secondary-light dark:bg-secondary-dark border border-border-light dark:border-border-dark rounded-xl flex flex-col flex-grow min-h-[200px]">
-              <div className="p-6 pb-4">
-                <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
-                  Pinned Goals
-                </h3>
-              </div>
-
-              {pinnedGoals.length > 0 ? (
-                <div className="flex-grow space-y-1 overflow-y-auto no-scrollbar px-6 pb-6">
-                  {[...pinnedGoals]
-                    .sort(
-                      (a, b) =>
-                        b.current_value / b.target_value -
-                        a.current_value / a.target_value
-                    )
-                    .map((goal) => {
-                      const progressPercentage = Math.min(
-                        100,
-                        Math.round(
-                          (goal.current_value / goal.target_value) * 100
-                        )
-                      );
-                      const { bar: barColor, text: textColor } =
-                        getProgressColors(progressPercentage);
-
-                      return (
-                        <button
-                          onClick={() => navigate(`/goals/view/${goal.id}`)}
-                          className="p-3 rounded-lg hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors w-full cursor-pointer text-left"
-                          key={goal.id}
-                        >
-                          <div className="flex justify-between items-center mb-1.5">
-                            <span className="text-sm font-medium text-text-light dark:text-text-dark truncate pr-2">
-                              {goal.title}
-                            </span>
-                            <span className={`text-xs font-bold ${textColor}`}>
-                              {progressPercentage}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-white dark:bg-base-dark rounded-full h-1.5">
-                            <div
-                              className={`h-1.5 rounded-full ${barColor} transition-all duration-500 ease-out`}
-                              style={{ width: `${progressPercentage}%` }}
-                            ></div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                </div>
-              ) : (
-                <div className="flex-grow flex items-center justify-center text-text-light-sub dark:text-text-dark-sub">
-                  <p>No goals pinned.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* END: MODIFIED CHART SECTION */}
-
-        <section className="my-12">
-          <div className="flex justify-between items-center mb-6 px-2">
-            <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">
-              Recent Entries
-            </h2>
+      {/* pb-24 clears the floating dock (absolute bottom-4, ~64px tall);
+          pb-32 was more room than the dock needs and pushed the grid over a
+          screen on its own. */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+        {/* Hero. The subtitle is assembled from the user's own numbers rather
+            than describing the page back to them. */}
+        <header className="mb-5 flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-4xl sm:text-[2.75rem] font-semibold leading-[1.1] tracking-tight text-text-light dark:text-text-dark">
+              Welcome back, {user.full_name?.split(" ")[0] || user.username}
+            </h1>
+            <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-text-light-sub dark:text-text-dark-sub">
+              {summary}
+            </p>
             <Link
-              to="/journals"
-              className="flex items-center gap-1 text-sm font-semibold text-text-light-sub dark:text-text-dark-sub hover:text-dark1 transition-colors"
+              to="/journal/new"
+              className="mt-4 inline-flex w-fit items-center gap-2 rounded-xl bg-dark1 px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
             >
-              View all <ArrowRight size={16} />
+              <Plus size={17} />
+              New entry
             </Link>
           </div>
-          {recentEntries.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recentEntries.map((entry) => (
-                <RecentEntryCard key={entry.id} entry={entry} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 bg-secondary-light dark:bg-secondary-dark rounded-xl border border-dashed border-border-light dark:border-border-dark">
-              <p className="text-text-light-sub dark:text-text-dark-sub">
-                No recent entries found.
-              </p>
-            </div>
-          )}
-        </section>
 
-        <section>
-          <h2 className="text-2xl font-bold text-text-light dark:text-text-dark mb-6 px-2">
-            Memories
-          </h2>
-          <div className="w-full min-h-[600px] ">
-            {isMasonryLoading ? (
-              <MasonrySkeleton />
+          {profileImageSrc ? (
+            <img
+              src={profileImageSrc}
+              alt="Avatar"
+              className="h-20 w-20 flex-shrink-0 rounded-full object-cover ring-2 ring-border-light/50 dark:ring-border-dark/50"
+            />
+          ) : (
+            <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-tertiary-light dark:bg-tertiary-dark font-display text-2xl font-semibold text-text-light-sub dark:text-text-dark-sub ring-2 ring-border-light/50 dark:ring-border-dark/50">
+              {displayInitial}
+            </span>
+          )}
+        </header>
+
+        {/* Bento grid. Tiles differ in size on purpose: the heatmap is the
+            picture of the year and earns the space; the counts are glanceable
+            and do not. */}
+        {/* One screen, no scrolling. Two panels were cut to get here, both
+            because the heatmap already answers what they asked:
+
+            - Score Chart (500px) plotted mood over time, which the heatmap
+              shows in a fraction of the height and far more legibly.
+            - Weekly Journaling Habits (402px) averaged entries per weekday;
+              the heatmap's rows *are* weekdays, so a thin Sunday row says the
+              same thing without a second chart.
+
+            The goal donut moved into the Goals tile rather than owning a panel
+            of its own, and Memories became a strip instead of a 600px
+            masonry. */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-12">
+          <BentoCard index={0} emphasis className="lg:col-span-8">
+            <MoodHeatmap scores={allTimeScores} />
+          </BentoCard>
+
+          <BentoCard
+            index={1}
+            className="lg:col-span-4 flex flex-col"
+            testId="stat-card-streak"
+          >
+            <TileLabel icon={Flame}>Streak</TileLabel>
+            <div className="flex flex-1 items-center py-2">
+              <StreakRing current={streak} longest={stats.longestStreak} />
+            </div>
+          </BentoCard>
+
+          <BentoCard index={2} className="lg:col-span-3">
+            <TileLabel icon={MindSageMark}>How you have felt</TileLabel>
+            <div className="mt-1 flex items-center gap-1">
+              <MoodOrb
+                level={avgMoodLevel}
+                size="sm"
+                hideLabel
+                className="scale-[0.5] -my-5 -ml-6 -mr-4"
+              />
+              <div className="min-w-0">
+                <p className="font-display text-2xl font-semibold leading-none text-text-light dark:text-text-dark">
+                  {(stats.averageMood || 0).toFixed(1)}
+                  <span className="text-sm text-text-light-sub dark:text-text-dark-sub">
+                    {" "}
+                    / 5
+                  </span>
+                </p>
+                <p className="mt-1 truncate text-xs text-text-light-sub dark:text-text-dark-sub">
+                  Most often{" "}
+                  <span className="text-text-light dark:text-text-dark">
+                    {stats.mostUsedTag && stats.mostUsedTag !== "N/A"
+                      ? stats.mostUsedTag
+                      : "unlabelled"}
+                  </span>
+                </p>
+              </div>
+            </div>
+          </BentoCard>
+
+          <BentoCard index={3} className="lg:col-span-3" testId="stat-card-entries">
+            <TileLabel icon={BookOpen}>Entries</TileLabel>
+            <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-text-light dark:text-text-dark">
+              {stats.totalEntries.toLocaleString()}
+            </p>
+            <p className="mt-1 text-xs text-text-light-sub dark:text-text-dark-sub">
+              {daysWritten30} in the last 30 days
+            </p>
+          </BentoCard>
+
+          <BentoCard index={4} className="lg:col-span-3" testId="stat-card-words">
+            <TileLabel icon={FileText}>Words</TileLabel>
+            <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-text-light dark:text-text-dark">
+              {stats.totalWords.toLocaleString()}
+            </p>
+            <p className="mt-1 text-xs text-text-light-sub dark:text-text-dark-sub">
+              ~{wordsPerEntry.toLocaleString()} per entry
+            </p>
+          </BentoCard>
+
+          {/* The donut lives here now instead of in a panel of its own. */}
+          <BentoCard index={5} className="lg:col-span-3" testId="stat-card-goals">
+            <TileLabel icon={Target}>Goals</TileLabel>
+            <div className="mt-1 flex items-center gap-3">
+              <MiniDonut
+                completed={stats.completedGoals}
+                total={stats.totalGoals}
+              />
+              <div className="min-w-0">
+                <p className="font-display text-2xl font-semibold leading-none tabular-nums text-text-light dark:text-text-dark">
+                  {stats.completedGoals}
+                  <span className="text-sm text-text-light-sub dark:text-text-dark-sub">
+                    {" "}
+                    / {stats.totalGoals}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-text-light-sub dark:text-text-dark-sub">
+                  {stats.activeGoals} still active
+                </p>
+              </div>
+            </div>
+          </BentoCard>
+
+          {/* Recent entries */}
+          <BentoCard index={6} className="lg:col-span-8">
+            <div className="flex items-baseline justify-between">
+              <TileLabel icon={BookOpen}>Recent entries</TileLabel>
+              <Link
+                to="/journals"
+                className="flex items-center gap-1 text-xs font-medium text-text-light-sub dark:text-text-dark-sub hover:text-text-light dark:hover:text-text-dark transition-colors"
+              >
+                View all <ArrowRight size={13} />
+              </Link>
+            </div>
+            {recentEntries.length > 0 ? (
+              <div className="mt-3 flex flex-col divide-y divide-border-light/50 dark:divide-border-dark/50">
+                {recentEntries.slice(0, 3).map((entry) => (
+                  <Link
+                    key={entry.id}
+                    to={`/journal/view/${entry.id}`}
+                    className="group flex items-baseline justify-between gap-4 py-2 first:pt-0 last:pb-0"
+                  >
+                    <span className="truncate font-display text-[15px] text-text-light dark:text-text-dark group-hover:underline underline-offset-2">
+                      {entry.title?.trim() || "Untitled entry"}
+                    </span>
+                    <span className="flex-shrink-0 text-[11px] text-text-light-sub dark:text-text-dark-sub">
+                      {dayjs(entry.created_at).fromNow()}
+                    </span>
+                  </Link>
+                ))}
+              </div>
             ) : (
-              <Suspense fallback={<MasonrySkeleton />}>
-                <Masonry
-                  items={masonryItems}
-                  ease="power3.out"
-                  duration={0.6}
-                  stagger={0.05}
-                  animateFrom="bottom"
-                />
-              </Suspense>
+              <p className="mt-3 text-xs text-text-light-sub dark:text-text-dark-sub">
+                No entries yet.
+              </p>
             )}
-          </div>
-        </section>
+          </BentoCard>
+
+          <BentoCard index={7} className="lg:col-span-4">
+            <TileLabel icon={CalendarDays}>Pinned goals</TileLabel>
+            <div className="mt-3 flex flex-col gap-2.5">
+              {pinnedGoals.length > 0 ? (
+                pinnedGoals.slice(0, 3).map((goal) => {
+                  const pct = Math.min(
+                    100,
+                    Math.round(
+                      ((goal.current_value || 0) / (goal.target_value || 1)) * 100
+                    )
+                  );
+                  const { bar, text } = getProgressColor(pct);
+                  return (
+                    <div key={goal.id}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="truncate text-[13px] text-text-light dark:text-text-dark">
+                          {goal.title}
+                        </span>
+                        <span
+                          className={`text-[11px] font-semibold tabular-nums ${text}`}
+                        >
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1 w-full rounded-full bg-tertiary-light dark:bg-tertiary-dark">
+                        <div
+                          className={`h-1 rounded-full ${bar}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-xs text-text-light-sub dark:text-text-dark-sub">
+                  Pin a goal to keep it in view here.
+                </p>
+              )}
+            </div>
+          </BentoCard>
+
+          {/* Memories, as a strip. The masonry was 600px tall on its own. */}
+          <BentoCard index={8} className="lg:col-span-12" testId="memories-grid">
+            <div className="flex items-baseline justify-between">
+              <TileLabel icon={ImageIcon}>Memories</TileLabel>
+              <Link
+                to="/memories"
+                className="flex items-center gap-1 text-xs font-medium text-text-light-sub dark:text-text-dark-sub hover:text-text-light dark:hover:text-text-dark transition-colors"
+              >
+                View all <ArrowRight size={13} />
+              </Link>
+            </div>
+            {isMasonryLoading ? (
+              <div className="mt-3 flex gap-2.5">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-20 flex-1 animate-pulse rounded-lg bg-tertiary-light dark:bg-tertiary-dark"
+                  />
+                ))}
+              </div>
+            ) : masonryItems.length > 0 ? (
+              <div className="mt-3 flex gap-2.5 overflow-x-auto pb-1">
+                {masonryItems.slice(0, 8).map((item) => (
+                  <Link
+                    key={item.id}
+                    to={item.url}
+                    title={item.title}
+                    className="group relative h-20 w-32 flex-shrink-0 overflow-hidden rounded-lg"
+                  >
+                    {/* Fetched only when the strip is actually on screen, and
+                        as a resized JPEG rather than the original file. */}
+                    <LazyThumb
+                      imagePath={item.img}
+                      alt={item.title || "Memory"}
+                      maxWidth={320}
+                      className="h-full w-full transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-4 text-[11px] text-white">
+                      {item.title}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-text-light-sub dark:text-text-dark-sub">
+                Entries with photos will show up here.
+              </p>
+            )}
+          </BentoCard>
+        </div>
       </main>
     </div>
   );

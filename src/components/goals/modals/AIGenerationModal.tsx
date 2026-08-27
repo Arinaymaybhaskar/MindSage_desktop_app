@@ -6,13 +6,13 @@ import { useAuth } from "../../../hooks/useAuth";
 import type { Category } from "../../../types/Goals";
 import {
   BrainCircuit,
-  Sparkles,
   Trash2,
   Check,
   AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dropdown } from "../../ui/Dropdown";
+import { MindSageMark } from "../../ui/MindSageMark";
 
 // --- GoalGeneratorModal Component ---
 // (The rest of the component is provided below)
@@ -219,7 +219,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
           <div className="p-4 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
             <BrainCircuit size={40} className="text-dark1 dark:text-light1" />
           </div>
-          <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">
+          <h2 className="font-display text-2xl font-bold text-text-light dark:text-text-dark">
             Describe Your Ambition
           </h2>
           <p className="text-text-light-sub dark:text-text-dark-sub">
@@ -242,7 +242,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
             disabled={isLoading || !ambition.trim()}
             className="w-full flex items-center justify-center gap-3 mt-2 px-4 py-3 rounded-lg bg-light1 dark:bg-dark1 text-white font-semibold hover:bg-light1 dark:bg-dark1/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300"
           >
-            {isLoading ? <Loader /> : <Sparkles size={20} />}
+            {isLoading ? <Loader /> : <MindSageMark size={20} />}
             <span>{isLoading ? "Generating..." : "Generate Goals"}</span>
           </button>
         </div>

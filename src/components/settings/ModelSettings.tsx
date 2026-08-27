@@ -375,7 +375,7 @@ export default function ModelSettings({
     <>
       <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
         <div className="p-6 border-b border-border-light dark:border-border-dark">
-          <h2 className="text-xl font-bold text-text-light dark:text-text-dark">
+          <h2 className="font-display text-xl font-bold text-text-light dark:text-text-dark">
             AI Model Settings
           </h2>
           <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">
@@ -386,7 +386,7 @@ export default function ModelSettings({
         <div className="p-6 space-y-8">
           {/* Section 1: Assign Models */}
           <section id="assign-models">
-            <h3 className="text-lg font-semibold mb-4 text-text-light dark:text-text-dark">
+            <h3 className="font-display text-lg font-semibold mb-4 text-text-light dark:text-text-dark">
               Assign Models to Tasks
             </h3>
             <div className="space-y-4">
@@ -442,7 +442,7 @@ export default function ModelSettings({
           {/* Section 2: Recommended Models */}
           <section id="recommended-models" className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
-              <h3 className="text-lg font-semibold mb-4 text-text-light dark:text-text-dark">
+              <h3 className="font-display text-lg font-semibold mb-4 text-text-light dark:text-text-dark">
                 Recommended Models
               </h3>
               <div className="mb-4 flex flex-col items-start sm:items-end">
@@ -520,7 +520,7 @@ export default function ModelSettings({
           {/* Section 3: Installed Models */}
           <section id="installed-models" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark">
+              <h3 className="font-display text-lg font-semibold text-text-light dark:text-text-dark">
                 Installed Models
               </h3>
               <div className="w-48">
@@ -632,7 +632,7 @@ function DeleteConfirmModal({
     <div className="fixed inset-0 bg-base-dark/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-surface-light dark:bg-surface-dark w-full max-w-md rounded-2xl shadow-xl border border-border-light dark:border-border-dark">
         <div className="p-6">
-          <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
+          <h3 className="font-display text-lg font-bold text-text-light dark:text-text-dark">
             Delete Model
           </h3>
           <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-2">
@@ -687,7 +687,7 @@ function ModelDetailsModal({
     <div className="fixed inset-0 bg-base-dark/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-surface-light dark:bg-surface-dark w-full max-w-2xl rounded-2xl shadow-xl border border-border-light dark:border-border-dark max-h-[80vh] flex flex-col">
         <div className="p-4 flex justify-between items-center border-b border-border-light dark:border-border-dark">
-          <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
+          <h3 className="font-display text-lg font-bold text-text-light dark:text-text-dark">
             {model.name}
           </h3>
           <button

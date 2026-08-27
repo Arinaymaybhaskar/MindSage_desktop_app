@@ -141,6 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </AnimatePresence>
           <button
+            data-testid="chat-sidebar-toggle"
             onClick={() => setIsOpen(!isOpen)}
             className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
           >
@@ -183,6 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div key={chat.id} className="relative">
               {/* ---- FIX: Changed from <button> to <div> and added accessibility attributes ---- */}
               <div
+                data-testid="chat-list-item"
                 onClick={() => selectChat(chat.id)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") selectChat(chat.id);
@@ -274,7 +276,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={(e) => e.stopPropagation()}
               className="bg-surface-light dark:bg-surface-dark p-6 rounded-lg shadow-xl w-80"
             >
-              <h3 className="text-lg font-semibold mb-4 text-text-light dark:text-text-dark">
+              <h3 className="font-display text-lg font-semibold mb-4 text-text-light dark:text-text-dark">
                 Rename Chat
               </h3>
               <input

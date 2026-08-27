@@ -29,7 +29,12 @@ export default defineConfig({
                   dest: ".", // copy into dist-electron root
                 },
                 { src: "electron/db/*", dest: "db" },
-                { src: "electron/methods/*", dest: "methods" },
+                // Tests sit next to the module they cover, as they do under
+                // src/, but they must not be copied into the packaged app.
+                {
+                  src: ["electron/methods/*", "!electron/methods/*.test.js"],
+                  dest: "methods",
+                },
                 { src: "electron/store.js", dest: "." },
                 { src: "electron/services/*", dest: "services" },
                 { src: "electron/eventBus.js", dest: "." },

@@ -26,6 +26,8 @@ export type DockItemData = {
   onClick?: () => void;
   path?: string;
   className?: string;
+  /** Stable hook for Playwright-driven demo recordings. */
+  testId?: string;
 };
 
 export type DockProps = {
@@ -49,12 +51,14 @@ type DockItemProps = {
   baseItemSize: number;
   magnification: number;
   isActive: boolean;
+  testId?: string;
 };
 
 function DockItem({
   children,
   className = "",
   onClick,
+  testId,
   mouseX,
   spring,
   distance,
@@ -89,6 +93,7 @@ function DockItem({
       onFocus={() => isHovered.set(1)}
       onBlur={() => isHovered.set(0)}
       onClick={onClick}
+      data-testid={testId}
       className={clsx(
         "relative inline-flex items-center justify-center rounded-2xl border-border-light dark:border-border-dark border-1 shadow-md transition-colors",
         {
@@ -269,6 +274,7 @@ export default function Dock({
         }}
         role="toolbar"
         aria-label="Application dock"
+        data-testid="dock"
       >
         <AnimatePresence initial={false} mode="popLayout">
           {expanded ? (
@@ -292,6 +298,12 @@ export default function Dock({
                   <DockItem
                     key={index}
                     onClick={handleClick}
+                    testId={
+                      item.testId ??
+                      (item.path
+                        ? `dock-item-${item.path.replace(/^\//, "") || "write"}`
+                        : undefined)
+                    }
                     className={item.className}
                     mouseX={mouseX}
                     spring={spring}

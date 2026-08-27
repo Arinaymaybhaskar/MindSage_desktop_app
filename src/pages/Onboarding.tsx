@@ -5,10 +5,10 @@ import {
   Loader2,
   Download,
   AlertCircle,
-  Sparkles,
   ArrowRight,
   RefreshCw,
 } from "lucide-react";
+import { MindSageMark } from "../components/ui/MindSageMark";
 import {
   setupService,
   appPrefsService,
@@ -222,9 +222,9 @@ export default function Onboarding() {
       <div className="mx-auto max-w-2xl px-6 py-12">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-dark1/10 dark:bg-light1/10">
-            <Sparkles size={28} className="text-dark1 dark:text-light1" />
+            <MindSageMark size={28} className="text-dark1 dark:text-light1" />
           </div>
-          <h1 className="font-[fraunces] text-3xl font-extrabold text-text-light dark:text-text-dark">
+          <h1 className="font-display text-3xl font-extrabold text-text-light dark:text-text-dark">
             Set up MindSage AI
           </h1>
           <div className="mx-auto mt-2 max-w-md text-sm text-text-light-sub dark:text-text-dark-sub">
@@ -331,7 +331,7 @@ export default function Onboarding() {
               status?.generationReady
                 ? "A generation model is installed."
                 : rec
-                  ? `Powers titles, summaries and chat. Recommended for your machine: ${rec.label} (~${rec.sizeGB} GB). Every machine differs — you can change this anytime.`
+                  ? `Powers titles, summaries and chat. Recommended for your machine: ${rec.label} (~${rec.sizeGB} GB). Every machine differs, so you can change this anytime.`
                   : "Powers titles, summaries and chat."
             }
           >
@@ -368,7 +368,7 @@ export default function Onboarding() {
                   </div>
                 )}
                 <p className="mt-2 text-xs text-text-light-sub dark:text-text-dark-sub">
-                  Prefer to decide later? Skip this — MindSage will suggest a
+                  Prefer to decide later? Skip this: MindSage will suggest a
                   compatible model the first time you use an AI feature.
                 </p>
               </>

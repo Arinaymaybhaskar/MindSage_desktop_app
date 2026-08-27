@@ -274,7 +274,7 @@ export async function handleRetryAIMetadata(event, token, journalId, type) {
             if (!metadata) throw new Error("AI returned incomplete or invalid metadata");
             // The journal:aiCompleted persister writes the fields and flips the
             // status to 'completed'. force:true because this is an explicit user
-            // retry/regenerate — overwrite the existing AI fields.
+            // retry/regenerate: overwrite the existing AI fields.
             eventBus.emit("journal:aiCompleted", { entry, metadata, entryId: entry.id, force: true });
             return { success: true };
         } catch (err) {
