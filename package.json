@@ -31,7 +31,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepare": "husky",
-    "bench:board": "node scripts/bench/render-board.mjs"
+    "bench:board": "node scripts/bench/render-board.mjs",
+    "bench:publish": "node scripts/bench/publish-run.mjs"
   },
   "build": {
     "copyright": "Copyright © 2025 Arinaymay",
