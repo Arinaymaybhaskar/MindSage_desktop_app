@@ -18,6 +18,9 @@
     "release": "vite build && electron-builder --publish always",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "seed:demo": "node scripts/run-seed.mjs",
+    "bench": "node scripts/run-bench.mjs",
+    "bench:ipc": "node scripts/bench/bench-ipc.mjs",
+    "bench:full": "node scripts/run-bench.mjs --stages all",
     "capture": "node scripts/capture-shots.mjs",
     "gen:images": "node scripts/gen-demo-images.mjs",
     "postinstall": "npm run rebuild",
@@ -27,7 +30,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepare": "husky"
+    "prepare": "husky",
+    "bench:board": "node scripts/bench/render-board.mjs"
   },
   "build": {
     "copyright": "Copyright © 2025 Arinaymay",
