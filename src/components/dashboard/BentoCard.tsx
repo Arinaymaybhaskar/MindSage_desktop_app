@@ -41,7 +41,7 @@ export const BentoCard: React.FC<BentoCardProps> = ({
       emphasis
         ? "border-border-light/80 dark:border-border-dark/80 bg-surface-light dark:bg-surface-dark"
         : "border-border-light/60 dark:border-border-dark/60 bg-secondary-light dark:bg-secondary-dark",
-      className
+      className,
     )}
   >
     {children}

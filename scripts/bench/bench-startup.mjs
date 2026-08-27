@@ -46,14 +46,14 @@ const userData = path.join(
     (process.platform === "darwin"
       ? path.join(process.env.HOME, "Library", "Preferences")
       : path.join(process.env.HOME, ".local", "share")),
-  "MindSage"
+  "MindSage",
 );
 const logPath = path.join(userData, "main.log");
 
 if (!fs.existsSync(exePath)) {
   console.error(
     `Packaged build not found at ${path.relative(repoRoot, exePath)}.\n` +
-      "Run `npm run build` first - startup is measured against the packaged app, not dev mode."
+      "Run `npm run build` first - startup is measured against the packaged app, not dev mode.",
   );
   process.exit(1);
 }
@@ -100,7 +100,9 @@ function parseRun(sinceBytes) {
 /** Kills the whole process tree - Electron spawns helpers and Qdrant. */
 function killTree(pid) {
   try {
-    execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" });
+    execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+    });
   } catch {
     /* already exited */
   }
@@ -120,7 +122,11 @@ for (let i = 0; i < RUNS; i++) {
   const appEnv = { ...process.env };
   delete appEnv.ELECTRON_RUN_AS_NODE;
 
-  const proc = spawn(exePath, [], { detached: true, stdio: "ignore", env: appEnv });
+  const proc = spawn(exePath, [], {
+    detached: true,
+    stdio: "ignore",
+    env: appEnv,
+  });
 
   // Poll the log rather than the process: the window appearing is what ends a
   // startup, and the process stays alive long after that.
@@ -128,11 +134,14 @@ for (let i = 0; i < RUNS; i++) {
   const deadline = Date.now() + 120000;
   while (Date.now() < deadline) {
     events = parseRun(startBytes);
-    if (events.some((e) => e.marker === "Renderer signaled visually ready")) break;
+    if (events.some((e) => e.marker === "Renderer signaled visually ready"))
+      break;
     await new Promise((r) => setTimeout(r, 250));
   }
 
-  const complete = events.some((e) => e.marker === "Renderer signaled visually ready");
+  const complete = events.some(
+    (e) => e.marker === "Renderer signaled visually ready",
+  );
   const spawnToFirstMarker = events.length ? events[0].at - t0 : null;
 
   killTree(proc.pid);
@@ -141,7 +150,9 @@ for (let i = 0; i < RUNS; i++) {
   await new Promise((r) => setTimeout(r, SETTLE_MS));
 
   if (!complete) {
-    console.log(`  run ${i + 1}: incomplete (no visually-ready marker within 120s)`);
+    console.log(
+      `  run ${i + 1}: incomplete (no visually-ready marker within 120s)`,
+    );
     continue;
   }
 
@@ -160,7 +171,9 @@ for (let i = 0; i < RUNS; i++) {
     totalMs: total,
   });
 
-  console.log(`  run ${i + 1} (${runs[runs.length - 1].kind}): total ${fmt(total)}`);
+  console.log(
+    `  run ${i + 1} (${runs[runs.length - 1].kind}): total ${fmt(total)}`,
+  );
   for (const [marker, ms] of Object.entries(steps)) {
     if (ms >= 1) console.log(`      ${marker.padEnd(48)} ${fmt(ms)}`);
   }
@@ -174,7 +187,9 @@ if (runs.length === 0) {
 /** Per-step aggregate across runs, so one slow launch does not define a step. */
 const stepStats = {};
 for (const marker of MARKERS.slice(1)) {
-  const samples = runs.map((r) => r.steps[marker]).filter((v) => typeof v === "number");
+  const samples = runs
+    .map((r) => r.steps[marker])
+    .filter((v) => typeof v === "number");
   if (samples.length) stepStats[marker] = summarise(samples);
 }
 

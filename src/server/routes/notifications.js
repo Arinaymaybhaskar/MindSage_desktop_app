@@ -18,14 +18,15 @@ router.post("/:id", checkCronAuth, async (req, res) => {
     const userId = req.params.id;
     await pool.query(
       "INSERT INTO notifications (user_id, title, body, type) VALUES ($1, $2, $3, $4)",
-      [userId, title, body, type]
+      [userId, title, body, type],
     );
-    res.status(201).json({message: `notification sent to user id: ${userId}`});
-  }
-  catch (err) {
+    res
+      .status(201)
+      .json({ message: `notification sent to user id: ${userId}` });
+  } catch (err) {
     res.status(500).send(err);
   }
-})
+});
 
 // POST /notifications
 router.post("/", checkCronAuth, async (req, res) => {
@@ -36,7 +37,7 @@ router.post("/", checkCronAuth, async (req, res) => {
 
     if (Array.isArray(userid) && userid.length > 0) {
       // Use the provided list of user IDs
-      targetUsers = userids.map(id => ({ id }));
+      targetUsers = userids.map((id) => ({ id }));
     } else {
       // Fetch all user IDs from the database
       const allUsers = await pool.query("SELECT id FROM users");
@@ -46,7 +47,7 @@ router.post("/", checkCronAuth, async (req, res) => {
     const insertPromises = targetUsers.map((user) => {
       return pool.query(
         "INSERT INTO notifications (user_id, title, body, type) VALUES ($1, $2, $3, $4)",
-        [user.id, title, body, type]
+        [user.id, title, body, type],
       );
     });
 
@@ -59,14 +60,12 @@ router.post("/", checkCronAuth, async (req, res) => {
   }
 });
 
-
-
 // GET /notifications
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC",
-      [req.user.id]
+      [req.user.id],
     );
     res.json(result.rows);
   } catch (err) {
@@ -79,7 +78,7 @@ router.get("/", authenticateToken, async (req, res) => {
 router.put("/:id/read", authenticateToken, async (req, res) => {
   await pool.query(
     "UPDATE notifications SET read = TRUE WHERE id = $1 AND user_id = $2",
-    [req.params.id, req.user.id]
+    [req.params.id, req.user.id],
   );
   res.json({ message: "Marked as read" });
 });
@@ -88,7 +87,7 @@ router.put("/read-all", authenticateToken, async (req, res) => {
   try {
     await pool.query(
       'UPDATE notifications SET "read" = TRUE WHERE user_id = $1',
-      [req.user.id]
+      [req.user.id],
     );
 
     res.json({

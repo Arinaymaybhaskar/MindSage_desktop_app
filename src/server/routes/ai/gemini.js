@@ -12,25 +12,25 @@ const __dirname = dirname(__filename);
 
 // Get current user info
 router.post("/text", authenticateToken, async (req, res) => {
-    let { prompt, model } = req.body;
+  let { prompt, model } = req.body;
 
-    if (!model) model = "gemini-2.5-flash";
-    if (!prompt) {
-        return res.status(400).json({ error: "Prompt is required" });
-    }
-    try {
-        const data = await textResponse(prompt, model);
-        res.json({ data });
-    } catch (err) {
-        res.status(500).json({ error: err.message || "Internal Server Error" });
-    }
+  if (!model) model = "gemini-2.5-flash";
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt is required" });
+  }
+  try {
+    const data = await textResponse(prompt, model);
+    res.json({ data });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Internal Server Error" });
+  }
 });
 
 router.post("/analyze-journal", authenticateToken, async (req, res) => {
-    let { content } = req.body;
-    const model = "gemini-2.5-flash";
-    if (!content) return res.status(400).json({ error: "content is required." })
-    const prompt = `
+  let { content } = req.body;
+  const model = "gemini-2.5-flash";
+  if (!content) return res.status(400).json({ error: "content is required." });
+  const prompt = `
     You are a mental health assistant that extracts structured behavioral insights from journal entries.
 
     Here’s a journal entry:
@@ -48,27 +48,29 @@ router.post("/analyze-journal", authenticateToken, async (req, res) => {
 
     Only return valid JSON. Do not explain.
     `;
-    try {
-        const rawData = await textResponse(prompt, model);
-        const raw = rawData.result;
-        const jsonStart = raw.indexOf("{");
-        const jsonEnd = raw.lastIndexOf("}") + 1;
-        const jsonString = raw.slice(jsonStart, jsonEnd);
-        const data = JSON.parse(jsonString);
-        res.json({ data });
-    } catch (err) {
-        res.status(500).json({ error: err.message || "Internal Server Error" });
-    }
-})
+  try {
+    const rawData = await textResponse(prompt, model);
+    const raw = rawData.result;
+    const jsonStart = raw.indexOf("{");
+    const jsonEnd = raw.lastIndexOf("}") + 1;
+    const jsonString = raw.slice(jsonStart, jsonEnd);
+    const data = JSON.parse(jsonString);
+    res.json({ data });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Internal Server Error" });
+  }
+});
 router.post("/analyze-user-patterns", authenticateToken, async (req, res) => {
-    // let { content } = req.body;
-    const model = "gemini-2.5-flash";
-    const {file} = req.body
-    // if (!content) return res.status(400).json({ error: "content is required." });
-    const journalPath = path.resolve(__dirname, "journals.json");
-    
-const journalFile = fs.readFileSync(journalPath, "utf8");
-    const prompt = [file, `
+  // let { content } = req.body;
+  const model = "gemini-2.5-flash";
+  const { file } = req.body;
+  // if (!content) return res.status(400).json({ error: "content is required." });
+  const journalPath = path.resolve(__dirname, "journals.json");
+
+  const journalFile = fs.readFileSync(journalPath, "utf8");
+  const prompt = [
+    file,
+    `
         Analyze the following list of journal entries from the past 4 weeks.
 
         Identify and summarize any meaningful patterns across the entries, including:
@@ -99,18 +101,19 @@ const journalFile = fs.readFileSync(journalPath, "utf8");
 
         Do not explain or introduce the output. Just return the JSON object.
 
-    `];
-    try {
-        const rawData = await textResponse(prompt, model);
-        const raw = rawData.result;
-        const jsonStart = raw.indexOf("{");
-        const jsonEnd = raw.lastIndexOf("}") + 1;
-        const jsonString = raw.slice(jsonStart, jsonEnd);
-        const data = JSON.parse(jsonString);
-        res.json({ data });
-    } catch (err) {
-        res.status(500).json({ error: err.message || "Internal Server Error" });
-    }
-})
+    `,
+  ];
+  try {
+    const rawData = await textResponse(prompt, model);
+    const raw = rawData.result;
+    const jsonStart = raw.indexOf("{");
+    const jsonEnd = raw.lastIndexOf("}") + 1;
+    const jsonString = raw.slice(jsonStart, jsonEnd);
+    const data = JSON.parse(jsonString);
+    res.json({ data });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Internal Server Error" });
+  }
+});
 
 export default router;

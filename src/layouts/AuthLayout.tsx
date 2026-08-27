@@ -92,54 +92,54 @@ export function AuthLayout({
 
             {/* --- REVAMPED: Auth Mode Toggle with Disabled State --- */}
             {setAuthMode && (
-            <div className="flex justify-center mb-6">
-              <div className="relative flex w-full p-1 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
-                {toggleOptions.map((opt) => (
-                  <button
-                    key={opt.id}
-                    // Only allow onClick for the "offline" option
-                    onClick={() => {
-                      if (opt.id === "offline") {
-                        setAuthMode("offline");
-                      }
-                    }}
-                    // Disable the "online" button
-                    disabled={opt.id === "online"}
-                    className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-full z-10 transition-colors ${
-                      // Ternary to handle styling for all states
-                      opt.id === "online"
-                        ? // Disabled state for "online"
-                          "text-dark1 dark:text-light1 opacity-70 cursor-not-allowed"
-                        : authMode === opt.id
-                        ? // Active state for "offline"
-                          "text-text-light dark:text-text-dark"
-                        : // Inactive state for "offline"
-                          "text-text-light-sub dark:text-text-dark-sub"
-                    }`}
-                  >
-                    {/* The animated pill only shows for the active "offline" mode */}
-                    {authMode === opt.id && opt.id === "offline" && (
-                      <motion.div
-                        layoutId="auth-mode-pill"
-                        className="absolute inset-0 bg-surface-light dark:bg-surface-dark rounded-full shadow-md"
-                        transition={{
-                          type: "spring",
-                          stiffness: 300,
-                          damping: 30,
-                        }}
-                      />
-                    )}
-                    <span className="relative">
-                      <opt.icon size={16} />
-                    </span>
-                    {/* Display "Coming Soon" for the "online" option */}
-                    <span className="relative font-semibold">
-                      {opt.id === "online" ? "Coming Soon" : opt.label}
-                    </span>
-                  </button>
-                ))}
+              <div className="flex justify-center mb-6">
+                <div className="relative flex w-full p-1 bg-tertiary-light dark:bg-tertiary-dark rounded-full">
+                  {toggleOptions.map((opt) => (
+                    <button
+                      key={opt.id}
+                      // Only allow onClick for the "offline" option
+                      onClick={() => {
+                        if (opt.id === "offline") {
+                          setAuthMode("offline");
+                        }
+                      }}
+                      // Disable the "online" button
+                      disabled={opt.id === "online"}
+                      className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-full z-10 transition-colors ${
+                        // Ternary to handle styling for all states
+                        opt.id === "online"
+                          ? // Disabled state for "online"
+                            "text-dark1 dark:text-light1 opacity-70 cursor-not-allowed"
+                          : authMode === opt.id
+                            ? // Active state for "offline"
+                              "text-text-light dark:text-text-dark"
+                            : // Inactive state for "offline"
+                              "text-text-light-sub dark:text-text-dark-sub"
+                      }`}
+                    >
+                      {/* The animated pill only shows for the active "offline" mode */}
+                      {authMode === opt.id && opt.id === "offline" && (
+                        <motion.div
+                          layoutId="auth-mode-pill"
+                          className="absolute inset-0 bg-surface-light dark:bg-surface-dark rounded-full shadow-md"
+                          transition={{
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 30,
+                          }}
+                        />
+                      )}
+                      <span className="relative">
+                        <opt.icon size={16} />
+                      </span>
+                      {/* Display "Coming Soon" for the "online" option */}
+                      <span className="relative font-semibold">
+                        {opt.id === "online" ? "Coming Soon" : opt.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
             )}
             {children}
           </div>

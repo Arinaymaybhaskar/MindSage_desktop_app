@@ -22,12 +22,15 @@ const ActiveGoalsList: React.FC<ActiveGoalsListProps> = (props) => {
   const pinnedGoals = goals.filter((g) => g.is_pinned);
   const unpinnedGoals = goals.filter((g) => !g.is_pinned);
 
-  const groupedGoals = unpinnedGoals.reduce((acc, goal) => {
-    const key = goal.parent_goal_title || "General Goals";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(goal);
-    return acc;
-  }, {} as Record<string, Goal[]>);
+  const groupedGoals = unpinnedGoals.reduce(
+    (acc, goal) => {
+      const key = goal.parent_goal_title || "General Goals";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(goal);
+      return acc;
+    },
+    {} as Record<string, Goal[]>,
+  );
 
   const containerVariants = {
     hidden: { opacity: 0 },

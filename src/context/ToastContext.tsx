@@ -1,5 +1,10 @@
 // ToastContext.tsx
-import React, { createContext, useState, type ReactNode, useCallback } from "react";
+import React, {
+  createContext,
+  useState,
+  type ReactNode,
+  useCallback,
+} from "react";
 import ToastNotification from "../components/ToastNotification";
 
 type ToastVariant = "info" | "warning" | "danger" | "success";
@@ -33,7 +38,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
         setToasts((prev) => prev.filter((t) => t.id !== id));
       }, 3000);
     },
-    []
+    [],
   );
 
   return (

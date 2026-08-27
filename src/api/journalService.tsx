@@ -16,13 +16,10 @@ export interface JournalEntry {
   content_summary?: string;
   tags?: string[];
   synced_to_qdrant?:
-    | "not_synced"
-    | "pending"
-    | "in_progress"
-    | "success"
-    | "failed";
+    "not_synced" | "pending" | "in_progress" | "success" | "failed";
   ai_metadata_status?: "not_started" | "pending" | "completed" | "failed";
-  ai_summary_status?: "not_started" | "pending" | "completed" | "failed" | "skipped";
+  ai_summary_status?:
+    "not_started" | "pending" | "completed" | "failed" | "skipped";
   ai_metadata_error?: string;
   ai_summary_error?: string;
 }
@@ -49,7 +46,7 @@ export const journalService = {
     mode: "online" | "offline",
     token: string,
     page: number = 0,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<JournalEntry[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
@@ -57,7 +54,7 @@ export const journalService = {
       mode,
       token,
       page,
-      limit
+      limit,
     );
   },
 
@@ -67,14 +64,14 @@ export const journalService = {
   getOne: async (
     mode: "online" | "offline",
     token: string,
-    id: number
+    id: number,
   ): Promise<JournalEntry> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-by-id",
       mode,
       token,
-      id
+      id,
     );
   },
 
@@ -84,14 +81,14 @@ export const journalService = {
   create: async (
     mode: "online" | "offline",
     token: string,
-    data: JournalEntry
+    data: JournalEntry,
   ): Promise<JournalEntry> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:create",
       mode,
       token,
-      data
+      data,
     );
   },
 
@@ -102,7 +99,7 @@ export const journalService = {
     mode: "online" | "offline",
     token: string,
     id: number,
-    data: JournalEntry
+    data: JournalEntry,
   ): Promise<JournalEntry> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
@@ -110,7 +107,7 @@ export const journalService = {
       mode,
       token,
       id,
-      data
+      data,
     );
   },
 
@@ -120,14 +117,14 @@ export const journalService = {
   remove: async (
     mode: "online" | "offline",
     token: string,
-    id: number
+    id: number,
   ): Promise<{ message: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:delete",
       mode,
       token,
-      id
+      id,
     );
   },
 
@@ -137,7 +134,7 @@ export const journalService = {
   getMoodRange: async (
     mode: "online" | "offline",
     token: string,
-    range: number
+    range: number,
   ): Promise<MoodScoreData[]> => {
     checkElectron();
     // Assuming you have a 'journal:get-mood-scores' handler
@@ -145,7 +142,7 @@ export const journalService = {
       "journal:get-mood-scores",
       mode,
       token,
-      range
+      range,
     );
   },
   getRecent: async (authMode: string, token: string) => {
@@ -153,21 +150,21 @@ export const journalService = {
     return await window.electron.ipcRenderer.invoke(
       "journal:get-recent",
       authMode,
-      token
+      token,
     );
   },
 
   getImages: async (
     authMode: string,
     token: string,
-    mode: string
+    mode: string,
   ): Promise<JournalImageEntry[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-images",
       authMode,
       token,
-      mode
+      mode,
     );
   },
 
@@ -181,7 +178,7 @@ export const journalService = {
       "chat:send",
       "online",
       token,
-      { query }
+      { query },
     );
   },
 
@@ -195,7 +192,7 @@ export const journalService = {
       "media:get-upload-url",
       "online",
       token,
-      { type, postId }
+      { type, postId },
     );
   },
 
@@ -208,7 +205,7 @@ export const journalService = {
     // You would need to add a 'media:get-media-url' IPC handler.
     // return await window.electron.ipcRenderer.invoke('media:get-media-url', 'online', token, key);
     console.warn(
-      "getMediaUrl is an online-only feature and not fully implemented in this mock."
+      "getMediaUrl is an online-only feature and not fully implemented in this mock.",
     );
     return Promise.resolve({
       url: `https://s3-media-url.com/${encodeURIComponent(key)}`,
@@ -220,21 +217,21 @@ export const journalService = {
       "journal:get-chart-data",
       authMode,
       token,
-      range
+      range,
     );
   },
 
   retryAIMetadata: async (
     token: string,
     journalId: number,
-    type: "metadata" | "summary"
+    type: "metadata" | "summary",
   ): Promise<{ success: boolean; error?: string; skipped?: boolean }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:retry-ai-metadata",
       token,
       journalId,
-      type
+      type,
     );
   },
 };

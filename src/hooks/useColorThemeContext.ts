@@ -12,7 +12,7 @@ export const useColorThemeContext = (): ColorThemeContextType => {
   const context = useContext(ColorThemeContext);
   if (context === undefined) {
     throw new Error(
-      "useColorThemeContext must be used within a ColorThemeProvider"
+      "useColorThemeContext must be used within a ColorThemeProvider",
     );
   }
   return context;

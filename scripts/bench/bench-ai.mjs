@@ -54,7 +54,7 @@ const EMBED_MODEL = flag("--embed-model", "nomic-embed-text:v1.5");
 if (!(await ollama.isUp())) {
   console.error(
     "Ollama is not reachable at http://localhost:11434.\n" +
-      "Start it and ensure the app's models are pulled, then re-run."
+      "Start it and ensure the app's models are pulled, then re-run.",
   );
   process.exit(1);
 }
@@ -63,7 +63,9 @@ const available = await ollama.listModels();
 const names = available.map((m) => m.name);
 for (const required of [CHAT_MODEL, EMBED_MODEL]) {
   if (!names.includes(required)) {
-    console.error(`Model "${required}" is not pulled. Available: ${names.join(", ") || "none"}`);
+    console.error(
+      `Model "${required}" is not pulled. Available: ${names.join(", ") || "none"}`,
+    );
     process.exit(1);
   }
 }
@@ -79,7 +81,7 @@ const record = (name, samples, extra = {}) => {
   const r = results[name];
   console.log(
     `  ${name.padEnd(34)} p50 ${fmt(r.p50).padStart(9)}  p95 ${fmt(r.p95).padStart(9)}` +
-      (extra.tokensPerSec ? `  ${extra.tokensPerSec} tok/s` : "")
+      (extra.tokensPerSec ? `  ${extra.tokensPerSec} tok/s` : ""),
   );
 };
 
@@ -92,7 +94,8 @@ for (const input of EMBED_INPUTS) {
   let dimensions = null;
   for (let i = 0; i < EMBED_RUNS; i++) {
     const r = await ollama.embed(input.text, EMBED_MODEL);
-    if (i === 0) dimensions = r.dimensions; // first call warms the model
+    if (i === 0)
+      dimensions = r.dimensions; // first call warms the model
     else samples.push(r.wallMs);
   }
   record(`embed.${input.name}`, samples, {
@@ -110,7 +113,8 @@ for (const input of EMBED_INPUTS) {
 {
   const burst = 25;
   const t0 = performance.now();
-  for (let i = 0; i < burst; i++) await ollama.embed(JOURNAL_MEDIUM, EMBED_MODEL);
+  for (let i = 0; i < burst; i++)
+    await ollama.embed(JOURNAL_MEDIUM, EMBED_MODEL);
   const elapsedSec = (performance.now() - t0) / 1000;
   const perSec = burst / elapsedSec;
 
@@ -131,12 +135,12 @@ for (const input of EMBED_INPUTS) {
     [150, 5000, 50000].map((n) => [
       `${n} entries`,
       `${Math.round((n / perSec / 60) * 10) / 10} min`,
-    ])
+    ]),
   );
 
   console.log(
     `  ${"embed.sustainedThroughput".padEnd(34)} ${results["embed.sustainedThroughput"].embeddingsPerSec}/sec` +
-      `  (${results["embed.sustainedThroughput"].msPerEmbedding}ms each)`
+      `  (${results["embed.sustainedThroughput"].msPerEmbedding}ms each)`,
   );
   for (const [k, v] of Object.entries(results["embed.projectedBacklog"])) {
     console.log(`  ${`  backfill ${k}`.padEnd(34)} ${v}`);
@@ -173,8 +177,12 @@ console.log("\nModel load (cold vs warm)");
   notes.coldStart =
     "Single sample each. Cold = first call after an explicit keep_alive:0 unload.";
 
-  console.log(`  ${"generate.coldStart".padEnd(34)} ${fmt(cold.wallMs)} (load ${fmt(cold.loadMs)})`);
-  console.log(`  ${"generate.warm".padEnd(34)} ${fmt(warm.wallMs)} (load ${fmt(warm.loadMs)})`);
+  console.log(
+    `  ${"generate.coldStart".padEnd(34)} ${fmt(cold.wallMs)} (load ${fmt(cold.loadMs)})`,
+  );
+  console.log(
+    `  ${"generate.warm".padEnd(34)} ${fmt(warm.wallMs)} (load ${fmt(warm.loadMs)})`,
+  );
 }
 
 // ==================================================== journal enrichment ===
@@ -202,7 +210,9 @@ for (const entry of JOURNAL_ENTRIES) {
   record(`enrich.metadata.${entry.name}`, metaSamples, {
     parseSuccessRate: `${metaParsed}/${RUNS}`,
     tokensPerSec: tokenRates.length
-      ? Math.round((tokenRates.reduce((a, b) => a + b, 0) / tokenRates.length) * 10) / 10
+      ? Math.round(
+          (tokenRates.reduce((a, b) => a + b, 0) / tokenRates.length) * 10,
+        ) / 10
       : null,
   });
 
@@ -212,7 +222,9 @@ for (const entry of JOURNAL_ENTRIES) {
       skipped: true,
       reason: "below MIN_SUMMARY_WORDS (25) - the app skips this path",
     };
-    console.log(`  ${`enrich.summary.${entry.name}`.padEnd(34)} skipped (too short)`);
+    console.log(
+      `  ${`enrich.summary.${entry.name}`.padEnd(34)} skipped (too short)`,
+    );
   } else {
     const sumSamples = [];
     let sumOk = 0;
@@ -358,7 +370,9 @@ console.log("\nBlocking shell-out");
     });
   } else {
     results["ollamaList.execSyncBlock"] = { error: "ollama CLI not on PATH" };
-    console.log("  ollamaList.execSyncBlock         skipped - ollama CLI not on PATH");
+    console.log(
+      "  ollamaList.execSyncBlock         skipped - ollama CLI not on PATH",
+    );
   }
 }
 

@@ -1,8 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  generateFullTheme,
-  type AccentColors,
-} from "../utils/colorGenerator";
+import { generateFullTheme, type AccentColors } from "../utils/colorGenerator";
 import type { UserSettings } from "../types/User";
 
 /** The eight user-selectable accents that seed the generated palette. */

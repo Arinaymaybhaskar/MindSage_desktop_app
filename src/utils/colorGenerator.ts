@@ -20,7 +20,7 @@ export interface AccentColors {
  * @returns An object {h, s, l} or null if parsing fails.
  */
 const parseHsl = (
-  hslStr: string
+  hslStr: string,
 ): { h: number; s: number; l: number } | null => {
   if (!hslStr) return null;
   const regex = /hsl\((\d+),\s*([\d.]+)%,\s*([\d.]+)%\)/;

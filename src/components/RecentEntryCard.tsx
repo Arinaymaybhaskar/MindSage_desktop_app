@@ -34,10 +34,10 @@ const RecentEntryCard = ({ entry }: { entry: JournalEntry }) => {
           <div className="flex flex-wrap gap-2 mt-4">
             {moodTags.slice(0, 4).map((tag: string, idx: number) => (
               <span
-          key={idx}
-          className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
+                key={idx}
+                className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
               >
-          {tag}
+                {tag}
               </span>
             ))}
           </div>

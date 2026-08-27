@@ -31,11 +31,23 @@ const WORDS =
   `morning coffee rain window deadline sister call quiet walk river light tired
    grateful anxious steady progress sleep dream meeting run pages music kitchen
    evening pressure calm honest small win doubt friend message garden slow
-   breathe notice pattern change work rest question answer patience` .split(/\s+/);
+   breathe notice pattern change work rest question answer patience`.split(
+    /\s+/,
+  );
 
 const TAG_POOL = [
-  "calm", "anxious", "grateful", "tired", "focused", "restless",
-  "hopeful", "flat", "energised", "reflective", "stressed", "content",
+  "calm",
+  "anxious",
+  "grateful",
+  "tired",
+  "focused",
+  "restless",
+  "hopeful",
+  "flat",
+  "energised",
+  "reflective",
+  "stressed",
+  "content",
 ];
 
 /**
@@ -66,15 +78,15 @@ export function buildDataset(db, entryCount, { seed = 42 } = {}) {
       // it is what lets the app-level benchmark log in normally.
       bcrypt.hashSync(BENCH_USER.password, 10),
       "Bench User",
-      "Europe/London"
-    ).lastInsertRowid
+      "Europe/London",
+    ).lastInsertRowid,
   );
 
   const insertTag = db.prepare(
-    "INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)"
+    "INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)",
   );
   const selectTag = db.prepare(
-    "SELECT id FROM tags WHERE user_id = ? AND name = ?"
+    "SELECT id FROM tags WHERE user_id = ? AND name = ?",
   );
   const insertEntry = db.prepare(`
     INSERT INTO journal_entries (
@@ -88,7 +100,7 @@ export function buildDataset(db, entryCount, { seed = 42 } = {}) {
     )
   `);
   const linkTag = db.prepare(
-    "INSERT INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)"
+    "INSERT INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)",
   );
 
   const tagIds = new Map();
@@ -108,13 +120,13 @@ export function buildDataset(db, entryCount, { seed = 42 } = {}) {
     for (let i = 0; i < entryCount; i++) {
       const daysAgo = Math.floor(i / 2);
       const createdAt = new Date(
-        now - daysAgo * 86400000 - Math.floor(rand() * 43200000)
+        now - daysAgo * 86400000 - Math.floor(rand() * 43200000),
       ).toISOString();
 
       const wordCount = 120 + Math.floor(rand() * 280);
       const content = Array.from(
         { length: wordCount },
-        () => WORDS[Math.floor(rand() * WORDS.length)]
+        () => WORDS[Math.floor(rand() * WORDS.length)],
       ).join(" ");
 
       const id = Number(
@@ -129,7 +141,7 @@ export function buildDataset(db, entryCount, { seed = 42 } = {}) {
           imageKey: rand() < 0.2 ? `C:/bench/media/${i}.jpg` : null,
           summary: rand() < 0.6 ? content.slice(0, 180) : null,
           createdAt,
-        }).lastInsertRowid
+        }).lastInsertRowid,
       );
       entryIds.push(id);
 

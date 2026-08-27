@@ -107,7 +107,7 @@ const KeyboardShortcutsModal = ({
         </p>
       </div>
     </Modal>,
-    document.body
+    document.body,
   );
 };
 

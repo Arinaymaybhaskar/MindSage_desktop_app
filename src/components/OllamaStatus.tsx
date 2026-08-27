@@ -29,7 +29,7 @@ export default function OllamaStatus() {
     const removeListener = window.electron.onStatusUpdate<Status>(
       (newStatus) => {
         setStatus(newStatus);
-      }
+      },
     );
 
     // Request the current status when the component mounts

@@ -10,7 +10,6 @@ type SecuritySettingsProps = Pick<
 // The only consumers of `settings`/`onSettingsSave` are the commented-out
 // biometric-lock controls below, so the props are accepted but unread.
 const SecuritySettings: React.FC<SecuritySettingsProps> = () => {
-
   return (
     <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
       <div className="p-6 border-b border-border-light dark:border-border-dark">

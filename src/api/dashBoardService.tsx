@@ -10,46 +10,46 @@ const checkElectron = () => {
 export const dashboardService = {
   getData: async (
     authMode: "online" | "offline",
-    token: string
+    token: string,
   ): Promise<DashboardData> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-data",
       authMode,
-      token
+      token,
     );
   },
   getMonthlyScore: async (
     authMode: "online" | "offline",
-    token: string
+    token: string,
   ): Promise<DayScore[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-monthly-scores",
       authMode,
-      token
+      token,
     );
   },
   getAllTimeScore: async (
     authMode: "online" | "offline",
-    token: string
+    token: string,
   ): Promise<DayScore[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-all-time-scores",
       authMode,
-      token
+      token,
     );
   },
   getStats: async (
     authMode: "online" | "offline",
-    token: string
+    token: string,
   ): Promise<DashboardStats> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-stats",
       authMode,
-      token
+      token,
     );
   },
 };

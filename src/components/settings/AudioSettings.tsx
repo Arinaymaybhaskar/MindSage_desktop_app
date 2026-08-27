@@ -4,11 +4,14 @@ import { Switch } from "../ui/Switch";
 import { Dropdown } from "../ui/Dropdown";
 import type { SettingsPanelProps, UserSettings } from "../../types/User";
 
-type AudioSettingsProps = Pick<SettingsPanelProps, "settings" | "onSettingsSave">;
+type AudioSettingsProps = Pick<
+  SettingsPanelProps,
+  "settings" | "onSettingsSave"
+>;
 
 const AudioSettings = ({ settings, onSettingsSave }: AudioSettingsProps) => {
   const [localSettings, setLocalSettings] = useState<UserSettings | null>(
-    settings
+    settings,
   );
 
   useEffect(() => {
@@ -17,7 +20,7 @@ const AudioSettings = ({ settings, onSettingsSave }: AudioSettingsProps) => {
 
   const handleChange = <K extends keyof UserSettings>(
     key: K,
-    value: UserSettings[K]
+    value: UserSettings[K],
   ) => {
     setLocalSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
@@ -33,7 +36,7 @@ const AudioSettings = ({ settings, onSettingsSave }: AudioSettingsProps) => {
       { value: "es-ES", label: "Spanish" },
       { value: "fr-FR", label: "French" },
     ],
-    []
+    [],
   );
 
   return (

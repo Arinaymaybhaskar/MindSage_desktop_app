@@ -3,11 +3,17 @@ import { Save } from "lucide-react";
 import { Switch } from "../ui/Switch";
 import type { SettingsPanelProps, UserSettings } from "../../types/User";
 
-type NotificationsSettingsProps = Pick<SettingsPanelProps, "settings" | "onSettingsSave">;
+type NotificationsSettingsProps = Pick<
+  SettingsPanelProps,
+  "settings" | "onSettingsSave"
+>;
 
-const NotificationsSettings = ({ settings, onSettingsSave }: NotificationsSettingsProps) => {
+const NotificationsSettings = ({
+  settings,
+  onSettingsSave,
+}: NotificationsSettingsProps) => {
   const [localSettings, setLocalSettings] = useState<UserSettings | null>(
-    settings
+    settings,
   );
 
   useEffect(() => {
@@ -16,7 +22,7 @@ const NotificationsSettings = ({ settings, onSettingsSave }: NotificationsSettin
 
   const handleChange = <K extends keyof UserSettings>(
     key: K,
-    value: UserSettings[K]
+    value: UserSettings[K],
   ) => {
     setLocalSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
   };

@@ -24,7 +24,7 @@ export const ollamaService = {
     token: string,
     model: string,
     prompt: string,
-    jsonMode: boolean = false
+    jsonMode: boolean = false,
   ): Promise<string> => {
     checkElectron();
     const result = await window.electron.ipcRenderer.invoke<
@@ -34,15 +34,12 @@ export const ollamaService = {
     console.error("[ollamaService] getResponse failed:", result?.error);
     return "";
   },
-  downloadModel: async (
-    token: string,
-    modelName: string
-  ) => {
+  downloadModel: async (token: string, modelName: string) => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "ollama:download-model",
       token,
-      modelName
+      modelName,
     );
   },
 
@@ -51,7 +48,7 @@ export const ollamaService = {
     return await window.electron.ipcRenderer.invoke(
       "ollama:delete-model",
       token,
-      modelName
+      modelName,
     );
   },
 };

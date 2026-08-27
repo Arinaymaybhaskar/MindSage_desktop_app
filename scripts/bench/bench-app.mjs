@@ -48,7 +48,7 @@ const RUNS = Number(flag("--runs", "20"));
 const exePath = path.join(repoRoot, "release", "win-unpacked", "MindSage.exe");
 if (!fs.existsSync(exePath)) {
   console.error(
-    `Packaged build not found at ${path.relative(repoRoot, exePath)}. Run npm run build first.`
+    `Packaged build not found at ${path.relative(repoRoot, exePath)}. Run npm run build first.`,
   );
   process.exit(1);
 }
@@ -72,7 +72,9 @@ buildDataset(db, ENTRIES);
 db.close();
 process.env.APPDATA = realAppData;
 
-console.log(`  seeded ${ENTRIES.toLocaleString()} entries into a scratch profile`);
+console.log(
+  `  seeded ${ENTRIES.toLocaleString()} entries into a scratch profile`,
+);
 
 // ------------------------------------------------------------ launch app ---
 
@@ -86,7 +88,7 @@ function treeRss() {
     const out = execFileSync(
       "tasklist",
       ["/FI", "IMAGENAME eq MindSage.exe", "/FO", "CSV", "/NH"],
-      { encoding: "utf8" }
+      { encoding: "utf8" },
     );
     let total = 0;
     for (const line of out.trim().split("\n")) {
@@ -102,7 +104,9 @@ function treeRss() {
 
 function killTree(pid) {
   try {
-    execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" });
+    execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+    });
   } catch {
     /* already gone */
   }
@@ -149,9 +153,10 @@ try {
         return !/No handler registered/.test(String(err && err.message || err));
       }
     })()`,
-    60000
+    60000,
   );
-  if (!handlersReady) throw new Error("IPC handlers never registered within 60s");
+  if (!handlersReady)
+    throw new Error("IPC handlers never registered within 60s");
 
   // ---------------------------------------------------------------- login ---
 
@@ -219,10 +224,13 @@ try {
       console.log(`    ${name.padEnd(30)} error: ${measured.error}`);
       continue;
     }
-    results[`ipc.${name}`] = { ...summarise(measured.samples), payloadBytes: measured.bytes };
+    results[`ipc.${name}`] = {
+      ...summarise(measured.samples),
+      payloadBytes: measured.bytes,
+    };
     console.log(
       `    ${name.padEnd(30)} p50 ${fmt(results[`ipc.${name}`].p50).padStart(9)}  ` +
-        `p95 ${fmt(results[`ipc.${name}`].p95).padStart(9)}  ${fmtBytes(measured.bytes)}`
+        `p95 ${fmt(results[`ipc.${name}`].p95).padStart(9)}  ${fmtBytes(measured.bytes)}`,
     );
   }
 
@@ -237,7 +245,14 @@ try {
    * real file is written first - otherwise this measures the error path.
    */
   const fixtureImage = path.join(profile, "MindSage", "bench-image.jpg");
-  const source = path.join(repoRoot, "scripts", "demo-data", "generated", "memories", "memory-01.jpg");
+  const source = path.join(
+    repoRoot,
+    "scripts",
+    "demo-data",
+    "generated",
+    "memories",
+    "memory-01.jpg",
+  );
   if (fs.existsSync(source)) {
     fs.copyFileSync(source, fixtureImage);
     for (const [name, channel] of [
@@ -262,9 +277,12 @@ try {
         results[name] = { error: measured.error };
         continue;
       }
-      results[name] = { ...summarise(measured.samples), payloadBytes: measured.bytes };
+      results[name] = {
+        ...summarise(measured.samples),
+        payloadBytes: measured.bytes,
+      };
       console.log(
-        `    ${name.padEnd(30)} p50 ${fmt(results[name].p50).padStart(9)}  ${fmtBytes(measured.bytes)}`
+        `    ${name.padEnd(30)} p50 ${fmt(results[name].p50).padStart(9)}  ${fmtBytes(measured.bytes)}`,
       );
     }
   }
@@ -310,7 +328,7 @@ try {
       note: "Time until rendered text stops changing, minus a 200ms stability window.",
     };
     console.log(
-      `    ${"dashboard settle".padEnd(30)} p50 ${fmt(results["render.dashboardSettle"].p50).padStart(9)}`
+      `    ${"dashboard settle".padEnd(30)} p50 ${fmt(results["render.dashboardSettle"].p50).padStart(9)}`,
     );
   }
 
@@ -361,7 +379,9 @@ try {
 
   if (scrollProfile?.error) {
     results["render.journalListScroll"] = { error: scrollProfile.error };
-    console.log(`    ${"journal list scroll".padEnd(30)} ${scrollProfile.error}`);
+    console.log(
+      `    ${"journal list scroll".padEnd(30)} ${scrollProfile.error}`,
+    );
   } else {
     const frames = scrollProfile.frames ?? [];
     const stats = summarise(frames);
@@ -371,13 +391,15 @@ try {
       ...stats,
       framesSampled: frames.length,
       droppedFrames: dropped,
-      droppedPercent: frames.length ? Math.round((dropped / frames.length) * 1000) / 10 : null,
+      droppedPercent: frames.length
+        ? Math.round((dropped / frames.length) * 1000) / 10
+        : null,
       domNodes: scrollProfile.domNodes,
       cardsRendered: scrollProfile.cards,
     };
     console.log(
       `    ${"frame time".padEnd(30)} p50 ${fmt(stats.p50).padStart(9)}  p95 ${fmt(stats.p95).padStart(9)}  ` +
-        `${dropped}/${frames.length} dropped  ${scrollProfile.domNodes} DOM nodes`
+        `${dropped}/${frames.length} dropped  ${scrollProfile.domNodes} DOM nodes`,
     );
   }
 
@@ -391,15 +413,26 @@ try {
    * expected - the point is to record how much, rather than to assume.
    */
   const memorySamples = [];
-  const routes = ["#/dashboard", "#/journals", "#/goals", "#/memories", "#/chat"];
+  const routes = [
+    "#/dashboard",
+    "#/journals",
+    "#/goals",
+    "#/memories",
+    "#/chat",
+  ];
   for (let cycle = 0; cycle < 3; cycle++) {
     for (const route of routes) {
       await cdp.goto(route);
       await cdp.sleep(900);
       const heap = await cdp.evaluate(
-        "(performance.memory && performance.memory.usedJSHeapSize) || null"
+        "(performance.memory && performance.memory.usedJSHeapSize) || null",
       );
-      memorySamples.push({ cycle, route, rssBytes: treeRss(), heapBytes: heap });
+      memorySamples.push({
+        cycle,
+        route,
+        rssBytes: treeRss(),
+        heapBytes: heap,
+      });
     }
   }
 
@@ -416,7 +449,7 @@ try {
     note: "Three passes over five routes. Growth here is not proof of a leak - caches warm too.",
   };
   console.log(
-    `    ${"process tree RSS".padEnd(30)} ${fmtBytes(first?.rssBytes ?? 0)} -> ${fmtBytes(last?.rssBytes ?? 0)}`
+    `    ${"process tree RSS".padEnd(30)} ${fmtBytes(first?.rssBytes ?? 0)} -> ${fmtBytes(last?.rssBytes ?? 0)}`,
   );
 } catch (err) {
   console.error(`  bench-app failed: ${err.message}`);

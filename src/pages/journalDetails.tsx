@@ -95,8 +95,7 @@ export default function JournalDetail() {
   const [isTranscriptionOpen, setIsTranscriptionOpen] = useState(false);
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
   const { showToast } = useToast();
 
   // AI Metadata Status
@@ -389,7 +388,9 @@ export default function JournalDetail() {
   if (error || !entry) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-base-light dark:bg-base-dark text-text-light-sub dark:text-text-dark-sub">
-        <span className="font-display text-2xl font-semibold mb-4">Journal not found</span>
+        <span className="font-display text-2xl font-semibold mb-4">
+          Journal not found
+        </span>
         <button
           onClick={() => navigate("/journals")}
           className="px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"

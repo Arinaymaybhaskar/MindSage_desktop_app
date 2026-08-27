@@ -146,8 +146,7 @@ export default function JournalList() {
   const searchTerm = new URLSearchParams(location.search).get("search") || "";
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
   const [, setShowDoubleClickNote] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -185,7 +184,7 @@ export default function JournalList() {
       .getAll(authMode, accessToken!, page, PAGE_LIMIT)
       .then((newEntries) => {
         setEntries((prev) =>
-          page === 0 ? newEntries : [...prev, ...newEntries]
+          page === 0 ? newEntries : [...prev, ...newEntries],
         );
         setHasMore(newEntries.length === PAGE_LIMIT);
         setLoading(false);
@@ -210,7 +209,7 @@ export default function JournalList() {
 
       if (node) observer.current.observe(node);
     },
-    [loading, hasMore]
+    [loading, hasMore],
   );
 
   const handleDelete = async (id: number) => {
@@ -345,7 +344,7 @@ export default function JournalList() {
       setSyncStatus(
         `Sync failed: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     } finally {
       setBulkSyncing(false);
@@ -357,7 +356,7 @@ export default function JournalList() {
     let result = entries;
     if (selectedDate) {
       result = result.filter((e) =>
-        dayjs(e.created_at).isSame(selectedDate, "day")
+        dayjs(e.created_at).isSame(selectedDate, "day"),
       );
     }
     if (searchTerm.trim()) {
@@ -365,7 +364,7 @@ export default function JournalList() {
       result = result.filter(
         (e) =>
           e.title?.toLowerCase().includes(lower) ||
-          e.content?.toLowerCase().includes(lower)
+          e.content?.toLowerCase().includes(lower),
       );
     }
     return result.sort((a, b) => dayjs(b.created_at).diff(dayjs(a.created_at)));
@@ -383,7 +382,7 @@ export default function JournalList() {
     // Sort entries within each date by time (newest first)
     Object.keys(groups).forEach((date) => {
       groups[date] = groups[date].sort((a, b) =>
-        dayjs(b.created_at).diff(dayjs(a.created_at))
+        dayjs(b.created_at).diff(dayjs(a.created_at)),
       );
     });
 
@@ -401,7 +400,7 @@ export default function JournalList() {
         date: e.created_at!,
         mood_score: e.mood_score ?? 5,
       })),
-    [entries]
+    [entries],
   );
 
   // Scroll selected entry into view
@@ -420,7 +419,7 @@ export default function JournalList() {
       if (filteredEntries.length === 0) return;
       if (deleteModalInfo.isOpen) return;
       const currentIndex = filteredEntries.findIndex(
-        (e) => e.id === selectedId
+        (e) => e.id === selectedId,
       );
 
       if (e.key === "ArrowDown") {
@@ -467,7 +466,7 @@ export default function JournalList() {
     <div className="bg-base-light dark:bg-base-dark h-full overflow-y-auto">
       {DeleteModal(
         () => setDeleteModalInfo({ isOpen: false, entryId: null }),
-        deleteModalInfo.isOpen
+        deleteModalInfo.isOpen,
       )}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
@@ -560,7 +559,7 @@ export default function JournalList() {
                           setSelectedId(entry.id!);
                           showToast(
                             "Double click an entry to open it.",
-                            "info"
+                            "info",
                           );
                           setTimeout(() => setShowDoubleClickNote(false), 3000);
                         },

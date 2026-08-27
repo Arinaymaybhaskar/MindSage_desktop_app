@@ -1,5 +1,5 @@
 import express from "express";
-import bcrypt from 'bcryptjs';
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pool from "../db.js";
 import { OAuth2Client } from "google-auth-library";
@@ -25,7 +25,7 @@ const getRefreshTokenSecret = () => {
 
 // --- Helper function to generate Access Token ---
 const generateAccessToken = (user) => {
-  return jwt.sign(user, getAccessTokenSecret(), { expiresIn: '15m' });
+  return jwt.sign(user, getAccessTokenSecret(), { expiresIn: "15m" });
 };
 
 const client = new OAuth2Client(process.env.O_AUTH_CLIENT_ID);
@@ -38,11 +38,13 @@ router.post("/register", async (req, res) => {
     // Check if username or email already exists
     const checkUser = await pool.query(
       "SELECT * FROM users WHERE username = $1 OR email = $2",
-      [username, email]
+      [username, email],
     );
 
     if (checkUser.rows.length > 0) {
-      return res.status(409).json({ message: "Username or email already exists" });
+      return res
+        .status(409)
+        .json({ message: "Username or email already exists" });
     }
 
     // Hash password
@@ -53,20 +55,27 @@ router.post("/register", async (req, res) => {
       `INSERT INTO users (username, email, password_hash, timezone, full_name)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, username`,
-      [username, email, hashedPassword, timezone || 'Asia/Kolkata', full_name || null]
+      [
+        username,
+        email,
+        hashedPassword,
+        timezone || "Asia/Kolkata",
+        full_name || null,
+      ],
     );
     const userId = result.rows[0].id;
 
     // Create default user settings
-    await pool.query(
-      `INSERT INTO user_settings (user_id) VALUES ($1)`,
-      [userId]
-    );
+    await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1)`, [
+      userId,
+    ]);
 
     res.status(201).json({ user: result.rows[0] });
   } catch (err) {
-    if (err.code === '23505') {
-      return res.status(409).json({ message: "Username or email already exists" });
+    if (err.code === "23505") {
+      return res
+        .status(409)
+        .json({ message: "Username or email already exists" });
     }
     console.error("Registration error:", err);
     res.status(500).send("Server error");
@@ -78,10 +87,9 @@ router.post("/check-username", async (req, res) => {
   const { username } = req.body;
 
   try {
-    const result = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      [username]
-    );
+    const result = await pool.query("SELECT * FROM users WHERE username = $1", [
+      username,
+    ]);
 
     if (result.rows.length > 0) {
       return res.status(409).json({ message: "Username already exists" });
@@ -98,7 +106,10 @@ router.post("/check-username", async (req, res) => {
 router.post("/login", async (req, res) => {
   const { identifier, password, timezone, rememberMe, authMode } = req.body;
 
-  if (!identifier || !password) return res.status(400).json({ error: "Identifier and password are mandatory" });
+  if (!identifier || !password)
+    return res
+      .status(400)
+      .json({ error: "Identifier and password are mandatory" });
 
   let query;
   if (identifier.includes("@")) {
@@ -126,33 +137,38 @@ router.post("/login", async (req, res) => {
       ? 30 * 24 * 60 * 60 * 1000 // 30 days
       : 1 * 24 * 60 * 60 * 1000; // 1 day
 
-    const refreshToken = jwt.sign(
-      { id: user.id },
-      getRefreshTokenSecret(),
-      { expiresIn: refreshTokenExpiry }
-    );
+    const refreshToken = jwt.sign({ id: user.id }, getRefreshTokenSecret(), {
+      expiresIn: refreshTokenExpiry,
+    });
 
     if (timezone) {
-      await pool.query(
-        `UPDATE users SET timezone = $1 WHERE id = $2`,
-        [timezone, user.id]
-      );
+      await pool.query(`UPDATE users SET timezone = $1 WHERE id = $2`, [
+        timezone,
+        user.id,
+      ]);
     }
 
     await pool.query(
       "INSERT INTO refresh_tokens (user_id, token) VALUES ($1, $2)",
-      [user.id, refreshToken]
+      [user.id, refreshToken],
     );
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      secure: process.env.NODE_ENV === "production", // Use secure cookies in production
       sameSite: "Strict",
       maxAge: refreshTokenMaxAge,
       path: "/api/auth/refresh-token",
     });
 
-    const userInfo = { created_at: user.created_at, email: user.email, id: user.id, full_name: user.full_name, username: user.username, timezone: user.timezone };
+    const userInfo = {
+      created_at: user.created_at,
+      email: user.email,
+      id: user.id,
+      full_name: user.full_name,
+      username: user.username,
+      timezone: user.timezone,
+    };
     res.json({ accessToken, userInfo });
   } catch (err) {
     console.error("Login error:", err);
@@ -166,7 +182,10 @@ router.post("/token", async (req, res) => {
   if (!refreshToken) return res.sendStatus(401);
 
   try {
-    const result = await pool.query("SELECT * FROM refresh_tokens WHERE token = $1 AND is_revoked = FALSE", [refreshToken]);
+    const result = await pool.query(
+      "SELECT * FROM refresh_tokens WHERE token = $1 AND is_revoked = FALSE",
+      [refreshToken],
+    );
     if (result.rows.length === 0) return res.sendStatus(403);
 
     jwt.verify(refreshToken, getRefreshTokenSecret(), (err, user) => {
@@ -186,9 +205,13 @@ router.post("/token", async (req, res) => {
 // --- Logout ---
 router.delete("/logout", async (req, res) => {
   const { token } = req.body;
-  if (!token) return res.status(400).json({ message: "Refresh token is required" });
+  if (!token)
+    return res.status(400).json({ message: "Refresh token is required" });
   try {
-    await pool.query("UPDATE refresh_tokens SET is_revoked = TRUE WHERE token = $1", [token]);
+    await pool.query(
+      "UPDATE refresh_tokens SET is_revoked = TRUE WHERE token = $1",
+      [token],
+    );
     res.clearCookie("refreshToken", { path: "/api/auth/refresh-token" });
     res.sendStatus(204);
   } catch (err) {
@@ -210,39 +233,50 @@ router.post("/google-login", async (req, res) => {
 
     const existingUserQuery = await pool.query(
       "SELECT * FROM users WHERE email = $1",
-      [email]
+      [email],
     );
 
     let user;
     if (existingUserQuery.rows.length === 0) {
       const newUserQuery = await pool.query(
         "INSERT INTO users (username, email, password_hash, full_name) VALUES ($1, $2, $3, $4) RETURNING *",
-        [name || `user${Date.now()}`, email, id, name] // Using googleId as dummy password hash
+        [name || `user${Date.now()}`, email, id, name], // Using googleId as dummy password hash
       );
       user = newUserQuery.rows[0];
     } else {
       user = existingUserQuery.rows[0];
     }
 
-    const accessToken = generateAccessToken({ id: user.id, username: user.username });
-    const refreshToken = jwt.sign({ id: user.id }, getRefreshTokenSecret(), { expiresIn: "7d" });
+    const accessToken = generateAccessToken({
+      id: user.id,
+      username: user.username,
+    });
+    const refreshToken = jwt.sign({ id: user.id }, getRefreshTokenSecret(), {
+      expiresIn: "7d",
+    });
 
     await pool.query(
       "INSERT INTO refresh_tokens (user_id, token) VALUES ($1, $2)",
-      [user.id, refreshToken]
+      [user.id, refreshToken],
     );
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/api/auth/refresh-token",
     });
 
-    const userInfo = { created_at: user.created_at, email: user.email, id: user.id, full_name: user.full_name, username: user.username, timezone: user.timezone };
+    const userInfo = {
+      created_at: user.created_at,
+      email: user.email,
+      id: user.id,
+      full_name: user.full_name,
+      username: user.username,
+      timezone: user.timezone,
+    };
     res.json({ accessToken, userInfo });
-
   } catch (err) {
     console.error("Google login error:", err);
     res.status(401).json({ message: "Invalid Google credential" });
@@ -275,12 +309,15 @@ router.post("/forgot-password", async (req, res) => {
 
     const user = result.rows[0];
     const otp = crypto.randomInt(100000, 999999);
-    const hashedOtp = crypto.createHash("sha256").update(String(otp)).digest("hex");
+    const hashedOtp = crypto
+      .createHash("sha256")
+      .update(String(otp))
+      .digest("hex");
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
 
     await pool.query(
       `UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3`,
-      [hashedOtp, expiresAt, user.id]
+      [hashedOtp, expiresAt, user.id],
     );
 
     const htmlTemplate = fs.readFileSync("models/mailModel.html", "utf-8");
@@ -299,7 +336,6 @@ router.post("/forgot-password", async (req, res) => {
 
     const maskedEmail = user.email.replace(/(.{2}).+(@.+)/, "$1****$2");
     res.json({ message: `OTP sent to ${maskedEmail}` });
-
   } catch (err) {
     console.error("Forgot password error:", err);
     res.status(500).send("Server error");
@@ -311,14 +347,16 @@ router.post("/verify-otp", async (req, res) => {
   const { identifier, otp } = req.body;
 
   if (!identifier || !otp) {
-    return res.status(400).json({ message: "Identifier and OTP are required." });
+    return res
+      .status(400)
+      .json({ message: "Identifier and OTP are required." });
   }
 
   try {
     // Look up the full user object
     const result = await pool.query(
       "SELECT * FROM users WHERE email = $1 OR username = $1",
-      [identifier]
+      [identifier],
     );
 
     if (result.rows.length === 0) {
@@ -328,7 +366,9 @@ router.post("/verify-otp", async (req, res) => {
     const user = result.rows[0];
 
     if (!user.reset_token || !user.reset_token_expiry) {
-      return res.status(400).json({ message: "No OTP has been requested for this user." });
+      return res
+        .status(400)
+        .json({ message: "No OTP has been requested for this user." });
     }
 
     const isExpired = new Date(user.reset_token_expiry) < new Date();
@@ -336,7 +376,10 @@ router.post("/verify-otp", async (req, res) => {
       return res.status(400).json({ message: "OTP expired." });
     }
 
-    const hashedOtp = crypto.createHash("sha256").update(String(otp)).digest("hex");
+    const hashedOtp = crypto
+      .createHash("sha256")
+      .update(String(otp))
+      .digest("hex");
     if (hashedOtp !== user.reset_token) {
       return res.status(400).json({ message: "Invalid OTP." });
     }
@@ -346,7 +389,7 @@ router.post("/verify-otp", async (req, res) => {
     // 1. Invalidate the reset token
     await pool.query(
       "UPDATE users SET reset_token = NULL, reset_token_expiry = NULL WHERE id = $1",
-      [user.id]
+      [user.id],
     );
 
     // 2. Generate JWT tokens
@@ -356,36 +399,43 @@ router.post("/verify-otp", async (req, res) => {
     });
 
     // Using a standard 7-day refresh token for password reset login
-    const refreshToken = jwt.sign(
-      { id: user.id },
-      getRefreshTokenSecret(),
-      { expiresIn: "7d" }
-    );
+    const refreshToken = jwt.sign({ id: user.id }, getRefreshTokenSecret(), {
+      expiresIn: "7d",
+    });
 
     // 3. Store the refresh token
     await pool.query(
       "INSERT INTO refresh_tokens (user_id, token) VALUES ($1, $2)",
-      [user.id, refreshToken]
+      [user.id, refreshToken],
     );
 
     // 4. Set the refresh token as a cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: "/api/auth/refresh-token",
     });
 
     // 5. Send the access token and user info back to the client
-    const userInfo = { created_at: user.created_at, email: user.email, id: user.id, full_name: user.full_name, username: user.username, timezone: user.timezone };
-    res.json({ message: "OTP verified successfully. Logged in.", accessToken, userInfo });
-
+    const userInfo = {
+      created_at: user.created_at,
+      email: user.email,
+      id: user.id,
+      full_name: user.full_name,
+      username: user.username,
+      timezone: user.timezone,
+    };
+    res.json({
+      message: "OTP verified successfully. Logged in.",
+      accessToken,
+      userInfo,
+    });
   } catch (err) {
     console.error("OTP verification error:", err);
     res.status(500).json({ message: "Internal server error." });
   }
 });
-
 
 export default router;

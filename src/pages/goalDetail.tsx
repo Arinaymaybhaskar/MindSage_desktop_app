@@ -11,8 +11,7 @@ export default function GoalDetail() {
   const [data, setData] = useState<GoalDetailData | null>(null);
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -20,7 +19,7 @@ export default function GoalDetail() {
         const goal = await goalService.getGoalById(
           authMode,
           accessToken!,
-          Number(id)
+          Number(id),
         );
         setData(goal);
       } catch (error) {
@@ -109,7 +108,9 @@ export default function GoalDetail() {
 
         {/* Logs Section */}
         <div className="p-8 rounded-2xl shadow bg-surface-light dark:bg-secondary-dark border border-border-light dark:border-border-dark">
-          <h2 className="font-display text-xl font-semibold mb-4">Progress Logs</h2>
+          <h2 className="font-display text-xl font-semibold mb-4">
+            Progress Logs
+          </h2>
           {data.logs && data.logs.length > 0 ? (
             <ul className="space-y-4">
               {data.logs.map((log: ProgressLog) => (

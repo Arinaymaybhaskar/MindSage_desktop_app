@@ -6,7 +6,7 @@
  */
 export function errorMessage(
   caught: unknown,
-  fallback = "Something went wrong"
+  fallback = "Something went wrong",
 ): string {
   if (caught instanceof Error && caught.message) return caught.message;
   if (typeof caught === "string" && caught) return caught;

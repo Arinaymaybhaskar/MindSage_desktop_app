@@ -6,7 +6,7 @@ type Event = MouseEvent | TouchEvent;
 // parameter has to admit null for callers to pass their refs straight in.
 export const useClickOutside = <T extends HTMLElement = HTMLElement>(
   ref: RefObject<T | null>,
-  handler: (event: Event) => void
+  handler: (event: Event) => void,
 ) => {
   useEffect(() => {
     const listener = (event: Event) => {

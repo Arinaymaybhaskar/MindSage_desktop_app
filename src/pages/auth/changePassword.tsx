@@ -11,8 +11,7 @@ const ChangePassword = () => {
   const { accessToken } = useAuth();
   const { showToast } = useToast();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   const [form, setForm] = useState({
     oldPassword: "",
@@ -67,7 +66,7 @@ const ChangePassword = () => {
       console.error(err);
       showToast(
         "Failed to change password. Please check your old password.",
-        "danger"
+        "danger",
       );
       setInvalidOldPassword(true);
     } finally {

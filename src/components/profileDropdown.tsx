@@ -54,7 +54,7 @@ export const ProfileDropdown: React.FC = () => {
     try {
       const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
         "media:getImage",
-        imagePath
+        imagePath,
       );
       setProfileImageSrc(dataUrl ?? null);
     } catch (err) {
@@ -95,7 +95,7 @@ export const ProfileDropdown: React.FC = () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(
         "user:updated",
-        onUserUpdated as EventListener
+        onUserUpdated as EventListener,
       );
     };
   }, []);
@@ -270,7 +270,7 @@ export const ProfileDropdown: React.FC = () => {
               </motion.div>
             </motion.div>
           </AnimatePresence>,
-          document.body
+          document.body,
         )}
     </>
   );

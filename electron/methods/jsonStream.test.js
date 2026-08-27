@@ -20,7 +20,9 @@ describe("partialJsonString", () => {
   });
 
   it("reads a partial value while it is still open", () => {
-    expect(partialJsonString('{"response": "I hear', "response")).toBe("I hear");
+    expect(partialJsonString('{"response": "I hear', "response")).toBe(
+      "I hear",
+    );
   });
 
   it("reads a completed value and stops at the closing quote", () => {
@@ -31,24 +33,30 @@ describe("partialJsonString", () => {
 
   it("decodes escapes rather than showing them literally", () => {
     const raw = '{"response": "Line one\\nLine \\"two\\"\\tend"}';
-    expect(partialJsonString(raw, "response")).toBe('Line one\nLine "two"\tend');
+    expect(partialJsonString(raw, "response")).toBe(
+      'Line one\nLine "two"\tend',
+    );
   });
 
   it("decodes unicode escapes", () => {
     expect(partialJsonString('{"response": "caf\\u00e9"}', "response")).toBe(
-      "café"
+      "café",
     );
   });
 
   it("stops short of a truncated escape instead of leaking a backslash", () => {
     expect(partialJsonString('{"response": "a\\', "response")).toBe("a");
     expect(partialJsonString('{"response": "caf\\u00', "response")).toBe("caf");
-    expect(partialJsonString('{"response": "caf\\u00e', "response")).toBe("caf");
+    expect(partialJsonString('{"response": "caf\\u00e', "response")).toBe(
+      "caf",
+    );
   });
 
   it("tolerates whitespace around the colon", () => {
     expect(partialJsonString('{"response"   :   "hi"}', "response")).toBe("hi");
-    expect(partialJsonString('{\n  "response": "hi"\n}', "response")).toBe("hi");
+    expect(partialJsonString('{\n  "response": "hi"\n}', "response")).toBe(
+      "hi",
+    );
   });
 
   it("returns null for a non-string value", () => {
@@ -80,7 +88,7 @@ describe("partialJsonString", () => {
       expect(decoded.endsWith("\\")).toBe(
         // A real, fully-decoded backslash is legitimate; a dangling escape
         // marker is not. The only valid trailing backslash comes from "\\\\".
-        decoded === "a\\"
+        decoded === "a\\",
       );
     }
   });

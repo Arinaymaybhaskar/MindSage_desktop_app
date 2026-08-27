@@ -26,7 +26,7 @@ type InlineKey = { key: string };
 function renderInline(
   text: string,
   keyPrefix: string,
-  reveal = false
+  reveal = false,
 ): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   /** Plain text is either revealed word by word or emitted as-is. */
@@ -61,7 +61,7 @@ function renderInline(
           className="px-1.5 py-0.5 mx-0.5 rounded-md bg-tertiary-light dark:bg-tertiary-dark font-mono text-[0.85em] text-dark1 dark:text-light1"
         >
           {token.slice(1, -1)}
-        </code>
+        </code>,
       );
     } else if (token.startsWith("[")) {
       const linkMatch = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(token);
@@ -74,19 +74,19 @@ function renderInline(
           className="text-dark1 dark:text-light1 underline underline-offset-2 hover:opacity-80"
         >
           {linkMatch?.[1] ?? token}
-        </a>
+        </a>,
       );
     } else if (token.startsWith("**") || token.startsWith("__")) {
       nodes.push(
         <strong {...key} className="font-semibold">
           {token.slice(2, -2)}
-        </strong>
+        </strong>,
       );
     } else {
       nodes.push(
         <em {...key} className="italic">
           {token.slice(1, -1)}
-        </em>
+        </em>,
       );
     }
 
@@ -167,7 +167,7 @@ const Markdown: React.FC<MarkdownProps> = ({
               {body.join("\n")}
             </code>
           </pre>
-        </div>
+        </div>,
       );
       continue;
     }
@@ -178,7 +178,7 @@ const Markdown: React.FC<MarkdownProps> = ({
         <hr
           key={`b${key++}`}
           className="my-3 border-border-light dark:border-border-dark"
-        />
+        />,
       );
       i++;
       continue;
@@ -199,7 +199,7 @@ const Markdown: React.FC<MarkdownProps> = ({
       blocks.push(
         <p key={`b${key++}`} className={`${sizes[level - 1]} mt-3 first:mt-0`}>
           {renderInline(heading[2], `h${key}`, reveal)}
-        </p>
+        </p>,
       );
       i++;
       continue;
@@ -218,7 +218,7 @@ const Markdown: React.FC<MarkdownProps> = ({
           className={`my-2 border-l-2 border-light1 dark:border-dark3 pl-3 ${muted}`}
         >
           {renderInline(body.join(" "), `q${key}`, reveal)}
-        </blockquote>
+        </blockquote>,
       );
       continue;
     }
@@ -248,7 +248,7 @@ const Markdown: React.FC<MarkdownProps> = ({
               {renderInline(item, `l${key}-${idx}`, reveal)}
             </li>
           ))}
-        </ListTag>
+        </ListTag>,
       );
       continue;
     }
@@ -276,7 +276,7 @@ const Markdown: React.FC<MarkdownProps> = ({
     blocks.push(
       <p key={`b${key++}`} className="my-2 first:mt-0 last:mb-0">
         {renderInline(paragraph.join(" "), `p${key}`, reveal)}
-      </p>
+      </p>,
     );
   }
 
@@ -296,7 +296,7 @@ const Markdown: React.FC<MarkdownProps> = ({
         <>
           {element.props.children}
           <Caret />
-        </>
+        </>,
       );
     } else {
       blocks.push(<Caret key={`b${key++}`} />);

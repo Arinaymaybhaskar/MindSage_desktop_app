@@ -29,13 +29,14 @@ const AISettings = ({ settings, onSettingsSave }: AISettingsProps) => {
 
   const handleChange = <K extends keyof AppearanceDraft>(
     key: K,
-    value: AppearanceDraft[K]
+    value: AppearanceDraft[K],
   ) => {
     setLocalSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = () => {
-    if (settings) onSettingsSave({ ...settings, ...localSettings } as UserSettings);
+    if (settings)
+      onSettingsSave({ ...settings, ...localSettings } as UserSettings);
   };
 
   return (

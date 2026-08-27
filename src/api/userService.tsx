@@ -1,17 +1,13 @@
-import type {
-  ProfileUpdate,
-  UserInfo,
-  UserSettings,
-} from "../types/User";
+import type { ProfileUpdate, UserInfo, UserSettings } from "../types/User";
 
 /**
  * Checks if the app is running in an Electron environment.
  * Throws an error if the preload API is not available.
  */
 const checkElectron = () => {
-    if (!window.electron?.ipcRenderer) {
-        throw new Error("Not in an Electron environment.");
-    }
+  if (!window.electron?.ipcRenderer) {
+    throw new Error("Not in an Electron environment.");
+  }
 };
 
 /**
@@ -26,7 +22,7 @@ export const userService = {
    */
   getMe: async (
     mode: "online" | "offline",
-    token: string
+    token: string,
   ): Promise<UserInfo> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke("user:get-me", mode, token);
@@ -41,14 +37,14 @@ export const userService = {
   updateProfile: async (
     mode: "online" | "offline",
     token: string,
-    payload: ProfileUpdate
+    payload: ProfileUpdate,
   ): Promise<{ user: UserInfo }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:update-profile",
       mode,
       token,
-      payload
+      payload,
     );
   },
 
@@ -59,13 +55,13 @@ export const userService = {
    */
   getSettings: async (
     mode: "online" | "offline",
-    token: string
+    token: string,
   ): Promise<UserSettings> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:get-settings",
       mode,
-      token
+      token,
     );
   },
 
@@ -78,14 +74,14 @@ export const userService = {
   updateSettings: async (
     mode: "online" | "offline",
     token: string,
-    payload: Partial<UserSettings>
+    payload: Partial<UserSettings>,
   ): Promise<UserSettings> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:update-settings",
       mode,
       token,
-      payload
+      payload,
     );
   },
 
@@ -98,14 +94,14 @@ export const userService = {
   changePassword: async (
     mode: "online" | "offline",
     token: string,
-    payload: { old_password: string; new_password: string }
+    payload: { old_password: string; new_password: string },
   ): Promise<{ message: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:change-password",
       mode,
       token,
-      payload
+      payload,
     );
   },
 
@@ -118,14 +114,14 @@ export const userService = {
   deleteAccount: async (
     mode: "online" | "offline",
     token: string,
-    payload: { password: string }
+    payload: { password: string },
   ): Promise<{ message: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:delete-account",
       mode,
       token,
-      payload
+      payload,
     );
   },
 };

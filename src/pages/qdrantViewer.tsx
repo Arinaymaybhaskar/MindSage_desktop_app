@@ -128,7 +128,7 @@ export default function QdrantViewer() {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       processedPoints = processedPoints.filter((point) =>
-        JSON.stringify(point).toLowerCase().includes(searchLower)
+        JSON.stringify(point).toLowerCase().includes(searchLower),
       );
     }
 
@@ -160,7 +160,7 @@ export default function QdrantViewer() {
     } catch (err) {
       console.error("Error fetching collections:", err);
       setError(
-        "Failed to connect to Qdrant. Make sure it's running on port 6333."
+        "Failed to connect to Qdrant. Make sure it's running on port 6333.",
       );
     } finally {
       setLoading(false);
@@ -189,11 +189,11 @@ export default function QdrantViewer() {
             with_payload: true,
             with_vectors: showVectors,
           }),
-        }
+        },
       );
       const pointsData = await pointsRes.json();
       const userPoints = pointsData.result.points.filter(
-        (point: Point) => point.payload.user_id === userId
+        (point: Point) => point.payload.user_id === userId,
       );
       setPoints(userPoints || []);
     } catch (err) {

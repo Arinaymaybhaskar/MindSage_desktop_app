@@ -190,7 +190,7 @@ function StepContentWrapper({
 
   return (
     <motion.div
-      style={{ position: "relative"}}
+      style={{ position: "relative" }}
       animate={{ height: isCompleted ? 0 : parentHeight }}
       transition={{ type: "spring", duration: 0.4 }}
       className={className}
@@ -285,8 +285,8 @@ function StepIndicator({
     currentStep === step
       ? "active"
       : currentStep < step
-      ? "inactive"
-      : "complete";
+        ? "inactive"
+        : "complete";
 
   const handleClick = () => {
     if (step !== currentStep && !disableStepIndicators) {

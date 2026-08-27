@@ -19,7 +19,7 @@ const getContrastingTextColor = (hexColor: string) => {
 
 const findParentMood = (
   childMood: string,
-  hierarchy: MoodHierarchy
+  hierarchy: MoodHierarchy,
 ): MoodCore | null => {
   for (const parentMood of Object.keys(hierarchy) as MoodCore[]) {
     const children = hierarchy[parentMood];
@@ -162,7 +162,7 @@ export function MoodTagSelector({ onChange, selected }: Props) {
       <div className="space-y-3">
         {selection.level1.map((parentMood) => {
           const level2Data = Object.keys(
-            moodHierarchy[parentMood as MoodCore] || {}
+            moodHierarchy[parentMood as MoodCore] || {},
           );
 
           if (level2Data.length === 0) return null;

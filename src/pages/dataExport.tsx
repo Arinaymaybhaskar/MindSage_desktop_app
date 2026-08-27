@@ -7,8 +7,7 @@ const DataExportPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   const handleExport = async () => {
     setIsLoading(true);
@@ -29,7 +28,7 @@ const DataExportPage = () => {
           "user:export-data",
           authMode,
           accessToken!,
-          saveDialogResult.filePath // Pass the destination path
+          saveDialogResult.filePath, // Pass the destination path
         );
 
         if (exportResult.success) {

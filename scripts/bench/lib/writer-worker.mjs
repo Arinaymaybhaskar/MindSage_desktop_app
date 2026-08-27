@@ -20,13 +20,13 @@ const STATUSES = ["pending", "in_progress", "success"];
 
 const ids = db
   .prepare(
-    "SELECT id FROM journal_entries WHERE user_id = ? ORDER BY id LIMIT 2000"
+    "SELECT id FROM journal_entries WHERE user_id = ? ORDER BY id LIMIT 2000",
   )
   .all(userId)
   .map((r) => r.id);
 
 const update = db.prepare(
-  "UPDATE journal_entries SET synced_to_qdrant = ?, updated_at = ? WHERE id = ?"
+  "UPDATE journal_entries SET synced_to_qdrant = ?, updated_at = ? WHERE id = ?",
 );
 
 let completed = 0;
@@ -48,7 +48,7 @@ async function writeLoop() {
       update.run(
         STATUSES[i % STATUSES.length],
         new Date().toISOString(),
-        ids[i % ids.length]
+        ids[i % ids.length],
       );
       completed++;
     } catch {

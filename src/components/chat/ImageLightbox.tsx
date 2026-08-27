@@ -55,7 +55,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
         return clampedScale;
       });
     },
-    [minScale, x, y]
+    [minScale, x, y],
   );
 
   const handleWheelZoom = useCallback(
@@ -65,7 +65,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
       const zoomAmount = e.deltaY * -0.0015;
       handleZoom(zoomAmount);
     },
-    [handleZoom]
+    [handleZoom],
   );
 
   const handleResetZoom = (e: React.MouseEvent) => {

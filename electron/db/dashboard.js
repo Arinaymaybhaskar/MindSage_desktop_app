@@ -1,4 +1,4 @@
-import { db } from './connection.js';
+import { db } from "./connection.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -6,17 +6,23 @@ import fs from "node:fs";
  * Main dashboard data
  */
 export function getDashboardData(userId) {
-    // 1. User details from stats function
-    const userStats = db.prepare(`
+  // 1. User details from stats function
+  const userStats = db
+    .prepare(
+      `
         SELECT
             COUNT(id) as entryCount,
             MAX(created_at) as lastEntry
         FROM journal_entries
         WHERE user_id = ? AND is_deleted = 0
-    `).get(userId);
+    `,
+    )
+    .get(userId);
 
-    // 2. Daily scores (last 7 days)
-    const dailyScores = db.prepare(`
+  // 2. Daily scores (last 7 days)
+  const dailyScores = db
+    .prepare(
+      `
         SELECT
             strftime('%Y-%m-%d', created_at) as day,
             AVG(mood_score) as avgMood
@@ -26,59 +32,74 @@ export function getDashboardData(userId) {
           AND created_at >= date('now', '-7 days')
         GROUP BY day
         ORDER BY day ASC
-    `).all(userId);
+    `,
+    )
+    .all(userId);
 
-    // 3. Recent 3 journals
-    const recentJournals = db.prepare(`
+  // 3. Recent 3 journals
+  const recentJournals = db
+    .prepare(
+      `
         SELECT *
         FROM journal_entries
         WHERE user_id = ? AND is_deleted = 0
         ORDER BY created_at DESC
         LIMIT 3
-    `).all(userId);
+    `,
+    )
+    .all(userId);
 
-    // 4. Random image paths (not full images)
-    const imageKeys = db.prepare(`
+  // 4. Random image paths (not full images)
+  const imageKeys = db
+    .prepare(
+      `
         SELECT image_key
         FROM journal_entries
         WHERE user_id = ? AND image_key IS NOT NULL AND is_deleted = 0
         ORDER BY RANDOM()
         LIMIT 10
-    `).all(userId);
+    `,
+    )
+    .all(userId);
 
-    const resolvedImages = imageKeys
-        .map(row => row.image_key)
-        .filter(Boolean)
-        .map((imgPath) => {
-            // We only return the path; the frontend will resolve it
-            return path.resolve(imgPath);
-        });
+  const resolvedImages = imageKeys
+    .map((row) => row.image_key)
+    .filter(Boolean)
+    .map((imgPath) => {
+      // We only return the path; the frontend will resolve it
+      return path.resolve(imgPath);
+    });
 
-    // 5. Pinned goals
-    const pinnedGoals = db.prepare(`
+  // 5. Pinned goals
+  const pinnedGoals = db
+    .prepare(
+      `
         SELECT *
         FROM goals
         WHERE user_id = ? AND is_pinned = 1
-    `).all(userId);
+    `,
+    )
+    .all(userId);
 
-    return {
-        userDetails: {
-            ...userStats,
-            // You might want to fetch user.full_name separately if needed here
-        },
-        dailyScores,
-        recentJournals,
-        images: resolvedImages, // Now returns paths
-        pinnedGoals
-    };
+  return {
+    userDetails: {
+      ...userStats,
+      // You might want to fetch user.full_name separately if needed here
+    },
+    dailyScores,
+    recentJournals,
+    images: resolvedImages, // Now returns paths
+    pinnedGoals,
+  };
 }
-
 
 /**
  * Daily scores for last 30 days (averaged per day)
  */
 export function getMonthlyScores(userId) {
-    return db.prepare(`
+  return db
+    .prepare(
+      `
         SELECT 
             strftime('%Y-%m-%d', created_at) as day,
             AVG(mood_score) as avgMood
@@ -88,14 +109,18 @@ export function getMonthlyScores(userId) {
           AND created_at >= date('now', '-30 days')
         GROUP BY day
         ORDER BY day ASC
-    `).all(userId);
+    `,
+    )
+    .all(userId);
 }
 
 /**
  * Daily scores for all time since account creation (averaged per day)
  */
 export function getAllTimeScores(userId) {
-    return db.prepare(`
+  return db
+    .prepare(
+      `
         SELECT 
             strftime('%Y-%m-%d', created_at) as day,
             AVG(mood_score) as avgMood
@@ -104,7 +129,9 @@ export function getAllTimeScores(userId) {
           AND is_deleted = 0
         GROUP BY day
         ORDER BY day ASC
-    `).all(userId);
+    `,
+    )
+    .all(userId);
 }
 
 /**
@@ -113,17 +140,21 @@ export function getAllTimeScores(userId) {
  * @returns {object} An object containing various user statistics.
  */
 export function getUserStats(userId) {
-    if (userId === undefined || userId === null) {
-        throw new Error("A valid userId must be provided to getUserStats.");
-    }
+  if (userId === undefined || userId === null) {
+    throw new Error("A valid userId must be provided to getUserStats.");
+  }
 
-    // 1. Total Journal Entries
-    const { totalEntries } = db.prepare(
-        `SELECT COUNT(id) as totalEntries FROM journal_entries WHERE user_id = ? AND is_deleted = 0`
-    ).get(userId);
+  // 1. Total Journal Entries
+  const { totalEntries } = db
+    .prepare(
+      `SELECT COUNT(id) as totalEntries FROM journal_entries WHERE user_id = ? AND is_deleted = 0`,
+    )
+    .get(userId);
 
-    // 2. Total Word Count
-    const { totalWords } = db.prepare(`
+  // 2. Total Word Count
+  const { totalWords } = db
+    .prepare(
+      `
         SELECT SUM(
             CASE
                 WHEN content IS NULL OR TRIM(content) = '' THEN 0
@@ -132,15 +163,21 @@ export function getUserStats(userId) {
         ) as totalWords
         FROM journal_entries
         WHERE user_id = ? AND is_deleted = 0
-    `).get(userId);
+    `,
+    )
+    .get(userId);
 
-    // 3. First & Last Entry Dates
-    const entryDates = db.prepare(
-        `SELECT MIN(created_at) as firstEntry, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0`
-    ).get(userId);
+  // 3. First & Last Entry Dates
+  const entryDates = db
+    .prepare(
+      `SELECT MIN(created_at) as firstEntry, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0`,
+    )
+    .get(userId);
 
-    // 4. Longest Journaling Streak
-    const { longestStreak } = db.prepare(`
+  // 4. Longest Journaling Streak
+  const { longestStreak } = db
+    .prepare(
+      `
         WITH DayStreaks AS (
             SELECT
                 DATE(created_at) as entry_date,
@@ -152,25 +189,35 @@ export function getUserStats(userId) {
         GROUP BY streak_group
         ORDER BY longestStreak DESC
         LIMIT 1;
-    `).get(userId) || { longestStreak: 0 };
+    `,
+    )
+    .get(userId) || { longestStreak: 0 };
 
-    // 5. Average Mood Score
-    const { averageMood } = db.prepare(
-        `SELECT AVG(mood_score) as averageMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND mood_score IS NOT NULL`
-    ).get(userId);
+  // 5. Average Mood Score
+  const { averageMood } = db
+    .prepare(
+      `SELECT AVG(mood_score) as averageMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND mood_score IS NOT NULL`,
+    )
+    .get(userId);
 
-    // 6. Goal Stats
-    const goalStats = db.prepare(`
+  // 6. Goal Stats
+  const goalStats = db
+    .prepare(
+      `
         SELECT
             COUNT(id) as totalGoals,
             SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completedGoals,
             SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as activeGoals
         FROM goals
         WHERE user_id = ?
-    `).get(userId);
+    `,
+    )
+    .get(userId);
 
-    // 7. Most Used Tag
-    const mostUsedTag = db.prepare(`
+  // 7. Most Used Tag
+  const mostUsedTag = db
+    .prepare(
+      `
         SELECT t.name
         FROM journal_entry_tags jet
         JOIN tags t ON jet.tag_id = t.id
@@ -178,16 +225,18 @@ export function getUserStats(userId) {
         GROUP BY t.name
         ORDER BY COUNT(jet.tag_id) DESC
         LIMIT 1
-    `).get(userId);
+    `,
+    )
+    .get(userId);
 
-    /**
- * Calculates the average number of journal entries for each day of the week
- * across the user's entire journaling history.
- * @param {number} userId The ID of the user.
- * @returns {Array<object>} An array of objects, e.g., [{ day: 'Monday', average: 1.75 }, ...]
- */
-    function getAverageEntriesPerDayOfWeek(userId) {
-        const stmt = db.prepare(`
+  /**
+   * Calculates the average number of journal entries for each day of the week
+   * across the user's entire journaling history.
+   * @param {number} userId The ID of the user.
+   * @returns {Array<object>} An array of objects, e.g., [{ day: 'Monday', average: 1.75 }, ...]
+   */
+  function getAverageEntriesPerDayOfWeek(userId) {
+    const stmt = db.prepare(`
         WITH UserTimeSpan AS (
             SELECT
                 MAX(1.0, (JULIANDAY('now', 'localtime') - JULIANDAY(MIN(created_at))) / 7.0) AS total_weeks
@@ -230,22 +279,22 @@ export function getUserStats(userId) {
             d.w;
     `);
 
-        return stmt.all(userId, userId);
-    }
+    return stmt.all(userId, userId);
+  }
 
-    const averageEntriesPerDayOfWeek = getAverageEntriesPerDayOfWeek(userId);
+  const averageEntriesPerDayOfWeek = getAverageEntriesPerDayOfWeek(userId);
 
-    return {
-        totalEntries: totalEntries || 0,
-        totalWords: totalWords || 0,
-        firstEntry: entryDates?.firstEntry || null,
-        lastEntry: entryDates?.lastEntry || null,
-        longestStreak: longestStreak || 0,
-        averageMood: averageMood ? Number(averageMood.toFixed(2)) : 0, // Round to 2 decimal places
-        totalGoals: goalStats?.totalGoals || 0,
-        completedGoals: goalStats?.completedGoals || 0,
-        activeGoals: goalStats?.activeGoals || 0,
-        mostUsedTag: mostUsedTag?.name || 'N/A',
-        averageEntriesPerDayOfWeek: averageEntriesPerDayOfWeek || [],
-    };
+  return {
+    totalEntries: totalEntries || 0,
+    totalWords: totalWords || 0,
+    firstEntry: entryDates?.firstEntry || null,
+    lastEntry: entryDates?.lastEntry || null,
+    longestStreak: longestStreak || 0,
+    averageMood: averageMood ? Number(averageMood.toFixed(2)) : 0, // Round to 2 decimal places
+    totalGoals: goalStats?.totalGoals || 0,
+    completedGoals: goalStats?.completedGoals || 0,
+    activeGoals: goalStats?.activeGoals || 0,
+    mostUsedTag: mostUsedTag?.name || "N/A",
+    averageEntriesPerDayOfWeek: averageEntriesPerDayOfWeek || [],
+  };
 }

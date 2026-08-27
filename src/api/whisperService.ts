@@ -16,7 +16,7 @@ const whisperService = {
 
     return await window.electron.ipcRenderer.invoke(
       "whisper:transcribe-audio",
-      buffer
+      buffer,
     );
   },
 
@@ -25,7 +25,7 @@ const whisperService = {
    */
   async startLive(): Promise<void> {
     return window.electron.ipcRenderer.invoke(
-      "whisper:start-live-transcription"
+      "whisper:start-live-transcription",
     );
   },
 
@@ -34,7 +34,7 @@ const whisperService = {
    */
   async stopLive(): Promise<void> {
     return window.electron.ipcRenderer.invoke(
-      "whisper:stop-live-transcription"
+      "whisper:stop-live-transcription",
     );
   },
 

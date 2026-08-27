@@ -134,7 +134,7 @@ export default function Register() {
     full_name: "",
   });
   const [usernameAvailable, setUsernameAvailable] = useState<null | boolean>(
-    null
+    null,
   );
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<"online" | "offline">("offline");

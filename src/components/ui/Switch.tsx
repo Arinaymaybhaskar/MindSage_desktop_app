@@ -27,7 +27,7 @@ export const Switch = ({ checked, onCheckedChange }: SwitchProps) => {
         {
           "bg-light1 dark:bg-dark1": checked,
           "bg-tertiary-light dark:bg-tertiary-dark": !checked,
-        }
+        },
       )}
     >
       <motion.span

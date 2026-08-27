@@ -23,22 +23,22 @@ import type {
 
 // Lazy-loaded settings components
 const ProfileSettings = lazy(
-  () => import("../components/settings/ProfileSettings")
+  () => import("../components/settings/ProfileSettings"),
 );
 const ColorSettings = lazy(
-  () => import("../components/settings/ColorSettings")
+  () => import("../components/settings/ColorSettings"),
 );
 const ModelSettings = lazy(
-  () => import("../components/settings/ModelSettings")
+  () => import("../components/settings/ModelSettings"),
 );
 const SecuritySettings = lazy(
-  () => import("../components/settings/SecuritySettings")
+  () => import("../components/settings/SecuritySettings"),
 );
 const ExportSettings = lazy(
-  () => import("../components/settings/ExportSettings")
+  () => import("../components/settings/ExportSettings"),
 );
 const AppearanceSettings = lazy(
-  () => import("../components/settings/AppearanceSettings")
+  () => import("../components/settings/AppearanceSettings"),
 );
 
 // Mapping of sections
@@ -64,8 +64,7 @@ const settingsSections: Record<string, SettingsSection> = {
 const Settings = () => {
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   const [user, setUser] = useState<UserInfo | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -114,7 +113,7 @@ const Settings = () => {
       const updatedUser = await userService.updateProfile(
         authMode,
         accessToken!,
-        newProfile
+        newProfile,
       );
       setUser(updatedUser.user);
       localStorage.setItem("userInfo", JSON.stringify(updatedUser.user));
@@ -131,7 +130,7 @@ const Settings = () => {
       const updatedSettings = await userService.updateSettings(
         authMode,
         accessToken!,
-        newSettings
+        newSettings,
       );
       setSettings(updatedSettings);
       showToast("Settings saved!", "success");
@@ -189,7 +188,7 @@ const Settings = () => {
                       </span>
                       <span className="relative z-10">{label}</span>
                     </Link>
-                  )
+                  ),
                 )}
               </nav>
             </aside>

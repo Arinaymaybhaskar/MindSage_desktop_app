@@ -128,7 +128,12 @@ export async function generate({
  * 400ms and takes 12 seconds to finish reads as fast, and one that starts in
  * 8 seconds reads as broken, however quickly it then completes.
  */
-export async function generateStream({ model, prompt, numPredict = 300, jsonMode = false }) {
+export async function generateStream({
+  model,
+  prompt,
+  numPredict = 300,
+  jsonMode = false,
+}) {
   const body = { model, prompt, stream: true, num_predict: numPredict };
   if (jsonMode) body.format = "json";
 
@@ -181,7 +186,8 @@ export async function generateStream({ model, prompt, numPredict = 300, jsonMode
     outputTokens: final.eval_count ?? null,
     tokensPerSec:
       final.eval_count && final.eval_duration
-        ? Math.round((final.eval_count / (final.eval_duration / 1e9)) * 100) / 100
+        ? Math.round((final.eval_count / (final.eval_duration / 1e9)) * 100) /
+          100
         : null,
   };
 }

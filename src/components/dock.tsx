@@ -80,7 +80,7 @@ function DockItem({
   const targetSize = useTransform(
     mouseDistance,
     [-distance, 0, distance],
-    [baseItemSize, magnification, baseItemSize]
+    [baseItemSize, magnification, baseItemSize],
   );
   const size = useSpring(targetSize, spring);
 
@@ -100,7 +100,7 @@ function DockItem({
           "bg-light1 dark:bg-dark1": isActive,
           "bg-surface-light dark:bg-surface-dark": !isActive,
         },
-        className
+        className,
       )}
       tabIndex={0}
       role="button"
@@ -112,8 +112,8 @@ function DockItem({
             isHovered?: MotionValue<number>;
             isActive?: boolean;
           }>,
-          { isHovered, isActive }
-        )
+          { isHovered, isActive },
+        ),
       )}
     </motion.div>
   );
@@ -130,7 +130,7 @@ function DockLabel({ children, className = "", ...rest }: DockLabelProps) {
 
   useEffect(() => {
     const unsub = isHovered.on("change", (latest) =>
-      setIsVisible(latest === 1)
+      setIsVisible(latest === 1),
     );
     return () => unsub();
   }, [isHovered]);
@@ -145,7 +145,7 @@ function DockLabel({ children, className = "", ...rest }: DockLabelProps) {
           transition={{ duration: 0.2 }}
           className={clsx(
             "absolute -top-6 left-1/2 w-fit whitespace-pre rounded-md border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-2 py-0.5 text-xs text-text-light dark:text-text-dark",
-            className
+            className,
           )}
           role="tooltip"
           style={{ x: "-50%" }}
@@ -172,7 +172,7 @@ function DockIcon({ children, className = "", ...rest }: DockIconProps) {
           "text-white": isActive,
           "text-text-light-sub dark:text-text-dark-sub": !isActive,
         },
-        className
+        className,
       )}
     >
       {children}
@@ -210,16 +210,16 @@ export default function Dock({
 
   const maxOuterHeight = useMemo(
     () => Math.max(dockHeight, magnification + magnification / 2 + 4),
-    [magnification, dockHeight]
+    [magnification, dockHeight],
   );
 
   const outerHeight = useSpring(
     useTransform(openMV, [0, 1], [PILL_HEIGHT, maxOuterHeight]),
-    spring
+    spring,
   );
   const innerHeight = useSpring(
     useTransform(openMV, [0, 1], [PILL_HEIGHT, panelHeight]),
-    spring
+    spring,
   );
   const padX = useSpring(useTransform(openMV, [0, 1], [8, 16]), spring);
   const padY = useSpring(useTransform(openMV, [0, 1], [0, 8]), spring);
@@ -228,7 +228,7 @@ export default function Dock({
   useEffect(() => {
     initialTimerRef.current = setTimeout(
       () => setExpanded(false),
-      INITIAL_VISIBLE_MS
+      INITIAL_VISIBLE_MS,
     );
     return () => {
       if (initialTimerRef.current) clearTimeout(initialTimerRef.current);
@@ -250,7 +250,7 @@ export default function Dock({
     clearCollapseTimer();
     collapseTimerRef.current = setTimeout(
       () => setExpanded(false),
-      COLLAPSE_DELAY_MS
+      COLLAPSE_DELAY_MS,
     );
   };
 
@@ -268,7 +268,7 @@ export default function Dock({
           "absolute bottom-4 left-1/2 -translate-x-1/2 flex items-end w-fit gap-4",
           "transition-colors duration-300",
           expanded &&
-            "border-1 rounded-2xl border-border-light dark:border-border-dark backdrop-blur-md"
+            "border-1 rounded-2xl border-border-light dark:border-border-dark backdrop-blur-md",
         )}
         style={{
           height: innerHeight,
@@ -335,7 +335,7 @@ export default function Dock({
                 "mx-auto",
                 "w-[160px] h-[8px]",
                 "rounded-full",
-                "bg-black dark:bg-white"
+                "bg-black dark:bg-white",
               )}
             />
           )}

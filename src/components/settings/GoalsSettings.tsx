@@ -4,11 +4,14 @@ import { Save } from "lucide-react";
 import { Switch } from "../ui/Switch";
 import type { SettingsPanelProps, UserSettings } from "../../types/User";
 
-type GoalsSettingsProps = Pick<SettingsPanelProps, "settings" | "onSettingsSave">;
+type GoalsSettingsProps = Pick<
+  SettingsPanelProps,
+  "settings" | "onSettingsSave"
+>;
 
 const GoalsSettings = ({ settings, onSettingsSave }: GoalsSettingsProps) => {
   const [localSettings, setLocalSettings] = useState<UserSettings | null>(
-    settings
+    settings,
   );
 
   useEffect(() => {
@@ -17,7 +20,7 @@ const GoalsSettings = ({ settings, onSettingsSave }: GoalsSettingsProps) => {
 
   const handleChange = <K extends keyof UserSettings>(
     key: K,
-    value: UserSettings[K]
+    value: UserSettings[K],
   ) => {
     setLocalSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
   };

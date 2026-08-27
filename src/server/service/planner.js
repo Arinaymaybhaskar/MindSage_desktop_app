@@ -7,25 +7,27 @@ const AI_CORE_URL = process.env.AI_CORE_URL || "http://localhost:3000/api";
 // --- ZOD SCHEMA DEFINITION ---
 // We keep this schema to validate the AI's output on our end.
 const PlanStepSchema = z.object({
-    step: z.number().describe("The step number, starting from 1."),
-    name: z.string().optional().describe("A variable name to store the result of this step."),
-    tool: z.enum([
-        "vector_search",
-        "get_all_entries",
-        "conversational_reply"
-    ]).describe("The name of the tool to use for this step."),
-    parameters: z.record(z.any()).describe("An object of parameters for the tool.")
+  step: z.number().describe("The step number, starting from 1."),
+  name: z
+    .string()
+    .optional()
+    .describe("A variable name to store the result of this step."),
+  tool: z
+    .enum(["vector_search", "get_all_entries", "conversational_reply"])
+    .describe("The name of the tool to use for this step."),
+  parameters: z
+    .record(z.any())
+    .describe("An object of parameters for the tool."),
 });
 
 const PlanSchema = z.object({
-    plan: z.array(PlanStepSchema).describe("The array of steps to execute.")
+  plan: z.array(PlanStepSchema).describe("The array of steps to execute."),
 });
-
 
 // --- SIMPLIFIED PROMPT ---
 const createPlannerPrompt = (userQuery) => {
-    // This prompt is much simpler and clearer for the AI.
-    return `You are an expert query planner for a journaling app. Your task is to analyze the user's question and create a step-by-step JSON plan to answer it.
+  // This prompt is much simpler and clearer for the AI.
+  return `You are an expert query planner for a journaling app. Your task is to analyze the user's question and create a step-by-step JSON plan to answer it.
 
 You must choose one or more of the following tools: "vector_search", "get_all_entries", "conversational_reply".
 In parameters, you must include a query which contains the search query, and a date filter to limit the search to a specific time period.
@@ -71,36 +73,38 @@ User Question: "${userQuery}"
 };
 
 const createPlan = async (userQuery) => {
-    const prompt = createPlannerPrompt(userQuery);
+  const prompt = createPlannerPrompt(userQuery);
+  try {
+    const response = await axios.post(`${AI_CORE_URL}/chat`, {
+      query: prompt,
+      provider: "ollama",
+      format: "json", // This still tells Ollama to guarantee JSON output
+    });
+
+    let planObject;
     try {
-        const response = await axios.post(`${AI_CORE_URL}/chat`, {
-            query: prompt,
-            provider: 'ollama',
-            format: 'json' // This still tells Ollama to guarantee JSON output
-        });
-        
-
-        let planObject;
-        try {
-            planObject = JSON.parse(response.data);
-        } catch (parseError) {
-            console.error("[Planner] Failed to parse JSON from AI response.", parseError);
-            throw new Error("The AI planner returned invalid JSON.");
-        }
-
-        // Validate the parsed object against our Zod schema.
-        PlanSchema.parse(planObject);
-
-        return planObject;
-    } catch (error) {
-        // Check if it's a Zod error and log it specifically
-        if (error instanceof z.ZodError) {
-            console.error("[Planner] Zod validation failed:", error.errors);
-        } else {
-            console.error("[Planner] Failed to create or validate a plan:", error);
-        }
-        throw new Error("The AI planner failed to create a valid plan.");
+      planObject = JSON.parse(response.data);
+    } catch (parseError) {
+      console.error(
+        "[Planner] Failed to parse JSON from AI response.",
+        parseError,
+      );
+      throw new Error("The AI planner returned invalid JSON.");
     }
+
+    // Validate the parsed object against our Zod schema.
+    PlanSchema.parse(planObject);
+
+    return planObject;
+  } catch (error) {
+    // Check if it's a Zod error and log it specifically
+    if (error instanceof z.ZodError) {
+      console.error("[Planner] Zod validation failed:", error.errors);
+    } else {
+      console.error("[Planner] Failed to create or validate a plan:", error);
+    }
+    throw new Error("The AI planner failed to create a valid plan.");
+  }
 };
 
 export { createPlan };

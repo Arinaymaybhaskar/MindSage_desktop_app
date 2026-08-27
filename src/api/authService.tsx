@@ -56,7 +56,7 @@ export const authService = {
    */
   login: async (
     mode: "online" | "offline",
-    credentials: LoginCredentials
+    credentials: LoginCredentials,
   ): Promise<AuthResponse> => {
     if (!window.electron?.ipcRenderer) {
       console.error("Electron API is not available.");
@@ -65,7 +65,7 @@ export const authService = {
     return await window.electron.ipcRenderer.invoke(
       "auth:login",
       mode,
-      credentials
+      credentials,
     );
   },
 
@@ -75,7 +75,7 @@ export const authService = {
    */
   register: async (
     mode: "online" | "offline",
-    details: RegistrationDetails
+    details: RegistrationDetails,
   ): Promise<{ user: UserInfo }> => {
     if (!window.electron?.ipcRenderer) {
       throw new Error("Not in an Electron environment.");
@@ -83,7 +83,7 @@ export const authService = {
     return await window.electron.ipcRenderer.invoke(
       "auth:register",
       mode,
-      details
+      details,
     );
   },
 };

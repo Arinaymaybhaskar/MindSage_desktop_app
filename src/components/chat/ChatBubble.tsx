@@ -197,7 +197,10 @@ export const ChatBubble: React.FC<{
             // assistants read, and it gives markdown room to breathe.
             <div className="group/msg relative flex gap-3 w-full">
               <div className="mt-0.5 flex-shrink-0 w-7 h-7 rounded-full bg-light1/40 dark:bg-dark1 flex items-center justify-center">
-                <MindSageMark size={14} className="text-dark1 dark:text-light1" />
+                <MindSageMark
+                  size={14}
+                  className="text-dark1 dark:text-light1"
+                />
               </div>
 
               <div className="min-w-0 flex-1">

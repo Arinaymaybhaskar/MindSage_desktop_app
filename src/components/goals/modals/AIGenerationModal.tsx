@@ -6,12 +6,7 @@ import { useAuth } from "../../../hooks/useAuth";
 import type { Category, Goal } from "../../../types/Goals";
 import type { SelectedModels } from "../../../types/Ollama";
 import type { DropdownOption } from "../../ui/Dropdown";
-import {
-  BrainCircuit,
-  Trash2,
-  Check,
-  AlertTriangle,
-} from "lucide-react";
+import { BrainCircuit, Trash2, Check, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dropdown } from "../../ui/Dropdown";
 import { MindSageMark } from "../../ui/MindSageMark";
@@ -60,7 +55,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
       try {
         const models =
           await window.electron.ipcRenderer.invoke<SelectedModels | null>(
-            "models:get-selected"
+            "models:get-selected",
           );
         // Use the chat model since we're doing text generation
         if (models?.chat) {
@@ -84,9 +79,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   }, [categories]);
 
   /** One goal as the model emitted it, before any field is trusted. */
-  type RawAIGoal = Partial<
-    Record<keyof GeneratedGoal | "category", unknown>
-  >;
+  type RawAIGoal = Partial<Record<keyof GeneratedGoal | "category", unknown>>;
 
   const normalizeAIResponseToGoals = (raw: unknown): GeneratedGoal[] => {
     const formatDateForInput = (dateStr?: string): string => {
@@ -132,13 +125,13 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
       const res = await ollamaService.getResponse(
         accessToken!,
         selectedModel,
-        prompt
+        prompt,
       );
       const ambitionPrompt = AmbitionNamePrompt(ambition);
       const ambitionRes = await ollamaService.getResponse(
         accessToken!,
         selectedModel,
-        ambitionPrompt
+        ambitionPrompt,
       );
 
       if (ambitionRes) setAmbition(ambitionRes);
@@ -152,7 +145,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
     } catch (err) {
       console.error("Error generating goals:", err);
       setError(
-        "The AI failed to generate valid goals. Please try refining your ambition."
+        "The AI failed to generate valid goals. Please try refining your ambition.",
       );
       setGoals([]);
     } finally {
@@ -163,7 +156,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   const handleFieldChange = (
     index: number,
     field: keyof GeneratedGoal,
-    value: GeneratedGoal[keyof GeneratedGoal]
+    value: GeneratedGoal[keyof GeneratedGoal],
   ) => {
     const newGoals = [...goals];
     newGoals[index] = { ...newGoals[index], [field]: value };
@@ -178,11 +171,11 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
     // Basic validation
     if (
       goals.some(
-        (g) => !g.title || !g.category_id || g.target_value === "" || !g.unit
+        (g) => !g.title || !g.category_id || g.target_value === "" || !g.unit,
       )
     ) {
       alert(
-        "Please ensure every goal has a Title, Category, Target, and Unit."
+        "Please ensure every goal has a Title, Category, Target, and Unit.",
       );
       return;
     }
@@ -194,7 +187,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
         target_value: Number(g.target_value),
         parent_goal_title: ambition,
         is_pinned: false,
-      })
+      }),
     );
     onClose();
   };
@@ -210,7 +203,7 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
 
   const categoryOptions = useMemo<DropdownOption<string | number>[]>(
     () => categories.map((cat) => ({ value: cat.id, label: cat.name })),
-    [categories]
+    [categories],
   );
 
   return (

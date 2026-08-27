@@ -1,17 +1,21 @@
-import React, { createContext, type ReactNode } from 'react';
-import { useColorTheme } from '../hooks/useColorTheme';
+import React, { createContext, type ReactNode } from "react";
+import { useColorTheme } from "../hooks/useColorTheme";
 
 // Derived from the hook rather than restated, so adding a member to
 // useColorTheme cannot silently drop it from the context.
 export type ColorThemeContextType = ReturnType<typeof useColorTheme>;
 
-const ColorThemeContext = createContext<ColorThemeContextType | undefined>(undefined);
+const ColorThemeContext = createContext<ColorThemeContextType | undefined>(
+  undefined,
+);
 
 interface ColorThemeProviderProps {
   children: ReactNode;
 }
 
-export const ColorThemeProvider: React.FC<ColorThemeProviderProps> = ({ children }) => {
+export const ColorThemeProvider: React.FC<ColorThemeProviderProps> = ({
+  children,
+}) => {
   const colorTheme = useColorTheme();
 
   return (

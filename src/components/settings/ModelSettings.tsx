@@ -287,7 +287,7 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
     const loadSelectedModels = async () => {
       try {
         const saved = await window.electron.ipcRenderer.invoke(
-          "models:get-selected"
+          "models:get-selected",
         );
         if (saved) {
           setSelectedModels(saved);
@@ -335,13 +335,13 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
       installedModels
         .filter((model) => model.capabilities.includes(capability))
         .map((model) => ({ value: model.name, label: model.name })),
-    [installedModels]
+    [installedModels],
   );
 
   const filteredModels = useMemo(() => {
     if (capabilityFilter === "all") return installedModels;
     return installedModels.filter((model) =>
-      model.capabilities.includes(capabilityFilter)
+      model.capabilities.includes(capabilityFilter),
     );
   }, [installedModels, capabilityFilter]);
 
@@ -473,7 +473,7 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
             <div className="grid gap-4 md:grid-cols-2">
               {filteredRecommendedModels.map((m) => {
                 const isInstalled = installedModels.some((im) =>
-                  im.name.includes(m.model)
+                  im.name.includes(m.model),
                 );
                 return (
                   <div

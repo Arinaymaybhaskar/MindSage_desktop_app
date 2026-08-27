@@ -136,13 +136,62 @@ const escapeRegExp = (value: string) =>
  * search, so only distinctive terms are treated as meaningful.
  */
 const STOPWORDS = new Set([
-  "about", "after", "again", "against", "been", "before", "being", "between",
-  "both", "could", "does", "doing", "down", "during", "each", "from",
-  "further", "have", "having", "here", "into", "just", "more", "most", "once",
-  "only", "other", "over", "same", "should", "some", "such", "than", "that",
-  "their", "them", "then", "there", "these", "they", "this", "those", "through",
-  "under", "until", "very", "were", "what", "when", "where", "which", "while",
-  "will", "with", "would", "your",
+  "about",
+  "after",
+  "again",
+  "against",
+  "been",
+  "before",
+  "being",
+  "between",
+  "both",
+  "could",
+  "does",
+  "doing",
+  "down",
+  "during",
+  "each",
+  "from",
+  "further",
+  "have",
+  "having",
+  "here",
+  "into",
+  "just",
+  "more",
+  "most",
+  "once",
+  "only",
+  "other",
+  "over",
+  "same",
+  "should",
+  "some",
+  "such",
+  "than",
+  "that",
+  "their",
+  "them",
+  "then",
+  "there",
+  "these",
+  "they",
+  "this",
+  "those",
+  "through",
+  "under",
+  "until",
+  "very",
+  "were",
+  "what",
+  "when",
+  "where",
+  "which",
+  "while",
+  "will",
+  "with",
+  "would",
+  "your",
 ]);
 
 /**
@@ -193,7 +242,7 @@ const Highlight: React.FC<{ text: string; query: string }> = ({
           </mark>
         ) : (
           <React.Fragment key={i}>{part}</React.Fragment>
-        )
+        ),
       )}
     </>
   );
@@ -274,7 +323,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
 
   const allSearchableItems = useMemo(
     () => [...actionsCommands, ...settingsCommands] as SearchableItem[],
-    []
+    [],
   );
 
   const trimmed = query.trim();
@@ -307,17 +356,15 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
       .then((rows: unknown) => {
         if (cancelled || !Array.isArray(rows)) return;
         setRecents(
-          rows.map(
-            (row): SearchableItem => ({
-              type: "Recent",
-              title: row.title?.trim() || "Untitled entry",
-              icon: BookOpen,
-              path: `/journal/view/${row.id}`,
-              content: row.content_summary || row.content || "",
-              createdAt: row.created_at,
-              moodScore: row.mood_score,
-            })
-          )
+          rows.map((row): SearchableItem => ({
+            type: "Recent",
+            title: row.title?.trim() || "Untitled entry",
+            icon: BookOpen,
+            path: `/journal/view/${row.id}`,
+            content: row.content_summary || row.content || "",
+            createdAt: row.created_at,
+            moodScore: row.mood_score,
+          })),
         );
       })
       .catch(() => {
@@ -362,7 +409,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
         return null;
       })
       .filter((entry): entry is { item: SearchableItem; rank: number } =>
-        Boolean(entry)
+        Boolean(entry),
       )
       .sort((a, b) => a.rank - b.rank)
       .slice(0, MAX_LOCAL_RESULTS);
@@ -389,13 +436,13 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
     return [...groups.entries()].sort(
       (a, b) =>
         GROUP_ORDER.indexOf(a[0] as (typeof GROUP_ORDER)[number]) -
-        GROUP_ORDER.indexOf(b[0] as (typeof GROUP_ORDER)[number])
+        GROUP_ORDER.indexOf(b[0] as (typeof GROUP_ORDER)[number]),
     );
   }, [hasQuery, localResults, semanticResults, recents, allSearchableItems]);
 
   const flatResults = useMemo(
     () => groupedResults.flatMap(([, items]) => items),
-    [groupedResults]
+    [groupedResults],
   );
 
   // Index of the first row of each group, used to number rows without an
@@ -415,7 +462,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   // unclamped, nothing appears selected and Enter silently does nothing.
   useEffect(() => {
     setHighlightedIndex((prev) =>
-      Math.min(prev, Math.max(0, flatResults.length - 1))
+      Math.min(prev, Math.max(0, flatResults.length - 1)),
     );
     itemRefs.current.length = flatResults.length;
   }, [flatResults.length]);
@@ -426,21 +473,21 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
       else if (item.path) navigate(item.path);
       onClose();
     },
-    [navigate, onClose]
+    [navigate, onClose],
   );
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setHighlightedIndex((prev) =>
-        flatResults.length === 0 ? 0 : (prev + 1) % flatResults.length
+        flatResults.length === 0 ? 0 : (prev + 1) % flatResults.length,
       );
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedIndex((prev) =>
         flatResults.length === 0
           ? 0
-          : (prev - 1 + flatResults.length) % flatResults.length
+          : (prev - 1 + flatResults.length) % flatResults.length,
       );
     } else if (e.key === "Home") {
       e.preventDefault();
@@ -485,7 +532,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
           accessToken!,
           "mind_entries",
           trimmed,
-          SEMANTIC_LIMIT
+          SEMANTIC_LIMIT,
         );
 
         // The IPC handler answers `{ success: false, error }` rather than
@@ -546,13 +593,13 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
               createdAt: p.created_at,
               moodScore: p.mood_score ?? undefined,
             };
-          })
+          }),
         );
       } catch (err) {
         if (!cancelled) {
           console.error("Semantic search error:", err);
           setSearchError(
-            err instanceof Error ? err.message : "Semantic search failed."
+            err instanceof Error ? err.message : "Semantic search failed.",
           );
           setSemanticResults([]);
         }
@@ -575,7 +622,9 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   const busy = hasQuery && !isSlash && settledQuery !== trimmed;
   const showEmptyState = hasQuery && flatResults.length === 0 && !busy;
   const activeId =
-    flatResults.length > 0 ? `global-search-option-${highlightedIndex}` : undefined;
+    flatResults.length > 0
+      ? `global-search-option-${highlightedIndex}`
+      : undefined;
 
   return (
     <motion.div
@@ -594,7 +643,9 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-label="Search MindSage"
         data-testid="global-search"
-        data-expanded={flatResults.length > 0 || showEmptyState ? "true" : "false"}
+        data-expanded={
+          flatResults.length > 0 || showEmptyState ? "true" : "false"
+        }
         className="relative mt-[12vh] mx-4 w-full max-w-2xl h-fit max-h-[70vh] bg-surface-light dark:bg-surface-dark rounded-2xl shadow-2xl ring-1 ring-black/5 border border-border-light dark:border-border-dark overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -715,7 +766,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
                           "group flex w-full text-left items-center gap-3 px-3 py-2.5 rounded-xl transition-colors outline-none",
                           isActive
                             ? "bg-tertiary-light dark:bg-tertiary-dark"
-                            : "hover:bg-tertiary-light/60 dark:hover:bg-tertiary-dark/60"
+                            : "hover:bg-tertiary-light/60 dark:hover:bg-tertiary-dark/60",
                         )}
                       >
                         <span
@@ -723,7 +774,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
                             "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors",
                             isActive
                               ? "bg-info/15 text-info"
-                              : "bg-tertiary-light dark:bg-tertiary-dark text-text-light-sub dark:text-text-dark-sub"
+                              : "bg-tertiary-light dark:bg-tertiary-dark text-text-light-sub dark:text-text-dark-sub",
                           )}
                         >
                           <item.icon size={16} aria-hidden />
@@ -738,7 +789,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
                                 <span
                                   className={clsx(
                                     "h-1.5 w-1.5 rounded-full flex-shrink-0",
-                                    moodDotClass(item.moodScore)
+                                    moodDotClass(item.moodScore),
                                   )}
                                   aria-hidden
                                 />
@@ -774,7 +825,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
                             aria-hidden
                             className={clsx(
                               "transition-opacity text-text-light-sub dark:text-text-dark-sub",
-                              isActive ? "opacity-100" : "opacity-0"
+                              isActive ? "opacity-100" : "opacity-0",
                             )}
                           />
                         </span>
@@ -788,7 +839,11 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
           {/* Resting state hint, shown under the recents */}
           {!hasQuery && (
             <div className="px-3 py-3 mt-1 flex items-start gap-2.5 text-xs text-text-light-sub dark:text-text-dark-sub border-t border-border-light/60 dark:border-border-dark/60">
-              <MindSageMark size={14} className="mt-0.5 text-info" aria-hidden />
+              <MindSageMark
+                size={14}
+                className="mt-0.5 text-info"
+                aria-hidden
+              />
               <span className="leading-relaxed">
                 Search finds entries by <em>meaning</em>, not keywords. Try
                 “times I felt overwhelmed at work” or “when I was proud of

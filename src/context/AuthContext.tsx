@@ -6,7 +6,7 @@ export interface AuthContextType {
   login: (
     access: string,
     user: UserInfo,
-    authMode: "online" | "offline"
+    authMode: "online" | "offline",
   ) => void;
   logout: () => void;
 }
@@ -23,7 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accessToken, setAccessToken] = useState<string | null>(() =>
-    localStorage.getItem("accessToken")
+    localStorage.getItem("accessToken"),
   );
   const [user, setUser] = useState<UserInfo | null>(() => {
     const storedUser = localStorage.getItem("userInfo");
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (
     access: string,
     userInfo: UserInfo,
-    authMode: "offline" | "online"
+    authMode: "offline" | "online",
   ) => {
     localStorage.setItem("authMode", authMode);
     setAccessToken(access);

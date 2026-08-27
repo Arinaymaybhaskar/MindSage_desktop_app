@@ -47,8 +47,7 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
 
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   const themeColor =
     categories.find((c) => c.id === categoryId)?.color || "var(--color-info)";
@@ -96,7 +95,7 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
           authMode,
           accessToken!,
           newCategoryName,
-          newCategoryColor
+          newCategoryColor,
         );
         finalCategoryId = createdCategory.lastInsertRowid;
       } catch (error) {
@@ -132,7 +131,7 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
   // Prepare options for the custom dropdown
   const categoryOptions = useMemo<DropdownOption<string | number>[]>(() => {
     const options: DropdownOption<string | number>[] = categories.map(
-      (cat) => ({ value: cat.id, label: cat.name })
+      (cat) => ({ value: cat.id, label: cat.name }),
     );
     options.push({ value: "add_new", label: "✨ Add New Category..." });
     return options;

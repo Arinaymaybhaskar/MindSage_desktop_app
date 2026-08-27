@@ -30,13 +30,15 @@ declare global {
     removeStatusUpdateListener: () => void;
 
     /** Fires with the new maximized state whenever the window is restored or maximized. */
-    onWindowStateChange: (callback: (isMaximized: boolean) => void) => Unsubscribe;
+    onWindowStateChange: (
+      callback: (isMaximized: boolean) => void,
+    ) => Unsubscribe;
 
     ipcRenderer: {
       invoke: <T = unknown>(channel: string, ...args: unknown[]) => Promise<T>;
       on: <T extends unknown[] = unknown[]>(
         channel: string,
-        func: (...args: T) => void
+        func: (...args: T) => void,
       ) => Unsubscribe;
       removeAllListeners: (channel: string) => void;
     };
@@ -47,9 +49,7 @@ declare global {
     onAICompleted: (callback: (data: unknown) => void) => void;
     onChatResponseGenerated: (callback: (data: unknown) => void) => void;
     onChatError: (callback: (error: unknown) => void) => void;
-    onAIStatusEvent: (
-      callback: (event: string, data: unknown) => void
-    ) => void;
+    onAIStatusEvent: (callback: (event: string, data: unknown) => void) => void;
   }
 
   interface Window {

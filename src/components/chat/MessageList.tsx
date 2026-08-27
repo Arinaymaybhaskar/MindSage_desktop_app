@@ -57,7 +57,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   const streamedLength =
     streamingId === null
       ? 0
-      : messages.find((m) => m.id === streamingId)?.text.length ?? 0;
+      : (messages.find((m) => m.id === streamingId)?.text.length ?? 0);
 
   // A new message arriving: smooth, because it happens once.
   useEffect(() => {

@@ -59,8 +59,7 @@ function MoodSentimentChart({
   const rangeOptions = ["Last Week", "Last Month", "All Time"];
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -90,7 +89,7 @@ function MoodSentimentChart({
           case "Last Month": {
             const monthlyData = await dashboardService.getMonthlyScore(
               authMode,
-              accessToken!
+              accessToken!,
             );
             setChartData(monthlyData);
             break;
@@ -98,7 +97,7 @@ function MoodSentimentChart({
           case "All Time": {
             const allTimeData = await dashboardService.getAllTimeScore(
               authMode,
-              accessToken!
+              accessToken!,
             );
             setChartData(allTimeData);
             break;
@@ -137,7 +136,7 @@ function MoodSentimentChart({
       }))
       .sort(
         (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       );
   }, [chartData]);
 
@@ -145,7 +144,7 @@ function MoodSentimentChart({
     if (!formattedChartData || formattedChartData.length === 0) return null;
     const fromDate = formatLabelDate(formattedChartData[0].created_at);
     const toDate = formatLabelDate(
-      formattedChartData[formattedChartData.length - 1].created_at
+      formattedChartData[formattedChartData.length - 1].created_at,
     );
     return `${fromDate} - ${toDate}`;
   }, [formattedChartData]);

@@ -9,7 +9,7 @@ export const eventBusService = {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "eventBus:emit",
-      { event, args } // pass them clearly
+      { event, args }, // pass them clearly
     );
   },
 };

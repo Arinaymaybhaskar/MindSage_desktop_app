@@ -32,7 +32,7 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
     try {
       const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
         "media:getImage",
-        imagePath
+        imagePath,
       );
       setPreviewSrc(dataUrl || null);
     } catch (err) {
@@ -118,7 +118,7 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
           0,
           0,
           crop.width,
-          crop.height
+          crop.height,
         );
 
         resolve(canvas.toDataURL("image/jpeg"));
@@ -200,16 +200,13 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
                   if (!previewSrc || !croppedAreaPixels) return;
                   const cropped = await getCroppedImg(
                     previewSrc,
-                    croppedAreaPixels
+                    croppedAreaPixels,
                   );
                   setPreviewSrc(cropped);
                   // Keep selectedFile in sync with what is now shown - it is
                   // what actually gets uploaded on submit.
                   setSelectedFile(
-                    dataUrlToFile(
-                      cropped,
-                      selectedFile?.name || "avatar.jpg"
-                    )
+                    dataUrlToFile(cropped, selectedFile?.name || "avatar.jpg"),
                   );
                   setIsCropping(false);
                 }}

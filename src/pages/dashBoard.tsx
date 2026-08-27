@@ -31,10 +31,7 @@ import {
 import DashboardSkeleton from "../components/Skeletons/DashboardSkeleton";
 import { dashboardService } from "../api/dashBoardService";
 import journalService, { type JournalEntry } from "../api/journalService";
-import type {
-  DashboardStats,
-  JournalImageEntry,
-} from "../types/Dashboard";
+import type { DashboardStats, JournalImageEntry } from "../types/Dashboard";
 import type { UserInfo } from "../types/User";
 
 dayjs.extend(relativeTime);
@@ -46,7 +43,6 @@ interface PinnedGoal {
   target_value: number;
   unit: string;
 }
-
 
 export default function Dashboard() {
   const { accessToken, logout } = useAuth();
@@ -62,8 +58,7 @@ export default function Dashboard() {
   const [allTimeScores, setAllTimeScores] = useState<DayScore[]>([]);
 
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   useEffect(() => {
     const fetchCoreData = async () => {
@@ -74,23 +69,23 @@ export default function Dashboard() {
       try {
         const dashboardData = await dashboardService.getData(
           authMode,
-          accessToken
+          accessToken,
         );
         const imageData = await journalService.getImages(
           authMode,
           accessToken,
-          "random"
+          "random",
         );
         const userData = await userService.getMe(authMode, accessToken);
         const statsData = await dashboardService.getStats(
           authMode,
-          accessToken
+          accessToken,
         );
         // Already exposed for the chart's "All Time" range; reused here so the
         // heatmap and streak need no new query.
         const allTime = await dashboardService.getAllTimeScore(
           authMode,
-          accessToken
+          accessToken,
         );
 
         console.log(statsData, "Stats Data");
@@ -121,7 +116,7 @@ export default function Dashboard() {
     try {
       const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
         "media:getImage",
-        imagePath
+        imagePath,
       );
       setProfileImageSrc(dataUrl ?? null);
     } catch (err) {
@@ -150,7 +145,7 @@ export default function Dashboard() {
         img: String(entry.image_key),
         url: `/journal/view/${entry.id}`,
       })),
-    [imageKeys]
+    [imageKeys],
   );
 
   // Derived from data already fetched - no extra query needed. These sit above
@@ -159,7 +154,7 @@ export default function Dashboard() {
   const streak = useMemo(() => currentStreak(allTimeScores), [allTimeScores]);
   const daysWritten30 = useMemo(
     () => daysWrittenIn(allTimeScores, 30),
-    [allTimeScores]
+    [allTimeScores],
   );
   const summary = useMemo(
     () =>
@@ -172,7 +167,7 @@ export default function Dashboard() {
             daysWritten30,
           })
         : "",
-    [stats, streak, daysWritten30]
+    [stats, streak, daysWritten30],
   );
 
   if (isDashboardLoading) {
@@ -192,8 +187,10 @@ export default function Dashboard() {
 
   /** Progress bar colour by completion, shared by the pinned-goal rows. */
   const getProgressColor = (percentage: number) => {
-    if (percentage >= 100) return { bar: "bg-emerald-500", text: "text-emerald-500" };
-    if (percentage >= 70) return { bar: "bg-green-500", text: "text-green-500" };
+    if (percentage >= 100)
+      return { bar: "bg-emerald-500", text: "text-emerald-500" };
+    if (percentage >= 70)
+      return { bar: "bg-green-500", text: "text-green-500" };
     if (percentage >= 40) return { bar: "bg-blue-500", text: "text-blue-500" };
     return { bar: "bg-indigo-500", text: "text-indigo-500" };
   };
@@ -207,7 +204,7 @@ export default function Dashboard() {
 
   const avgMoodLevel = Math.max(
     1,
-    Math.min(5, Math.round(stats.averageMood || 3))
+    Math.min(5, Math.round(stats.averageMood || 3)),
   );
   const wordsPerEntry = stats.totalEntries
     ? Math.round(stats.totalWords / stats.totalEntries)
@@ -311,7 +308,11 @@ export default function Dashboard() {
             </div>
           </BentoCard>
 
-          <BentoCard index={3} className="lg:col-span-3" testId="stat-card-entries">
+          <BentoCard
+            index={3}
+            className="lg:col-span-3"
+            testId="stat-card-entries"
+          >
             <TileLabel icon={BookOpen}>Entries</TileLabel>
             <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-text-light dark:text-text-dark">
               {stats.totalEntries.toLocaleString()}
@@ -321,7 +322,11 @@ export default function Dashboard() {
             </p>
           </BentoCard>
 
-          <BentoCard index={4} className="lg:col-span-3" testId="stat-card-words">
+          <BentoCard
+            index={4}
+            className="lg:col-span-3"
+            testId="stat-card-words"
+          >
             <TileLabel icon={FileText}>Words</TileLabel>
             <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-text-light dark:text-text-dark">
               {stats.totalWords.toLocaleString()}
@@ -332,7 +337,11 @@ export default function Dashboard() {
           </BentoCard>
 
           {/* The donut lives here now instead of in a panel of its own. */}
-          <BentoCard index={5} className="lg:col-span-3" testId="stat-card-goals">
+          <BentoCard
+            index={5}
+            className="lg:col-span-3"
+            testId="stat-card-goals"
+          >
             <TileLabel icon={Target}>Goals</TileLabel>
             <div className="mt-1 flex items-center gap-3">
               <MiniDonut
@@ -397,8 +406,9 @@ export default function Dashboard() {
                   const pct = Math.min(
                     100,
                     Math.round(
-                      ((goal.current_value || 0) / (goal.target_value || 1)) * 100
-                    )
+                      ((goal.current_value || 0) / (goal.target_value || 1)) *
+                        100,
+                    ),
                   );
                   const { bar, text } = getProgressColor(pct);
                   return (
@@ -431,7 +441,11 @@ export default function Dashboard() {
           </BentoCard>
 
           {/* Memories, as a strip. The masonry was 600px tall on its own. */}
-          <BentoCard index={8} className="lg:col-span-12" testId="memories-grid">
+          <BentoCard
+            index={8}
+            className="lg:col-span-12"
+            testId="memories-grid"
+          >
             <div className="flex items-baseline justify-between">
               <TileLabel icon={ImageIcon}>Memories</TileLabel>
               <Link

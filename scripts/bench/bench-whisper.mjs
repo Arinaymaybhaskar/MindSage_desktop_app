@@ -34,7 +34,11 @@ import { fileURLToPath } from "node:url";
 import ffmpegPath from "ffmpeg-static";
 
 import { summarise, fmt } from "./lib/stats.mjs";
-import { JOURNAL_SHORT, JOURNAL_MEDIUM, JOURNAL_LONG } from "./fixtures/corpus.mjs";
+import {
+  JOURNAL_SHORT,
+  JOURNAL_MEDIUM,
+  JOURNAL_LONG,
+} from "./fixtures/corpus.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
@@ -53,7 +57,9 @@ const exePath = path.join(whisperDir, "Release", "whisper-cli.exe");
 const modelPath = path.join(whisperDir, "models", "ggml-tiny.en.bin");
 
 if (process.platform !== "win32") {
-  console.error("This benchmark uses the Windows speech API and the win32 whisper build.");
+  console.error(
+    "This benchmark uses the Windows speech API and the win32 whisper build.",
+  );
   process.exit(1);
 }
 for (const required of [exePath, modelPath]) {
@@ -87,17 +93,25 @@ function synthesise(text, outFile) {
     $s.Speak(${JSON.stringify(text)})
     $s.Dispose()
   `;
-  execFileSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", script], {
-    stdio: "ignore",
-  });
+  execFileSync(
+    "powershell",
+    ["-NoProfile", "-NonInteractive", "-Command", script],
+    {
+      stdio: "ignore",
+    },
+  );
 }
 
 /** 16 kHz mono, matching convertWebmToWav in media.js. */
 function toWhisperFormat(inFile, outFile) {
   const t0 = performance.now();
-  execFileSync(ffmpegPath, ["-y", "-i", inFile, "-ar", "16000", "-ac", "1", outFile], {
-    stdio: "ignore",
-  });
+  execFileSync(
+    ffmpegPath,
+    ["-y", "-i", inFile, "-ar", "16000", "-ac", "1", outFile],
+    {
+      stdio: "ignore",
+    },
+  );
   return performance.now() - t0;
 }
 
@@ -105,12 +119,21 @@ function toWhisperFormat(inFile, outFile) {
 function transcribe(file) {
   return new Promise((resolve, reject) => {
     const t0 = performance.now();
-    const proc = spawn(exePath, ["--model", modelPath, "--file", file, "--output-json"]);
+    const proc = spawn(exePath, [
+      "--model",
+      modelPath,
+      "--file",
+      file,
+      "--output-json",
+    ]);
     let stderr = "";
     proc.stderr.on("data", (d) => (stderr += d.toString()));
     proc.on("error", reject);
     proc.on("close", (code) => {
-      if (code !== 0) return reject(new Error(`whisper-cli exited ${code}: ${stderr.slice(-300)}`));
+      if (code !== 0)
+        return reject(
+          new Error(`whisper-cli exited ${code}: ${stderr.slice(-300)}`),
+        );
       resolve(performance.now() - t0);
     });
   });
@@ -149,7 +172,7 @@ try {
     console.log(
       `  ${`transcribe.${clip.name}`.padEnd(26)} ` +
         `audio ${durationSec.toFixed(1)}s  p50 ${fmt(stats.p50).padStart(9)}  ` +
-        `RTF ${rtf.toFixed(3)} (${Math.round((1 / rtf) * 10) / 10}x realtime)`
+        `RTF ${rtf.toFixed(3)} (${Math.round((1 / rtf) * 10) / 10}x realtime)`,
     );
   }
 
@@ -160,7 +183,7 @@ try {
    */
   results["ffmpeg.conversion"] = summarise(conversionSamples);
   console.log(
-    `  ${"ffmpeg.conversion".padEnd(26)} p50 ${fmt(results["ffmpeg.conversion"].p50).padStart(9)}`
+    `  ${"ffmpeg.conversion".padEnd(26)} p50 ${fmt(results["ffmpeg.conversion"].p50).padStart(9)}`,
   );
 
   /**
@@ -180,7 +203,7 @@ try {
       note: "Near-empty clip: approximates the fixed per-transcription overhead.",
     };
     console.log(
-      `  ${"whisper.spawnAndModelLoad".padEnd(26)} p50 ${fmt(results["whisper.spawnAndModelLoad"].p50).padStart(9)}`
+      `  ${"whisper.spawnAndModelLoad".padEnd(26)} p50 ${fmt(results["whisper.spawnAndModelLoad"].p50).padStart(9)}`,
     );
   }
 } finally {
