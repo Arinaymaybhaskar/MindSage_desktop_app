@@ -56,8 +56,12 @@ There are **no automated tests** in this repo (no Vitest/Jest). The only "tests"
 ## Reference docs in this repo
 
 - `README.md` — feature/platform overview + workflow diagrams under `assets/diagrams/`.
-- `COLOR_SYSTEM_README.md` — theming system, presets, CSS variables, `ColorThemeContext` API.
 - `designPatterns.json` — catalog of UI patterns the codebase follows.
-- `TECHNICAL_DEBT.md` — catalog of known debts/remediation priorities. **Consult this before introducing new patterns** (e.g. hardcoded secrets, missing CI) — don't repeat existing mistakes.
+- `docs/` — **all audits, plans, and debt tracking, indexed in `docs/README.md`.**
+  - `docs/PRODUCTION_READINESS.md` — the master list of remaining work before shipping. **Its §0 holds a verified-state table that supersedes stale claims elsewhere** (CI, Vitest, Prettier, husky, and the lint/typecheck/format/test scripts all exist now, contrary to older docs).
+  - `docs/TECHNICAL_DEBT.md`, `docs/TODO.md` — catalog of known debts/remediation priorities. **Consult before introducing new patterns** (e.g. hardcoded secrets) — don't repeat existing mistakes. Both are partly stale.
+  - `docs/AUTH_REVIEW.md`, `docs/NETWORK_AUDIT.md`, `docs/ONLINE_MODE_REMOVAL.md`, `docs/PERFORMANCE.md` — audits.
+  - `docs/OFFLINE_AUTH_DESIGN.md`, `docs/MAC_RELEASE_PLAN.md`, `docs/BUNDLE_SIZE_PLAN.md` — forward-looking plans.
+  - `docs/COLOR_SYSTEM_README.md` — theming system, presets, CSS variables, `ColorThemeContext` API.
 - `ios/docs/SCHEMA_PORT.md` — maps the desktop SQLite schema (`electron/db/connection.js`) onto the iOS GRDB schema. If you change the desktop schema, update both this doc and the iOS migration (`ios/MindSageCore/Sources/MindSageCore/Database/Migrations/SQL/`).
 - `ios/docs/ML_STACK_SPIKE.md`, `SQLITE_VEC_SPIKE.md`, `TESTFLIGHT_CADENCE.md` — iOS-specific planning; ignore for desktop work.
