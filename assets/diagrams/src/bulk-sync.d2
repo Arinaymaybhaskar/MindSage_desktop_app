@@ -1,0 +1,95 @@
+# Bulk re-indexing. Runs when the vector store is empty, stale, or rebuilt
+# after a model change. Derived from electron/qdrantWorker.js.
+
+direction: down
+
+trigger: "Trigger" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+startup: "Collection missing\nor dimension mismatch" {
+  style.stroke-width: 2
+}
+
+manual: "Manual re-index\nfrom settings" {
+  style.stroke-width: 2
+}
+
+post: "worker.postMessage\nbulk sync request" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+collection: "Ensure the collection exists\ncreate with the right vector size" {
+  style.stroke-width: 2
+}
+
+select: "Select unsynced rows\njournals · goals · progress logs\nwhere synced_to_qdrant is not set" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\nmind-sage.db" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+loop: "For each row" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+embed: "Generate embedding\nvia Ollama" {
+  style.stroke-width: 2
+}
+
+ollama: "Ollama\nlocalhost:11434" {
+  shape: hexagon
+  style.stroke-width: 2
+}
+
+upsert: "Upsert point\nvector plus minimal payload" {
+  style.stroke-width: 2
+}
+
+qdrant: "Qdrant\nvector index" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+mark: "Mark synced_to_qdrant\nso a crash resumes\nrather than restarts" {
+  style.stroke-width: 2
+}
+
+failed: "Row failed\nleft unmarked, retried\non the next run" {
+  style.stroke-width: 2
+}
+
+report: "parentPort.postMessage\nprogress back to the main process" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+done: "Index consistent with the database" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+trigger -> startup
+trigger -> manual
+startup -> post
+manual -> post
+post -> collection -> select
+select -> sqlite: "SELECT"
+select -> loop
+loop -> embed
+embed -> ollama: "embed"
+embed -> upsert
+upsert -> qdrant: "upsert"
+upsert -> mark
+mark -> sqlite: "UPDATE"
+embed -> failed: "error"
+failed -> loop: "continue"
+mark -> loop: "next row"
+loop -> report: "batch done"
+report -> done

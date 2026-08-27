@@ -1,0 +1,94 @@
+# Retrieval-augmented chat: two sequential model calls, only the second streams.
+# Derived from electron/methods/chat.js (aiResponse) and ollama.js.
+
+direction: down
+
+ask: "User sends a message\ninvoke \"chat:send-message\"\nwith a streamId" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+thinking: "Phase: thinking\nfirst model call, JSON mode, classifies the query into\nrequires_context · requires_time_filter · base_query · from / to" {
+  style.stroke-width: 2
+}
+
+valid: "Valid JSON?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+needs: "Context needed?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+searching: "Phase: searching\nembed the query, or the\nbase_query when time-filtered" {
+  style.stroke-width: 2
+}
+
+qdrant: "SemanticSearch over mind_entries\ntop 5, optional from / to filter" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+withCtx: "respondWithContext\nretrieved entries become the prompt" {
+  style.stroke-width: 2
+}
+
+without: "respondWithoutContext" {
+  style.stroke-width: 2
+}
+
+writing: "Phase: writing\nsecond model call, streamed\nsources emitted up front" {
+  style.stroke-width: 2
+}
+
+stream: "streamOllamaPrompt\npartialJsonString extracts the\ngrowing \"response\" field" {
+  style.stroke-width: 2
+}
+
+deltas: "chat:stream deltas\nreach the renderer\ntoken by token" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+shaped: "Response matches schema?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+reset: "onReset discards the partial\nbubble, then retries\nso attempts do not concatenate" {
+  style.stroke-width: 2
+}
+
+store: "storeAIResponse\npersist the message and sources,\nappend the follow-up prompt" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\nchat history" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+done: "Bubble settles with\nits cited entries" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+ask -> thinking -> valid
+valid -> thinking: "no, retry up to 3 times"
+valid -> needs: "yes"
+needs -> searching: "yes"
+needs -> without: "no"
+searching -> qdrant
+qdrant -> withCtx
+withCtx -> writing
+without -> writing
+writing -> stream
+stream -> deltas
+stream -> shaped
+shaped -> reset: "no"
+reset -> stream
+shaped -> store: "yes"
+store -> sqlite: "write"
+store -> done

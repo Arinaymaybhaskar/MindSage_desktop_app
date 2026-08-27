@@ -1,0 +1,120 @@
+# Creating a journal entry, from the save click to the AI fields arriving.
+# Derived from electron/methods/journal.js, ollama.js, whisper.js and qdrantWorker.js.
+
+direction: down
+
+save: "User saves an entry\njournalForm.tsx" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+ipc: "journalService.createJournal\ninvoke \"journal:create\"" {
+  style.stroke-width: 2
+}
+
+insert: "handleCreateJournal\nINSERT into journal_entries" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\nmind-sage.db" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+returned: "Entry returned to the UI\nno AI fields yet" {
+  style.stroke-width: 2
+}
+
+emit: "eventBus.emit(\"journal:created\")" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+audio: "Audio attached?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+audioSaved: "eventBus.emit(\"journal:audio-saved\")\nsee transcription.svg" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+meta: "Metadata listener   ollama.js\ntitle · mood_score · mood_tags" {
+  style.stroke-width: 2
+}
+
+summary: "Summary listener   ollama.js" {
+  style.stroke-width: 2
+}
+
+worker: "Worker thread   qdrantWorker.js\nembed and index" {
+  style.stroke-width: 2
+}
+
+short: "Under 25 words?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+skipped: "ollama:summary-skipped\na summary would be longer\nthan the entry" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+genSummary: "Generate summary\nsanitizeSummary rejects\nmeta-commentary and refusals" {
+  style.stroke-width: 2
+}
+
+aiStarted: "journal:aiStarted" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+aiOk: "Valid metadata?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+aiCompleted: "journal:aiCompleted\npersisted by journal.js" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+aiFailed: "journal:aiFailed\nstatus flips to failed,\nretryable from the UI" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+qdrant: "Qdrant upsert\n+ mark synced_to_qdrant" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+notify: "webContents.send\nUI swaps placeholders for\nthe real title, mood and tags" {
+  style.stroke-width: 2
+}
+
+save -> ipc
+ipc -> insert
+insert -> sqlite: "write"
+insert -> returned: "resolves immediately"
+insert -> emit
+emit -> audio
+audio -> audioSaved: "yes"
+emit -> meta
+emit -> summary
+emit -> worker
+
+meta -> aiStarted
+aiStarted -> aiOk
+aiOk -> aiCompleted: "yes"
+aiOk -> aiFailed: "no, after 3 attempts"
+aiCompleted -> notify
+
+summary -> short
+short -> skipped: "yes"
+short -> genSummary: "no"
+genSummary -> sqlite: "store summary"
+
+worker -> qdrant

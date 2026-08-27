@@ -1,0 +1,53 @@
+# Deleting a journal entry, including the media and vector cleanup that has to
+# happen alongside the row. Derived from electron/methods/journal.js.
+
+direction: down
+
+del: "User deletes an entry" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+ipc: "journalService.deleteJournal\ninvoke \"journal:delete\"" {
+  style.stroke-width: 2
+}
+
+fetch: "Read the row first\nto recover the image and\naudio file paths" {
+  style.stroke-width: 2
+}
+
+files: "Delete the media files\nfrom disk" {
+  style.stroke-width: 2
+}
+
+row: "DELETE from journal_entries" {
+  style.stroke-width: 2
+}
+
+point: "Delete the Qdrant point\nby stored point id" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\nmind-sage.db" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+qdrant: "Qdrant\nvector index" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+done: "UI removes the entry\nfrom the list" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+del -> ipc -> fetch
+fetch -> sqlite: "SELECT paths"
+fetch -> files
+files -> row
+row -> sqlite: "DELETE"
+row -> point
+point -> qdrant: "delete point"
+point -> done

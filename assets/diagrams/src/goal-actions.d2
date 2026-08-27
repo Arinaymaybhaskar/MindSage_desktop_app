@@ -1,0 +1,92 @@
+# What happens to a goal after it exists: progress, pinning and completion.
+# Derived from electron/methods/goal.js and progressLogs.js.
+
+direction: down
+
+goal: "An active goal" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+action: "Which action?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+log: "Log progress\ngoal:update-progress\nprogress:add with a note" {
+  style.stroke-width: 2
+}
+
+pin: "Toggle pin\ngoal:toggle-pin" {
+  style.stroke-width: 2
+}
+
+edit: "Edit\ngoal:update" {
+  style.stroke-width: 2
+}
+
+complete: "Complete\ngoal:complete" {
+  style.stroke-width: 2
+}
+
+logRow: "Insert a progress_log row\nvalue plus description" {
+  style.stroke-width: 2
+}
+
+recalc: "Recalculate percent complete" {
+  style.stroke-width: 2
+}
+
+syncLog: "syncProgressLogToQdrant\nthe note is searchable too" {
+  style.stroke-width: 2
+}
+
+dashboard: "Pinned goals appear\non the dashboard" {
+  style.stroke-width: 2
+}
+
+reached: "Target reached?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+celebrate: "GoalCompletedModal" {
+  style.stroke-width: 2
+}
+
+reflect: "Reflection view\nprogress charted over\nthe life of the goal" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\ngoals · progress_logs" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+qdrant: "Qdrant\nvector index" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+goal -> action
+action -> log
+action -> pin
+action -> edit
+action -> complete
+
+log -> logRow
+logRow -> sqlite: "INSERT"
+logRow -> recalc
+recalc -> reached
+reached -> celebrate: "yes"
+logRow -> syncLog
+syncLog -> qdrant: "upsert"
+
+pin -> sqlite: "UPDATE pinned"
+pin -> dashboard
+
+edit -> sqlite: "UPDATE"
+
+complete -> sqlite: "mark completed"
+complete -> reflect
+celebrate -> reflect
