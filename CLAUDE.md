@@ -38,6 +38,16 @@ npx vitest run -t "formats a relative date"       # one test by name
 
 **Other tooling:** husky's [pre-commit hook](.husky/pre-commit) runs `gitleaks protect --staged` (warns and passes through if gitleaks isn't installed — install it for real protection; allowlist false positives in `.gitleaks.toml`). Prettier is configured (`.prettierrc`: double quotes, semicolons, trailing commas, 80 cols) and `.prettierignore` excludes all `*.md`. `.npmrc` sets `engine-strict=true` against the Node 20–24 range in `package.json`; `.nvmrc` pins 20.
 
+## Branching and workflow
+
+`main` is protected on GitHub: no direct pushes (enforced for admins too), no force-pushes, no deletions, and merging requires the `Typecheck & Lint` check to pass — which in practice means `npm test` passing, since typecheck/lint are `continue-on-error` there (see above). All work happens on a branch off `main` and lands via PR.
+
+**Branch naming**, matching the conventional-commit prefixes already used in commit messages:
+
+- `feat/<slug>`, `fix/<slug>`, `chore/<slug>`, `docs/<slug>` — normal work. Delete both the local and remote branch immediately after merge; don't let merged branches accumulate.
+- `backup/<slug>` — a snapshot taken before a history rewrite or other destructive git operation (e.g. `backup/pre-coauthor-removal`, taken before stripping `Co-Authored-By` trailers from history). Kept indefinitely as cheap insurance.
+- `archive/<slug>` — work deliberately abandoned but kept for reference (e.g. `archive/redesign-preview`, a scrapped redesign). Not meant to merge.
+
 ## Architecture
 
 Electron + React + TypeScript desktop journaling app, **offline-first**: data lives in a local `better-sqlite3` DB, and Ollama (generation/embeddings), Qdrant (vector search), and Whisper.cpp (speech-to-text) all run locally.
