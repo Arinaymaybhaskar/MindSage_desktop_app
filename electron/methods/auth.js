@@ -5,9 +5,10 @@ import axios from "axios";
 import http from "http";
 import url from "url";
 import { shell } from "electron";
+import { getOfflineAccessTokenSecret } from "../services/tokenSecret.js";
 
-const offlineAccessTokenSecret =
-  "be1e968105e3d8c510625e7ae117d3b376913c6359b5063bc5ff07f1cc43cfa3229405930cdeb7bcc9e9ebf3199c0b85b1a0c2396018eee4985f2d1a0abf6002";
+// Generated per install and persisted outside the bundle. See
+// services/tokenSecret.js for why this is uniqueness, not confidentiality.
 
 function describeApiConnectionError(error, fallbackMessage) {
   const code = error?.code || error?.cause?.code;
@@ -37,7 +38,7 @@ function describeApiConnectionError(error, fallbackMessage) {
 }
 
 const generateAccessToken = (user) => {
-  return jwt.sign(user, offlineAccessTokenSecret, { expiresIn: "15m" });
+  return jwt.sign(user, getOfflineAccessTokenSecret(), { expiresIn: "15m" });
 };
 
 export const handleLogin = async (event, mode, credentials) => {

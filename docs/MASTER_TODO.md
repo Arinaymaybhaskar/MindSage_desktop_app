@@ -6,7 +6,7 @@ This is the **single ordered queue** — what to do first, second, third. It del
 
 **Legend:** severity `🔴 blocker` `🟠 high` `🟡 medium` `🟢 low` · effort `S` < 1d · `M` 1–3d · `L` > 3d
 
-**How the order was chosen.** Irreversible harm first (data loss, then anything that gets harder after launch), then changes whose payoff exceeds their cost by an order of magnitude, then the privacy promise, then everything gated behind a decision or a measurement. Two hard gates are marked inline: **caching is blocked on the indexes** and **five auth items are blocked on one decision.**
+**How the order was chosen.** Irreversible harm first (data loss, then anything that gets harder after launch), then changes whose payoff exceeds their cost by an order of magnitude, then the privacy promise, then everything gated behind a decision or a measurement. Two hard gates are marked inline: **caching is blocked on the indexes** and **six auth items are blocked on one decision.**
 
 ---
 
@@ -63,7 +63,8 @@ Config and two-line changes with measured or obvious payoff. The whole phase is 
 > **Gate:** item 15 is a decision, and items 17–19 are meaningless until it is made. Fixing any one of them in isolation either logs every user out or leaves the guarantee hollow.
 
 15. 🔴 — **DECIDE: Option A (encrypted vault) or Option B (profile picker, no security claim).** The current code pays A's complexity and delivers B's protection. → [AUTH_REVIEW §1](AUTH_REVIEW.md), [OFFLINE_AUTH_DESIGN](OFFLINE_AUTH_DESIGN.md)
-16. 🔴 S — **Rotate the hardcoded JWT secret and scrub it from git history.** Needed under either option — it currently ships *inside the packaged app*. → [TECHNICAL_DEBT §2.1](TECHNICAL_DEBT.md)
+16. 🟡 S — **Scrub the old JWT secret from git history.** The constant no longer ships: `electron/services/tokenSecret.js` now generates a 64-byte secret per install on first run and persists it outside the bundle, so installs no longer share a signing key. What remains is the history rewrite, which needs a `backup/` branch first and coordination with anyone holding a clone. Downgraded from 🔴 because the live code no longer carries the value. → [TECHNICAL_DEBT §2.1](TECHNICAL_DEBT.md)
+16b. 🔴 M — **Verify tokens instead of decoding them.** All eight modules under `electron/methods/` call `jwt.decode`, so neither the signature nor `exp` is ever checked and a hand-written `{"id": N}` payload is accepted as user N. **Blocked on item 17, not merely sequenced after it:** switching to `jwt.verify` on its own logs every user out mid-session with no way back, because the refresh interceptor at [src/api/axios.ts:83](../src/api/axios.ts#L83) posts to a `localhost:4000` server that never starts. Item 17 deletes the tokens outright, which dissolves this item rather than fixing it — prefer that over patching eight call sites. Also deduplicate `getUserIdFromToken`, currently copy-pasted into all eight. → [AUTH_REVIEW §2.1](AUTH_REVIEW.md)
 17. 🔴 M — **Session refactor, without encryption.** Move the session into the main process, delete the tokens, drop the `token` parameter from ~68 IPC channels. Behaviour-neutral and independently testable — do it before any encryption work. → [OFFLINE_AUTH_DESIGN §9.2](OFFLINE_AUTH_DESIGN.md)
 18. 🔴 L — **Encrypt the database at rest.** SQLCipher, DEK wrapped by password + recovery code, mandatory recovery-code confirmation at setup, and the §7 migration for existing installs. The single highest-value change in the repo. → [OFFLINE_AUTH_DESIGN §3–7](OFFLINE_AUTH_DESIGN.md), [AUTH_REVIEW §2.6](AUTH_REVIEW.md)
 19. 🟠 M — **Lock states** (idle, sleep, quit) **and `biometric_lock` implemented for real or removed.** Shipping an inert security toggle is worse than shipping none. → [AUTH_REVIEW §2.5, §2.8](AUTH_REVIEW.md)
