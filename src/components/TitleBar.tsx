@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Minus, Square, Maximize2, X, Loader2 } from "lucide-react";
-import { ProfileDropdown } from "./components/profileDropdown"; // Ensure path is correct
+import { ProfileDropdown } from "./profileDropdown"; // Ensure path is correct
 import { useLocation } from "react-router-dom";
-import OllamaStatus from "./components/OllamaStatus";
+import OllamaStatus from "./OllamaStatus";
 
 const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);

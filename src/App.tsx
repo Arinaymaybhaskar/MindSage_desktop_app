@@ -19,7 +19,7 @@ import { DeleteAccount } from "./pages/auth/deleteAccount";
 import ForgotPassword from "./pages/auth/forgotPassword";
 import DataExport from "./pages/dataExport";
 import { ChatPage } from "./pages/chat";
-import TitleBar from "./TitleBar";
+import TitleBar from "./components/TitleBar";
 import {
   BookOpenIcon,
   HomeIcon,
@@ -215,8 +215,28 @@ function AppLayout() {
                   </PrivateRoute>
                 }
               />
-              <Route path="/memories" element={<Memories />} />
-              <Route path="/qdrant" element={<QdrantViewer />} />
+              {/* Linked from the dashboard, so a real signed-in feature. */}
+              <Route
+                path="/memories"
+                element={
+                  <PrivateRoute>
+                    <Memories />
+                  </PrivateRoute>
+                }
+              />
+              {/* A vector-database inspector for debugging. Nothing links
+                  to it, and it should not reach users, so it exists only in
+                  a dev build. */}
+              {import.meta.env.DEV && (
+                <Route
+                  path="/qdrant"
+                  element={
+                    <PrivateRoute>
+                      <QdrantViewer />
+                    </PrivateRoute>
+                  }
+                />
+              )}
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
