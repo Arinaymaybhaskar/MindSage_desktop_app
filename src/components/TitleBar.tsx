@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Minus, Square, Maximize2, X, Loader2 } from "lucide-react";
+import { Minus, Square, Maximize2, X } from "lucide-react";
 import { ProfileDropdown } from "./profileDropdown"; // Ensure path is correct
 import { useLocation } from "react-router-dom";
-import OllamaStatus from "./OllamaStatus";
+import LocalAIPanel from "./LocalAIPanel";
 
 const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -12,13 +12,7 @@ const TitleBar: React.FC = () => {
   const location = useLocation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(false);
   const [showPath, setShowPath] = useState(false);
-
-  useEffect(() => {
-    window.electron.onAIStarted(() => setLoading(true));
-    window.electron.onAICompleted(() => setLoading(false));
-  });
 
   useEffect(() => {
     const storedPathSetting = localStorage.getItem("path_on_titlebar");
@@ -121,17 +115,11 @@ const TitleBar: React.FC = () => {
         className="flex items-center h-full"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        <OllamaStatus />
+        <div className="mx-2 flex items-center">
+          <LocalAIPanel />
+        </div>
         {user && (
-          <div className="flex items-center justify-center h-full gap-2 mx-2">
-            {/* --- Animated Search Bar --- */}
-
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Loader2 className="animate-spin w-4 h-4" />
-                AI is processing...
-              </div>
-            )}
+          <div className="flex items-center justify-center h-full gap-2 mr-2">
             <ProfileDropdown />
           </div>
         )}

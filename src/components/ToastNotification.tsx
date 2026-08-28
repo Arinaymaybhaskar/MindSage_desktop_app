@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Info, AlertTriangle, XCircle, CheckCircle } from "lucide-react";
 import type { JSX } from "react";
 
@@ -35,6 +35,13 @@ const variantStyles: Record<
   },
 };
 
+/**
+ * A single toast. It is deliberately position-less: the stack in
+ * `ToastProvider` owns placement, and the `AnimatePresence` there owns the
+ * enter/exit transition. Giving this element its own `fixed bottom-4 right-4`
+ * pinned every concurrent toast to the same coordinates, so they piled up on
+ * top of each other instead of stacking.
+ */
 const ToastNotification: React.FC<ToastNotificationProps> = ({
   variant = "info",
   message,
@@ -42,19 +49,17 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({
   const { bg, text, icon } = variantStyles[variant];
 
   return (
-    <AnimatePresence>
-      <motion.div
-        key="toastNotification"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 0.9, y: 0 }}
-        exit={{ opacity: 0, y: 20 }}
-        transition={{ duration: 0.3 }}
-        className={`fixed bottom-4 right-4 flex gap-1.5 px-3 py-2 rounded-lg shadow-md text-xs pointer-events-none ${bg} ${text}`}
-      >
-        {icon}
-        <p>{message}</p>
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 0.9, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.3 }}
+      className={`flex items-start gap-1.5 px-3 py-2 rounded-lg shadow-md text-xs pointer-events-none ${bg} ${text}`}
+    >
+      <span className="shrink-0 mt-px">{icon}</span>
+      <p>{message}</p>
+    </motion.div>
   );
 };
 
