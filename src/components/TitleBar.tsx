@@ -85,8 +85,8 @@ const TitleBar: React.FC = () => {
   const handleMaximize = () => window.electron?.maximize();
   const handleClose = () => window.electron?.close();
 
-  const iconDark = new URL("../assets/iconDark.png", import.meta.url).href;
-  const iconLight = new URL("../assets/iconLight.png", import.meta.url).href;
+  const iconDark = new URL("../../assets/iconDark.png", import.meta.url).href;
+  const iconLight = new URL("../../assets/iconLight.png", import.meta.url).href;
 
   return (
     <motion.header

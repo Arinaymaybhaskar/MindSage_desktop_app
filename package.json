@@ -45,15 +45,6 @@
   },
   "build": {
     "copyright": "Copyright © 2025 Arinaymay",
-    "extraResources": [
-      {
-        "from": "resources/",
-        "to": ".",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
     "appId": "com.mindsage.app",
     "productName": "MindSage",
     "publish": [
@@ -74,11 +65,32 @@
       "output": "release"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "extraResources": [
+        {
+          "from": "resources/mac/",
+          "to": "mac"
+        }
+      ]
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon2.ico"
+      "icon": "assets/icon2.ico",
+      "extraResources": [
+        {
+          "from": "resources/win/",
+          "to": "win",
+          "filter": [
+            "**/*",
+            "!.qdrant-initialized",
+            "!snapshots/**"
+          ]
+        },
+        {
+          "from": "resources/whisper-bin-x64/",
+          "to": "whisper-bin-x64"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,

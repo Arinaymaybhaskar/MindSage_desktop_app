@@ -5,12 +5,12 @@ import {
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
   respondWithoutContext,
-} from "./AIPrompts";
+} from "./AIPrompts.js";
 import {
   generateEmbedding,
   handleOllamaPrompt,
   streamOllamaPrompt,
-} from "./ollama";
+} from "./ollama.js";
 import { partialJsonString } from "./jsonStream.js";
 import { SemanticSearch } from "./qdrant.js";
 import z from "zod";
