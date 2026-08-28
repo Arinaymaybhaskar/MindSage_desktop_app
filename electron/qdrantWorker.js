@@ -4,6 +4,22 @@ import { db } from "./db/connection.js";
 import { eventBus } from "./eventBus.js";
 import { randomUUID } from "crypto";
 
+/**
+ * Structured progress for the AI activity panel in the title bar. The plain
+ * string postMessage calls elsewhere in this file are debug logging that main
+ * writes to the console; these objects are forwarded to the renderer instead.
+ */
+function reportActivity(event, data = {}) {
+  parentPort?.postMessage({ type: "ai-activity", event, data });
+}
+
+/**
+ * Non-zero while a bulk sync is running. Bulk work reports one aggregate row
+ * with a count, so a re-index of a few hundred entries cannot flood the panel
+ * with a few hundred rows.
+ */
+let bulkDepth = 0;
+
 // Function to test Qdrant connection
 async function testQdrantConnection(baseUrl) {
   try {
@@ -340,8 +356,15 @@ async function updateQdrantPayload(entry, sourceType = "journal") {
 
 // Process journal entries
 async function processJournal(journal) {
+  const perEntry = bulkDepth === 0;
   try {
     parentPort?.postMessage(`Processing journal ID: ${journal.id}`);
+    if (perEntry) {
+      reportActivity("journal:indexStarted", {
+        entryId: journal.id,
+        title: journal.title,
+      });
+    }
 
     // Generate embedding from journal content
     const textToEmbed = journal.title
@@ -368,11 +391,20 @@ async function processJournal(journal) {
     parentPort?.postMessage(
       `Journal ${journal.id} processed and synced successfully`,
     );
+    if (perEntry) {
+      reportActivity("journal:indexCompleted", { entryId: journal.id });
+    }
   } catch (error) {
     parentPort?.postMessage(
       `Error processing journal ID: ${journal.id} - ${error.message}`,
     );
     console.error("Error in processJournal:", error);
+    if (perEntry) {
+      reportActivity("journal:indexFailed", {
+        entryId: journal.id,
+        error: error.message,
+      });
+    }
 
     // Mark as failed in database
     const updateStmt = db.prepare(
@@ -638,10 +670,18 @@ parentPort?.on("message", async (message) => {
     parentPort?.postMessage(`Found ${pendingJournals.length} journals to sync`);
     console.log(`Worker: Found ${pendingJournals.length} journals to sync`);
 
+    bulkDepth += 1;
+    reportActivity("qdrant:bulkStarted", {
+      kind: "journals",
+      total: pendingJournals.length,
+    });
+    let bulkDone = 0;
+    let bulkFailed = 0;
     for (const journal of pendingJournals) {
       try {
         await processJournal(journal);
       } catch (error) {
+        bulkFailed += 1;
         parentPort?.postMessage(
           `Error processing journal ${journal.id}: ${error.message}`,
         );
@@ -649,8 +689,20 @@ parentPort?.on("message", async (message) => {
           `Worker: Error processing journal ${journal.id}: ${error.message}`,
         );
       }
+      bulkDone += 1;
+      reportActivity("qdrant:bulkProgress", {
+        kind: "journals",
+        done: bulkDone,
+        total: pendingJournals.length,
+      });
     }
 
+    bulkDepth -= 1;
+    reportActivity("qdrant:bulkCompleted", {
+      kind: "journals",
+      total: pendingJournals.length,
+      failed: bulkFailed,
+    });
     parentPort?.postMessage("Bulk sync for journals completed");
     console.log("Worker: Bulk sync for journals completed");
   } else if (message.type === "goal:bulk-sync-requested") {
@@ -664,10 +716,18 @@ parentPort?.on("message", async (message) => {
     parentPort?.postMessage(`Found ${pendingGoals.length} goals to sync`);
     console.log(`Worker: Found ${pendingGoals.length} goals to sync`);
 
+    bulkDepth += 1;
+    reportActivity("qdrant:bulkStarted", {
+      kind: "goals",
+      total: pendingGoals.length,
+    });
+    let bulkDone = 0;
+    let bulkFailed = 0;
     for (const goal of pendingGoals) {
       try {
         await processGoal(goal);
       } catch (error) {
+        bulkFailed += 1;
         parentPort?.postMessage(
           `Error processing goal ${goal.id}: ${error.message}`,
         );
@@ -675,8 +735,20 @@ parentPort?.on("message", async (message) => {
           `Worker: Error processing goal ${goal.id}: ${error.message}`,
         );
       }
+      bulkDone += 1;
+      reportActivity("qdrant:bulkProgress", {
+        kind: "goals",
+        done: bulkDone,
+        total: pendingGoals.length,
+      });
     }
 
+    bulkDepth -= 1;
+    reportActivity("qdrant:bulkCompleted", {
+      kind: "goals",
+      total: pendingGoals.length,
+      failed: bulkFailed,
+    });
     parentPort?.postMessage("Bulk sync for goals completed");
     console.log("Worker: Bulk sync for goals completed");
   } else if (message.type === "progress_log:bulk-sync-requested") {
@@ -694,10 +766,18 @@ parentPort?.on("message", async (message) => {
       `Worker: Found ${pendingProgressLogs.length} progress logs to sync`,
     );
 
+    bulkDepth += 1;
+    reportActivity("qdrant:bulkStarted", {
+      kind: "progress logs",
+      total: pendingProgressLogs.length,
+    });
+    let bulkDone = 0;
+    let bulkFailed = 0;
     for (const progressLog of pendingProgressLogs) {
       try {
         await processProgressLog(progressLog);
       } catch (error) {
+        bulkFailed += 1;
         parentPort?.postMessage(
           `Error processing progress log ${progressLog.id}: ${error.message}`,
         );
@@ -705,8 +785,20 @@ parentPort?.on("message", async (message) => {
           `Worker: Error processing progress log ${progressLog.id}: ${error.message}`,
         );
       }
+      bulkDone += 1;
+      reportActivity("qdrant:bulkProgress", {
+        kind: "progress logs",
+        done: bulkDone,
+        total: pendingProgressLogs.length,
+      });
     }
 
+    bulkDepth -= 1;
+    reportActivity("qdrant:bulkCompleted", {
+      kind: "progress logs",
+      total: pendingProgressLogs.length,
+      failed: bulkFailed,
+    });
     parentPort?.postMessage("Bulk sync for progress logs completed");
     console.log("Worker: Bulk sync for progress logs completed");
   } else if (message.type === "journal:qdrant-update-needed") {
@@ -715,15 +807,24 @@ parentPort?.on("message", async (message) => {
       `Received journal:qdrant-update-needed message for journal ${entry.id}`,
     );
 
+    reportActivity("journal:indexStarted", {
+      entryId: entry.id,
+      title: entry.title,
+    });
     try {
       await updateQdrantPayload(entry, "journal");
       parentPort?.postMessage(
         `Successfully updated Qdrant payload for journal ${entry.id}`,
       );
+      reportActivity("journal:indexCompleted", { entryId: entry.id });
     } catch (error) {
       parentPort?.postMessage(
         `Error updating Qdrant payload for journal ${entry.id}: ${error.message}`,
       );
+      reportActivity("journal:indexFailed", {
+        entryId: entry.id,
+        error: error.message,
+      });
     }
   } else if (message.type === "goal:qdrant-update-needed") {
     const { entry } = message.data;

@@ -105,9 +105,21 @@ function createQdrantWorker() {
 
   const worker = new Worker(workerPath, { type: "module" });
 
-  worker.on("message", (message) =>
-    console.log("Qdrant Worker Message:", message),
-  );
+  worker.on("message", (message) => {
+    // Structured progress goes to the renderer's AI activity panel; everything
+    // else the worker posts is debug logging.
+    if (message?.type === "ai-activity") {
+      const win = BrowserWindow.getAllWindows()[0];
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("ai-status-event", {
+          event: message.event,
+          data: message.data,
+        });
+      }
+      return;
+    }
+    console.log("Qdrant Worker Message:", message);
+  });
   worker.on("error", (error) => console.error("Qdrant Worker Error:", error));
   worker.on("exit", (code) => {
     if (code !== 0)

@@ -90,6 +90,7 @@ import {
 } from "./methods/chat.js";
 import { handleExportUserData } from "./methods/exportData.js";
 import { eventBus } from "./eventBus.js";
+import { db } from "./db/connection.js";
 
 export function createQdrantWorker() {
   const __filename = fileURLToPath(import.meta.url);
@@ -288,13 +289,38 @@ export function registerIPCHandlers(runtime) {
     "ollama:summary-failed",
     "ollama:summary-skipped",
   ];
+  /**
+   * The AI events carry only an entry id, but the activity panel has to name
+   * the entry being worked on. A new entry has no title yet (generating one is
+   * the job being reported), so a content snippet is sent alongside it.
+   */
+  const describeEntry = (entryId) => {
+    if (typeof entryId !== "number") return {};
+    try {
+      const row = db
+        .prepare(`SELECT title, content FROM journal_entries WHERE id = ?`)
+        .get(entryId);
+      if (!row) return {};
+      return {
+        title: row.title ?? "",
+        preview: (row.content ?? "").replace(/\s+/g, " ").trim().slice(0, 90),
+      };
+    } catch {
+      // Naming the entry is cosmetic; never let it break the event.
+      return {};
+    }
+  };
+
   aiEvents.forEach((eventName) => {
     eventBus.on(eventName, (data) => {
       // `runtime` (from startQdrant) has no mainWindow, so resolve the live
       // window the same way events.js does.
       const win = BrowserWindow.getAllWindows()[0];
       if (win && !win.isDestroyed()) {
-        win.webContents.send("ai-status-event", { event: eventName, data });
+        win.webContents.send("ai-status-event", {
+          event: eventName,
+          data: { ...describeEntry(data?.entryId), ...data },
+        });
       }
     });
   });
