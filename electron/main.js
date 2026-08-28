@@ -95,11 +95,13 @@ function createQdrantWorker() {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
 
-  const isDev = !app.isPackaged;
-
-  const workerPath = isDev
-    ? path.join(__dirname, "qdrantWorker.js")
-    : path.join(process.resourcesPath, "dist-electron", "qdrantWorker.js");
+  // Same path in dev and packaged. main.js and qdrantWorker.js are siblings
+  // in dist-electron either way, and when packaged that directory lives
+  // inside app.asar, which __dirname already points into. The packaged
+  // branch used to resolve process.resourcesPath/dist-electron, which does
+  // not exist: dist-electron/**/* is packed into the archive, so the
+  // worker never started in a real install.
+  const workerPath = path.join(__dirname, "qdrantWorker.js");
 
   const worker = new Worker(workerPath, { type: "module" });
 
