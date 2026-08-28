@@ -34,7 +34,7 @@ npx vitest run -t "formats a relative date"       # one test by name
 
 **Typecheck, lint and format are all clean; keep them that way.** As of 2026-08-28 `npm run typecheck`, `npm run lint` and `npm run format:check` all report **zero** problems, and tests are green (5 files, 35 tests). This replaces a long-standing baseline of 131 typecheck errors and 106 lint problems, cleared wholesale in a single pass. **A non-zero typecheck or lint exit now means you broke something**, so treat it as a real failure rather than comparing counts against a tolerated baseline.
 
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) still runs typecheck and lint with `continue-on-error: true` and only *blocks* on `npm test`, so neither gate will stop a regression for you. The pre-commit hook is what actually holds the line (see **Other tooling** below). That `continue-on-error` is now worth removing.
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) **blocks on all three**: typecheck, lint and `npm test`. The `continue-on-error: true` that made the first two report-only is gone, so a red `Typecheck & Lint` check now means what its name says. The pre-commit hook catches the same problems earlier (see **Other tooling** below), but it can be bypassed with `--no-verify`; CI cannot.
 
 Three things that clean-up established, so treat them as conventions rather than incidental style:
 
@@ -48,7 +48,7 @@ Three things that clean-up established, so treat them as conventions rather than
 
 ## Branching and workflow
 
-`main` is protected on GitHub: no direct pushes (enforced for admins too), no force-pushes, no deletions, and merging requires the `Typecheck & Lint` check to pass — which in practice means `npm test` passing, since typecheck/lint are `continue-on-error` there (see above). All work happens on a branch off `main` and lands via PR.
+`main` is protected on GitHub: no direct pushes (enforced for admins too), no force-pushes, no deletions, and merging requires the `Typecheck & Lint` check to pass, which now genuinely means typecheck, lint **and** `npm test` all passing (see above). All work happens on a branch off `main` and lands via PR.
 
 **Branch naming**, matching the conventional-commit prefixes already used in commit messages:
 
