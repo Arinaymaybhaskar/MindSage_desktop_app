@@ -13,6 +13,10 @@ assets/
 # Generated / vendored
 *.min.js
 package-lock.json
+# Vendored Rive runtime: a webpack UMD bundle, not ours to reflow.
+public/rive/
+# Benchmark output is machine-written and rewritten by every `npm run bench`.
+docs/benchmarks/results/
 
 # Docs and data that shouldn't be reflowed
 *.md

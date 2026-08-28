@@ -156,7 +156,9 @@
         "list.page1": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -168,7 +170,9 @@
         "list.deepPage": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -180,7 +184,9 @@
         "list.dateFiltered": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 AND DATE(j.created_at) >= DATE(?) AND DATE(j.created_at) <= DATE(?) GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -203,7 +209,9 @@
         "dashboard.recent": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY j.created_at DESC LIMIT 3",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -215,18 +223,30 @@
         "dashboard.stats": [
           {
             "sql": "SELECT COUNT(id) as totalEntries FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT SUM( CASE WHEN content IS NULL OR TRIM(content) = '' THEN 0 ELSE LENGTH(TRIM(content)) - LENGTH(REPLACE(TRIM(content), ' ', '')) + 1 END ) as totalWords FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT MIN(created_at) as firstEntry, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "WITH DayStreaks AS ( SELECT DATE(created_at) as entry_date, DATE(created_at, '-' || (ROW_NUMBER() OVER (ORDER BY DATE(created_at))) || ' days') as streak_group FROM (SELECT DISTINCT DATE(created_at) as created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0) ) SELECT COUNT(*) as longestStreak FROM DayStreaks GROUP BY streak_group ORDER BY longestStreak DESC LIMIT 1;",
@@ -252,13 +272,19 @@
           },
           {
             "sql": "SELECT AVG(mood_score) as averageMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND mood_score IS NOT NULL",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT COUNT(id) as totalGoals, SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completedGoals, SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as activeGoals FROM goals WHERE user_id = ?",
             "scans": [],
-            "steps": ["SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"]
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
           },
           {
             "sql": "SELECT t.name FROM journal_entry_tags jet JOIN tags t ON jet.tag_id = t.id WHERE t.user_id = ? GROUP BY t.name ORDER BY COUNT(jet.tag_id) DESC LIMIT 1",
@@ -317,113 +343,198 @@
         "dashboard.data": [
           {
             "sql": "SELECT COUNT(id) as entryCount, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-7 days') GROUP BY day ORDER BY day ASC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR GROUP BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
           },
           {
             "sql": "SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 3",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           },
           {
             "sql": "SELECT image_key FROM journal_entries WHERE user_id = ? AND image_key IS NOT NULL AND is_deleted = 0 ORDER BY RANDOM() LIMIT 10",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           },
           {
             "sql": "SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1",
             "scans": [],
-            "steps": ["SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"]
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
           }
         ],
         "dashboard.monthlyScores": [
           {
             "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-30 days') GROUP BY day ORDER BY day ASC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR GROUP BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
           }
         ],
         "dashboard.allTimeScores": [
           {
             "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 GROUP BY day ORDER BY day ASC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR GROUP BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
           }
         ],
         "gallery.top": [
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC LIMIT 10",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           }
         ],
         "gallery.random": [
           {
             "sql": "SELECT COUNT(*) AS total FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           }
         ],
         "gallery.all": [
           {
             "sql": "SELECT id, image_key, title, created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           }
         ]
       }
@@ -560,7 +671,9 @@
         "list.page1": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -572,7 +685,9 @@
         "list.deepPage": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -584,7 +699,9 @@
         "list.dateFiltered": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 AND DATE(j.created_at) >= DATE(?) AND DATE(j.created_at) <= DATE(?) GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -607,7 +724,9 @@
         "dashboard.recent": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY j.created_at DESC LIMIT 3",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -619,18 +738,30 @@
         "dashboard.stats": [
           {
             "sql": "SELECT COUNT(id) as totalEntries FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT SUM( CASE WHEN content IS NULL OR TRIM(content) = '' THEN 0 ELSE LENGTH(TRIM(content)) - LENGTH(REPLACE(TRIM(content), ' ', '')) + 1 END ) as totalWords FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT MIN(created_at) as firstEntry, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "WITH DayStreaks AS ( SELECT DATE(created_at) as entry_date, DATE(created_at, '-' || (ROW_NUMBER() OVER (ORDER BY DATE(created_at))) || ' days') as streak_group FROM (SELECT DISTINCT DATE(created_at) as created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0) ) SELECT COUNT(*) as longestStreak FROM DayStreaks GROUP BY streak_group ORDER BY longestStreak DESC LIMIT 1;",
@@ -656,13 +787,19 @@
           },
           {
             "sql": "SELECT AVG(mood_score) as averageMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND mood_score IS NOT NULL",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT COUNT(id) as totalGoals, SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completedGoals, SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as activeGoals FROM goals WHERE user_id = ?",
             "scans": [],
-            "steps": ["SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"]
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
           },
           {
             "sql": "SELECT t.name FROM journal_entry_tags jet JOIN tags t ON jet.tag_id = t.id WHERE t.user_id = ? GROUP BY t.name ORDER BY COUNT(jet.tag_id) DESC LIMIT 1",
@@ -721,113 +858,198 @@
         "dashboard.data": [
           {
             "sql": "SELECT COUNT(id) as entryCount, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-7 days') GROUP BY day ORDER BY day ASC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR GROUP BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
           },
           {
             "sql": "SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 3",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           },
           {
             "sql": "SELECT image_key FROM journal_entries WHERE user_id = ? AND image_key IS NOT NULL AND is_deleted = 0 ORDER BY RANDOM() LIMIT 10",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           },
           {
             "sql": "SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1",
             "scans": [],
-            "steps": ["SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"]
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
           }
         ],
         "dashboard.monthlyScores": [
           {
             "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-30 days') GROUP BY day ORDER BY day ASC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR GROUP BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
           }
         ],
         "dashboard.allTimeScores": [
           {
             "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 GROUP BY day ORDER BY day ASC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR GROUP BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
           }
         ],
         "gallery.top": [
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC LIMIT 10",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           }
         ],
         "gallery.random": [
           {
             "sql": "SELECT COUNT(*) AS total FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           }
         ],
         "gallery.all": [
           {
             "sql": "SELECT id, image_key, title, created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           }
         ]
       }
@@ -964,7 +1186,9 @@
         "list.page1": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -976,7 +1200,9 @@
         "list.deepPage": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -988,7 +1214,9 @@
         "list.dateFiltered": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 AND DATE(j.created_at) >= DATE(?) AND DATE(j.created_at) <= DATE(?) GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -1011,7 +1239,9 @@
         "dashboard.recent": [
           {
             "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY j.created_at DESC LIMIT 3",
-            "scans": ["SCAN j"],
+            "scans": [
+              "SCAN j"
+            ],
             "steps": [
               "SCAN j",
               "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
@@ -1023,18 +1253,30 @@
         "dashboard.stats": [
           {
             "sql": "SELECT COUNT(id) as totalEntries FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT SUM( CASE WHEN content IS NULL OR TRIM(content) = '' THEN 0 ELSE LENGTH(TRIM(content)) - LENGTH(REPLACE(TRIM(content), ' ', '')) + 1 END ) as totalWords FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT MIN(created_at) as firstEntry, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "WITH DayStreaks AS ( SELECT DATE(created_at) as entry_date, DATE(created_at, '-' || (ROW_NUMBER() OVER (ORDER BY DATE(created_at))) || ' days') as streak_group FROM (SELECT DISTINCT DATE(created_at) as created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0) ) SELECT COUNT(*) as longestStreak FROM DayStreaks GROUP BY streak_group ORDER BY longestStreak DESC LIMIT 1;",
@@ -1060,13 +1302,19 @@
           },
           {
             "sql": "SELECT AVG(mood_score) as averageMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND mood_score IS NOT NULL",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT COUNT(id) as totalGoals, SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completedGoals, SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as activeGoals FROM goals WHERE user_id = ?",
             "scans": [],
-            "steps": ["SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"]
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
           },
           {
             "sql": "SELECT t.name FROM journal_entry_tags jet JOIN tags t ON jet.tag_id = t.id WHERE t.user_id = ? GROUP BY t.name ORDER BY COUNT(jet.tag_id) DESC LIMIT 1",
@@ -1125,113 +1373,198 @@
         "dashboard.data": [
           {
             "sql": "SELECT COUNT(id) as entryCount, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-7 days') GROUP BY day ORDER BY day ASC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR GROUP BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
           },
           {
             "sql": "SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 3",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           },
           {
             "sql": "SELECT image_key FROM journal_entries WHERE user_id = ? AND image_key IS NOT NULL AND is_deleted = 0 ORDER BY RANDOM() LIMIT 10",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           },
           {
             "sql": "SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1",
             "scans": [],
-            "steps": ["SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"]
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
           }
         ],
         "dashboard.monthlyScores": [
           {
             "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-30 days') GROUP BY day ORDER BY day ASC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR GROUP BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
           }
         ],
         "dashboard.allTimeScores": [
           {
             "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 GROUP BY day ORDER BY day ASC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR GROUP BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
           }
         ],
         "gallery.top": [
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC LIMIT 10",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           }
         ],
         "gallery.random": [
           {
             "sql": "SELECT COUNT(*) AS total FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           },
           {
             "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
           }
         ],
         "gallery.all": [
           {
             "sql": "SELECT id, image_key, title, created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC",
-            "scans": ["SCAN journal_entries"],
-            "steps": ["SCAN journal_entries", "USE TEMP B-TREE FOR ORDER BY"]
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
           }
         ]
       }
@@ -1506,7 +1839,11 @@
   },
   "vector": {
     "dimensions": 768,
-    "sizes": [150, 5000, 50000],
+    "sizes": [
+      150,
+      5000,
+      50000
+    ],
     "results": {
       "qdrant.startupToReady": {
         "n": 1,
@@ -2120,120 +2457,248 @@
     "perQuery": [
       {
         "query": "What have I written about my knee?",
-        "relevant": [1],
-        "returned": [13, 1, 15, 6, 14],
+        "relevant": [
+          1
+        ],
+        "returned": [
+          13,
+          1,
+          15,
+          6,
+          14
+        ],
         "recall": 1,
         "reciprocalRank": 0.5,
         "topHitRelevant": false
       },
       {
         "query": "When did I last talk to my sister?",
-        "relevant": [2],
-        "returned": [2, 13, 14, 5, 6],
+        "relevant": [
+          2
+        ],
+        "returned": [
+          2,
+          13,
+          14,
+          5,
+          6
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Notes about things going wrong at work",
-        "relevant": [3, 16],
-        "returned": [14, 8, 3, 10, 13],
+        "relevant": [
+          3,
+          16
+        ],
+        "returned": [
+          14,
+          8,
+          3,
+          10,
+          13
+        ],
         "recall": 0.5,
         "reciprocalRank": 0.33,
         "topHitRelevant": false
       },
       {
         "query": "Am I sleeping badly?",
-        "relevant": [4, 17],
-        "returned": [4, 13, 17, 3, 11],
+        "relevant": [
+          4,
+          17
+        ],
+        "returned": [
+          4,
+          13,
+          17,
+          3,
+          11
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "What is my mum up to these days?",
-        "relevant": [5],
-        "returned": [14, 2, 17, 5, 4],
+        "relevant": [
+          5
+        ],
+        "returned": [
+          14,
+          2,
+          17,
+          5,
+          4
+        ],
         "recall": 1,
         "reciprocalRank": 0.25,
         "topHitRelevant": false
       },
       {
         "query": "Have I been reading anything?",
-        "relevant": [6, 18],
-        "returned": [6, 4, 14, 15, 13],
+        "relevant": [
+          6,
+          18
+        ],
+        "returned": [
+          6,
+          4,
+          14,
+          15,
+          13
+        ],
         "recall": 0.5,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Times I spent time outdoors",
-        "relevant": [7, 15],
-        "returned": [7, 15, 14, 5, 6],
+        "relevant": [
+          7,
+          15
+        ],
+        "returned": [
+          7,
+          15,
+          14,
+          5,
+          6
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Do I struggle to accept compliments?",
-        "relevant": [8, 16],
-        "returned": [8, 10, 15, 4, 13],
+        "relevant": [
+          8,
+          16
+        ],
+        "returned": [
+          8,
+          10,
+          15,
+          4,
+          13
+        ],
         "recall": 0.5,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "What am I worried about financially?",
-        "relevant": [9],
-        "returned": [9, 4, 14, 13, 8],
+        "relevant": [
+          9
+        ],
+        "returned": [
+          9,
+          4,
+          14,
+          13,
+          8
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Am I looking after myself during the workday?",
-        "relevant": [10, 4],
-        "returned": [11, 7, 10, 14, 4],
+        "relevant": [
+          10,
+          4
+        ],
+        "returned": [
+          11,
+          7,
+          10,
+          14,
+          4
+        ],
         "recall": 1,
         "reciprocalRank": 0.33,
         "topHitRelevant": false
       },
       {
         "query": "Thoughts about where I live",
-        "relevant": [11],
-        "returned": [14, 11, 5, 13, 18],
+        "relevant": [
+          11
+        ],
+        "returned": [
+          14,
+          11,
+          5,
+          13,
+          18
+        ],
         "recall": 1,
         "reciprocalRank": 0.5,
         "topHitRelevant": false
       },
       {
         "query": "Anything about cooking or food I made",
-        "relevant": [12],
-        "returned": [5, 10, 11, 13, 4],
+        "relevant": [
+          12
+        ],
+        "returned": [
+          5,
+          10,
+          11,
+          13,
+          4
+        ],
         "recall": 0,
         "reciprocalRank": 0,
         "topHitRelevant": false
       },
       {
         "query": "Have I been to any medical appointments?",
-        "relevant": [13, 1],
-        "returned": [7, 13, 18, 17, 14],
+        "relevant": [
+          13,
+          1
+        ],
+        "returned": [
+          7,
+          13,
+          18,
+          17,
+          14
+        ],
         "recall": 0.5,
         "reciprocalRank": 0.5,
         "topHitRelevant": false
       },
       {
         "query": "Which friendships have been on my mind?",
-        "relevant": [14, 2],
-        "returned": [6, 15, 10, 14, 13],
+        "relevant": [
+          14,
+          2
+        ],
+        "returned": [
+          6,
+          15,
+          10,
+          14,
+          13
+        ],
         "recall": 0.5,
         "reciprocalRank": 0.25,
         "topHitRelevant": false
       },
       {
         "query": "Have I been drinking less?",
-        "relevant": [17],
-        "returned": [17, 4, 13, 14, 7],
+        "relevant": [
+          17
+        ],
+        "returned": [
+          17,
+          4,
+          13,
+          14,
+          7
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true

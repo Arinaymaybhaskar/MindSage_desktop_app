@@ -10,7 +10,9 @@
     "electron": null,
     "v8": "13.6.233.17-node.51"
   },
-  "stages": ["quality"],
+  "stages": [
+    "quality"
+  ],
   "dbRuns": [],
   "media": null,
   "size": null,
@@ -35,120 +37,248 @@
     "perQuery": [
       {
         "query": "What have I written about my knee?",
-        "relevant": [1],
-        "returned": [1, 13, 15, 17, 4],
+        "relevant": [
+          1
+        ],
+        "returned": [
+          1,
+          13,
+          15,
+          17,
+          4
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "When did I last talk to my sister?",
-        "relevant": [2],
-        "returned": [2, 18, 5, 14, 10],
+        "relevant": [
+          2
+        ],
+        "returned": [
+          2,
+          18,
+          5,
+          14,
+          10
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Notes about things going wrong at work",
-        "relevant": [3, 16],
-        "returned": [10, 3, 8, 9, 4],
+        "relevant": [
+          3,
+          16
+        ],
+        "returned": [
+          10,
+          3,
+          8,
+          9,
+          4
+        ],
         "recall": 0.5,
         "reciprocalRank": 0.5,
         "topHitRelevant": false
       },
       {
         "query": "Am I sleeping badly?",
-        "relevant": [4, 17],
-        "returned": [4, 17, 13, 1, 3],
+        "relevant": [
+          4,
+          17
+        ],
+        "returned": [
+          4,
+          17,
+          13,
+          1,
+          3
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "What is my mum up to these days?",
-        "relevant": [5],
-        "returned": [5, 18, 15, 2, 14],
+        "relevant": [
+          5
+        ],
+        "returned": [
+          5,
+          18,
+          15,
+          2,
+          14
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Have I been reading anything?",
-        "relevant": [6, 18],
-        "returned": [6, 17, 18, 15, 4],
+        "relevant": [
+          6,
+          18
+        ],
+        "returned": [
+          6,
+          17,
+          18,
+          15,
+          4
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Times I spent time outdoors",
-        "relevant": [7, 15],
-        "returned": [18, 7, 15, 17, 3],
+        "relevant": [
+          7,
+          15
+        ],
+        "returned": [
+          18,
+          7,
+          15,
+          17,
+          3
+        ],
         "recall": 1,
         "reciprocalRank": 0.5,
         "topHitRelevant": false
       },
       {
         "query": "Do I struggle to accept compliments?",
-        "relevant": [8, 16],
-        "returned": [2, 8, 18, 3, 13],
+        "relevant": [
+          8,
+          16
+        ],
+        "returned": [
+          2,
+          8,
+          18,
+          3,
+          13
+        ],
         "recall": 0.5,
         "reciprocalRank": 0.5,
         "topHitRelevant": false
       },
       {
         "query": "What am I worried about financially?",
-        "relevant": [9],
-        "returned": [9, 13, 4, 14, 3],
+        "relevant": [
+          9
+        ],
+        "returned": [
+          9,
+          13,
+          4,
+          14,
+          3
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Am I looking after myself during the workday?",
-        "relevant": [10, 4],
-        "returned": [10, 4, 1, 17, 13],
+        "relevant": [
+          10,
+          4
+        ],
+        "returned": [
+          10,
+          4,
+          1,
+          17,
+          13
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Thoughts about where I live",
-        "relevant": [11],
-        "returned": [11, 14, 18, 3, 2],
+        "relevant": [
+          11
+        ],
+        "returned": [
+          11,
+          14,
+          18,
+          3,
+          2
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Anything about cooking or food I made",
-        "relevant": [12],
-        "returned": [12, 10, 5, 15, 4],
+        "relevant": [
+          12
+        ],
+        "returned": [
+          12,
+          10,
+          5,
+          15,
+          4
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Have I been to any medical appointments?",
-        "relevant": [13, 1],
-        "returned": [13, 1, 18, 10, 9],
+        "relevant": [
+          13,
+          1
+        ],
+        "returned": [
+          13,
+          1,
+          18,
+          10,
+          9
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
       },
       {
         "query": "Which friendships have been on my mind?",
-        "relevant": [14, 2],
-        "returned": [18, 2, 14, 4, 17],
+        "relevant": [
+          14,
+          2
+        ],
+        "returned": [
+          18,
+          2,
+          14,
+          4,
+          17
+        ],
         "recall": 1,
         "reciprocalRank": 0.5,
         "topHitRelevant": false
       },
       {
         "query": "Have I been drinking less?",
-        "relevant": [17],
-        "returned": [17, 18, 1, 10, 15],
+        "relevant": [
+          17
+        ],
+        "returned": [
+          17,
+          18,
+          1,
+          10,
+          15
+        ],
         "recall": 1,
         "reciprocalRank": 1,
         "topHitRelevant": true
