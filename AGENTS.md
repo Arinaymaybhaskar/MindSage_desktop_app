@@ -2,66 +2,61 @@
 
 Quick orientation for any agent (or human) working in this repo. Read this before making changes.
 
+[CLAUDE.md](CLAUDE.md) is the authority on commands, conventions and current state. This file is the per-directory map. Where the two disagree, CLAUDE.md wins.
+
 ## What this repo is
 
-Electron + React + TypeScript desktop journaling app ("MindSage"). Offline-first: stores data in a local `better-sqlite3` DB, runs Ollama + Qdrant + Whisper.cpp locally for AI/embeddings/STT. An Express/Postgres backend lives under `src/server/` for the optional online-sync mode (currently commented out at `electron/main.js:8` — not wired into the packaged app). An in-progress iOS port sits under `ios/` (Swift/SwiftUI/GRDB); treat it as a separate codebase.
+Electron + React + TypeScript desktop journaling app ("MindSage"). Offline-first: data lives in a local `better-sqlite3` database, and Ollama (generation and embeddings), Qdrant (vector search) and Whisper.cpp (speech to text) all run locally on the user's machine. Nothing is sent anywhere.
+
+There is no server component and no mobile port. An Express/Postgres online-sync backend used to live under `src/server/` and was deleted once the last four renderer call sites reaching it were routed through IPC; see `docs/ONLINE_MODE_REMOVAL.md` for the reasoning. An iOS port under `ios/` is likewise gone. Older docs that mention either are describing a repo state that no longer exists.
 
 ## Commands
 
-Only 4 npm scripts exist (`package.json`):
+See the Commands section of [CLAUDE.md](CLAUDE.md) for the full list and the benchmark workflow. The short version:
 
-- `npm run dev` — start Vite dev server (also boots Electron via `vite-plugin-electron`; sets `VITE_DEV_SERVER_URL`).
-- `npm run build` — `vite build && electron-builder` → output to `release/`.
-- `npm run rebuild` — `electron-rebuild -f -w better-sqlite3` (recompiles the native node addon).
-- `npm run postinstall` — runs `rebuild` automatically after every `npm install`. **Do not skip this** — without it, `better-sqlite3` will fail to load at runtime.
-
-There are **no `test`, `lint`, `typecheck`, or `format` scripts**. To typecheck manually (strict mode is on):
-
-- `npx tsc -p tsconfig.app.json --noEmit` (renderer/`src`)
-- `npx tsc -p tsconfig.node.json --noEmit` (`vite.config.ts` only)
-
-To lint: `npx eslint .` — but note the ESLint config only matches `**/*.{ts,tsx}`. **All `.js` under `electron/` and `src/server/` is neither linted nor type-checked.** There is no Prettier config.
-
-There are **no automated tests** in this repo (no Vitest/Jest). The only "tests" are `test-color-db.js` (root, run manually with `node`), `src/server/requests/*.rest` (VS Code REST Client), and Swift `SchemaMigrationTests.swift` inside `ios/MindSageCore/`.
+- `npm run dev` starts Vite plus Electron and is the normal way to run the app.
+- `npm run build` produces installers in `release/`.
+- `npm test`, `npm run typecheck`, `npm run lint` and `npm run format:check` all exist and all pass. CI blocks on every one of them.
+- `npm run postinstall` runs `electron-rebuild` for `better-sqlite3`. Do not skip it, or the native addon fails to load at runtime.
 
 ## Critical gotchas
 
-- **Never commit secrets to source.** `src/server/routes/auth.js:12` and `src/server/middleware/authenticate.js:8` currently contain hardcoded JWT signing secrets (offlineAccessTokenSecret, offlineRefreshTokenSecret) duplicated across both files. `.env.example` already lists the env-var equivalents (`ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`) — wire those up instead. `CRON_SECRET` and Google client credentials are correctly read from env vars elsewhere.
-- **Imports use explicit `.ts`/`.tsx` extensions** (e.g. `import App from "./App.tsx"` in `src/main.tsx:4`). This is enabled via `allowImportingTsExtensions: true` in both `tsconfig.app.json` and `tsconfig.node.json`. Match the convention when adding imports.
-- **`electron/` JS uses Node ESM** (`"type": "module"` in `package.json`). Files reconstruct `__dirname` with `fileURLToPath(import.meta.url)` rather than using it as a global — copy that pattern in any new `electron/*.js`.
-- **`window.electron` is the IPC bridge** exposed via `electron/preload.js`. Services under `src/api/*.tsx` all begin with `if (!window.electron?.ipcRenderer) { ... }` and delegate to `window.electron.ipcRenderer.invoke("<channel>", ...args)`. The renderer never imports Node APIs directly — always go through an `src/api/*Service.tsx` wrapper. The `window.electron` type lives in `src/electron.d.ts` and is intentionally loose (`any`).
-- **Service startup ordering matters.** On `app.whenReady()` (`electron/main.js:112`), the main process: (1) shows splash, (2) creates hidden main window, (3) `localDB.initDatabase()` (creates all ~24 tables — see `electron/db/connection.js`), (4) `OllamaEmbeddingModelSetup()` (pulls `nomic-embed-text` if absent), (5) `startQdrant()` (spawns the Qdrant binary from `resources/<platform>/`, picks a free HTTP port and sets `process.env.QDRANT_HTTP_PORT` — default 6333), (6) `registerIPCHandlers(runtime)`, (7) `setupEventBusListeners()`, (8) spawns a `Worker` running `electron/qdrantWorker.js` (background embeddings/summaries/sync) assigned to `global.qdrantWorker`. Only after `services-ready` does the main window show. If you change Qdrant/embedding init, verify the worker still receives `QDRANT_HTTP_PORT`.
-- **Native/Electron binaries live in `resources/`** (Qdrant, whisper.cpp `ggml-tiny.en.bin` + DLLs/exes, FFmpeg via `ffmpeg-static`). These are packaged via `electron-builder`'s `extraResources` (`package.json:build.extraResources`, copies all of `resources/` next to the executable). `electron/methods/whisper.js` resolves paths differently in dev (`../resources/whisper-bin-x64`) vs packaged (`process.resourcesPath`) — match this pattern when adding native-binary integrations.
-- `electron/db/connection.js` writes the SQLite DB to `%APPDATA%\MindSage\mind-sage.db` (Windows), `~/Library/Preferences/MindSage/mind-sage.db` (macOS), `~/.local/share/MindSage/mind-sage.db` (Linux). Schema changes go in `initDatabase()` as `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE` blocks — there is **no migration framework**.
-- `MS_DISABLE_GPU=1` env var (Windows only) disables GPU in Electron — relevant for bug reports about blank windows on machines with broken GPU drivers (`electron/main.js:107`).
-- Routes in the renderer use **HashRouter**, not BrowserRouter (`src/App.tsx:6`). Deep links use `#/path` (e.g. `#/quick-capture` for the QuickCapture window in `electron/main.js:48-50`).
+- **Renderer imports omit the file extension.** `allowImportingTsExtensions` is on so both forms resolve, but the overwhelming majority of imports under `src/` carry no extension. Match that.
+- **`electron/` JS is Node ESM** (`"type": "module"`). Reconstruct `__dirname` with `fileURLToPath(import.meta.url)` rather than expecting the global, and give every relative import an explicit `.js`. A directory import such as `"../db"` needs to be written `"../db/index.js"`; Node will not resolve it otherwise, and these files are copied verbatim into the package as well as bundled.
+- **`window.electron` is the IPC bridge**, exposed by `electron/preload.js` and typed in full in `src/electron.d.ts`. It is no longer loose or `any`. The renderer never imports Node APIs directly: every backend call goes through an `src/api/*Service` wrapper that invokes a channel. Channels are named `domain:action` with a kebab-case action.
+- **Service startup ordering matters.** Inside `app.whenReady()` the main process shows a splash, creates the hidden main window, runs `initDatabase()`, sets up the Ollama embedding model, calls `startQdrant()` (which spawns the Qdrant binary, picks a free port and sets `process.env.QDRANT_HTTP_PORT`), registers IPC handlers, wires the event bus, and spawns the `qdrantWorker.js` Worker. The window is shown only on `services-ready`. If you touch Qdrant or embedding init, verify the worker still receives `QDRANT_HTTP_PORT`.
+- **Background AI is event-driven and never synchronous.** Journal handlers emit on the event bus and the Qdrant worker does the title, tag, mood, summary and embedding work. AI metadata is not ready when a create or update call returns.
+- **The database is the user's only copy of their journal.** It is written to `%APPDATA%/MindSage/mind-sage.db` on Windows and the OS equivalents elsewhere. Schema changes go in `initDatabase()` in `electron/db/connection.js` as `CREATE TABLE IF NOT EXISTS` or `ALTER TABLE` blocks. There is no migration framework, no `PRAGMA user_version` and no pre-migration backup, so treat schema edits as high risk.
+- **Native binaries live in `resources/`** and ship through `electron-builder` `extraResources`, which is declared per platform so a Windows installer does not carry the macOS Qdrant build. Path resolution differs between dev and packaged; copy the pattern in `electron/methods/whisper.js`.
+- `MS_DISABLE_GPU=1` (Windows) disables GPU for machines with broken drivers. `MS_REMOTE_DEBUG=<port>` opens a loopback debugging endpoint that grants full control of the renderer, so leave it off.
+- **Tokens are signed but never verified.** Every module under `electron/methods/` calls `jwt.decode`, so neither the signature nor `exp` is checked. Do not extend the pattern, and do not swap in `jwt.verify` on its own: that logs every user out permanently, because the refresh path pointed at a server that no longer exists. See `docs/AUTH_REVIEW.md` section 2.1.
+- Routes use **HashRouter**, not BrowserRouter, so deep links are `#/path` (for example `#/quick-capture` for the Quick Capture window).
 
 ## Package layout
 
-- `src/` — React/Tailwind frontend (Vite app). Entry: `src/main.tsx` → `App.tsx`. Pages in `src/pages/`, components in `src/components/` (chat/, goals/, settings/, ui/, Skeletons/), API wrappers in `src/api/*Service.tsx`, React contexts (`AuthContext`, `ColorThemeContext`, `ToastContext`) in `src/context/`, hooks in `src/hooks/`, AI prompt templates in `src/utils/prompts/`.
-- `electron/` — main process. `main.js` (bootstrap), `preload.js` (IPC bridge), `ipcHandlers.js` (channel→handler routing), `methods/*.js` (business logic for journal/goal/chat/ollama/whisper/qdrant/media/...), `db/*.js` (SQLite access layer, `connection.js` holds all DDL), `services/qdrantManager.js` (spawns Qdrant) and `services/OllamaSetup.js` (pulls models), `qdrantWorker.js` (background AI worker running on a `Worker` thread).
-- `src/server/` — Express 5 + PostgreSQL (RDS) + S3 + JWT. Used only for online sync mode; routes under `src/server/routes/` (auth, journal, user, challenge, journal-analysis, notifications, `ai/`). Currently **not started by Electron** (import commented out in `electron/main.js:8`). The `controller/` subdir is empty (abandoned MVC scaffold). `src/server/utils/db.pdf` is a 684 KB binary spec tracked in git — do not duplicate this pattern.
-- `ios/` — separate Swift/SwiftUI port. XcodeGen (`project.yml`), SwiftPM package `MindSageCore` with GRDB. Schema port map and spike docs in `ios/docs/`. Only `MindSageCore` has XCTest coverage (`SchemaMigrationTests.swift`).
-- `assets/` — app icons + workflow diagrams referenced by `README.md`. `public/` — static frontend assets (splash.html, emojis, screenshots) copied by Vite. `resources/` — native binaries (see gotchas).
-- Empty/placeholder dirs that you should not assume have content: `scripts/`, `website/`, `src/server/controller/`, `electron/services/chat.js` (0 bytes).
+- `src/` — React and Tailwind frontend. Entry `src/main.tsx` into `App.tsx`. Pages in `src/pages/`, components in `src/components/` (with `chat/`, `goals/`, `settings/`, `ui/`, `Skeletons/` subfolders), IPC wrappers in `src/api/`, React contexts in `src/context/` with their hooks in `src/hooks/`, shared row and domain types in `src/types/`, prompt templates in `src/utils/prompts/`.
+- `electron/` — main process. `main.js` bootstraps, `preload.js` exposes the bridge (emitted as `preload.mjs`), `ipcHandlers.js` routes each channel to a handler in `methods/*.js`, which reads and writes through `db/*.js`. `connection.js` holds all the DDL. `services/` holds the process managers: `qdrantManager.js`, `OllamaSetup.js`, `appSetup.js`, `autoUpdater.js`, `tokenSecret.js`. `qdrantWorker.js` is the background AI worker and runs on a `Worker` thread.
+- `scripts/` — benchmark suite under `bench/`, demo-data seeding, and the Playwright-driven screenshot capture. Not a placeholder; several npm scripts point here.
+- `assets/` — app icons and the workflow diagrams that `README.md` links. `public/` — static assets copied by Vite. `resources/` — native binaries, see the gotchas above.
+- `docs/` — every audit, plan and debt list, indexed by `docs/README.md`.
 
 ## Toolchain quirks
 
-- **Tailwind v4** configured via the `@tailwindcss/vite` plugin in `vite.config.ts`, not via `postcss.config.js`. Despite that, a `tailwind.config.ts` still exists and is used. Dark mode uses `class` strategy. Custom font: `fraunces` (loaded in `index.html`).
-- Both `@vitejs/plugin-react` and any Tailwind/Vite plugin run before `vite-plugin-electron`, which copies the following into `dist-electron/` via `vite-plugin-static-copy` (see `vite.config.ts:25-37`): `electron/qdrantWorker.js`, `electron/db/*`, `electron/methods/*`, `electron/store.js`, `electron/services/*`, `electron/eventBus.js`. **If you add a new file in any of these dirs that the main/preload imports, verify it lands in `dist-electron/`** — absent paths silently break the packaged build while dev mode keeps working.
-- `electron` outputs **ESM** (`format: "esm"` in `vite.config.ts:21`). All `pkg.dependencies` are externalized (not bundled). The preload script is emitted as `preload.mjs` (referenced in `electron/main.js:42` and `windowManager.js:21`).
-- `electron-builder` `build.files` glob in `package.json` references `servers/**/*` and `electron/workers/**/*` — **neither directory exists** in the current layout (actual paths are `src/server/` and `electron/db|methods|services/`). Be aware when changing packaging.
-- Percentage of redundant deps in `package.json`: `qdrant-client@^0.0.1` and `@qdrant/js-client-rest` (both used — the first is a stale placeholder, the codebase uses the latter), `sqlite3` and `better-sqlite3` (only `better-sqlite3` is imported), `react-hot-toast` plus a custom `ToastContext`, `framer-motion` plus `motion` (same vendor, duplicate), `chart.js` plus `recharts`, `date-fns` plus `dayjs`. Redux Toolkit and react-redux are declared but `App.tsx` only uses Context. Verify with `npx depcheck` before removing anything.
+- **Tailwind v4** is configured through the `@tailwindcss/vite` plugin rather than `postcss.config.js`, but `tailwind.config.ts` still exists and is used. Dark mode uses the `class` strategy.
+- **`viteStaticCopy` copies only what `qdrantWorker.js` needs**: the worker itself, `eventBus.js`, and `db/connection.js`. Everything else under `electron/` is bundled into `main.js`, so adding a file there needs no config change. Only a new import in the worker does.
+- The main process build outputs **ESM**, and everything in `pkg.dependencies` is externalized rather than bundled.
+- **ESLint only matches `**/*.{ts,tsx}`**, so `electron/` and `scripts/`, which are plain `.js` and `.mjs`, are formatted by Prettier but never linted. Widening the config is a real unclaimed improvement rather than a one-line glob change, because those files would report fresh errors on their first run.
+- A few genuinely redundant dependencies remain: `react-hot-toast` alongside the custom `ToastContext`, `chart.js` alongside `recharts`, and `date-fns` alongside `dayjs`. Verify with `npx depcheck` before removing anything.
 
 ## Reference docs in this repo
 
-- `README.md` — feature/platform overview + workflow diagrams under `assets/diagrams/`.
+- `README.md` — feature and platform overview plus the workflow diagrams under `assets/diagrams/`.
 - `designPatterns.json` — catalog of UI patterns the codebase follows.
-- `docs/` — **all audits, plans, and debt tracking, indexed in `docs/README.md`.**
-  - `docs/PRODUCTION_READINESS.md` — the master list of remaining work before shipping. **Its §0 holds a verified-state table that supersedes stale claims elsewhere** (CI, Vitest, Prettier, husky, and the lint/typecheck/format/test scripts all exist now, contrary to older docs).
-  - `docs/TECHNICAL_DEBT.md`, `docs/TODO.md` — catalog of known debts/remediation priorities. **Consult before introducing new patterns** (e.g. hardcoded secrets) — don't repeat existing mistakes. Both are partly stale.
-  - `docs/AUTH_REVIEW.md`, `docs/NETWORK_AUDIT.md`, `docs/ONLINE_MODE_REMOVAL.md`, `docs/PERFORMANCE.md` — audits.
+- `docs/` — all audits, plans and debt tracking, indexed in `docs/README.md`.
+  - `docs/MASTER_TODO.md` — the single ordered work queue. Start here.
+  - `docs/PRODUCTION_READINESS.md` — the reasoning behind the shipping blockers. Its section 0 is a verified-state table and supersedes older claims elsewhere.
+  - `docs/TECHNICAL_DEBT.md`, `docs/TODO.md` — known debts. Consult before introducing a new pattern. Both are partly stale.
+  - `docs/AUTH_REVIEW.md`, `docs/CODEBASE_STRUCTURE_AUDIT.md`, `docs/NETWORK_AUDIT.md`, `docs/ONLINE_MODE_REMOVAL.md`, `docs/PERFORMANCE.md` — audits.
   - `docs/OFFLINE_AUTH_DESIGN.md`, `docs/MAC_RELEASE_PLAN.md`, `docs/BUNDLE_SIZE_PLAN.md` — forward-looking plans.
-  - `docs/COLOR_SYSTEM_README.md` — theming system, presets, CSS variables, `ColorThemeContext` API.
-- `ios/docs/SCHEMA_PORT.md` — maps the desktop SQLite schema (`electron/db/connection.js`) onto the iOS GRDB schema. If you change the desktop schema, update both this doc and the iOS migration (`ios/MindSageCore/Sources/MindSageCore/Database/Migrations/SQL/`).
-- `ios/docs/ML_STACK_SPIKE.md`, `SQLITE_VEC_SPIKE.md`, `TESTFLIGHT_CADENCE.md` — iOS-specific planning; ignore for desktop work.
+  - `docs/COLOR_SYSTEM_README.md` — theming, presets, CSS variables, and the `ColorThemeContext` API.
+  - `docs/benchmarks/` — `BASELINE.md` is generated and must never be hand-edited; `FINDINGS.md` is the hand-written reading and corrects `PERFORMANCE.md` in two places.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Read this first
 
-[AGENTS.md](AGENTS.md) has the long-form orientation (per-directory layout, packaging caveats, toolchain quirks). **Its "Commands" section and its `ios/` and redundant-dependency notes are stale** — this file and [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) §0 are the current source of truth for tooling.
+[AGENTS.md](AGENTS.md) has the long-form orientation: the per-directory map, packaging caveats and toolchain quirks. It was rewritten against the current tree, so its `ios/`, `src/server/` and redundant-dependency notes are no longer stale. This file and [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) §0 remain the source of truth for tooling and current state; where the two disagree, this one wins.
 
 ## Commands
 
