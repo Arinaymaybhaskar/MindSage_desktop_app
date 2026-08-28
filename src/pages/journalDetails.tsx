@@ -152,14 +152,14 @@ export default function JournalDetail() {
           setEntry(res);
           if (res.image_key) {
             const url = await window.electron.ipcRenderer.invoke<string>(
-              "media:getImage",
+              "media:get-image",
               res.image_key.toString(),
             );
             setImageUrl(url);
           }
           if (res.audio_key) {
             const url = await window.electron.ipcRenderer.invoke<string | null>(
-              "media:getAudio",
+              "media:get-audio",
               res.audio_key.toString(),
             );
             setAudioUrl(url);

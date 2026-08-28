@@ -53,7 +53,7 @@ export const ProfileDropdown: React.FC = () => {
     }
     try {
       const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
-        "media:getImage",
+        "media:get-image",
         imagePath,
       );
       setProfileImageSrc(dataUrl ?? null);

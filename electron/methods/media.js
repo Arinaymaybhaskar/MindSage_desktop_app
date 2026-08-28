@@ -21,7 +21,7 @@ export async function getImageBase64(imagePath) {
 /**
  * A small JPEG for grid views, generated once and cached on disk.
  *
- * Grids used to render `media:getImage`, which base64-encodes the original
+ * Grids used to render `media:get-image`, which base64-encodes the original
  * file: a page showing every photo in the journal shipped tens of megabytes of
  * data URLs across IPC and held them all in renderer memory. A 480px JPEG is
  * roughly two orders of magnitude smaller and indistinguishable at tile size.
@@ -30,7 +30,7 @@ export async function getImageBase64(imagePath) {
  * sharp and friends are native modules, and this project rebuilds native
  * modules against Electron's ABI on every install.
  *
- * The full-resolution image is still what `media:getImage` returns, so opening
+ * The full-resolution image is still what `media:get-image` returns, so opening
  * an entry shows the real photograph.
  */
 export async function getThumbnailBase64(imagePath, maxWidth = 480) {

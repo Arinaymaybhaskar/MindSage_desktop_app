@@ -50,7 +50,7 @@ export default function Memories() {
           keys.filter(Boolean).map(async (entry) => ({
             ...entry,
             image_key: await window.electron.ipcRenderer.invoke<string>(
-              "media:getThumbnail",
+              "media:get-thumbnail",
               String(entry.image_key),
               640,
             ),

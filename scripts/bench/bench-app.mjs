@@ -256,8 +256,8 @@ try {
   if (fs.existsSync(source)) {
     fs.copyFileSync(source, fixtureImage);
     for (const [name, channel] of [
-      ["media.getImage", "media:getImage"],
-      ["media.getThumbnail", "media:getThumbnail"],
+      ["media.getImage", "media:get-image"],
+      ["media.getThumbnail", "media:get-thumbnail"],
     ]) {
       const measured = await cdp.evaluate(`(async () => {
         const samples = [];

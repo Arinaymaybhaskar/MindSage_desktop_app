@@ -151,7 +151,7 @@ export default function JournalForm() {
         if (fetchedEntry.image_key) {
           try {
             const url = await window.electron.ipcRenderer.invoke<string | null>(
-              "media:getImage",
+              "media:get-image",
               fetchedEntry.image_key.toString(),
             );
             setImagePreview(url);
@@ -167,7 +167,7 @@ export default function JournalForm() {
         if (fetchedEntry.audio_key) {
           try {
             const url = await window.electron.ipcRenderer.invoke<string | null>(
-              "media:getAudio",
+              "media:get-audio",
               fetchedEntry.audio_key.toString(),
             );
             setExistingAudioUrl(url);

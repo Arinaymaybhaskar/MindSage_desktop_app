@@ -112,17 +112,17 @@ export function registerIPCHandlers(runtime) {
   ipcMain.handle("media:save", handleSaveMedia);
   ipcMain.handle("media:open", handleOpenMedia);
   ipcMain.handle("media:save-profile", handleSaveProfileImage);
-  ipcMain.handle("media:getImage", (_e, imagePath) =>
+  ipcMain.handle("media:get-image", (_e, imagePath) =>
     getImageBase64(imagePath),
   );
-  ipcMain.handle("media:getThumbnail", (_e, imagePath, maxWidth) =>
+  ipcMain.handle("media:get-thumbnail", (_e, imagePath, maxWidth) =>
     getThumbnailBase64(imagePath, maxWidth),
   );
-  ipcMain.handle("media:getAudio", (_e, audioPath) =>
+  ipcMain.handle("media:get-audio", (_e, audioPath) =>
     getAudioBase64(audioPath),
   );
-  ipcMain.handle("media:getPdf", (_e, pdfPath) => getPdfBase64(pdfPath));
-  ipcMain.handle("media:linkMessage", handleLinkMediaToMessage);
+  ipcMain.handle("media:get-pdf", (_e, pdfPath) => getPdfBase64(pdfPath));
+  ipcMain.handle("media:link-message", handleLinkMediaToMessage);
   ipcMain.handle("media:save-chat-media", handleSaveChatMedia);
 
   // Auth
@@ -166,11 +166,11 @@ export function registerIPCHandlers(runtime) {
   ipcMain.handle("goal:toggle-pin", handleTogglePin);
   ipcMain.handle("goal:complete", handleCompleteGoal);
   ipcMain.handle("goal:update-progress", handleUpdateProgress);
-  ipcMain.handle("goal:getPinned", handleGetPinnedGoals);
+  ipcMain.handle("goal:get-pinned", handleGetPinnedGoals);
   ipcMain.handle("goal:get-by-id", handleGetGoalById);
 
   // Logs
-  ipcMain.handle("logs:getAll", handleGetProgressLogs);
+  ipcMain.handle("logs:get-all", handleGetProgressLogs);
   ipcMain.handle("logs:add", handleAddProgressLog);
 
   // Dashboard

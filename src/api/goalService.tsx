@@ -119,7 +119,7 @@ export const goalService = {
     checkElectron();
 
     return await window.electron.ipcRenderer.invoke(
-      "goal:getPinned",
+      "goal:get-pinned",
       authMode,
       token,
     );

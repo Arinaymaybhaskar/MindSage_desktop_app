@@ -115,7 +115,7 @@ export default function Dashboard() {
     }
     try {
       const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
-        "media:getImage",
+        "media:get-image",
         imagePath,
       );
       setProfileImageSrc(dataUrl ?? null);

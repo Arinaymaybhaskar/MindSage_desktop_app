@@ -148,7 +148,7 @@ export const chatService = {
   ): Promise<{ success: boolean; key?: string; message?: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
-      "media:linkMessage",
+      "media:link-message",
       authModel,
       token,
       messageId,

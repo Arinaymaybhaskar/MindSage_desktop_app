@@ -414,7 +414,7 @@ export const ChatPage: React.FC = () => {
                     if (f.file_type === "image") {
                       const base64: string =
                         await window.electron.ipcRenderer.invoke(
-                          "media:getImage",
+                          "media:get-image",
                           f.file_path,
                         );
                       return { type: "image", path: f.file_path, url: base64 };
@@ -505,7 +505,7 @@ export const ChatPage: React.FC = () => {
   const handlePdfOpen = async (path: string, name?: string) => {
     try {
       const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
-        "media:getPdf",
+        "media:get-pdf",
         path,
       );
       if (dataUrl) {

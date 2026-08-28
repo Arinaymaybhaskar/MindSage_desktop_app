@@ -14,7 +14,7 @@ export const progressLogsService = {
   ): Promise<ProgressLog[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
-      "logs:getAll",
+      "logs:get-all",
       authMode,
       token,
       goalId,
