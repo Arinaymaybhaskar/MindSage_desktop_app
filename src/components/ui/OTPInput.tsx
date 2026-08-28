@@ -18,7 +18,7 @@ const OTPInput = ({
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
-    index: number
+    index: number,
   ) => {
     const value = e.target.value.replace(/[^0-9]/g, "");
 
@@ -35,7 +35,7 @@ const OTPInput = ({
 
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
-    index: number
+    index: number,
   ) => {
     if (e.key === "Backspace") {
       e.preventDefault();

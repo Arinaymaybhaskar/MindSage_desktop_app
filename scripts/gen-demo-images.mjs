@@ -167,25 +167,37 @@ async function run() {
   const avatarPath = path.join(OUT_DIR, "avatar.png");
   const avatarUrl = await cdp.evaluate(avatarScript(initial, PALETTES[0]));
   console.log(
-    `  avatar.png            ${(writeDataUrl(avatarUrl, avatarPath) / 1024).toFixed(0)} KB`
+    `  avatar.png            ${(writeDataUrl(avatarUrl, avatarPath) / 1024).toFixed(0)} KB`,
   );
 
   // Mixed aspect ratios: the masonry assigns random heights, so same-shaped
   // tiles get letterboxed and the grid looks mechanical.
   const sizes = [
-    [1200, 900], [900, 1200], [1200, 1200], [1400, 900],
-    [900, 1400], [1200, 800], [1000, 1300], [1300, 1000],
-    [1100, 1100], [1200, 1500], [1500, 1000], [1000, 1000],
+    [1200, 900],
+    [900, 1200],
+    [1200, 1200],
+    [1400, 900],
+    [900, 1400],
+    [1200, 800],
+    [1000, 1300],
+    [1300, 1000],
+    [1100, 1100],
+    [1200, 1500],
+    [1500, 1000],
+    [1000, 1000],
   ];
 
   for (let i = 0; i < sizes.length; i++) {
     const [w, h] = sizes[i];
-    const dest = path.join(PHOTOS_DIR, `memory-${String(i + 1).padStart(2, "0")}.jpg`);
+    const dest = path.join(
+      PHOTOS_DIR,
+      `memory-${String(i + 1).padStart(2, "0")}.jpg`,
+    );
     const url = await cdp.evaluate(
-      drawScript(w, h, PALETTES[i % PALETTES.length], 1000 + i * 7919)
+      drawScript(w, h, PALETTES[i % PALETTES.length], 1000 + i * 7919),
     );
     console.log(
-      `  ${path.basename(dest).padEnd(22)}${(writeDataUrl(url, dest) / 1024).toFixed(0)} KB  ${w}x${h}`
+      `  ${path.basename(dest).padEnd(22)}${(writeDataUrl(url, dest) / 1024).toFixed(0)} KB  ${w}x${h}`,
     );
   }
 
@@ -194,7 +206,7 @@ async function run() {
   console.log(`\nGenerated into ${OUT_DIR}`);
   console.log("Attach them with:");
   console.log(
-    `  npm run seed:demo -- --reset --photos "${PHOTOS_DIR}" --avatar "${avatarPath}"`
+    `  npm run seed:demo -- --reset --photos "${PHOTOS_DIR}" --avatar "${avatarPath}"`,
   );
 }
 

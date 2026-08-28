@@ -12,15 +12,15 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognitionCtor =
+      window.SpeechRecognition ?? window.webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
+    if (!SpeechRecognitionCtor) {
       alert("Speech recognition not supported in this browser.");
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    const recognition = new SpeechRecognitionCtor();
     recognition.lang = "en-US";
     recognition.interimResults = false;
     recognition.continuous = false;
@@ -38,7 +38,7 @@ export const useSpeechRecognition = (): UseSpeechRecognitionReturn => {
       setTranscript(spokenText);
     };
 
-    recognition.onerror = (e) => {
+    recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
       console.error("[SpeechRecognition] ❌ Error occurred:", e);
       setListening(false);
     };

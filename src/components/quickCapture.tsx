@@ -11,8 +11,7 @@ export default function QuickCapture() {
   const [isSaving, setIsSaving] = useState(false);
 
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
   const { accessToken } = useAuth();
 
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
@@ -34,19 +33,16 @@ export default function QuickCapture() {
         content,
         title: title.trim(),
         mood_score: 0,
-        mood_tags: "",
+        mood_tags: [],
       };
 
       const res = await journalService.create(
         authMode,
         accessToken!,
-        mergedEntry
+        mergedEntry,
       );
 
-      await window.electron.ipcRenderer.invoke(
-        "qdrant:sync-journal",
-        res.journalId
-      );
+      await window.electron.ipcRenderer.invoke("qdrant:sync-journal", res.id);
       toast.success("Journal entry saved!");
 
       setTitle("");

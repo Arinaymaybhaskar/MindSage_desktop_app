@@ -111,7 +111,7 @@ const userDataDir = path.join(
     (process.platform === "darwin"
       ? path.join(process.env.HOME ?? "", "Library", "Preferences")
       : path.join(process.env.HOME ?? "", ".local", "share")),
-  "MindSage"
+  "MindSage",
 );
 
 const userData = {};
@@ -141,13 +141,13 @@ if (OUT) {
 
 for (const [label, r] of Object.entries(results)) {
   console.log(
-    `  ${label.padEnd(32)} ${r.missing ? "not built" : `${fmtBytes(r.bytes).padStart(10)}  (${r.files} files)`}`
+    `  ${label.padEnd(32)} ${r.missing ? "not built" : `${fmtBytes(r.bytes).padStart(10)}  (${r.files} files)`}`,
   );
 }
 
 console.log("  --- user data (real profile) ---");
 for (const [label, r] of Object.entries(userData)) {
   console.log(
-    `  ${label.padEnd(32)} ${r.missing ? "absent" : `${fmtBytes(r.bytes).padStart(10)}  (${r.files} files)`}`
+    `  ${label.padEnd(32)} ${r.missing ? "absent" : `${fmtBytes(r.bytes).padStart(10)}  (${r.files} files)`}`,
   );
 }

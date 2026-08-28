@@ -11,20 +11,31 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Loader } from "lucide-react"; // Using a loader icon for a better look
 import { dashboardService } from "../api/dashBoardService";
 import { useAuth } from "../hooks/useAuth";
+import type { DayScore } from "../utils/dashboardInsights";
 
-interface ScoreDataPoint {
-  day: string;
-  avgMood: number;
+// The dashboard channels report `avgMood: null` for days with no entry, so
+// this mirrors DayScore rather than narrowing it to a number.
+type ScoreDataPoint = DayScore;
+
+interface TooltipEntry {
+  name?: string;
+  value?: number;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="p-3 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg shadow-lg">
         <p className="text-lg font-bold text-gray-50 mb-2">{label}</p>
         <div className="text-sm">
           <p className="text-text-light dark:text-text-dark">
-            {`${payload[0].name} : ${payload[0].value.toFixed(2)}`}
+            {`${payload[0].name} : ${(payload[0].value ?? 0).toFixed(2)}`}
           </p>
         </div>
       </div>
@@ -48,8 +59,7 @@ function MoodSentimentChart({
   const rangeOptions = ["Last Week", "Last Month", "All Time"];
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -79,7 +89,7 @@ function MoodSentimentChart({
           case "Last Month": {
             const monthlyData = await dashboardService.getMonthlyScore(
               authMode,
-              accessToken!
+              accessToken!,
             );
             setChartData(monthlyData);
             break;
@@ -87,7 +97,7 @@ function MoodSentimentChart({
           case "All Time": {
             const allTimeData = await dashboardService.getAllTimeScore(
               authMode,
-              accessToken!
+              accessToken!,
             );
             setChartData(allTimeData);
             break;
@@ -126,7 +136,7 @@ function MoodSentimentChart({
       }))
       .sort(
         (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       );
   }, [chartData]);
 
@@ -134,7 +144,7 @@ function MoodSentimentChart({
     if (!formattedChartData || formattedChartData.length === 0) return null;
     const fromDate = formatLabelDate(formattedChartData[0].created_at);
     const toDate = formatLabelDate(
-      formattedChartData[formattedChartData.length - 1].created_at
+      formattedChartData[formattedChartData.length - 1].created_at,
     );
     return `${fromDate} - ${toDate}`;
   }, [formattedChartData]);

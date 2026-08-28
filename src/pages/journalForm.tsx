@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, KeyboardEvent, ChangeEvent } from "react"; // START: Added useRef, KeyboardEvent, ChangeEvent
+import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
 import whisperService from "../api/whisperService";
@@ -27,6 +27,7 @@ import { useVoiceRecorder } from "../hooks/useVoiceRecorder";
 import { ollamaService } from "../api/ollamaService";
 import { getFollowUpQuestionsPrompt } from "../utils/prompts/Journal";
 import { SidebarPanel } from "../components/journal/SidebarPanel";
+import type { SelectedModels } from "../types/Ollama";
 
 const emptyJournal: JournalEntry = {
   title: "",
@@ -53,15 +54,15 @@ export default function JournalForm() {
   const { accessToken } = useAuth();
   const [selectedModel, setSelectedModel] = useState<string>("");
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const models = await window.electron.ipcRenderer.invoke(
-          "models:get-selected"
-        );
+        const models =
+          await window.electron.ipcRenderer.invoke<SelectedModels | null>(
+            "models:get-selected",
+          );
         // Use the chat model for journal responses
         if (models?.chat) {
           setSelectedModel(models.chat);
@@ -87,6 +88,10 @@ export default function JournalForm() {
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const [showEmptyContentPopup, setShowEmptyContentPopup] = useState(false);
 
+  // handleSubmit closes over most of the form state and so is a new function
+  // every render; the shortcut listener reads the latest one through a ref.
+  const handleSubmitRef = useRef<(e: React.FormEvent) => void>(() => {});
+
   // Keyboard listener for Ctrl+Enter / Cmd+Enter
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -104,7 +109,9 @@ export default function JournalForm() {
       }
 
       // Trigger submit programmatically
-      handleSubmit(new Event("submit") as unknown as React.FormEvent);
+      handleSubmitRef.current(
+        new Event("submit") as unknown as React.FormEvent,
+      );
     };
 
     window.addEventListener("keydown", handler);
@@ -118,7 +125,7 @@ export default function JournalForm() {
         const fetchedEntry = await journalService.getOne(
           authMode,
           accessToken!,
-          +id
+          +id,
         );
 
         const entryToSet = {
@@ -132,10 +139,10 @@ export default function JournalForm() {
           const dateObj = new Date(fetchedEntry.created_at);
           // Format as datetime-local value (local time in YYYY-MM-DDTHH:mm format)
           const year = dateObj.getFullYear();
-          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-          const day = String(dateObj.getDate()).padStart(2, '0');
-          const hours = String(dateObj.getHours()).padStart(2, '0');
-          const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+          const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+          const day = String(dateObj.getDate()).padStart(2, "0");
+          const hours = String(dateObj.getHours()).padStart(2, "0");
+          const minutes = String(dateObj.getMinutes()).padStart(2, "0");
           const dateString = `${year}-${month}-${day}T${hours}:${minutes}`;
           setEditedDate(dateString);
         }
@@ -143,15 +150,15 @@ export default function JournalForm() {
         // If the fetched entry has an image key, get the URL and set it for preview.
         if (fetchedEntry.image_key) {
           try {
-            const url = await window.electron.ipcRenderer.invoke(
+            const url = await window.electron.ipcRenderer.invoke<string | null>(
               "media:getImage",
-              fetchedEntry.image_key.toString()
+              fetchedEntry.image_key.toString(),
             );
             setImagePreview(url);
           } catch (error) {
             console.error(
               "[JournalForm] Failed to fetch image for preview:",
-              error
+              error,
             );
           }
         }
@@ -159,15 +166,15 @@ export default function JournalForm() {
         // If the fetched entry has an audio key, get the URL for playback.
         if (fetchedEntry.audio_key) {
           try {
-            const url = await window.electron.ipcRenderer.invoke(
+            const url = await window.electron.ipcRenderer.invoke<string | null>(
               "media:getAudio",
-              fetchedEntry.audio_key.toString()
+              fetchedEntry.audio_key.toString(),
             );
             setExistingAudioUrl(url);
           } catch (error) {
             console.error(
               "[JournalForm] Failed to fetch audio for preview:",
-              error
+              error,
             );
           }
         }
@@ -180,14 +187,14 @@ export default function JournalForm() {
         } else {
           setEntry(emptyJournal);
         }
-        
+
         // Initialize editedDate to now for new entries
         const now = new Date();
         const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
         const dateString = `${year}-${month}-${day}T${hours}:${minutes}`;
         setEditedDate(dateString);
       }
@@ -259,7 +266,7 @@ export default function JournalForm() {
         const result = await window.electron.ipcRenderer.invoke(
           "ollama:generate-suggestion",
           prompt,
-          5
+          5,
         );
 
         if (result && typeof result === "string") {
@@ -305,7 +312,9 @@ export default function JournalForm() {
         title: entry.title?.trim() ? entry.title : "",
         mood_score: entry.mood_score ?? 0,
         mood_tags: entry.mood_tags ?? [],
-        created_at: editedDate ? new Date(editedDate).toISOString() : entry.created_at,
+        created_at: editedDate
+          ? new Date(editedDate).toISOString()
+          : entry.created_at,
       };
 
       setEntry(mergedEntry);
@@ -316,13 +325,13 @@ export default function JournalForm() {
           authMode,
           accessToken!,
           +Number(id),
-          mergedEntry
+          mergedEntry,
         );
       } else {
         res = await journalService.create(authMode, accessToken!, mergedEntry);
       }
 
-      const journalId = isEdit ? +id! : res.id;
+      const journalId = isEdit ? Number(id) : Number(res.id);
       let imageKey = entry.image_key;
       let audioKey = entry.audio_key;
 
@@ -332,7 +341,7 @@ export default function JournalForm() {
           journalId,
           "image",
           arrayBuffer,
-          imageFile.name
+          imageFile.name,
         );
         if (result.success) imageKey = result.key;
       }
@@ -343,19 +352,17 @@ export default function JournalForm() {
           journalId,
           "audio",
           arrayBuffer,
-          `audio-${Date.now()}.webm`
+          `audio-${Date.now()}.webm`,
         );
         if (result.success) {
           audioKey = result.key;
-          
+
           // Trigger transcription for the saved audio file
           try {
             // The audioKey contains the file path after WAV conversion
-            const transcription = await window.electron.ipcRenderer.invoke(
-              "whisper:transcribe-journal-audio",
-              audioKey,
-              journalId
-            );
+            const transcription = await window.electron.ipcRenderer.invoke<
+              string | null
+            >("whisper:transcribe-journal-audio", audioKey, journalId);
             if (transcription) {
               // Update the entry with the transcription
               const entryWithTranscription = {
@@ -366,7 +373,7 @@ export default function JournalForm() {
                 authMode,
                 accessToken!,
                 journalId,
-                entryWithTranscription
+                entryWithTranscription,
               );
             }
           } catch (err) {
@@ -388,7 +395,7 @@ export default function JournalForm() {
       }
       await window.electron.ipcRenderer.invoke(
         "qdrant:sync-journal",
-        journalId
+        journalId,
       );
 
       localStorage.removeItem(DRAFT_KEY);
@@ -399,6 +406,8 @@ export default function JournalForm() {
       setIsSubmitting(false);
     }
   };
+
+  handleSubmitRef.current = handleSubmit;
 
   useEffect(() => {
     contentRef.current?.focus();
@@ -411,7 +420,7 @@ export default function JournalForm() {
       const res = await ollamaService.getResponse(
         accessToken!,
         selectedModel!,
-        prompt
+        prompt,
       );
       const cleaned = (res as string).replace(/```json|```/g, "").trim();
       setFollowUpQuestions(JSON.parse(cleaned));
@@ -432,7 +441,7 @@ export default function JournalForm() {
     setEntry({ ...entry, content: e.target.value });
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const isAtEnd = e.currentTarget.selectionStart === entry.content.length;
 
     // Accept with Tab key (kept as an option)

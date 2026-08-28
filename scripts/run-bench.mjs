@@ -30,7 +30,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import electronPath from "electron";
 
-import { machineInfo, gitInfo, renderMarkdown, renderComparison } from "./bench/lib/report.mjs";
+import {
+  machineInfo,
+  gitInfo,
+  renderMarkdown,
+  renderComparison,
+} from "./bench/lib/report.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -74,17 +79,34 @@ const modelArgs = [
  * Qdrant binary, the Windows speech API, a packaged build - and together take
  * far longer, so they are opt-in via `--stages all` (npm run bench:full).
  */
-const ALL_STAGES = ["db", "media", "size", "ai", "vector", "whisper", "startup", "app", "bundle", "rag", "quality"];
+const ALL_STAGES = [
+  "db",
+  "media",
+  "size",
+  "ai",
+  "vector",
+  "whisper",
+  "startup",
+  "app",
+  "bundle",
+  "rag",
+  "quality",
+];
 const DEFAULT_STAGES = ["db", "media", "size"];
 const stagesArg = flag("--stages", DEFAULT_STAGES.join(","));
 const STAGES =
   stagesArg === "all"
     ? ALL_STAGES
-    : stagesArg.split(",").map((s) => s.trim()).filter(Boolean);
+    : stagesArg
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
 for (const stage of STAGES) {
   if (!ALL_STAGES.includes(stage)) {
-    console.error(`Unknown stage "${stage}". Valid: ${ALL_STAGES.join(", ")}, or "all".`);
+    console.error(
+      `Unknown stage "${stage}". Valid: ${ALL_STAGES.join(", ")}, or "all".`,
+    );
     process.exit(1);
   }
 }
@@ -102,12 +124,18 @@ const PUBLISH = argv.includes("--publish");
 /** Runs one benchmark script under Electron-as-Node and returns its JSON. */
 function runChild(script, args, extraEnv = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(electronPath, [path.join(here, "bench", script), ...args], {
-      stdio: "inherit",
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", ...extraEnv },
-    });
+    const child = spawn(
+      electronPath,
+      [path.join(here, "bench", script), ...args],
+      {
+        stdio: "inherit",
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", ...extraEnv },
+      },
+    );
     child.on("exit", (code) =>
-      code === 0 ? resolve() : reject(new Error(`${script} exited with code ${code}`))
+      code === 0
+        ? resolve()
+        : reject(new Error(`${script} exited with code ${code}`)),
     );
     child.on("error", reject);
   });
@@ -123,13 +151,20 @@ if (COMPARE) {
   for (const f of [beforeFile, afterFile]) {
     if (!fs.existsSync(f)) {
       console.error(`No stored run at ${path.relative(repoRoot, f)}.`);
-      console.error(`Available: ${fs.existsSync(resultsDir) ? fs.readdirSync(resultsDir).join(", ") : "none"}`);
+      console.error(
+        `Available: ${fs.existsSync(resultsDir) ? fs.readdirSync(resultsDir).join(", ") : "none"}`,
+      );
       process.exit(1);
     }
   }
   const before = readJson(beforeFile);
   const after = readJson(afterFile);
-  const outFile = path.join(repoRoot, "docs", "benchmarks", `COMPARISON-${COMPARE}-vs-${LABEL}.md`);
+  const outFile = path.join(
+    repoRoot,
+    "docs",
+    "benchmarks",
+    `COMPARISON-${COMPARE}-vs-${LABEL}.md`,
+  );
   fs.writeFileSync(outFile, renderComparison(before, after));
   console.log(`\nWrote ${path.relative(repoRoot, outFile)}`);
   process.exit(0);
@@ -149,7 +184,12 @@ if (RENDER_ONLY) {
     process.exit(1);
   }
   const stored = readJson(jsonFile);
-  const mdFile = path.join(repoRoot, "docs", "benchmarks", `${LABEL.toUpperCase()}.md`);
+  const mdFile = path.join(
+    repoRoot,
+    "docs",
+    "benchmarks",
+    `${LABEL.toUpperCase()}.md`,
+  );
   fs.writeFileSync(mdFile, renderMarkdown(stored));
   console.log(`Wrote ${path.relative(repoRoot, mdFile)}`);
   process.exit(0);
@@ -188,20 +228,20 @@ ${stage}`);
   };
 
   if (STAGES.includes("db")) {
-  console.log("Database");
-  for (const entries of VOLUMES) {
-    // A fresh APPDATA per volume: connection.js appends "MindSage/mind-sage.db"
-    // to whatever it finds, so each child gets its own empty database.
-    const appData = path.join(scratch, `vol-${entries}`);
-    fs.mkdirSync(appData, { recursive: true });
-    const out = path.join(scratch, `db-${entries}.json`);
+    console.log("Database");
+    for (const entries of VOLUMES) {
+      // A fresh APPDATA per volume: connection.js appends "MindSage/mind-sage.db"
+      // to whatever it finds, so each child gets its own empty database.
+      const appData = path.join(scratch, `vol-${entries}`);
+      fs.mkdirSync(appData, { recursive: true });
+      const out = path.join(scratch, `db-${entries}.json`);
 
-    await runChild(
-      "bench-db.mjs",
-      ["--entries", String(entries), "--runs", RUNS, "--out", out],
-      { APPDATA: appData }
-    );
-    dbRuns.push(readJson(out));
+      await runChild(
+        "bench-db.mjs",
+        ["--entries", String(entries), "--runs", RUNS, "--out", out],
+        { APPDATA: appData },
+      );
+      dbRuns.push(readJson(out));
     }
   }
 
@@ -230,7 +270,10 @@ ${stage}`);
   // The app stage seeds its own profile, so it takes an entry count rather than
   // the volume list: launching the packaged app once per volume would triple an
   // already slow stage for little extra signal.
-  await runStage("app", "bench-app.mjs", ["--entries", String(VOLUMES[Math.min(1, VOLUMES.length - 1)])]);
+  await runStage("app", "bench-app.mjs", [
+    "--entries",
+    String(VOLUMES[Math.min(1, VOLUMES.length - 1)]),
+  ]);
   await runStage("bundle", "bench-bundle.mjs");
   await runStage("rag", "bench-rag.mjs", modelArgs);
   // bench-quality takes only the embedding model: retrieval quality is decided
@@ -238,7 +281,7 @@ ${stage}`);
   await runStage(
     "quality",
     "bench-quality.mjs",
-    EMBED_MODEL ? ["--embed-model", EMBED_MODEL] : []
+    EMBED_MODEL ? ["--embed-model", EMBED_MODEL] : [],
   );
 
   // ------------------------------------------------------------- persist ---
@@ -270,7 +313,12 @@ ${stage}`);
   const jsonFile = path.join(resultsDir, `${LABEL}.json`);
   fs.writeFileSync(jsonFile, JSON.stringify(report, null, 2));
 
-  const mdFile = path.join(repoRoot, "docs", "benchmarks", `${LABEL.toUpperCase()}.md`);
+  const mdFile = path.join(
+    repoRoot,
+    "docs",
+    "benchmarks",
+    `${LABEL.toUpperCase()}.md`,
+  );
   fs.writeFileSync(mdFile, renderMarkdown(report));
 
   console.log(`\nWrote ${path.relative(repoRoot, jsonFile)}`);
@@ -280,11 +328,14 @@ ${stage}`);
   // the API is a mirror, so a failure here must never cost the run.
   if (PUBLISH) {
     console.log("\nPublishing");
-    const { publishRun, publishIssues, reportPublish } = await import("./bench/lib/publish.mjs");
+    const { publishRun, publishIssues, reportPublish } =
+      await import("./bench/lib/publish.mjs");
     reportPublish(await publishRun(report), `run "${LABEL}"`);
     reportPublish(
-      await publishIssues(path.join(repoRoot, "docs", "benchmarks", "issues.json")),
-      "issue list"
+      await publishIssues(
+        path.join(repoRoot, "docs", "benchmarks", "issues.json"),
+      ),
+      "issue list",
     );
   }
 } finally {

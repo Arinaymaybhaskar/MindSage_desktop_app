@@ -37,7 +37,7 @@ const wordVariants: Variants = {
  */
 export function revealWords(
   text: string,
-  keyPrefix: string
+  keyPrefix: string,
 ): React.ReactNode[] {
   // Splitting on a captured group keeps the whitespace, so spacing and line
   // breaks survive. Whitespace is emitted unwrapped: animating it would make
@@ -45,7 +45,9 @@ export function revealWords(
   return text.split(/(\s+)/).map((chunk, index) => {
     if (chunk === "") return null;
     if (/^\s+$/.test(chunk)) {
-      return <React.Fragment key={`${keyPrefix}-s${index}`}>{chunk}</React.Fragment>;
+      return (
+        <React.Fragment key={`${keyPrefix}-s${index}`}>{chunk}</React.Fragment>
+      );
     }
     return (
       <motion.span
@@ -64,7 +66,7 @@ export function revealWords(
 /** Wraps an already-built node (a link, bold run, or code span) in the same reveal. */
 export function revealNode(
   node: React.ReactNode,
-  key: string
+  key: string,
 ): React.ReactNode {
   return (
     <motion.span

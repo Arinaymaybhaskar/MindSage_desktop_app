@@ -1,0 +1,22 @@
+# Line endings.
+#
+# Prettier is configured `endOfLine: "lf"`, and `npm run format:check` is a
+# blocking CI step. Without this file the answer depends on the platform:
+# `core.autocrlf=true` is the Windows default, so a fresh clone there gets a
+# CRLF working tree, prettier rejects every file, and the same command that
+# passes on the Linux runner fails locally.
+#
+# Forcing LF in the working tree everywhere makes the check platform
+# independent. The repository already stores LF, so this changes checkout
+# behaviour rather than content. After pulling this, an existing clone may
+# need `git add --renormalize .` once.
+* text=auto eol=lf
+
+# Binaries: never convert, never diff as text.
+*.png binary
+*.ico binary
+*.woff2 binary
+*.exe binary
+*.dll binary
+*.node binary
+*.riv binary

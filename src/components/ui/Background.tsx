@@ -1,7 +1,11 @@
 import Lottie from "lottie-react";
-import animationData from "../../../public/Big-waves-[remix].json"; // your Lottie JSON file
 
-export default function Background() {
+interface BackgroundProps {
+  /** Parsed Lottie animation JSON, supplied by the caller. */
+  animationData: unknown;
+}
+
+export default function Background({ animationData }: BackgroundProps) {
   return (
     <div className="absolute inset-0 w-full h-full ">
       <Lottie

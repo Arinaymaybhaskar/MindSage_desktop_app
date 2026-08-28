@@ -1,9 +1,28 @@
 // Single source of truth for the mood taxonomy. Used both to build the prompt
 // and to validate/sanitize whatever the model returns, so the two can't drift.
 export const MOOD_TAG_GROUPS = {
-  Happy: ["Playful", "Content", "Interested", "Proud", "Accepted", "Powerful", "Peaceful", "Trusting", "Optimistic"],
+  Happy: [
+    "Playful",
+    "Content",
+    "Interested",
+    "Proud",
+    "Accepted",
+    "Powerful",
+    "Peaceful",
+    "Trusting",
+    "Optimistic",
+  ],
   Sad: ["Lonely", "Vulnerable", "Despair", "Guilty", "Depressed", "Hurt"],
-  Angry: ["LetDown", "Humiliated", "Bitter", "Mad", "Aggressive", "Frustrated", "Distant", "Critical"],
+  Angry: [
+    "LetDown",
+    "Humiliated",
+    "Bitter",
+    "Mad",
+    "Aggressive",
+    "Frustrated",
+    "Distant",
+    "Critical",
+  ],
   Fearful: ["Scared", "Anxious", "Insecure", "Weak", "Rejected", "Threatened"],
   Bad: ["Bored", "Busy", "Stressed", "Tired"],
   Surprised: ["Startled", "Confused", "Amazed", "Excited"],
@@ -12,7 +31,9 @@ export const MOOD_TAG_GROUPS = {
 
 // Lowercased tag -> canonical tag, for case-insensitive matching.
 const CANONICAL_MOOD_TAGS = new Map(
-  Object.values(MOOD_TAG_GROUPS).flat().map((t) => [t.toLowerCase(), t]),
+  Object.values(MOOD_TAG_GROUPS)
+    .flat()
+    .map((t) => [t.toLowerCase(), t]),
 );
 
 /** Coerce an AI mood score to an integer in [1, 5], or null if unusable. */
@@ -149,7 +170,8 @@ const SUMMARY_REFUSAL_PATTERNS = [
 ];
 
 // Benign leading preamble the model sometimes adds despite instructions.
-const SUMMARY_PREAMBLE = /^(sure[,!.]?\s*)?(here('s| is)|below is)[^:]{0,60}:\s*/i;
+const SUMMARY_PREAMBLE =
+  /^(sure[,!.]?\s*)?(here('s| is)|below is)[^:]{0,60}:\s*/i;
 
 /**
  * Validate + clean a raw summary response. Returns the cleaned summary text, or
@@ -161,7 +183,10 @@ export function sanitizeSummary(raw) {
   if (typeof raw !== "string") return null;
   let text = raw.trim();
   // Strip surrounding markdown fences and a benign "Here is a summary:" lead-in.
-  text = text.replace(/^```[a-z]*\s*/i, "").replace(/```$/, "").trim();
+  text = text
+    .replace(/^```[a-z]*\s*/i, "")
+    .replace(/```$/, "")
+    .trim();
   text = text.replace(SUMMARY_PREAMBLE, "").trim();
 
   if (!text) return null;
@@ -186,7 +211,6 @@ export function countWords(text) {
 export function isSummarizable(content) {
   return countWords(content) >= MIN_SUMMARY_WORDS;
 }
-
 
 // --- 1. Format journal context ---
 export function formatContext(context = []) {
@@ -298,9 +322,11 @@ MindSage Response (JSON):
   return prompt;
 }
 
-
-export function generateContextTimeAndBaseQueryPrompt(userQuery, currentTimeISO) {
-  console.log(currentTimeISO, "current time")
+export function generateContextTimeAndBaseQueryPrompt(
+  userQuery,
+  currentTimeISO,
+) {
+  console.log(currentTimeISO, "current time");
   return `
 You are MindSage, an AI journaling assistant that analyzes user queries to determine search requirements.
 
@@ -330,4 +356,3 @@ User Query:
 MindSage Response (JSON):
 `;
 }
-

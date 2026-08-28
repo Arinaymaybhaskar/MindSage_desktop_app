@@ -30,11 +30,20 @@ const LABEL_SIZES = {
   lg: "text-sm",
 };
 
-export default function MoodOrb({ level, size = "md", className = "", hideLabel = false }: MoodOrbProps) {
+export default function MoodOrb({
+  level,
+  size = "md",
+  className = "",
+  hideLabel = false,
+}: MoodOrbProps) {
   const mood = MOODS[level - 1];
 
   return (
-    <div className={`flex flex-col items-center gap-3 ${className}`} role="img" aria-label={`Overall mood: ${mood.label}`}>
+    <div
+      className={`flex flex-col items-center gap-3 ${className}`}
+      role="img"
+      aria-label={`Overall mood: ${mood.label}`}
+    >
       <div
         className={`relative overflow-hidden rounded-full ${SIZE_CLASSES[size]}`}
         style={{
@@ -46,9 +55,18 @@ export default function MoodOrb({ level, size = "md", className = "", hideLabel 
           boxShadow: `0 14px 34px -16px rgba(0,0,0,0.55), inset 0 2px 10px rgba(255,255,255,0.35), inset 0 -18px 40px -20px rgba(0,0,0,0.25)`,
         }}
       >
-        <svg className="animate-orb-drift-a absolute -inset-1/4 h-[150%] w-[150%]" aria-hidden="true">
+        <svg
+          className="animate-orb-drift-a absolute -inset-1/4 h-[150%] w-[150%]"
+          aria-hidden="true"
+        >
           <defs>
-            <filter id="mood-clouds-1" x="-20%" y="-20%" width="140%" height="140%">
+            <filter
+              id="mood-clouds-1"
+              x="-20%"
+              y="-20%"
+              width="140%"
+              height="140%"
+            >
               <feTurbulence
                 type="fractalNoise"
                 baseFrequency="0.008 0.012"
@@ -73,11 +91,25 @@ export default function MoodOrb({ level, size = "md", className = "", hideLabel 
               />
             </filter>
           </defs>
-          <rect width="100%" height="100%" filter="url(#mood-clouds-1)" opacity="0.6" />
+          <rect
+            width="100%"
+            height="100%"
+            filter="url(#mood-clouds-1)"
+            opacity="0.6"
+          />
         </svg>
-        <svg className="animate-orb-drift-b absolute -inset-1/4 h-[150%] w-[150%]" aria-hidden="true">
+        <svg
+          className="animate-orb-drift-b absolute -inset-1/4 h-[150%] w-[150%]"
+          aria-hidden="true"
+        >
           <defs>
-            <filter id="mood-clouds-2" x="-20%" y="-20%" width="140%" height="140%">
+            <filter
+              id="mood-clouds-2"
+              x="-20%"
+              y="-20%"
+              width="140%"
+              height="140%"
+            >
               <feTurbulence
                 type="fractalNoise"
                 baseFrequency="0.02 0.025"
@@ -102,12 +134,18 @@ export default function MoodOrb({ level, size = "md", className = "", hideLabel 
               />
             </filter>
           </defs>
-          <rect width="100%" height="100%" filter="url(#mood-clouds-2)" opacity="0.35" />
+          <rect
+            width="100%"
+            height="100%"
+            filter="url(#mood-clouds-2)"
+            opacity="0.35"
+          />
         </svg>
         <span
           className="animate-orb-drift-c absolute -left-1/4 top-[42%] h-1/3 w-[150%] rounded-full"
           style={{
-            background: "radial-gradient(ellipse 48% 42% at 50% 50%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 62%)",
+            background:
+              "radial-gradient(ellipse 48% 42% at 50% 50%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 62%)",
             filter: "blur(12px)",
           }}
         />
@@ -120,8 +158,16 @@ export default function MoodOrb({ level, size = "md", className = "", hideLabel 
 
       {!hideLabel && (
         <div className="flex flex-col items-center gap-1">
-          <span className={`font-semibold tracking-tight ${TEXT_SIZES[size]} text-text-light dark:text-text-dark`}>{mood.label}</span>
-          <span className={`font-medium uppercase tracking-widest ${LABEL_SIZES[size]} text-text-light-sub dark:text-text-dark-sub`}>Overall mood</span>
+          <span
+            className={`font-semibold tracking-tight ${TEXT_SIZES[size]} text-text-light dark:text-text-dark`}
+          >
+            {mood.label}
+          </span>
+          <span
+            className={`font-medium uppercase tracking-widest ${LABEL_SIZES[size]} text-text-light-sub dark:text-text-dark-sub`}
+          >
+            Overall mood
+          </span>
         </div>
       )}
     </div>

@@ -1,3 +1,5 @@
+import type { ProgressLog } from "../types/Goals";
+
 const checkElectron = () => {
   if (!window.electron?.ipcRenderer) {
     throw new Error("Not in an Electron environment.");
@@ -5,16 +7,26 @@ const checkElectron = () => {
 };
 
 export const progressLogsService = {
-  getProgressLogs: async (authMode: string, token: string, goalId: number) => {
+  getProgressLogs: async (
+    authMode: string,
+    token: string,
+    goalId: number,
+  ): Promise<ProgressLog[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "logs:getAll",
       authMode,
       token,
-      goalId
+      goalId,
     );
   },
-  addProgress: async (authMode: string, token: string, goalId: number, value: number, description: string) => {
+  addProgress: async (
+    authMode: string,
+    token: string,
+    goalId: number,
+    value: number,
+    description: string,
+  ): Promise<ProgressLog> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "logs:add",
@@ -22,7 +34,7 @@ export const progressLogsService = {
       token,
       goalId,
       value,
-      description
+      description,
     );
-  }
+  },
 };

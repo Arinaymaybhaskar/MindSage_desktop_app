@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from "react";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "./useToast";
 
 interface AIStatusEvent {
   event: string;
@@ -16,7 +16,7 @@ export function useAIStatus(
     ai_summary_status?: string;
     ai_metadata_error?: string;
     ai_summary_error?: string;
-  }) => void
+  }) => void,
 ) {
   const { showToast } = useToast();
 
@@ -29,22 +29,34 @@ export function useAIStatus(
           onStatusChange({ ai_metadata_status: "pending" });
           break;
         case "journal:aiCompleted":
-          onStatusChange({ ai_metadata_status: "completed", ai_metadata_error: undefined });
+          onStatusChange({
+            ai_metadata_status: "completed",
+            ai_metadata_error: undefined,
+          });
           showToast("AI metadata generated successfully", "success");
           break;
         case "journal:aiFailed":
-          onStatusChange({ ai_metadata_status: "failed", ai_metadata_error: data.error });
+          onStatusChange({
+            ai_metadata_status: "failed",
+            ai_metadata_error: data.error,
+          });
           showToast(`AI metadata generation failed: ${data.error}`, "danger");
           break;
         case "ollama:summary-started":
           onStatusChange({ ai_summary_status: "pending" });
           break;
         case "ollama:summary-generated":
-          onStatusChange({ ai_summary_status: "completed", ai_summary_error: undefined });
+          onStatusChange({
+            ai_summary_status: "completed",
+            ai_summary_error: undefined,
+          });
           showToast("AI summary generated successfully", "success");
           break;
         case "ollama:summary-failed":
-          onStatusChange({ ai_summary_status: "failed", ai_summary_error: data.error });
+          onStatusChange({
+            ai_summary_status: "failed",
+            ai_summary_error: data.error,
+          });
           showToast(`AI summary generation failed: ${data.error}`, "danger");
           break;
         case "ollama:summary-skipped":
@@ -52,7 +64,7 @@ export function useAIStatus(
           break;
       }
     },
-    [entryId, onStatusChange, showToast]
+    [entryId, onStatusChange, showToast],
   );
 
   useEffect(() => {
@@ -66,7 +78,7 @@ export function useAIStatus(
 
     const unsubscribe = window.electron.ipcRenderer.on(
       "ai-status-event",
-      handleEvent
+      handleEvent,
     );
 
     return unsubscribe;

@@ -16,7 +16,7 @@ const whisperService = {
 
     return await window.electron.ipcRenderer.invoke(
       "whisper:transcribe-audio",
-      buffer
+      buffer,
     );
   },
 
@@ -25,7 +25,7 @@ const whisperService = {
    */
   async startLive(): Promise<void> {
     return window.electron.ipcRenderer.invoke(
-      "whisper:start-live-transcription"
+      "whisper:start-live-transcription",
     );
   },
 
@@ -34,7 +34,7 @@ const whisperService = {
    */
   async stopLive(): Promise<void> {
     return window.electron.ipcRenderer.invoke(
-      "whisper:stop-live-transcription"
+      "whisper:stop-live-transcription",
     );
   },
 
@@ -44,16 +44,19 @@ const whisperService = {
    */
   onLiveData(callback: (data: TranscriptionResult) => void): () => void {
     // remove ANSI/control sequences and send only new text deltas to avoid duplicates
+    // Whisper.cpp emits real ESC sequences, so matching the control
+    // character is exactly what this regex is for.
+    // eslint-disable-next-line no-control-regex
     const ansiRegex = /\x1b\[[0-9;?]*[A-Za-z]/g;
     let prevText = "";
 
-    const listener = (payload: any) => {
+    const listener = (payload: string | Partial<TranscriptionResult>) => {
       // payload may be a string or { text: string, ... }
-      let raw = typeof payload === "string" ? payload : payload?.text ?? "";
+      const raw = typeof payload === "string" ? payload : (payload?.text ?? "");
       if (!raw) return;
 
       // strip ANSI/control codes and CRs, normalize whitespace
-      let clean = raw.replace(ansiRegex, "").replace(/\r/g, "").trim();
+      const clean = raw.replace(ansiRegex, "").replace(/\r/g, "").trim();
       if (!clean) return;
 
       // if identical to previous, ignore
@@ -66,7 +69,10 @@ const whisperService = {
       }
       prevText = clean;
 
-      callback({ text: out, segments: payload?.segments });
+      callback({
+        text: out,
+        segments: typeof payload === "string" ? undefined : payload?.segments,
+      });
     };
 
     window.electron.ipcRenderer.on("live-transcription-data", listener);

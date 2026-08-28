@@ -62,7 +62,9 @@ export function explainAll(db, captured) {
       const steps = db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...params);
       plans.push({
         sql: normalise(sql),
-        scans: steps.filter((s) => /^SCAN\b/.test(s.detail)).map((s) => s.detail),
+        scans: steps
+          .filter((s) => /^SCAN\b/.test(s.detail))
+          .map((s) => s.detail),
         steps: steps.map((s) => s.detail),
       });
     } catch (err) {

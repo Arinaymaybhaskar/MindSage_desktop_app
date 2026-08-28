@@ -1,17 +1,23 @@
-import Database from 'better-sqlite3';
-import path from 'node:path';
-import fs from 'node:fs';
+import Database from "better-sqlite3";
+import path from "node:path";
+import fs from "node:fs";
 
 // Define the path for the database in the user's app data folder
-const dbPath = path.join(process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share"), 'MindSage', 'mind-sage.db');
+const dbPath = path.join(
+  process.env.APPDATA ||
+    (process.platform == "darwin"
+      ? process.env.HOME + "/Library/Preferences"
+      : process.env.HOME + "/.local/share"),
+  "MindSage",
+  "mind-sage.db",
+);
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 // Create and export the database instance
 export const db = new Database(dbPath);
 
-
 export function initDatabase() {
-    db.exec(`
+  db.exec(`
         PRAGMA foreign_keys = ON;
 
         CREATE TABLE IF NOT EXISTS users (
@@ -353,61 +359,71 @@ export function initDatabase() {
 
         `);
 
-    // Ensure older DBs get the new column if missing
-    try {
-        const info = db.prepare(`PRAGMA table_info(users)`).all();
-        const hasProfileCol = info.some(col => col.name === 'profile_picture');
-        if (!hasProfileCol) {
-            db.prepare(`ALTER TABLE users ADD COLUMN profile_picture TEXT`).run();
-        }
-    } catch (err) {
-        console.error("Error ensuring profile_picture column exists:", err);
+  // Ensure older DBs get the new column if missing
+  try {
+    const info = db.prepare(`PRAGMA table_info(users)`).all();
+    const hasProfileCol = info.some((col) => col.name === "profile_picture");
+    if (!hasProfileCol) {
+      db.prepare(`ALTER TABLE users ADD COLUMN profile_picture TEXT`).run();
     }
+  } catch (err) {
+    console.error("Error ensuring profile_picture column exists:", err);
+  }
 
-    // Add AI metadata status columns to journal_entries
-    try {
-        const journalInfo = db.prepare(`PRAGMA table_info(journal_entries)`).all();
-        const cols = journalInfo.map(c => c.name);
-        if (!cols.includes('ai_metadata_status')) {
-            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_metadata_status TEXT DEFAULT 'not_started' CHECK(ai_metadata_status IN ('not_started','pending','completed','failed'))`).run();
-        }
-        if (!cols.includes('ai_summary_status')) {
-            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_summary_status TEXT DEFAULT 'not_started' CHECK(ai_summary_status IN ('not_started','pending','completed','failed','skipped'))`).run();
-        }
-        if (!cols.includes('ai_metadata_error')) {
-            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_metadata_error TEXT`).run();
-        }
-        if (!cols.includes('ai_summary_error')) {
-            db.prepare(`ALTER TABLE journal_entries ADD COLUMN ai_summary_error TEXT`).run();
-        }
-    } catch (err) {
-        console.error("Error ensuring AI metadata columns exist:", err);
+  // Add AI metadata status columns to journal_entries
+  try {
+    const journalInfo = db.prepare(`PRAGMA table_info(journal_entries)`).all();
+    const cols = journalInfo.map((c) => c.name);
+    if (!cols.includes("ai_metadata_status")) {
+      db.prepare(
+        `ALTER TABLE journal_entries ADD COLUMN ai_metadata_status TEXT DEFAULT 'not_started' CHECK(ai_metadata_status IN ('not_started','pending','completed','failed'))`,
+      ).run();
     }
+    if (!cols.includes("ai_summary_status")) {
+      db.prepare(
+        `ALTER TABLE journal_entries ADD COLUMN ai_summary_status TEXT DEFAULT 'not_started' CHECK(ai_summary_status IN ('not_started','pending','completed','failed','skipped'))`,
+      ).run();
+    }
+    if (!cols.includes("ai_metadata_error")) {
+      db.prepare(
+        `ALTER TABLE journal_entries ADD COLUMN ai_metadata_error TEXT`,
+      ).run();
+    }
+    if (!cols.includes("ai_summary_error")) {
+      db.prepare(
+        `ALTER TABLE journal_entries ADD COLUMN ai_summary_error TEXT`,
+      ).run();
+    }
+  } catch (err) {
+    console.error("Error ensuring AI metadata columns exist:", err);
+  }
 
-    // Insert a system user if it doesn't exist
-    const insertSystemUser = db.prepare(`
+  // Insert a system user if it doesn't exist
+  const insertSystemUser = db.prepare(`
         INSERT OR IGNORE INTO users (id, username, email, password_hash, full_name)
         VALUES (0, 'System', 'system@mindsage.app', 'N/A', 'System User')
     `);
-    insertSystemUser.run();
+  insertSystemUser.run();
 
-    // Seed global categories for the system user
-    const categories = [
-        { name: 'Health', color: '#FF6B6B' },
-        { name: 'Work', color: '#4ECDC4' },
-        { name: 'Finance', color: '#FFD93D' },
-        { name: 'Personal Growth', color: '#6A4C93' },
-        { name: 'Leisure', color: '#1A535C' }
-    ];
+  // Seed global categories for the system user
+  const categories = [
+    { name: "Health", color: "#FF6B6B" },
+    { name: "Work", color: "#4ECDC4" },
+    { name: "Finance", color: "#FFD93D" },
+    { name: "Personal Growth", color: "#6A4C93" },
+    { name: "Leisure", color: "#1A535C" },
+  ];
 
-    const insertCategory = db.prepare(`
+  const insertCategory = db.prepare(`
         INSERT OR IGNORE INTO categories (user_id, name, color)
         VALUES (0, ?, ?)
     `);
 
-    categories.forEach((cat) => {
-        insertCategory.run(cat.name, cat.color);
-    });
+  categories.forEach((cat) => {
+    insertCategory.run(cat.name, cat.color);
+  });
 
-    console.log('Local database with normalized tags and chat tables initialized successfully.');
+  console.log(
+    "Local database with normalized tags and chat tables initialized successfully.",
+  );
 }

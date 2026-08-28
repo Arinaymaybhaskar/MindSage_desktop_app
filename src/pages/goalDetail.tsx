@@ -3,15 +3,15 @@ import { useNavigate, useParams } from "react-router-dom";
 import { goalService } from "../api/goalService";
 import { useAuth } from "../hooks/useAuth";
 import { ArrowLeft, Flag, CheckCircle, Calendar } from "lucide-react";
+import type { GoalDetail as GoalDetailData, ProgressLog } from "../types/Goals";
 
 export default function GoalDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<GoalDetailData | null>(null);
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -19,7 +19,7 @@ export default function GoalDetail() {
         const goal = await goalService.getGoalById(
           authMode,
           accessToken!,
-          Number(id)
+          Number(id),
         );
         setData(goal);
       } catch (error) {
@@ -108,10 +108,12 @@ export default function GoalDetail() {
 
         {/* Logs Section */}
         <div className="p-8 rounded-2xl shadow bg-surface-light dark:bg-secondary-dark border border-border-light dark:border-border-dark">
-          <h2 className="font-display text-xl font-semibold mb-4">Progress Logs</h2>
+          <h2 className="font-display text-xl font-semibold mb-4">
+            Progress Logs
+          </h2>
           {data.logs && data.logs.length > 0 ? (
             <ul className="space-y-4">
-              {data.logs.map((log: any) => (
+              {data.logs.map((log: ProgressLog) => (
                 <li
                   key={log.id}
                   className="p-4 rounded-xl bg-secondary-light dark:bg-tertiary-dark hover:bg-tertiary-light dark:hover:bg-base-dark transition"

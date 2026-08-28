@@ -63,7 +63,9 @@ if (!fs.existsSync(binary)) {
   process.exit(1);
 }
 
-const storageDir = fs.mkdtempSync(path.join(os.tmpdir(), "mindsage-bench-qdrant-"));
+const storageDir = fs.mkdtempSync(
+  path.join(os.tmpdir(), "mindsage-bench-qdrant-"),
+);
 const results = {};
 let proc = null;
 
@@ -74,7 +76,7 @@ function rssOf(pid) {
       const out = execFileSync(
         "tasklist",
         ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"],
-        { encoding: "utf8" }
+        { encoding: "utf8" },
       );
       // The last CSV field is memory as `"123,456 K"` - splitting on commas
       // would cut the number in half, so match the final quoted field instead.
@@ -82,7 +84,9 @@ function rssOf(pid) {
       const kb = field.replace(/[^\d]/g, "");
       return kb ? Number(kb) * 1024 : null;
     }
-    const out = execFileSync("ps", ["-o", "rss=", "-p", String(pid)], { encoding: "utf8" });
+    const out = execFileSync("ps", ["-o", "rss=", "-p", String(pid)], {
+      encoding: "utf8",
+    });
     return Number(out.trim()) * 1024;
   } catch {
     return null;
@@ -134,7 +138,9 @@ try {
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`${BASE}/readyz`, { signal: AbortSignal.timeout(1000) });
+      const res = await fetch(`${BASE}/readyz`, {
+        signal: AbortSignal.timeout(1000),
+      });
       if (res.ok) {
         ready = true;
         break;
@@ -146,8 +152,13 @@ try {
   }
   if (!ready) throw new Error("Qdrant did not become ready within 30s");
 
-  results["qdrant.startupToReady"] = { n: 1, wallMs: Math.round(performance.now() - t0) };
-  console.log(`  ${"qdrant.startupToReady".padEnd(32)} ${fmt(performance.now() - t0)}`);
+  results["qdrant.startupToReady"] = {
+    n: 1,
+    wallMs: Math.round(performance.now() - t0),
+  };
+  console.log(
+    `  ${"qdrant.startupToReady".padEnd(32)} ${fmt(performance.now() - t0)}`,
+  );
   results["qdrant.rssIdle"] = { bytes: rssOf(proc.pid) };
 
   // --------------------------------------------------- per-size sweeps ---
@@ -177,7 +188,9 @@ try {
         vector: { [VECTOR_NAME]: randomVector() },
         payload: { user_id: 1, entry_id: inserted + start + k + 1 },
       }));
-      await put(`${BASE}/collections/${COLLECTION}/points?wait=true`, { points });
+      await put(`${BASE}/collections/${COLLECTION}/points?wait=true`, {
+        points,
+      });
     }
     const upsertSec = (performance.now() - upsertStart) / 1000;
     inserted = size;
@@ -197,7 +210,7 @@ try {
           limit: 5,
           with_payload: true,
         }),
-      { runs: RUNS, warmup: 3 }
+      { runs: RUNS, warmup: 3 },
     );
 
     results[`search.at${size}`] = searchStats;
@@ -206,7 +219,7 @@ try {
     console.log(
       `  ${`search.at${size}`.padEnd(32)} p50 ${fmt(searchStats.p50).padStart(9)}  ` +
         `p95 ${fmt(searchStats.p95).padStart(9)}  ` +
-        `rss ${fmtBytes(results[`qdrant.rssAt${size}`].bytes ?? 0)}`
+        `rss ${fmtBytes(results[`qdrant.rssAt${size}`].bytes ?? 0)}`,
     );
   }
 
@@ -226,7 +239,9 @@ try {
     }
   }
   results["qdrant.storageOnDisk"] = { bytes: storageBytes, vectors: inserted };
-  console.log(`  ${"qdrant.storageOnDisk".padEnd(32)} ${fmtBytes(storageBytes)} for ${inserted} vectors`);
+  console.log(
+    `  ${"qdrant.storageOnDisk".padEnd(32)} ${fmtBytes(storageBytes)} for ${inserted} vectors`,
+  );
 } finally {
   if (proc) {
     try {

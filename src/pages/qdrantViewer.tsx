@@ -21,14 +21,14 @@ interface Collection {
 }
 interface Point {
   id: string | number;
-  payload: { [key: string]: any };
+  payload: { [key: string]: unknown };
   vectors?: { [key: string]: number[] };
 }
 interface CollectionDetails {
   name?: string;
   points_count?: number;
   status?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // --- REVAMPED: Reusable Themed PointCard Component ---
@@ -49,9 +49,9 @@ const PointCard: React.FC<{ point: Point; showVectors: boolean }> = ({
           <span className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded text-sm font-mono font-medium">
             ID: {point.id}
           </span>
-          {point.payload?.user_id && (
+          {point.payload?.user_id != null && (
             <span className="text-sm text-text-light-sub dark:text-text-dark-sub">
-              User: {point.payload.user_id}
+              User: {String(point.payload.user_id)}
             </span>
           )}
         </div>
@@ -99,7 +99,7 @@ const PointCard: React.FC<{ point: Point; showVectors: boolean }> = ({
 export default function QdrantViewer() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [details, setDetails] = useState<CollectionDetails | null>(null);
+  const [, setDetails] = useState<CollectionDetails | null>(null);
   const [points, setPoints] = useState<Point[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,16 +128,18 @@ export default function QdrantViewer() {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       processedPoints = processedPoints.filter((point) =>
-        JSON.stringify(point).toLowerCase().includes(searchLower)
+        JSON.stringify(point).toLowerCase().includes(searchLower),
       );
     }
 
     // Sorting
     processedPoints.sort((a, b) => {
-      const valA = a.payload?.[sortKey];
-      const valB = b.payload?.[sortKey];
+      // Payload values are untyped, so compare them as strings/numbers only
+      // when both sides are actually present.
+      const valA = a.payload?.[sortKey] as string | number | undefined;
+      const valB = b.payload?.[sortKey] as string | number | undefined;
 
-      if (valA === undefined || valB === undefined) return 0;
+      if (valA == null || valB == null) return 0;
 
       if (valA < valB) return sortOrder === "asc" ? -1 : 1;
       if (valA > valB) return sortOrder === "asc" ? 1 : -1;
@@ -158,7 +160,7 @@ export default function QdrantViewer() {
     } catch (err) {
       console.error("Error fetching collections:", err);
       setError(
-        "Failed to connect to Qdrant. Make sure it's running on port 6333."
+        "Failed to connect to Qdrant. Make sure it's running on port 6333.",
       );
     } finally {
       setLoading(false);
@@ -187,11 +189,11 @@ export default function QdrantViewer() {
             with_payload: true,
             with_vectors: showVectors,
           }),
-        }
+        },
       );
       const pointsData = await pointsRes.json();
       const userPoints = pointsData.result.points.filter(
-        (point: Point) => point.payload.user_id === userId
+        (point: Point) => point.payload.user_id === userId,
       );
       setPoints(userPoints || []);
     } catch (err) {
@@ -395,7 +397,7 @@ export default function QdrantViewer() {
                   ) : (
                     <motion.div layout className="space-y-4">
                       <AnimatePresence>
-                        {sortedAndFilteredPoints.map((point, index) => (
+                        {sortedAndFilteredPoints.map((point) => (
                           <PointCard
                             key={point.id}
                             point={point}

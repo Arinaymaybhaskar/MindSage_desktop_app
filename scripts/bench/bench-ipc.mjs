@@ -43,7 +43,7 @@ const token = await cdp.evaluate(`localStorage.getItem("accessToken")`);
 if (!token) {
   console.error(
     "No accessToken in localStorage - log in to the running app first.\n" +
-      "Every IPC handler decodes a token, so an unauthenticated run measures only error paths."
+      "Every IPC handler decodes a token, so an unauthenticated run measures only error paths.",
   );
   process.exit(1);
 }
@@ -97,13 +97,25 @@ async function payloadBytes(channel, args) {
 const auth = ["offline", token];
 
 const scenarios = {
-  "journal:get-all (page 1, 10)": { channel: "journal:get-all", args: [...auth, 1, 10] },
-  "journal:get-all (page 1, 50)": { channel: "journal:get-all", args: [...auth, 1, 50] },
+  "journal:get-all (page 1, 10)": {
+    channel: "journal:get-all",
+    args: [...auth, 1, 10],
+  },
+  "journal:get-all (page 1, 50)": {
+    channel: "journal:get-all",
+    args: [...auth, 1, 50],
+  },
   "journal:get-recent": { channel: "journal:get-recent", args: auth },
-  "journal:get-images (top)": { channel: "journal:get-images", args: [...auth, "top"] },
+  "journal:get-images (top)": {
+    channel: "journal:get-images",
+    args: [...auth, "top"],
+  },
   "dashboard:get-data": { channel: "dashboard:get-data", args: auth },
   "dashboard:get-stats": { channel: "dashboard:get-stats", args: auth },
-  "dashboard:get-monthly-scores": { channel: "dashboard:get-monthly-scores", args: auth },
+  "dashboard:get-monthly-scores": {
+    channel: "dashboard:get-monthly-scores",
+    args: auth,
+  },
   "goal:get-active-goals": { channel: "goal:get-active-goals", args: auth },
   "category:get-all": { channel: "category:get-all", args: auth },
 };
@@ -118,7 +130,7 @@ for (const [name, { channel, args }] of Object.entries(scenarios)) {
       (results[name].error
         ? `error: ${results[name].error}`
         : `p50 ${fmt(results[name].p50).padStart(8)}  p95 ${fmt(results[name].p95).padStart(8)}` +
-          (bytes ? `  ${(bytes / 1024).toFixed(0)} KB` : ""))
+          (bytes ? `  ${(bytes / 1024).toFixed(0)} KB` : "")),
   );
 }
 
@@ -148,11 +160,13 @@ if (imageKey) {
         (results[name].error
           ? `error: ${results[name].error}`
           : `p50 ${fmt(results[name].p50).padStart(8)}  p95 ${fmt(results[name].p95).padStart(8)}` +
-            (bytes ? `  ${(bytes / 1024).toFixed(0)} KB` : ""))
+            (bytes ? `  ${(bytes / 1024).toFixed(0)} KB` : "")),
     );
   }
 } else {
-  console.log("  media:*                          skipped - no images in this journal");
+  console.log(
+    "  media:*                          skipped - no images in this journal",
+  );
 }
 
 const entryCount = await cdp.evaluate(`(async () => {
@@ -169,5 +183,7 @@ if (OUT) {
   console.log(`\nWrote ${OUT}`);
 }
 
-console.log(`\nDataset: ${entryCount ?? "unknown"} entries in the live database.`);
+console.log(
+  `\nDataset: ${entryCount ?? "unknown"} entries in the live database.`,
+);
 cdp.close();

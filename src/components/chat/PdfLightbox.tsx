@@ -1,6 +1,5 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
 
 export interface PdfLightboxProps {
   name?: string;

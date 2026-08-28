@@ -51,7 +51,8 @@ describe("sanitizeMoodTags", () => {
 
 describe("parseJournalMetadata", () => {
   it("parses a clean JSON string and sanitizes fields", () => {
-    const raw = '{"title":"A good day","mood_score":4,"mood_tags":["proud","bogus"]}';
+    const raw =
+      '{"title":"A good day","mood_score":4,"mood_tags":["proud","bogus"]}';
     expect(parseJournalMetadata(raw)).toEqual({
       title: "A good day",
       mood_score: 4,

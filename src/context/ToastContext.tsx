@@ -1,9 +1,8 @@
 // ToastContext.tsx
 import React, {
   createContext,
-  useContext,
   useState,
-  ReactNode,
+  type ReactNode,
   useCallback,
 } from "react";
 import ToastNotification from "../components/ToastNotification";
@@ -16,7 +15,7 @@ interface Toast {
   variant?: ToastVariant;
 }
 
-interface ToastContextType {
+export interface ToastContextType {
   showToast: (message: string, variant?: ToastVariant) => void;
 }
 
@@ -39,7 +38,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
         setToasts((prev) => prev.filter((t) => t.id !== id));
       }, 3000);
     },
-    []
+    [],
   );
 
   return (
@@ -58,8 +57,4 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
   );
 };
 
-export const useToast = (): ToastContextType => {
-  const context = useContext(ToastContext);
-  if (!context) throw new Error("useToast must be used within a ToastProvider");
-  return context;
-};
+export default ToastContext;

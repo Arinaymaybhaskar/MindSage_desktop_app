@@ -1,3 +1,5 @@
+import type { Goal, GoalDetail, SqliteRunResult } from "../types/Goals";
+
 const checkElectron = () => {
   if (!window.electron?.ipcRenderer) {
     throw new Error("Not in an Electron environment.");
@@ -5,122 +7,135 @@ const checkElectron = () => {
 };
 
 export const goalService = {
-  getActiveGoals: async (authMode: "online" | "offline", token: string) => {
+  getActiveGoals: async (
+    authMode: "online" | "offline",
+    token: string,
+  ): Promise<Goal[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:get-active-goals",
       authMode,
-      token
+      token,
     );
   },
-  getCompletedGoals: async (authMode: "online" | "offline", token: string) => {
+  getCompletedGoals: async (
+    authMode: "online" | "offline",
+    token: string,
+  ): Promise<Goal[]> => {
     checkElectron();
 
     return await window.electron.ipcRenderer.invoke(
       "goal:get-completed-goals",
       authMode,
-      token
+      token,
     );
   },
-  addGoal: async (authMode: "online" | "offline", token: string, goal: any) => {
+  addGoal: async (
+    authMode: "online" | "offline",
+    token: string,
+    goal: Partial<Goal>,
+  ): Promise<SqliteRunResult> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:add",
       authMode,
       token,
-      goal
+      goal,
     );
   },
   updateGoal: async (
     authMode: "online" | "offline",
     token: string,
     goalId: number,
-    goal: any
-  ) => {
+    goal: Partial<Goal>,
+  ): Promise<SqliteRunResult> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:update",
       authMode,
       token,
       goalId,
-      goal
+      goal,
     );
   },
   deleteGoal: async (
     authMode: "online" | "offline",
     token: string,
-    goalId: number
-  ) => {
+    goalId: number,
+  ): Promise<SqliteRunResult> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:delete",
       authMode,
       token,
-      goalId
+      goalId,
     );
   },
   togglePin: async (
     authMode: "online" | "offline",
     token: string,
-    goalId: string
-  ) => {
+    goalId: string,
+  ): Promise<SqliteRunResult> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:toggle-pin",
       authMode,
       token,
-      goalId
+      goalId,
     );
   },
   completeGoal: async (
     authMode: "online" | "offline",
     token: string,
-    goalId: number
-  ) => {
+    goalId: number,
+  ): Promise<SqliteRunResult> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:complete",
       authMode,
       token,
-      goalId
+      goalId,
     );
   },
   updateProgress: async (
     authMode: "online" | "offline",
     token: string,
     goalId: number,
-    value: number
-  ) => {
+    value: number,
+  ): Promise<Goal> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:update-progress",
       authMode,
       token,
       goalId,
-      value
+      value,
     );
   },
-  getPinned: async (authMode: "online" | "offline", token: string) => {
+  getPinned: async (
+    authMode: "online" | "offline",
+    token: string,
+  ): Promise<Goal[]> => {
     checkElectron();
 
     return await window.electron.ipcRenderer.invoke(
       "goal:getPinned",
       authMode,
-      token
+      token,
     );
   },
   getGoalById: async (
     authMode: "online" | "offline",
     token: string,
-    goalId: number
-  ) => {
+    goalId: number,
+  ): Promise<GoalDetail | null> => {
     checkElectron();
 
     return await window.electron.ipcRenderer.invoke(
       "goal:get-by-id",
       authMode,
       token,
-      goalId
+      goalId,
     );
   },
 };

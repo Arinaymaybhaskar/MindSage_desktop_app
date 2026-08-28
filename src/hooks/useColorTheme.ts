@@ -1,18 +1,11 @@
 import { useState, useEffect } from "react";
-import { generateFullTheme } from "../utils/colorGenerator"; // IMPORT the generator
+import { generateFullTheme, type AccentColors } from "../utils/colorGenerator";
+import type { UserSettings } from "../types/User";
 
-interface ColorTheme {
-  light1: string;
-  light2: string;
-  light3: string;
-  light4: string;
-  dark1: string;
-  dark2: string;
-  dark3: string;
-  dark4: string;
-}
+/** The eight user-selectable accents that seed the generated palette. */
+export type ColorTheme = AccentColors;
 
-interface ColorSettings {
+export interface ColorSettings {
   customColors: ColorTheme;
   selectedTheme: string;
   useCustomColors: boolean;
@@ -75,7 +68,7 @@ export const useColorTheme = () => {
   }, []);
 
   // Function to load settings from database format
-  const loadFromDatabase = (dbSettings: any) => {
+  const loadFromDatabase = (dbSettings: Partial<UserSettings> | null) => {
     if (dbSettings) {
       try {
         const parsed = {

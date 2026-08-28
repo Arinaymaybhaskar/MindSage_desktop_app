@@ -1,7 +1,27 @@
 import axios from "axios";
 
-function describeApiConnectionError(error: any, fallback = "The API request failed") {
-  const code = error?.code || error?.cause?.code || error?.message?.match(/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ECONNABORTED|ETIMEDOUT/i)?.[0];
+/**
+ * Loosely-typed view of what axios (or a raw fetch failure) can throw. Every
+ * field is optional because this runs on values caught from anywhere.
+ */
+interface ApiErrorLike {
+  code?: string;
+  message?: string;
+  cause?: { code?: string };
+  response?: { data?: { message?: string } };
+}
+
+function describeApiConnectionError(
+  caught: unknown,
+  fallback = "The API request failed",
+) {
+  const error = (caught ?? {}) as ApiErrorLike;
+  const code =
+    error?.code ||
+    error?.cause?.code ||
+    error?.message?.match(
+      /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ECONNABORTED|ETIMEDOUT/i,
+    )?.[0];
 
   if (
     code === "ENOTFOUND" ||
@@ -10,7 +30,10 @@ function describeApiConnectionError(error: any, fallback = "The API request fail
     code === "ECONNRESET" ||
     code === "ECONNABORTED" ||
     code === "ETIMEDOUT" ||
-    (typeof error?.message === "string" && /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ECONNABORTED|ETIMEDOUT/i.test(error.message))
+    (typeof error?.message === "string" &&
+      /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ECONNABORTED|ETIMEDOUT/i.test(
+        error.message,
+      ))
   ) {
     return `Can't reach the API server; check your internet or DNS (${code || "NETWORK"})`;
   }
@@ -41,10 +64,12 @@ api.interceptors.request.use((config) => {
 });
 // Handle 401: refresh token using HttpOnly cookie
 api.interceptors.response.use(
-  res => res,
+  (res) => res,
   async (error) => {
     if (!error.response) {
-      return Promise.reject(new Error(describeApiConnectionError(error, "API request failed")));
+      return Promise.reject(
+        new Error(describeApiConnectionError(error, "API request failed")),
+      );
     }
 
     const originalRequest = error.config;
@@ -59,7 +84,7 @@ api.interceptors.response.use(
           {},
           {
             withCredentials: true,
-          }
+          },
         );
 
         const newAccessToken = res.data.accessToken;
@@ -77,7 +102,7 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

@@ -1,5 +1,5 @@
-import { db } from './connection.js';
-import Sentiment from 'sentiment';
+import { db } from "./connection.js";
+import Sentiment from "sentiment";
 
 const sentiment = new Sentiment();
 
@@ -29,7 +29,7 @@ const analyzeSentimentLocal = (text) => {
 export function createJournalEntry(userId, entry) {
   const { title, content, mood_score, mood_tags = [], created_at } = entry;
 
-  const sentiment_score = analyzeSentimentLocal(content || '');
+  const sentiment_score = analyzeSentimentLocal(content || "");
   const now = new Date().toISOString();
   const entryCreatedAt = created_at || now;
 
@@ -47,11 +47,11 @@ export function createJournalEntry(userId, entry) {
     const entryResult = entryStmt.run({
       userId,
       title: title || null,
-      content: content || '',
+      content: content || "",
       mood_score: mood_score || null,
       sentiment_score,
       created_at: entryCreatedAt,
-      updated_at: now
+      updated_at: now,
     });
 
     const journalId = entryResult.lastInsertRowid;
@@ -59,13 +59,13 @@ export function createJournalEntry(userId, entry) {
     // Handle tags
     if (mood_tags && mood_tags.length > 0) {
       const insertTagStmt = db.prepare(
-        'INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)'
+        "INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)",
       );
       const selectTagStmt = db.prepare(
-        'SELECT id FROM tags WHERE user_id = ? AND name = ?'
+        "SELECT id FROM tags WHERE user_id = ? AND name = ?",
       );
       const linkTagStmt = db.prepare(
-        'INSERT INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)'
+        "INSERT INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)",
       );
 
       for (const tagName of mood_tags) {
@@ -91,7 +91,7 @@ export function createJournalEntry(userId, entry) {
 
     // Convert mood_tags from CSV string back into array
     if (createdEntry && createdEntry.mood_tags) {
-      createdEntry.mood_tags = createdEntry.mood_tags.split(',');
+      createdEntry.mood_tags = createdEntry.mood_tags.split(",");
     } else {
       createdEntry.mood_tags = [];
     }
@@ -101,7 +101,6 @@ export function createJournalEntry(userId, entry) {
 
   return runTransaction();
 }
-
 
 /**
  * Retrieves the three most recent journal entries for a user, including their tags.
@@ -123,9 +122,9 @@ export function getRecentEntries(userId) {
     `);
   const rows = stmt.all(userId);
   // Convert the comma-separated tags string back into an array.
-  return rows.map(row => ({
+  return rows.map((row) => ({
     ...row,
-    mood_tags: row.mood_tags ? row.mood_tags.split(',') : []
+    mood_tags: row.mood_tags ? row.mood_tags.split(",") : [],
   }));
 }
 
@@ -138,7 +137,13 @@ export function getRecentEntries(userId) {
  * @param {string} toDate - The end date in 'YYYY-MM-DD' format.
  * @returns {object[]} An array of journal entries.
  */
-export function getAllEntries(userId, limit = 10, offset = 0, fromDate, toDate) {
+export function getAllEntries(
+  userId,
+  limit = 10,
+  offset = 0,
+  fromDate,
+  toDate,
+) {
   // Base SQL: Select all columns from journal_entries and use GROUP_CONCAT to aggregate tags.
   // LEFT JOIN ensures entries without tags are still included.
   let sql = `
@@ -176,9 +181,9 @@ export function getAllEntries(userId, limit = 10, offset = 0, fromDate, toDate) 
   const rows = stmt.all(...params);
 
   // Convert the comma-separated tags string from GROUP_CONCAT back into a clean array.
-  return rows.map(row => ({
+  return rows.map((row) => ({
     ...row,
-    mood_tags: row.mood_tags ? row.mood_tags.split(',') : []
+    mood_tags: row.mood_tags ? row.mood_tags.split(",") : [],
   }));
 }
 
@@ -193,17 +198,23 @@ export function getAllEntries(userId, limit = 10, offset = 0, fromDate, toDate) 
  */
 export function getImageKeysAndIds(userId, mode = "top") {
   if (mode === "all") {
-    return db.prepare(`
+    return db
+      .prepare(
+        `
       SELECT id, image_key, title, created_at
       FROM journal_entries
       WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL
       ORDER BY created_at DESC
-    `).all(userId);
+    `,
+      )
+      .all(userId);
   }
 
   // This function doesn't need to be changed as it doesn't interact with tags.
   if (mode === "random") {
-    const countStmt = db.prepare(`SELECT COUNT(*) AS total FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL`);
+    const countStmt = db.prepare(
+      `SELECT COUNT(*) AS total FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL`,
+    );
     const { total } = countStmt.get(userId);
     if (total === 0) return [];
 
@@ -213,7 +224,9 @@ export function getImageKeysAndIds(userId, mode = "top") {
       offsets.add(Math.floor(Math.random() * total));
     }
 
-    const fetchStmt = db.prepare(`SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?`);
+    const fetchStmt = db.prepare(
+      `SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?`,
+    );
     const results = [];
     for (const offset of offsets) {
       results.push(fetchStmt.get(userId, offset));
@@ -221,7 +234,9 @@ export function getImageKeysAndIds(userId, mode = "top") {
     return results;
   }
 
-  const stmt = db.prepare(`SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC LIMIT 10`);
+  const stmt = db.prepare(
+    `SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC LIMIT 10`,
+  );
   return stmt.all(userId);
 }
 
@@ -248,7 +263,7 @@ export function getJournalById(userId, journalId) {
   // Convert the comma-separated tags string back into an array.
   return {
     ...row,
-    mood_tags: row.mood_tags ? row.mood_tags.split(',') : []
+    mood_tags: row.mood_tags ? row.mood_tags.split(",") : [],
   };
 }
 
@@ -277,9 +292,16 @@ export function getMoodScores(userId, range) {
  * @returns {object|null} The updated journal entry or null if not found.
  */
 export function updateJournalEntry(userId, journalId, entry) {
-  const { title, content, mood_score, mood_tags = [], transcription, created_at } = entry;
+  const {
+    title,
+    content,
+    mood_score,
+    mood_tags = [],
+    transcription,
+    created_at,
+  } = entry;
 
-  const sentiment_score = analyzeSentimentLocal(content || '');
+  const sentiment_score = analyzeSentimentLocal(content || "");
   const updated_at = new Date().toISOString();
 
   const runTransaction = db.transaction(() => {
@@ -302,14 +324,14 @@ export function updateJournalEntry(userId, journalId, entry) {
 
     const result = updateStmt.run({
       title: title || null,
-      content: content || '',
+      content: content || "",
       mood_score: mood_score || null,
       sentiment_score,
       updated_at,
       created_at: created_at || new Date().toISOString(),
       journalId,
       userId,
-      transcription
+      transcription,
     });
 
     if (result.changes === 0) {
@@ -317,13 +339,21 @@ export function updateJournalEntry(userId, journalId, entry) {
     }
 
     // Step 2: Clear existing tag links for this entry.
-    db.prepare('DELETE FROM journal_entry_tags WHERE journal_entry_id = ?').run(journalId);
+    db.prepare("DELETE FROM journal_entry_tags WHERE journal_entry_id = ?").run(
+      journalId,
+    );
 
     // Step 3: Add the new set of tags.
     if (mood_tags && mood_tags.length > 0) {
-      const insertTagStmt = db.prepare('INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)');
-      const selectTagStmt = db.prepare('SELECT id FROM tags WHERE user_id = ? AND name = ?');
-      const linkTagStmt = db.prepare('INSERT INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)');
+      const insertTagStmt = db.prepare(
+        "INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)",
+      );
+      const selectTagStmt = db.prepare(
+        "SELECT id FROM tags WHERE user_id = ? AND name = ?",
+      );
+      const linkTagStmt = db.prepare(
+        "INSERT INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)",
+      );
 
       for (const tagName of mood_tags) {
         insertTagStmt.run(userId, tagName);
@@ -370,15 +400,15 @@ export function deleteJournalEntry(userId, journalId) {
  */
 export function updateAIStatus(userId, journalId, fields) {
   const allowed = [
-    'ai_metadata_status',
-    'ai_metadata_error',
-    'ai_summary_status',
-    'ai_summary_error',
+    "ai_metadata_status",
+    "ai_metadata_error",
+    "ai_summary_status",
+    "ai_summary_error",
   ];
   const columns = allowed.filter((col) => col in fields);
   if (columns.length === 0) return 0;
 
-  const setClause = columns.map((col) => `${col} = @${col}`).join(', ');
+  const setClause = columns.map((col) => `${col} = @${col}`).join(", ");
   const params = { journalId, userId };
   for (const col of columns) params[col] = fields[col] ?? null;
 
@@ -408,7 +438,7 @@ export const getPendingJournal = (userId) => {
         LIMIT 1
     `);
   return stmt.get(userId);
-}
+};
 
 export const updateSyncStatus = (journalId, userId, status) => {
   const stmt = db.prepare(`
@@ -418,4 +448,4 @@ export const updateSyncStatus = (journalId, userId, status) => {
     `);
   const result = stmt.run(status, journalId, userId);
   return result.changes;
-}
+};

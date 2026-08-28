@@ -1,13 +1,13 @@
-import React, { useState } from 'react'
-import { EyeIcon, EyeOffIcon } from 'lucide-react'
+import React, { useState } from "react";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
 interface InputFieldProps {
-  label: string
-  type: string
-  placeholder: string
-  value: string
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  required?: boolean
-  showPasswordToggle?: boolean
+  label: string;
+  type: string;
+  placeholder: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  required?: boolean;
+  showPasswordToggle?: boolean;
 }
 const InputField = ({
   label,
@@ -18,8 +18,8 @@ const InputField = ({
   required = true,
   showPasswordToggle = false,
 }: InputFieldProps) => {
-  const [showPassword, setShowPassword] = useState(false)
-  const inputType = showPasswordToggle && showPassword ? 'text' : type
+  const [showPassword, setShowPassword] = useState(false);
+  const inputType = showPasswordToggle && showPassword ? "text" : type;
   return (
     <div className="mb-4">
       <label className="block text-gray-700 text-sm font-medium mb-2">
@@ -46,6 +46,6 @@ const InputField = ({
         )}
       </div>
     </div>
-  )
-}
-export default InputField
+  );
+};
+export default InputField;

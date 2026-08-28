@@ -4,6 +4,8 @@ import { ollamaService } from "../../api/ollamaService";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Dropdown } from "../ui/Dropdown";
+import type { OllamaModel, OllamaModelInfo } from "../../types/Ollama";
+import type { SettingsPanelProps } from "../../types/User";
 
 // ✨ STEP 1: Define a structured type for our parsed model data
 export type ParsedModel = {
@@ -17,11 +19,11 @@ export type ParsedModel = {
     format: string;
   };
   capabilities: string[];
-  rawInfo: any; // Keep the raw data for the modal
+  rawInfo: OllamaModelInfo; // Keep the raw data for the modal
 };
 
 // ✨ STEP 2: Helper function to parse the complex JSON
-const parseModelData = (model: any): ParsedModel => {
+const parseModelData = (model: OllamaModel): ParsedModel => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return "Invalid Date";
@@ -32,13 +34,13 @@ const parseModelData = (model: any): ParsedModel => {
     });
   };
 
-  const info = model.info || {};
+  const info: OllamaModelInfo = model.info || {};
   const details = info.details || {};
 
   return {
     name: model.name,
     size: model.modified,
-    modified: formatDate(info.modified_at),
+    modified: formatDate(info.modified_at ?? ""),
     details: {
       family: details.family || "unknown",
       parameterSize: details.parameter_size || "N/A",
@@ -217,12 +219,12 @@ const FRIENDLY_LABELS: Record<string, string> = {
   vision: "Looks at images you share and explains what's in them.",
 };
 
-export default function ModelSettings({
-  settings,
-}: {
-  settings: any;
-  onSettingsSave: (s: any) => void;
-}) {
+type ModelSettingsProps = Pick<
+  SettingsPanelProps,
+  "settings" | "onSettingsSave"
+>;
+
+export default function ModelSettings({ settings }: ModelSettingsProps) {
   const [installedModels, setInstalledModels] = useState<ParsedModel[]>([]);
 
   // Initialize state from localStorage, falling back to props or an empty object.
@@ -285,7 +287,7 @@ export default function ModelSettings({
     const loadSelectedModels = async () => {
       try {
         const saved = await window.electron.ipcRenderer.invoke(
-          "models:get-selected"
+          "models:get-selected",
         );
         if (saved) {
           setSelectedModels(saved);
@@ -333,13 +335,13 @@ export default function ModelSettings({
       installedModels
         .filter((model) => model.capabilities.includes(capability))
         .map((model) => ({ value: model.name, label: model.name })),
-    [installedModels]
+    [installedModels],
   );
 
   const filteredModels = useMemo(() => {
     if (capabilityFilter === "all") return installedModels;
     return installedModels.filter((model) =>
-      model.capabilities.includes(capabilityFilter)
+      model.capabilities.includes(capabilityFilter),
     );
   }, [installedModels, capabilityFilter]);
 
@@ -471,7 +473,7 @@ export default function ModelSettings({
             <div className="grid gap-4 md:grid-cols-2">
               {filteredRecommendedModels.map((m) => {
                 const isInstalled = installedModels.some((im) =>
-                  im.name.includes(m.model)
+                  im.name.includes(m.model),
                 );
                 return (
                   <div

@@ -90,8 +90,6 @@ function openQuickCaptureWindow() {
   });
 }
 
-
-
 // ------------------- Qdrant Worker -------------------
 function createQdrantWorker() {
   const __filename = fileURLToPath(import.meta.url);
@@ -105,10 +103,13 @@ function createQdrantWorker() {
 
   const worker = new Worker(workerPath, { type: "module" });
 
-  worker.on("message", (message) => console.log("Qdrant Worker Message:", message));
+  worker.on("message", (message) =>
+    console.log("Qdrant Worker Message:", message),
+  );
   worker.on("error", (error) => console.error("Qdrant Worker Error:", error));
   worker.on("exit", (code) => {
-    if (code !== 0) console.error(`Qdrant Worker stopped with exit code ${code}`);
+    if (code !== 0)
+      console.error(`Qdrant Worker stopped with exit code ${code}`);
     else console.log("Qdrant worker exited successfully");
   });
   worker.on("online", () => console.log("Qdrant worker is online"));
@@ -134,7 +135,10 @@ if (process.platform === "win32" && process.env.MS_DISABLE_GPU === "1") {
 // Off unless explicitly requested: an open CDP port grants full control of the
 // renderer to anything that can reach it, so it must never be on by default.
 if (process.env.MS_REMOTE_DEBUG) {
-  app.commandLine.appendSwitch("remote-debugging-port", process.env.MS_REMOTE_DEBUG);
+  app.commandLine.appendSwitch(
+    "remote-debugging-port",
+    process.env.MS_REMOTE_DEBUG,
+  );
   // Bind to loopback only so the port is not exposed to the local network.
   app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
 }
@@ -146,7 +150,7 @@ app.whenReady().then(async () => {
   const log = (message) => {
     try {
       fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`);
-    } catch { }
+    } catch {}
   };
 
   log("App ready");
@@ -174,10 +178,10 @@ app.whenReady().then(async () => {
     mainWindowRevealed = true;
     try {
       if (splash && !splash.isDestroyed()) splash.close();
-    } catch { }
+    } catch {}
     try {
       win.show();
-    } catch { }
+    } catch {}
     // Check for app updates once the UI is visible (packaged builds only).
     try {
       initAutoUpdater(win);
@@ -269,7 +273,11 @@ app.whenReady().then(async () => {
   (async () => {
     try {
       log("Initializing localDB");
-      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Initializing local database…');
+      if (splash && !splash.isDestroyed())
+        splash.webContents.send(
+          "splash-status",
+          "Initializing local database…",
+        );
       localDB.initDatabase();
     } catch (e) {
       log(`localDB init error: ${e?.stack || e}`);
@@ -277,7 +285,8 @@ app.whenReady().then(async () => {
 
     try {
       log("Running OllamaEmbeddingModelSetup");
-      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Preparing AI models…');
+      if (splash && !splash.isDestroyed())
+        splash.webContents.send("splash-status", "Preparing AI models…");
       OllamaEmbeddingModelSetup();
     } catch (e) {
       log(`Ollama setup error: ${e?.stack || e}`);
@@ -285,17 +294,19 @@ app.whenReady().then(async () => {
 
     try {
       log("Starting Qdrant");
-      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Starting vector database…');
+      if (splash && !splash.isDestroyed())
+        splash.webContents.send("splash-status", "Starting vector database…");
       const runtime = await startQdrant();
       log("Qdrant started");
-      if (splash && !splash.isDestroyed()) splash.webContents.send('splash-status', 'Wiring up services…');
+      if (splash && !splash.isDestroyed())
+        splash.webContents.send("splash-status", "Wiring up services…");
       registerIPCHandlers(runtime);
       setupEventBusListeners();
       createQdrantWorker();
       log("IPC handlers, event bus, and worker initialized");
       if (win && !win.isDestroyed()) {
         servicesReady = true;
-        win.webContents.send('services-ready');
+        win.webContents.send("services-ready");
         log("Sent services-ready to renderer");
         revealMainWindowIfReady();
       }
@@ -306,7 +317,9 @@ app.whenReady().then(async () => {
 
   // ------------------- Global Shortcut -------------------
   const shortcut =
-    process.platform === "darwin" ? "Command+Option+Space" : "Control+Alt+Space";
+    process.platform === "darwin"
+      ? "Command+Option+Space"
+      : "Control+Alt+Space";
 
   const registered = globalShortcut.register(shortcut, () => {
     console.log("QuickCapture triggered!");
@@ -320,7 +333,8 @@ app.whenReady().then(async () => {
     }
   });
 
-  if (!registered) console.log("Failed to register QuickCapture global shortcut");
+  if (!registered)
+    console.log("Failed to register QuickCapture global shortcut");
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

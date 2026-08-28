@@ -1,5 +1,5 @@
 import React from "react";
-import { useColorThemeContext } from "../context/ColorThemeContext";
+import { useColorThemeContext } from "../hooks/useColorThemeContext";
 
 const ColorSystemDemo: React.FC = () => {
   const { colorSettings } = useColorThemeContext();

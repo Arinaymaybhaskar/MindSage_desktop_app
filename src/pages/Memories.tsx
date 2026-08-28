@@ -4,15 +4,11 @@ import { ArrowLeft, ImageIcon } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import journalService from "../api/journalService";
 import MasonrySkeleton from "../components/Skeletons/MasonrySkeleton";
+import type { JournalImageEntry } from "../types/Dashboard";
 
 const Masonry = lazy(() => import("../components/masonry"));
 
-interface ImageEntry {
-  id: number;
-  image_key: string;
-  title: string;
-  created_at?: string;
-}
+type ImageEntry = JournalImageEntry;
 
 /**
  * Every photo in the journal, as a masonry wall.
@@ -42,7 +38,7 @@ export default function Memories() {
         const keys: ImageEntry[] = await journalService.getImages(
           authMode,
           accessToken,
-          "all"
+          "all",
         );
         if (cancelled || !Array.isArray(keys)) return;
 
@@ -53,12 +49,12 @@ export default function Memories() {
         const withSrc = await Promise.all(
           keys.filter(Boolean).map(async (entry) => ({
             ...entry,
-            image_key: await window.electron.ipcRenderer.invoke(
+            image_key: await window.electron.ipcRenderer.invoke<string>(
               "media:getThumbnail",
               String(entry.image_key),
-              640
+              640,
             ),
-          }))
+          })),
         );
         if (!cancelled) setEntries(withSrc.filter((e) => e.image_key));
       } catch (err) {
@@ -85,7 +81,7 @@ export default function Memories() {
         // make the wall read as a wall rather than a uniform grid.
         height: Math.floor(Math.random() * (500 - 250 + 1)) + 250,
       })),
-    [entries]
+    [entries],
   );
 
   return (

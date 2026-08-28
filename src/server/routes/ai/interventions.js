@@ -8,7 +8,7 @@ router.get("/", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM ai_interventions WHERE user_id = $1 ORDER BY recommended_at DESC`,
-      [req.user.id]
+      [req.user.id],
     );
     res.status(200).json(result.rows);
   } catch (err) {
@@ -21,7 +21,7 @@ router.get("/:id", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM ai_interventions WHERE id = $1 AND user_id = $2`,
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.id],
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Intervention not found" });
@@ -60,7 +60,7 @@ router.post("/", authenticateToken, async (req, res) => {
         recommended_at || new Date(),
         status || "suggested",
         completed_at || null,
-      ]
+      ],
     );
     res.status(201).json({ interventionId: result.rows[0].id });
   } catch (err) {
@@ -70,13 +70,7 @@ router.post("/", authenticateToken, async (req, res) => {
 
 // PUT /interventions/:id - Update an existing intervention
 router.put("/:id", authenticateToken, async (req, res) => {
-  const {
-    title,
-    description,
-    type,
-    status,
-    completed_at,
-  } = req.body;
+  const { title, description, type, status, completed_at } = req.body;
 
   try {
     const result = await pool.query(
@@ -96,14 +90,18 @@ router.put("/:id", authenticateToken, async (req, res) => {
         completed_at,
         req.params.id,
         req.user.id,
-      ]
+      ],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Intervention not found or unauthorized" });
+      return res
+        .status(404)
+        .json({ error: "Intervention not found or unauthorized" });
     }
 
-    res.status(200).json({ message: "Updated successfully", intervention: result.rows[0] });
+    res
+      .status(200)
+      .json({ message: "Updated successfully", intervention: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -114,10 +112,12 @@ router.delete("/:id", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       `DELETE FROM ai_interventions WHERE id = $1 AND user_id = $2 RETURNING *`,
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Intervention not found or unauthorized" });
+      return res
+        .status(404)
+        .json({ error: "Intervention not found or unauthorized" });
     }
     res.status(200).json({ message: "Deleted successfully" });
   } catch (err) {

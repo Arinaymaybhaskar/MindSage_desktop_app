@@ -23,7 +23,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import DeleteConfirmationModal from "../components/goals/modals/DeleteConfirmationModal";
 import ImageLightbox from "../components/chat/ImageLightbox";
 import { format } from "date-fns";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../hooks/useToast";
+import { errorMessage } from "../utils/errors";
 import MoodOrb from "../components/ui/MoodOrb";
 
 // --- Helper: Export Journal to Markdown ---
@@ -35,10 +36,7 @@ function exportJournalToMarkdown(entry: JournalEntry) {
     ? format(new Date(entry.created_at), "PPPpp")
     : "Unknown date";
 
-  const tags =
-    entry.mood_tags && typeof entry.mood_tags === "string"
-      ? entry.mood_tags
-      : JSON.stringify(entry.mood_tags || []);
+  const tags = JSON.stringify(entry.mood_tags || []);
 
   const markdown = `# ${entry.title || "Untitled"}  
 
@@ -74,7 +72,7 @@ const parseMoodTags = (tags: string | string[] | undefined): string[] => {
   try {
     const parsed = JSON.parse(tags);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (e: any) {
+  } catch (e) {
     console.error("Failed to parse mood tags:", e);
     return tags
       .split(",")
@@ -97,8 +95,7 @@ export default function JournalDetail() {
   const [isTranscriptionOpen, setIsTranscriptionOpen] = useState(false);
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+    "offline" | "online";
   const { showToast } = useToast();
 
   // AI Metadata Status
@@ -109,11 +106,7 @@ export default function JournalDetail() {
     if (!entry) return "not_started";
     if (entry.ai_metadata_status) return entry.ai_metadata_status;
     // If entry has AI-populated fields but no status, infer completed
-    const tags = Array.isArray(entry.mood_tags)
-      ? entry.mood_tags
-      : entry.mood_tags
-        ? JSON.parse(entry.mood_tags)
-        : [];
+    const tags = entry.mood_tags ?? [];
     if (
       entry.title?.trim() &&
       entry.mood_score !== undefined &&
@@ -158,14 +151,14 @@ export default function JournalDetail() {
         } else {
           setEntry(res);
           if (res.image_key) {
-            const url = await window.electron.ipcRenderer.invoke(
+            const url = await window.electron.ipcRenderer.invoke<string>(
               "media:getImage",
               res.image_key.toString(),
             );
             setImageUrl(url);
           }
           if (res.audio_key) {
-            const url = await window.electron.ipcRenderer.invoke(
+            const url = await window.electron.ipcRenderer.invoke<string | null>(
               "media:getAudio",
               res.audio_key.toString(),
             );
@@ -200,7 +193,10 @@ export default function JournalDetail() {
     // `on` bridge forwards it as one argument, so destructure it here rather
     // than expecting two positional args (which left `data` undefined and made
     // this handler silently throw, so status/refresh never updated live).
-    const handleAIStatusEvent = (payload: { event: string; data: any }) => {
+    const handleAIStatusEvent = (payload: {
+      event: string;
+      data?: { entryId?: number; [key: string]: unknown };
+    }) => {
       const { event, data } = payload ?? {};
       if (!data || data.entryId !== entry?.id) return;
 
@@ -217,7 +213,7 @@ export default function JournalDetail() {
           break;
         case "journal:aiFailed":
           setAiMetadataStatus("failed");
-          setAiMetadataError(data.error || "Unknown error");
+          setAiMetadataError(String(data.error ?? "Unknown error"));
           showToast("AI metadata generation failed", "danger");
           break;
         case "ollama:summary-started":
@@ -232,7 +228,7 @@ export default function JournalDetail() {
           break;
         case "ollama:summary-failed":
           setAiSummaryStatus("failed");
-          setAiSummaryError(data.error || "Unknown error");
+          setAiSummaryError(String(data.error ?? "Unknown error"));
           showToast("AI summary generation failed", "danger");
           break;
         case "ollama:summary-skipped":
@@ -264,8 +260,8 @@ export default function JournalDetail() {
       } else {
         showToast(`Retry failed: ${result.error}`, "danger");
       }
-    } catch (err: any) {
-      showToast(`Retry failed: ${err.message}`, "danger");
+    } catch (err) {
+      showToast(`Retry failed: ${errorMessage(err)}`, "danger");
     } finally {
       setIsRetryingMetadata(false);
     }
@@ -289,8 +285,8 @@ export default function JournalDetail() {
       setAiMetadataStatus("not_started");
       setAiMetadataError("Cancelled by user");
       showToast("AI metadata generation cancelled", "info");
-    } catch (err: any) {
-      showToast(`Cancel failed: ${err.message}`, "danger");
+    } catch (err) {
+      showToast(`Cancel failed: ${errorMessage(err)}`, "danger");
     }
   };
 
@@ -312,8 +308,8 @@ export default function JournalDetail() {
       } else {
         showToast(`Retry failed: ${result.error}`, "danger");
       }
-    } catch (err: any) {
-      showToast(`Retry failed: ${err.message}`, "danger");
+    } catch (err) {
+      showToast(`Retry failed: ${errorMessage(err)}`, "danger");
     } finally {
       setIsRetryingSummary(false);
     }
@@ -334,8 +330,8 @@ export default function JournalDetail() {
       setAiSummaryStatus("not_started");
       setAiSummaryError("Cancelled by user");
       showToast("AI summary generation cancelled", "info");
-    } catch (err: any) {
-      showToast(`Cancel failed: ${err.message}`, "danger");
+    } catch (err) {
+      showToast(`Cancel failed: ${errorMessage(err)}`, "danger");
     }
   };
 
@@ -358,7 +354,7 @@ export default function JournalDetail() {
         );
       }
     },
-    [id, navigate, entry],
+    [id, navigate, entry, showToast],
   );
 
   useEffect(() => {
@@ -392,7 +388,9 @@ export default function JournalDetail() {
   if (error || !entry) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-base-light dark:bg-base-dark text-text-light-sub dark:text-text-dark-sub">
-        <span className="font-display text-2xl font-semibold mb-4">Journal not found</span>
+        <span className="font-display text-2xl font-semibold mb-4">
+          Journal not found
+        </span>
         <button
           onClick={() => navigate("/journals")}
           className="px-4 py-2 bg-tertiary-light dark:bg-tertiary-dark text-text-light dark:text-text-dark rounded-lg hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors"

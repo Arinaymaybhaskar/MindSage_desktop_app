@@ -39,7 +39,7 @@ const OUT = flag("--out", null);
 if (!process.env.APPDATA) {
   console.error(
     "Refusing to run: APPDATA is unset, so connection.js would open the real database.\n" +
-      "Run this through `npm run bench`."
+      "Run this through `npm run bench`.",
   );
   process.exit(1);
 }
@@ -118,11 +118,12 @@ try {
     () =>
       journal.createJournalEntry(userId, {
         title: `Bench write ${n++}`,
-        content: "A synthetic entry written to measure the insert path. ".repeat(8),
+        content:
+          "A synthetic entry written to measure the insert path. ".repeat(8),
         mood_score: 3,
         mood_tags: ["calm", "focused"],
       }),
-    { runs: Math.min(RUNS, 30), warmup: 2 }
+    { runs: Math.min(RUNS, 30), warmup: 2 },
   );
 } catch (err) {
   results["write.create"] = { error: String(err.message ?? err) };
@@ -149,8 +150,12 @@ try {
   let n = 0;
 
   results["export.everything"] = await benchAsync(
-    () => exportData.exportEverything(userId, path.join(exportDir, `export-${n++}.zip`)),
-    { runs: 3, warmup: 1, budgetMs: 120000 }
+    () =>
+      exportData.exportEverything(
+        userId,
+        path.join(exportDir, `export-${n++}.zip`),
+      ),
+    { runs: 3, warmup: 1, budgetMs: 120000 },
   );
 
   const written = fs
@@ -191,7 +196,9 @@ async function benchContention({ minSamples = 30, maxMs = 20000 } = {}) {
     env: process.env,
   });
 
-  await new Promise((resolve) => worker.once("message", (m) => m === "ready" && resolve()));
+  await new Promise((resolve) =>
+    worker.once("message", (m) => m === "ready" && resolve()),
+  );
 
   const samples = [];
   let busyErrors = 0;
@@ -224,13 +231,19 @@ async function benchContention({ minSamples = 30, maxMs = 20000 } = {}) {
   });
   await worker.terminate();
 
-  return { ...summarise(samples), busyErrors, writesCompleted: writes.completed ?? null };
+  return {
+    ...summarise(samples),
+    busyErrors,
+    writesCompleted: writes.completed ?? null,
+  };
 }
 
 try {
   results["contention.listWhileWorkerWrites"] = await benchContention();
 } catch (err) {
-  results["contention.listWhileWorkerWrites"] = { error: String(err.message ?? err) };
+  results["contention.listWhileWorkerWrites"] = {
+    error: String(err.message ?? err),
+  };
 }
 
 // ------------------------------------------------------------------ output --
@@ -258,7 +271,7 @@ console.log(
   `  ${String(ENTRIES).padStart(6)} entries  ` +
     `seed ${Math.round(seedMs)}ms  ` +
     `db ${(sizeBytes / 1024 / 1024).toFixed(1)}MB  ` +
-    `scans ${report.totalScans}`
+    `scans ${report.totalScans}`,
 );
 
 db.close();

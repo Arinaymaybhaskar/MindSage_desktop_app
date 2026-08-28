@@ -18,7 +18,7 @@ import journalAnalysisRoutes from "./routes/journal-analysis.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // This path assumes your .env file is in the root, two levels up from src/server/
-const envPath = path.resolve(__dirname, '../../.env'); 
+const envPath = path.resolve(__dirname, "../../.env");
 dotenv.config({ path: envPath });
 // --- END: CORRECTED PATH LOGIC ---
 
@@ -26,10 +26,10 @@ const app = express();
 app.use(
   cors({
     origin: "http://localhost:5173", // frontend origin
-    credentials: true,               // allow cookies
+    credentials: true, // allow cookies
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 app.use(express.json());
 app.use(cookieParser());
@@ -41,7 +41,6 @@ app.use("/api/journals", journalRoutes);
 app.use("/api/journal-analysis", journalAnalysisRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/notifications", notificationRoutes);
-
 
 const PORT = process.env.PORT || 4000;
 

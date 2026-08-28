@@ -3,8 +3,8 @@ import React, {
   Children,
   useRef,
   useLayoutEffect,
-  HTMLAttributes,
-  ReactNode,
+  type HTMLAttributes,
+  type ReactNode,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -190,7 +190,7 @@ function StepContentWrapper({
 
   return (
     <motion.div
-      style={{ position: "relative"}}
+      style={{ position: "relative" }}
       animate={{ height: isCompleted ? 0 : parentHeight }}
       transition={{ type: "spring", duration: 0.4 }}
       className={className}
@@ -285,8 +285,8 @@ function StepIndicator({
     currentStep === step
       ? "active"
       : currentStep < step
-      ? "inactive"
-      : "complete";
+        ? "inactive"
+        : "complete";
 
   const handleClick = () => {
     if (step !== currentStep && !disableStepIndicators) {
@@ -345,7 +345,7 @@ function StepConnector({ isComplete }: StepConnectorProps) {
   );
 }
 
-interface CheckIconProps extends React.SVGProps<SVGSVGElement> {}
+type CheckIconProps = React.SVGProps<SVGSVGElement>;
 
 function CheckIcon(props: CheckIconProps) {
   return (

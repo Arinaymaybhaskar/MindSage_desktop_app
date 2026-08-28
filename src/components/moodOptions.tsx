@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 // Assuming your mood data utilities are in this path
 import { moodHierarchy, moodColors } from "../utils/moodHierarchy";
+import type { MoodCore, MoodHierarchy } from "../utils/moodHierarchy";
+
+/** The seven top-level moods, as a typed list rather than bare strings. */
+const moodCores = Object.keys(moodHierarchy) as MoodCore[];
 
 // --- HELPER FUNCTIONS ---
 const getContrastingTextColor = (hexColor: string) => {
@@ -13,8 +17,11 @@ const getContrastingTextColor = (hexColor: string) => {
   return luminance > 0.5 ? "text-black" : "text-white";
 };
 
-const findParentMood = (childMood, hierarchy) => {
-  for (const parentMood of Object.keys(hierarchy)) {
+const findParentMood = (
+  childMood: string,
+  hierarchy: MoodHierarchy,
+): MoodCore | null => {
+  for (const parentMood of Object.keys(hierarchy) as MoodCore[]) {
     const children = hierarchy[parentMood];
     if (children && typeof children === "object" && childMood in children) {
       return parentMood;
@@ -30,7 +37,14 @@ interface Props {
 }
 
 // --- SUB-COMPONENTS ---
-const MoodButton = ({ mood, onClick, isSelected, color }) => (
+interface MoodButtonProps {
+  mood: string;
+  onClick: () => void;
+  isSelected: boolean;
+  color: string;
+}
+
+const MoodButton = ({ mood, onClick, isSelected, color }: MoodButtonProps) => (
   <button
     type="button"
     data-testid={`mood-tag-${mood}`}
@@ -55,7 +69,7 @@ export function MoodTagSelector({ onChange, selected }: Props) {
     }
     const initialLevel1 = new Set<string>();
     const initialLevel2: string[] = [];
-    const allLevel1Keys = Object.keys(moodHierarchy);
+    const allLevel1Keys: string[] = moodCores;
     selected.forEach((tag) => {
       if (allLevel1Keys.includes(tag)) {
         initialLevel1.add(tag);
@@ -75,12 +89,19 @@ export function MoodTagSelector({ onChange, selected }: Props) {
 
   const [selection, setSelection] = useState(getInitialState);
 
+  // Callers pass an inline arrow, so depending on `onChange` directly would
+  // re-run this on every parent render and loop through setEntry.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+
   useEffect(() => {
     const uniqueTags = new Set([...selection.level1, ...selection.level2]);
-    onChange(Array.from(uniqueTags));
+    onChangeRef.current(Array.from(uniqueTags));
   }, [selection]);
 
-  const handleLevel1 = (mood: string) => {
+  const handleLevel1 = (mood: MoodCore) => {
     setSelection((prev) => {
       const newLevel1 = prev.level1.includes(mood)
         ? prev.level1.filter((m) => m !== mood)
@@ -113,7 +134,7 @@ export function MoodTagSelector({ onChange, selected }: Props) {
     });
   };
 
-  const level1Data = Object.keys(moodHierarchy);
+  const level1Data = moodCores;
 
   return (
     <div className="space-y-4 w-full">
@@ -141,7 +162,7 @@ export function MoodTagSelector({ onChange, selected }: Props) {
       <div className="space-y-3">
         {selection.level1.map((parentMood) => {
           const level2Data = Object.keys(
-            moodHierarchy[parentMood as keyof typeof moodHierarchy] || {}
+            moodHierarchy[parentMood as MoodCore] || {},
           );
 
           if (level2Data.length === 0) return null;
@@ -157,7 +178,7 @@ export function MoodTagSelector({ onChange, selected }: Props) {
                   mood={subMood}
                   onClick={() => handleLevel2(subMood)}
                   isSelected={selection.level2.includes(subMood)}
-                  color={moodColors[parentMood]}
+                  color={moodColors[parentMood as MoodCore]}
                 />
               ))}
             </div>

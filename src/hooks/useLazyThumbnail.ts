@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useLazyThumbnail(
   imagePath: string | null | undefined,
-  maxWidth = 480
+  maxWidth = 480,
 ) {
   const ref = useRef<HTMLElement | null>(null);
   const [src, setSrc] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export function useLazyThumbnail(
       },
       // Start fetching a screen early so tiles are ready by the time they
       // arrive rather than popping in under the cursor.
-      { rootMargin: "600px" }
+      { rootMargin: "600px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -50,7 +50,7 @@ export function useLazyThumbnail(
     let cancelled = false;
 
     window.electron.ipcRenderer
-      .invoke("media:getThumbnail", String(imagePath), maxWidth)
+      .invoke<string | null>("media:getThumbnail", String(imagePath), maxWidth)
       .then((dataUrl: string | null) => {
         if (!cancelled) setSrc(dataUrl ?? null);
       })

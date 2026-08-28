@@ -1,3 +1,12 @@
+import type { Chat, ChatDetail, MessageSource } from "../types/Chat";
+
+/** What `media:save-chat-media` answers with after storing an attachment. */
+export interface ChatMediaUploadResult {
+  success: boolean;
+  key?: string;
+  message?: string;
+}
+
 const checkElectron = () => {
   if (!window.electron?.ipcRenderer) {
     throw new Error("Not in an Electron environment.");
@@ -35,7 +44,7 @@ export const chatService = {
     model: string,
     sources: string[] = [],
     files: string[] = [],
-    streamId?: string
+    streamId?: string,
   ): Promise<
     | {
         messageId: number;
@@ -43,7 +52,7 @@ export const chatService = {
         aiMessageId: number | null;
         aiRes: {
           chatResponse: { response: string; suggested_user_prompt: string };
-          semanticResult?: unknown[];
+          semanticResult?: MessageSource[];
         };
       }
     | { error: string }
@@ -58,7 +67,7 @@ export const chatService = {
       model,
       sources,
       files,
-      streamId
+      streamId,
     );
   },
 
@@ -71,42 +80,42 @@ export const chatService = {
     checkElectron();
     return window.electron.ipcRenderer.on(
       "chat:stream",
-      callback as (...args: unknown[]) => void
+      callback as (...args: unknown[]) => void,
     );
   },
   getChats: async (
     authMode: "online" | "offline",
     token: string,
     page: number = 0,
-    limit: number = 10
-  ): Promise<any[]> => {
+    limit: number = 10,
+  ): Promise<Chat[]> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "chat:get-chats",
       authMode,
       token,
       page,
-      limit
+      limit,
     );
   },
   deleteChat: async (
     authMode: "online" | "offline",
     token: string,
-    chatId: number
+    chatId: number,
   ): Promise<{ success: boolean; message: string }> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "chat:delete-chat",
       authMode,
       token,
-      chatId
+      chatId,
     );
   },
   changeTitle: async (
     authMode: "online" | "offline",
     token: string,
     chatId: number,
-    newTitle: string
+    newTitle: string,
   ): Promise<{ success: boolean; message: string }> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
@@ -114,20 +123,20 @@ export const chatService = {
       authMode,
       token,
       chatId,
-      newTitle
+      newTitle,
     );
   },
   getChatById: async (
     authMode: "online" | "offline",
     token: string,
-    chatId: number
-  ): Promise<any> => {
+    chatId: number,
+  ): Promise<ChatDetail | null> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "chat:get-by-id",
       authMode,
       token,
-      chatId
+      chatId,
     );
   },
   linkMediaToMessage: async (
@@ -135,7 +144,7 @@ export const chatService = {
     token: string,
     messageId: number,
     chatId: number,
-    mediaKey: string
+    mediaKey: string,
   ): Promise<{ success: boolean; key?: string; message?: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
@@ -144,7 +153,7 @@ export const chatService = {
       token,
       messageId,
       chatId,
-      mediaKey
+      mediaKey,
     );
   },
 };

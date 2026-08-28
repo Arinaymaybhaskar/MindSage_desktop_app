@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from "react";
 
 // --- Custom Hook: useVoiceRecorder ---
 // This hook encapsulates all the logic for recording audio and capturing waveform data.
@@ -25,27 +25,34 @@ export function useVoiceRecorder() {
       setWaveformHistory([]);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext;
+      audioContextRef.current = new AudioContextCtor!();
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 2048;
-      sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+      sourceRef.current =
+        audioContextRef.current.createMediaStreamSource(stream);
       sourceRef.current.connect(analyserRef.current);
-      
-      dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
+
+      dataArrayRef.current = new Uint8Array(
+        analyserRef.current.frequencyBinCount,
+      );
 
       mediaRecorderRef.current = new MediaRecorder(stream);
-      
+
       mediaRecorderRef.current.ondataavailable = (event: BlobEvent) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);
       };
-      
+
       mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         setRecordingBlob(blob);
         chunksRef.current = [];
-        stream.getTracks().forEach(track => track.stop());
-        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-            audioContextRef.current.close();
+        stream.getTracks().forEach((track) => track.stop());
+        if (
+          audioContextRef.current &&
+          audioContextRef.current.state !== "closed"
+        ) {
+          audioContextRef.current.close();
         }
       };
 
@@ -55,11 +62,10 @@ export function useVoiceRecorder() {
       setRecordingTime(0);
 
       timerIntervalRef.current = setInterval(() => {
-        setRecordingTime(prevTime => prevTime + 1);
+        setRecordingTime((prevTime) => prevTime + 1);
       }, 1000);
 
       animateWaveform();
-
     } catch (error) {
       console.error("Error starting recording:", error);
     }
@@ -67,12 +73,16 @@ export function useVoiceRecorder() {
 
   // Function to stop the recording
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
       mediaRecorderRef.current.stop();
     }
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    
+    if (animationFrameRef.current)
+      cancelAnimationFrame(animationFrameRef.current);
+
     setIsRecording(false);
     setIsPaused(false);
   };
@@ -83,13 +93,14 @@ export function useVoiceRecorder() {
     if (isPaused) {
       mediaRecorderRef.current.resume();
       timerIntervalRef.current = setInterval(() => {
-        setRecordingTime(prevTime => prevTime + 1);
+        setRecordingTime((prevTime) => prevTime + 1);
       }, 1000);
       animateWaveform();
     } else {
       mediaRecorderRef.current.pause();
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
     }
     setIsPaused(!isPaused);
   };
@@ -98,17 +109,17 @@ export function useVoiceRecorder() {
   const animateWaveform = () => {
     if (analyserRef.current && dataArrayRef.current) {
       analyserRef.current.getByteTimeDomainData(dataArrayRef.current);
-      
+
       let sumSquares = 0.0;
       for (const amplitude of dataArrayRef.current) {
-          const normalizedAmplitude = (amplitude / 128.0) - 1.0;
-          sumSquares += normalizedAmplitude * normalizedAmplitude;
+        const normalizedAmplitude = amplitude / 128.0 - 1.0;
+        sumSquares += normalizedAmplitude * normalizedAmplitude;
       }
       const rms = Math.sqrt(sumSquares / dataArrayRef.current.length);
       const scaledRms = rms * 300;
 
-      setWaveformHistory(prev => [...prev, scaledRms]);
-      
+      setWaveformHistory((prev) => [...prev, scaledRms]);
+
       animationFrameRef.current = requestAnimationFrame(animateWaveform);
     }
   };
@@ -121,19 +132,27 @@ export function useVoiceRecorder() {
     setWaveformHistory([]);
     chunksRef.current = [];
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    if (animationFrameRef.current)
+      cancelAnimationFrame(animationFrameRef.current);
   };
 
   useEffect(() => {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
+      if (
+        mediaRecorderRef.current &&
+        mediaRecorderRef.current.state === "recording"
+      ) {
         mediaRecorderRef.current.stop();
       }
-       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-            audioContextRef.current.close();
-        }
+      if (
+        audioContextRef.current &&
+        audioContextRef.current.state !== "closed"
+      ) {
+        audioContextRef.current.close();
+      }
     };
   }, []);
 
@@ -146,6 +165,6 @@ export function useVoiceRecorder() {
     startRecording,
     stopRecording,
     togglePauseResume,
-    resetRecording
+    resetRecording,
   };
 }

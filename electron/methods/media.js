@@ -1,19 +1,19 @@
-import { app, shell, nativeImage } from 'electron';
-import crypto from 'node:crypto';
-import fs from 'node:fs'
-import path from 'node:path'
-import localDB from '../db';
+import { app, shell, nativeImage } from "electron";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import localDB from "../db";
 import ffmpegPath from "ffmpeg-static";
 import { spawn } from "child_process";
 
 export async function getImageBase64(imagePath) {
   try {
     const data = fs.readFileSync(imagePath);
-    const base64 = data.toString('base64');
+    const base64 = data.toString("base64");
     const mimeType = getMimeType(imagePath); // you can use 'mime-types' package
     return `data:${mimeType};base64,${base64}`;
   } catch (err) {
-    console.error('Error loading image:', err);
+    console.error("Error loading image:", err);
     return null;
   }
 }
@@ -41,16 +41,16 @@ export async function getThumbnailBase64(imagePath, maxWidth = 480) {
     // does not keep serving the thumbnail of the old one.
     const { mtimeMs, size } = fs.statSync(imagePath);
     const key = crypto
-      .createHash('sha1')
+      .createHash("sha1")
       .update(`${imagePath}|${maxWidth}|${mtimeMs}|${size}`)
-      .digest('hex');
+      .digest("hex");
 
-    const cacheDir = path.join(app.getPath('userData'), 'media', 'thumbs');
+    const cacheDir = path.join(app.getPath("userData"), "media", "thumbs");
     fs.mkdirSync(cacheDir, { recursive: true });
     const cachePath = path.join(cacheDir, `${key}.jpg`);
 
     if (fs.existsSync(cachePath)) {
-      return `data:image/jpeg;base64,${fs.readFileSync(cachePath).toString('base64')}`;
+      return `data:image/jpeg;base64,${fs.readFileSync(cachePath).toString("base64")}`;
     }
 
     const image = nativeImage.createFromPath(imagePath);
@@ -59,13 +59,16 @@ export async function getThumbnailBase64(imagePath, maxWidth = 480) {
     const { width } = image.getSize();
     // Never upscale: a photo already smaller than the tile gains nothing and
     // would only get softer.
-    const resized = width > maxWidth ? image.resize({ width: maxWidth, quality: 'good' }) : image;
+    const resized =
+      width > maxWidth
+        ? image.resize({ width: maxWidth, quality: "good" })
+        : image;
     const buffer = resized.toJPEG(72);
 
     fs.writeFileSync(cachePath, buffer);
-    return `data:image/jpeg;base64,${buffer.toString('base64')}`;
+    return `data:image/jpeg;base64,${buffer.toString("base64")}`;
   } catch (err) {
-    console.error('Error creating thumbnail:', err);
+    console.error("Error creating thumbnail:", err);
     // Fall back to the original rather than showing a hole in the grid.
     return getImageBase64(imagePath);
   }
@@ -74,10 +77,10 @@ export async function getThumbnailBase64(imagePath, maxWidth = 480) {
 export async function getPdfBase64(pdfPath) {
   try {
     const data = fs.readFileSync(pdfPath);
-    const base64 = data.toString('base64');
+    const base64 = data.toString("base64");
     return `data:application/pdf;base64,${base64}`;
   } catch (err) {
-    console.error('Error loading pdf:', err);
+    console.error("Error loading pdf:", err);
     return null;
   }
 }
@@ -89,10 +92,13 @@ async function convertWebmToWav(webmBuffer, wavPath) {
     fs.writeFileSync(tempWebm, webmBuffer);
 
     const ffmpeg = spawn(ffmpegPath, [
-      "-y",          // overwrite output if exists
-      "-i", tempWebm,
-      "-ar", "16000", // optional: resample to 16kHz
-      "-ac", "1",     // mono
+      "-y", // overwrite output if exists
+      "-i",
+      tempWebm,
+      "-ar",
+      "16000", // optional: resample to 16kHz
+      "-ac",
+      "1", // mono
       wavPath,
     ]);
 
@@ -107,30 +113,35 @@ async function convertWebmToWav(webmBuffer, wavPath) {
 }
 
 function getMimeType(filePath) {
-  const ext = filePath.split('.').pop();
-  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-  if (ext === 'png') return 'image/png';
-  return 'application/octet-stream';
+  const ext = filePath.split(".").pop();
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  return "application/octet-stream";
 }
 
 export async function getAudioBase64(audioPath) {
   try {
     const fileBuffer = fs.readFileSync(audioPath);
-    const base64 = fileBuffer.toString('base64');
+    const base64 = fileBuffer.toString("base64");
     return `data:audio/webm;base64,${base64}`;
   } catch (err) {
-    console.error('Error reading file:', err);
+    console.error("Error reading file:", err);
     return null;
   }
 }
 
 export const handleSaveMedia = async (
   event,
-  { journalId, mediaType, arrayBuffer, filename }
+  { journalId, mediaType, arrayBuffer, filename },
 ) => {
   try {
     const buffer = Buffer.from(arrayBuffer);
-    const mediaDir = path.join(app.getPath("userData"), "media", "journals", String(journalId));
+    const mediaDir = path.join(
+      app.getPath("userData"),
+      "media",
+      "journals",
+      String(journalId),
+    );
     fs.mkdirSync(mediaDir, { recursive: true });
 
     if (mediaType === "image") {
@@ -139,7 +150,11 @@ export const handleSaveMedia = async (
       const destPath = path.join(mediaDir, uniqueFilename);
       fs.writeFileSync(destPath, buffer);
 
-      const success = localDB.linkMediaToJournal(journalId, destPath, mediaType);
+      const success = localDB.linkMediaToJournal(
+        journalId,
+        destPath,
+        mediaType,
+      );
       if (!success) throw new Error("Failed to link media in DB.");
 
       return { success: true, key: destPath };
@@ -189,7 +204,10 @@ export async function handleOpenMedia(event, filePath) {
 }
 
 // NEW: save profile image without attempting to link to journal DB
-export async function handleSaveProfileImage(event, { arrayBuffer, filename, userId }) {
+export async function handleSaveProfileImage(
+  event,
+  { arrayBuffer, filename, userId },
+) {
   try {
     const buffer = Buffer.from(arrayBuffer);
     const mediaDir = path.join(app.getPath("userData"), "media", "profile");
@@ -210,16 +228,19 @@ export async function handleSaveProfileImage(event, { arrayBuffer, filename, use
           // Fallback to raw SQL (works for many sqlite wrappers)
           localDB.db
             .prepare(
-              `UPDATE users SET profile_picture = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+              `UPDATE users SET profile_picture = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
             )
             .run(destPath, userId);
         } else {
           console.warn(
-            "localDB has no known updateUser helper; caller should update users table separately."
+            "localDB has no known updateUser helper; caller should update users table separately.",
           );
         }
       } catch (dbErr) {
-        console.error("Failed to persist profile_picture to users table:", dbErr);
+        console.error(
+          "Failed to persist profile_picture to users table:",
+          dbErr,
+        );
       }
     }
 
@@ -232,12 +253,21 @@ export async function handleSaveProfileImage(event, { arrayBuffer, filename, use
 
 export const handleSaveChatMedia = async (
   event,
-  { messageId, chatId, filetype, arrayBuffer, filename }) => {
+  { messageId, chatId, filetype, arrayBuffer, filename },
+) => {
   try {
     const buffer = Buffer.from(arrayBuffer);
-    const mediaDir = path.join(app.getPath("userData"), "media", "chats", String(messageId), String(chatId));
+    const mediaDir = path.join(
+      app.getPath("userData"),
+      "media",
+      "chats",
+      String(messageId),
+      String(chatId),
+    );
     fs.mkdirSync(mediaDir, { recursive: true });
-    const ext = path.extname(filename) || (filetype === "image" ? ".png" : filetype === "pdf" ? ".pdf" : "");
+    const ext =
+      path.extname(filename) ||
+      (filetype === "image" ? ".png" : filetype === "pdf" ? ".pdf" : "");
     const base = path.basename(filename, ext);
     const uniqueFilename = `${Date.now()}-${base}${ext}`;
     const destPath = path.join(mediaDir, uniqueFilename);
@@ -247,4 +277,4 @@ export const handleSaveChatMedia = async (
     console.error(err);
     return { success: false, message: String(err) };
   }
-}
+};

@@ -28,7 +28,7 @@ export function FollowUpQuestions({ questions }: FollowUpQuestionProps) {
                 "border-info shadow-md": selectedQuestion === index,
                 "border-border-light dark:border-border-dark hover:border-border-light/70 dark:hover:border-border-dark/70":
                   selectedQuestion !== index,
-              }
+              },
             )}
             whileTap={{ scale: 0.98 }}
             onClick={() =>

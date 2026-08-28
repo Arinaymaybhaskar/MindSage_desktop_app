@@ -43,8 +43,7 @@ const TOP = Number(flag("--top", "25"));
 
 // --------------------------------------------------------- VLQ decoding ---
 
-const B64 =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const CHAR_INDEX = new Map([...B64].map((c, i) => [c, i]));
 
 /** Decodes one base64-VLQ group into its integer fields. */
@@ -102,7 +101,10 @@ function attribute(code, map) {
       if (fields.length === 0) continue;
       generatedColumn += fields[0];
       if (fields.length >= 4) sourceIndex += fields[1];
-      marks.push({ column: generatedColumn, source: fields.length >= 4 ? sourceIndex : null });
+      marks.push({
+        column: generatedColumn,
+        source: fields.length >= 4 ? sourceIndex : null,
+      });
     }
 
     if (marks.length === 0) {
@@ -165,7 +167,7 @@ if (!REUSE) {
         distDir,
         "--emptyOutDir",
       ],
-      { cwd: repoRoot, stdio: "ignore" }
+      { cwd: repoRoot, stdio: "ignore" },
     );
   } catch (err) {
     console.error(`vite build failed: ${err.message}`);
@@ -175,7 +177,9 @@ if (!REUSE) {
 
 const assetsDir = path.join(distDir, "assets");
 if (!fs.existsSync(assetsDir)) {
-  console.error(`No assets directory at ${assetsDir}. Run npm run build first, or drop --reuse.`);
+  console.error(
+    `No assets directory at ${assetsDir}. Run npm run build first, or drop --reuse.`,
+  );
   process.exit(1);
 }
 
@@ -215,7 +219,8 @@ for (const file of fs.readdirSync(assetsDir)) {
 // CSS is not sourcemapped through this path but still ships.
 let cssBytes = 0;
 for (const file of fs.readdirSync(assetsDir)) {
-  if (file.endsWith(".css")) cssBytes += fs.statSync(path.join(assetsDir, file)).size;
+  if (file.endsWith(".css"))
+    cssBytes += fs.statSync(path.join(assetsDir, file)).size;
 }
 
 chunks.sort((a, b) => b.bytes - a.bytes);
@@ -245,10 +250,12 @@ if (OUT) {
 }
 
 console.log(
-  `  ${"total JavaScript".padEnd(30)} ${fmtBytes(totalJs)}  (${fmtBytes(totalGzip)} gzipped)`
+  `  ${"total JavaScript".padEnd(30)} ${fmtBytes(totalJs)}  (${fmtBytes(totalGzip)} gzipped)`,
 );
 console.log(`  ${"total CSS".padEnd(30)} ${fmtBytes(cssBytes)}`);
-console.log(`  ${"unattributed (scaffolding)".padEnd(30)} ${fmtBytes(unattributedTotal)}`);
+console.log(
+  `  ${"unattributed (scaffolding)".padEnd(30)} ${fmtBytes(unattributedTotal)}`,
+);
 console.log("  --- largest owners ---");
 for (const [owner, size] of ranked.slice(0, 15)) {
   console.log(`  ${owner.padEnd(30)} ${fmtBytes(size).padStart(10)}`);

@@ -189,7 +189,7 @@ let user = db
 if (user && !RESET) {
   console.error(
     `\nDemo user "${PERSONA.username}" already exists (id ${user.id}).\n` +
-      `Re-run with --reset to rebuild it, which deletes only that user's data.\n`
+      `Re-run with --reset to rebuild it, which deletes only that user's data.\n`,
   );
   process.exit(1);
 }
@@ -198,14 +198,14 @@ if (!user) {
   const result = db
     .prepare(
       `INSERT INTO users (username, email, password_hash, full_name, timezone)
-       VALUES (?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?)`,
     )
     .run(
       PERSONA.username,
       PERSONA.email,
       bcrypt.hashSync(PERSONA.password, 10),
       PERSONA.fullName,
-      PERSONA.timezone
+      PERSONA.timezone,
     );
   const userId = result.lastInsertRowid;
   db.prepare("INSERT INTO user_settings (user_id) VALUES (?)").run(userId);
@@ -244,15 +244,17 @@ if (RESET) {
           filter: { must: [{ key: "user_id", match: { value: USER_ID } }] },
         }),
         signal: AbortSignal.timeout(5000),
-      }
+      },
     );
     log(
       res.ok
         ? "Cleared previous demo vectors from Qdrant."
-        : `Qdrant point delete returned ${res.status} - stale vectors may remain.`
+        : `Qdrant point delete returned ${res.status} - stale vectors may remain.`,
     );
   } catch {
-    log("Qdrant not reachable - skipped vector cleanup (fine if the app is closed).");
+    log(
+      "Qdrant not reachable - skipped vector cleanup (fine if the app is closed).",
+    );
   }
 }
 
@@ -267,7 +269,15 @@ if (RESET) {
  * against this average and is effectively unreachable - indigo bars are the
  * correct, honest result, so don't try to chase green here.
  */
-const WEEKDAY_WEIGHTS = { 0: 0.9, 1: 2.8, 2: 2.2, 3: 2.8, 4: 2.0, 5: 2.2, 6: 1.1 };
+const WEEKDAY_WEIGHTS = {
+  0: 0.9,
+  1: 2.8,
+  2: 2.2,
+  3: 2.8,
+  4: 2.0,
+  5: 2.2,
+  6: 1.1,
+};
 
 /** Mood drifts up over the history with weekly wobble - a story, not a line. */
 const moodFor = (dayOffset) => {
@@ -347,13 +357,13 @@ const insertEntry = db.prepare(`
 `);
 
 const insertTag = db.prepare(
-  "INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)"
+  "INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)",
 );
 const selectTag = db.prepare(
-  "SELECT id FROM tags WHERE user_id = ? AND name = ?"
+  "SELECT id FROM tags WHERE user_id = ? AND name = ?",
 );
 const linkTag = db.prepare(
-  "INSERT OR IGNORE INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)"
+  "INSERT OR IGNORE INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)",
 );
 
 /**
@@ -381,13 +391,16 @@ const seedEntries = db.transaction(() => {
       const summary = hero
         ? hero.summary
         : pick(FILLER_SUMMARIES[moodBand(mood)]);
-      const tags = hero ? hero.tags : pickN(TAGS_BY_MOOD[mood], 2 + Math.floor(rand() * 2));
+      const tags = hero
+        ? hero.tags
+        : pickN(TAGS_BY_MOOD[mood], 2 + Math.floor(rand() * 2));
 
       // Filler entries still need a title - a null title makes the journal list
       // card render an empty heading, and it would also flip needsAiCompletion
       // true if these rows were ever replayed through the create handler.
       const resolvedTitle =
-        title || pickFresh(FILLER_TITLES[moodBand(mood)], `title-${moodBand(mood)}`);
+        title ||
+        pickFresh(FILLER_TITLES[moodBand(mood)], `title-${moodBand(mood)}`);
 
       const result = insertEntry.run({
         user_id: USER_ID,
@@ -423,7 +436,7 @@ log(`Inserted ${entryCount} journal entries across ${HISTORY_DAYS} days.`);
 const categoryId = (name) => {
   const row = db
     .prepare(
-      "SELECT id FROM categories WHERE name = ? AND (user_id = ? OR user_id = 0) ORDER BY user_id DESC LIMIT 1"
+      "SELECT id FROM categories WHERE name = ? AND (user_id = ? OR user_id = 0) ORDER BY user_id DESC LIMIT 1",
     )
     .get(name, USER_ID);
   return row?.id ?? null;
@@ -455,7 +468,7 @@ const seedGoals = db.transaction(() => {
   for (const goal of GOALS) {
     const targetDate = goal.targetDate?.startsWith("+")
       ? dateOnly(-Number(goal.targetDate.slice(1)))
-      : goal.targetDate ?? null;
+      : (goal.targetDate ?? null);
 
     const result = insertGoal.run({
       user_id: USER_ID,
@@ -469,7 +482,9 @@ const seedGoals = db.transaction(() => {
       is_pinned: goal.pinned ? 1 : 0,
       is_completed: goal.completed ? 1 : 0,
       created_at: isoAt(HISTORY_DAYS - 2, 9, 0),
-      completed_date: goal.completed ? dateOnly(goal.completedDayOffset ?? 0) : null,
+      completed_date: goal.completed
+        ? dateOnly(goal.completedDayOffset ?? 0)
+        : null,
       target_date: targetDate,
     });
 
@@ -478,7 +493,7 @@ const seedGoals = db.transaction(() => {
         result.lastInsertRowid,
         entry.value,
         entry.description,
-        isoAt(entry.dayOffset, 19, 30)
+        isoAt(entry.dayOffset, 19, 30),
       );
     }
   }
@@ -487,20 +502,20 @@ const seedGoals = db.transaction(() => {
 seedGoals();
 const goalCounts = db
   .prepare(
-    "SELECT SUM(is_completed) AS done, COUNT(*) - SUM(is_completed) AS active, SUM(is_pinned) AS pinned FROM goals WHERE user_id = ?"
+    "SELECT SUM(is_completed) AS done, COUNT(*) - SUM(is_completed) AS active, SUM(is_pinned) AS pinned FROM goals WHERE user_id = ?",
   )
   .get(USER_ID);
 log(
-  `Inserted ${GOALS.length} goals (${goalCounts.active} active, ${goalCounts.done} completed, ${goalCounts.pinned} pinned).`
+  `Inserted ${GOALS.length} goals (${goalCounts.active} active, ${goalCounts.done} completed, ${goalCounts.pinned} pinned).`,
 );
 
 // ---------------------------------------------------------------- chats ----
 
 const insertChat = db.prepare(
-  "INSERT INTO chats (user_id, title, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+  "INSERT INTO chats (user_id, title, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
 );
 const insertMessage = db.prepare(
-  "INSERT INTO messages (chat_id, sender, content, created_at) VALUES (?, ?, ?, ?)"
+  "INSERT INTO messages (chat_id, sender, content, created_at) VALUES (?, ?, ?, ?)",
 );
 
 const seedChats = db.transaction(() => {
@@ -511,7 +526,7 @@ const seedChats = db.transaction(() => {
       chat.title,
       "llama3.1:8b",
       created,
-      created
+      created,
     ).lastInsertRowid;
 
     (chat.messages ?? []).forEach((message, index) => {
@@ -519,7 +534,7 @@ const seedChats = db.transaction(() => {
         chatId,
         message.sender,
         message.content,
-        isoAt(chat.dayOffset, 20, 15 + index * 2)
+        isoAt(chat.dayOffset, 20, 15 + index * 2),
       );
     });
   }
@@ -542,7 +557,7 @@ const attachImages = () => {
     log(
       "\nNo --photos given. The dashboard's Memories grid needs >=10 entries\n" +
         "with image_key set, so it will render empty until you re-run with\n" +
-        "  --photos <folder-of-images>"
+        "  --photos <folder-of-images>",
     );
     return 0;
   }
@@ -564,7 +579,7 @@ const attachImages = () => {
 
   if (photos.length < 12) {
     log(
-      `Only ${photos.length} photos found. The grid picks 10 at random, so 12+ keeps it full.`
+      `Only ${photos.length} photos found. The grid picks 10 at random, so 12+ keeps it full.`,
     );
   }
 
@@ -574,12 +589,12 @@ const attachImages = () => {
     .prepare(
       `SELECT id FROM journal_entries
        WHERE user_id = ? AND is_deleted = 0
-       ORDER BY created_at DESC LIMIT ?`
+       ORDER BY created_at DESC LIMIT ?`,
     )
     .all(USER_ID, Math.min(photos.length, 24));
 
   const setImage = db.prepare(
-    "UPDATE journal_entries SET image_key = ? WHERE id = ?"
+    "UPDATE journal_entries SET image_key = ? WHERE id = ?",
   );
 
   let attached = 0;
@@ -590,12 +605,12 @@ const attachImages = () => {
         userDataDir,
         "media",
         "journals",
-        String(row.id)
+        String(row.id),
       );
       fs.mkdirSync(mediaDir, { recursive: true });
       const dest = path.join(
         mediaDir,
-        `${Date.now() + index}-${path.basename(source)}`
+        `${Date.now() + index}-${path.basename(source)}`,
       );
       fs.copyFileSync(source, dest);
       setImage.run(dest, row.id);
@@ -613,13 +628,18 @@ const attachAudio = () => {
     return false;
   }
   const journalId = featuredEntryIds[0];
-  const mediaDir = path.join(userDataDir, "media", "journals", String(journalId));
+  const mediaDir = path.join(
+    userDataDir,
+    "media",
+    "journals",
+    String(journalId),
+  );
   fs.mkdirSync(mediaDir, { recursive: true });
   const dest = path.join(mediaDir, `${Date.now()}-voice-note.wav`);
   fs.copyFileSync(AUDIO_FILE, dest);
   db.prepare("UPDATE journal_entries SET audio_key = ? WHERE id = ?").run(
     dest,
-    journalId
+    journalId,
   );
   return true;
 };
@@ -639,12 +659,12 @@ const attachAvatar = () => {
   fs.mkdirSync(profileDir, { recursive: true });
   const dest = path.join(
     profileDir,
-    `${Date.now()}-${path.basename(AVATAR_FILE)}`
+    `${Date.now()}-${path.basename(AVATAR_FILE)}`,
   );
   fs.copyFileSync(AVATAR_FILE, dest);
   db.prepare("UPDATE users SET profile_picture = ? WHERE id = ?").run(
     dest,
-    USER_ID
+    USER_ID,
   );
   return true;
 };
@@ -665,7 +685,7 @@ const stats = db
        COUNT(DISTINCT DATE(created_at)) AS days,
        ROUND(AVG(mood_score), 2) AS avgMood,
        SUM(LENGTH(TRIM(content)) - LENGTH(REPLACE(TRIM(content), ' ', '')) + 1) AS words
-     FROM journal_entries WHERE user_id = ? AND is_deleted = 0`
+     FROM journal_entries WHERE user_id = ? AND is_deleted = 0`,
   )
   .get(USER_ID);
 
@@ -678,7 +698,7 @@ const { streak } = db
              FROM journal_entries WHERE user_id = ? AND is_deleted = 0)
      )
      SELECT COUNT(*) AS streak FROM DayStreaks
-     GROUP BY streak_group ORDER BY streak DESC LIMIT 1`
+     GROUP BY streak_group ORDER BY streak DESC LIMIT 1`,
   )
   .get(USER_ID) ?? { streak: 0 };
 

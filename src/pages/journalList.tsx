@@ -26,7 +26,7 @@ import { useAuth } from "../hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import EmptyState from "../components/EmptyState";
 import Modal from "../components/Modal";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../hooks/useToast";
 
 dayjs.extend(isBetween);
 
@@ -65,18 +65,7 @@ const JournalEntryCard = ({
   onSelect: () => void;
 }) => {
   const navigate = useNavigate();
-  const moodTags = useMemo(() => {
-    if (Array.isArray(entry.mood_tags)) return entry.mood_tags;
-    try {
-      const parsed = JSON.parse(entry.mood_tags || "[]");
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return (entry.mood_tags || "")
-        .split(",")
-        .map((t: string) => t.trim())
-        .filter(Boolean);
-    }
-  }, [entry.mood_tags]);
+  const moodTags = useMemo(() => entry.mood_tags ?? [], [entry.mood_tags]);
 
   return (
     <motion.div
@@ -107,7 +96,7 @@ const JournalEntryCard = ({
             </p>
           </div>
           <div className="flex items-center gap-1">
-            {/* <p>{SyncIcon(entry.synced_to_qdrant || "not_synced")}</p> */}
+            <p>{SyncIcon(entry.synced_to_qdrant || "not_synced")}</p>
             <Link
               to={`/journal/edit/${entry.id}`}
               className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-dark1 dark:hover:text-light1 transition-colors"
@@ -157,9 +146,8 @@ export default function JournalList() {
   const searchTerm = new URLSearchParams(location.search).get("search") || "";
   const { accessToken } = useAuth();
   const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
-  const [showDoubleClickNote, setShowDoubleClickNote] = useState(false);
+    "offline" | "online";
+  const [, setShowDoubleClickNote] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -183,15 +171,20 @@ export default function JournalList() {
     setHasMore(true);
   }, []);
 
+  const hasMoreRef = useRef(hasMore);
   useEffect(() => {
-    if (!hasMore && page > 0) return;
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
+
+  useEffect(() => {
+    if (!hasMoreRef.current && page > 0) return;
 
     setLoading(true);
     journalService
       .getAll(authMode, accessToken!, page, PAGE_LIMIT)
       .then((newEntries) => {
         setEntries((prev) =>
-          page === 0 ? newEntries : [...prev, ...newEntries]
+          page === 0 ? newEntries : [...prev, ...newEntries],
         );
         setHasMore(newEntries.length === PAGE_LIMIT);
         setLoading(false);
@@ -216,7 +209,7 @@ export default function JournalList() {
 
       if (node) observer.current.observe(node);
     },
-    [loading, hasMore]
+    [loading, hasMore],
   );
 
   const handleDelete = async (id: number) => {
@@ -351,7 +344,7 @@ export default function JournalList() {
       setSyncStatus(
         `Sync failed: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     } finally {
       setBulkSyncing(false);
@@ -363,7 +356,7 @@ export default function JournalList() {
     let result = entries;
     if (selectedDate) {
       result = result.filter((e) =>
-        dayjs(e.created_at).isSame(selectedDate, "day")
+        dayjs(e.created_at).isSame(selectedDate, "day"),
       );
     }
     if (searchTerm.trim()) {
@@ -371,7 +364,7 @@ export default function JournalList() {
       result = result.filter(
         (e) =>
           e.title?.toLowerCase().includes(lower) ||
-          e.content?.toLowerCase().includes(lower)
+          e.content?.toLowerCase().includes(lower),
       );
     }
     return result.sort((a, b) => dayjs(b.created_at).diff(dayjs(a.created_at)));
@@ -389,7 +382,7 @@ export default function JournalList() {
     // Sort entries within each date by time (newest first)
     Object.keys(groups).forEach((date) => {
       groups[date] = groups[date].sort((a, b) =>
-        dayjs(b.created_at).diff(dayjs(a.created_at))
+        dayjs(b.created_at).diff(dayjs(a.created_at)),
       );
     });
 
@@ -407,7 +400,7 @@ export default function JournalList() {
         date: e.created_at!,
         mood_score: e.mood_score ?? 5,
       })),
-    [entries]
+    [entries],
   );
 
   // Scroll selected entry into view
@@ -426,7 +419,7 @@ export default function JournalList() {
       if (filteredEntries.length === 0) return;
       if (deleteModalInfo.isOpen) return;
       const currentIndex = filteredEntries.findIndex(
-        (e) => e.id === selectedId
+        (e) => e.id === selectedId,
       );
 
       if (e.key === "ArrowDown") {
@@ -467,13 +460,13 @@ export default function JournalList() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [filteredEntries, selectedId, deleteModalInfo.isOpen]);
+  }, [filteredEntries, selectedId, deleteModalInfo.isOpen, navigate]);
 
   return (
     <div className="bg-base-light dark:bg-base-dark h-full overflow-y-auto">
       {DeleteModal(
         () => setDeleteModalInfo({ isOpen: false, entryId: null }),
-        deleteModalInfo.isOpen
+        deleteModalInfo.isOpen,
       )}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
@@ -481,7 +474,7 @@ export default function JournalList() {
             My Journals
           </h1>
           <div className="flex items-center gap-3">
-            {/* <button
+            <button
               onClick={handleBulkSync}
               disabled={bulkSyncing}
               className="flex items-center gap-2 px-5 py-2.5 bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark font-semibold rounded-lg shadow-md hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 border border-border-light dark:border-border-dark"
@@ -492,7 +485,7 @@ export default function JournalList() {
                 <Cloud size={20} />
               )}
               <span>{bulkSyncing ? "Syncing..." : "Sync All"}</span>
-            </button> */}
+            </button>
             <Link
               to="/"
               className="flex items-center gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:hover:bg-dark1 transition-all duration-200 hover:scale-105"
@@ -566,7 +559,7 @@ export default function JournalList() {
                           setSelectedId(entry.id!);
                           showToast(
                             "Double click an entry to open it.",
-                            "info"
+                            "info",
                           );
                           setTimeout(() => setShowDoubleClickNote(false), 3000);
                         },

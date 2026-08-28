@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import { formatTimeAgo } from "../utils/DateFormatter"; // Assuming you have this utility
 import { motion } from "framer-motion";
+import type { JournalEntry } from "../api/journalService";
 
-const RecentEntryCard = ({ entry }) => {
-  const moodTags = Array.isArray(entry.mood_tags) ? entry.mood_tags : [];
+const RecentEntryCard = ({ entry }: { entry: JournalEntry }) => {
+  const moodTags = entry.mood_tags ?? [];
 
   return (
     <motion.div
@@ -20,7 +21,7 @@ const RecentEntryCard = ({ entry }) => {
           {entry.title}
         </h3>
         <p className="text-xs text-text-light-sub dark:text-text-dark-sub mb-3">
-          {formatTimeAgo(entry.created_at)}
+          {entry.created_at ? formatTimeAgo(entry.created_at) : ""}
         </p>
 
         {/* Card Body */}
@@ -31,12 +32,12 @@ const RecentEntryCard = ({ entry }) => {
         {/* Card Footer with Tags */}
         {moodTags.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4">
-            {moodTags.slice(0, 4).map((tag, idx) => (
+            {moodTags.slice(0, 4).map((tag: string, idx: number) => (
               <span
-          key={idx}
-          className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
+                key={idx}
+                className="bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1 px-2.5 py-1 rounded-full text-xs font-semibold"
               >
-          {tag}
+                {tag}
               </span>
             ))}
           </div>

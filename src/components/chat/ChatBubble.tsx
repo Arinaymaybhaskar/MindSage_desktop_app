@@ -5,30 +5,9 @@ import { useNavigate } from "react-router-dom";
 import Markdown from "./Markdown";
 import { MindSageMark } from "../ui/MindSageMark";
 
-export interface MessageFile {
-  type: "image" | "audio" | "pdf";
-  path?: string;
-  url: string; // data URL or object URL to display in UI
-  name?: string;
-  size?: number;
-}
+import type { Message, MessageFile, MessageSource } from "../../types/Chat";
 
-export interface Message {
-  id: number;
-  text: string;
-  sender: "user" | "ai";
-  files?: MessageFile[];
-  followUpQuestion?: string;
-  sources?: Array<{
-    id: string;
-    payload: {
-      title?: string;
-      source_type?: string;
-      source_id?: string;
-      goal_id?: string;
-    };
-  }>;
-}
+export type { Message, MessageFile, MessageSource };
 
 const formatFileSize = (bytes: number, decimals = 2) => {
   if (bytes === 0) return "0 Bytes";
@@ -108,7 +87,7 @@ export const ChatBubble: React.FC<{
   const hasSources = message.sources && message.sources.length > 0;
   const hasFollowUpQuestion = message.followUpQuestion;
 
-  const handleSourceClicked = (source: any) => {
+  const handleSourceClicked = (source: MessageSource) => {
     switch (source.payload.source_type) {
       case "journal":
         navigate(`/journal/view/${source.payload.source_id}`);
@@ -218,7 +197,10 @@ export const ChatBubble: React.FC<{
             // assistants read, and it gives markdown room to breathe.
             <div className="group/msg relative flex gap-3 w-full">
               <div className="mt-0.5 flex-shrink-0 w-7 h-7 rounded-full bg-light1/40 dark:bg-dark1 flex items-center justify-center">
-                <MindSageMark size={14} className="text-dark1 dark:text-light1" />
+                <MindSageMark
+                  size={14}
+                  className="text-dark1 dark:text-light1"
+                />
               </div>
 
               <div className="min-w-0 flex-1">
