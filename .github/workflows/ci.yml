@@ -40,5 +40,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # .gitattributes forces an LF working tree on every platform, so this
+      # gives the same answer here as it does on a contributor's machine.
+      - name: Format
+        run: npm run format:check
+
       - name: Test
         run: npm test
