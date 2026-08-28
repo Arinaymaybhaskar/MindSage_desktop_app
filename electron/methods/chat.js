@@ -1,6 +1,6 @@
-import localDB from "../db";
+import localDB from "../db/index.js";
 import jwt from "jsonwebtoken";
-import { eventBus } from "../eventBus";
+import { eventBus } from "../eventBus.js";
 import {
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
@@ -12,7 +12,7 @@ import {
   streamOllamaPrompt,
 } from "./ollama";
 import { partialJsonString } from "./jsonStream.js";
-import { SemanticSearch } from "./qdrant";
+import { SemanticSearch } from "./qdrant.js";
 import z from "zod";
 
 function getUserIdFromToken(token) {

@@ -1,7 +1,7 @@
-import localDB from "../db";
+import localDB from "../db/index.js";
 import jwt from "jsonwebtoken";
-import { eventBus } from "../eventBus";
-import { db } from "../db/connection";
+import { eventBus } from "../eventBus.js";
+import { db } from "../db/connection.js";
 
 function getUserIdFromToken(token) {
   try {

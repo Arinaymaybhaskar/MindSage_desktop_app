@@ -2,7 +2,7 @@ import { app, shell, nativeImage } from "electron";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import localDB from "../db";
+import localDB from "../db/index.js";
 import ffmpegPath from "ffmpeg-static";
 import { spawn } from "child_process";
 

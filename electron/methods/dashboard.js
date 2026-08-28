@@ -1,5 +1,5 @@
 import { getUserIdFromToken } from "./authToken.js";
-import localDB from "../db";
+import localDB from "../db/index.js";
 
 export const getDashboardData = (event, authMode, token) => {
   const userId = getUserIdFromToken(token);

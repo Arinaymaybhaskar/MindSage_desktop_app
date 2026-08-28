@@ -1,4 +1,4 @@
-import localDB from "../db";
+import localDB from "../db/index.js";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 
