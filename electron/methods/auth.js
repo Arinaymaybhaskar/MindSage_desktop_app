@@ -2,9 +2,6 @@ import localDB from "../db/index.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import axios from "axios";
-import http from "http";
-import url from "url";
-import { shell } from "electron";
 import { getOfflineAccessTokenSecret } from "../services/tokenSecret.js";
 
 // Generated per install and persisted outside the bundle. See
@@ -125,69 +122,20 @@ export const handleRegister = async (event, mode, details) => {
   }
 };
 
-export async function handleGoogleLogin() {
-  return new Promise((resolve, reject) => {
-    const server = http
-      .createServer(async (req, res) => {
-        try {
-          const { code } = url.parse(req.url, true).query;
-          if (!code) {
-            throw new Error("No authorization code received.");
-          }
-
-          // --- Step 3: Exchange Authorization Code for Tokens ---
-          const tokenResponse = await axios.post(
-            "https://oauth2.googleapis.com/token",
-            {
-              code,
-              client_id: process.env.GOOGLE_CLIENT_ID, // <-- PASTE YOUR CLIENT ID HERE
-              client_secret: process.env.GOOGLE_CLIENT_SECRET, // <-- PASTE YOUR CLIENT SECRET HERE
-              redirect_uri: `http://localhost:${server.address().port}`,
-              grant_type: "authorization_code",
-            },
-          );
-
-          const { access_token, refresh_token } = tokenResponse.data;
-
-          // --- Step 4: Use Access Token to get User Profile ---
-          const profileResponse = await axios.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            {
-              headers: { Authorization: `Bearer ${access_token}` },
-            },
-          );
-
-          // --- Success! ---
-          res.end(
-            "<h1>Authentication successful!</h1><p>You can now close this tab.</p>",
-          );
-          server.close();
-          resolve({
-            profile: profileResponse.data,
-            tokens: { access_token, refresh_token },
-          });
-        } catch (error) {
-          console.error("OAuth Error:", error.response?.data || error.message);
-          res.end("<h1>Authentication failed.</h1>");
-          server.close();
-          reject(error);
-        }
-      })
-      .listen(0, () => {
-        // Listen on a random free port
-        const { port } = server.address();
-        const redirectUri = `http://localhost:${port}`;
-
-        // --- Step 2: Open the Google Auth URL in the user's default browser ---
-        const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-        authUrl.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID); // <-- PASTE YOUR CLIENT ID HERE
-        authUrl.searchParams.set("redirect_uri", redirectUri);
-        authUrl.searchParams.set("response_type", "code");
-        authUrl.searchParams.set("scope", "openid profile email");
-        authUrl.searchParams.set("access_type", "offline");
-        authUrl.searchParams.set("prompt", "consent");
-
-        shell.openExternal(authUrl.toString());
-      });
-  });
-}
+/**
+ * Reports whether a username is still free in the local database.
+ *
+ * Registration re-checks this before inserting; this exists so the form can
+ * tell the user while they type rather than after they submit.
+ */
+export const handleCheckUsername = async (event, username) => {
+  const name = typeof username === "string" ? username.trim() : "";
+  if (!name) {
+    return { available: false };
+  }
+  // findUserForCheck matches email OR username. Passing the name as both
+  // would also reject it when it happens to equal someone's email, so the
+  // email side is passed a value no address can equal.
+  const existing = localDB.findUserForCheck(null, name);
+  return { available: !existing };
+};

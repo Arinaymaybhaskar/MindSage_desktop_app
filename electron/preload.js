@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld("electron", {
   ipcRenderer: {
     invoke: (channel, ...args) => {
       const validChannels = [
-        "login:google",
+        "auth:check-username",
         "db:upsertJournalEntry",
         "db:getAllEntries",
         "dialog:saveFile",

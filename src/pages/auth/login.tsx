@@ -1,15 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../../api/axios";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthLayout } from "../../layouts/AuthLayout";
 import { Eye, EyeOff, AlertTriangle } from "lucide-react";
-import GoogleLoginElectron, {
-  type GoogleLoginResult,
-} from "../../components/googleLoginElectron";
 import { errorMessage } from "../../utils/errors";
 import { authService } from "../../api/authService";
-import { motion, AnimatePresence } from "framer-motion"; // Import motion components
+import { motion } from "framer-motion";
 
 export default function Login() {
   const [form, setForm] = useState({
@@ -24,7 +20,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<"online" | "offline">("offline");
 
-  // All logic (handleSubmit, handleGoogleSuccess) remains the same...
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -39,23 +34,6 @@ export default function Login() {
       navigate("/");
     } catch (err) {
       setError(errorMessage(err, "Invalid username or password"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSuccess = async (response: GoogleLoginResult) => {
-    setError("");
-    setIsLoading(true);
-    try {
-      const res = await api.post("/auth/google-login", {
-        response,
-      });
-      login(res.data.accessToken, res.data.userInfo, authMode);
-      navigate("/");
-    } catch (err) {
-      console.error("Google login failed:", err);
-      setError("Google login failed");
     } finally {
       setIsLoading(false);
     }
@@ -159,23 +137,6 @@ export default function Login() {
             </button>
           </div>
         </form>
-
-        {/* --- CHANGE: Wrapped Google login in AnimatePresence for smooth entry/exit --- */}
-        <AnimatePresence>
-          {authMode === "online" && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.3 }}
-            >
-              <GoogleLoginElectron
-                onError={() => console.log("Error in google login")}
-                onSuccess={handleGoogleSuccess}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <div className="mt-6 text-center text-sm">
           <span className="text-text-light-sub dark:text-text-dark-sub">

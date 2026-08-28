@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path, { dirname, join } from "node:path";
 import {
-  handleGoogleLogin,
+  handleCheckUsername,
   handleLogin,
   handleRegister,
 } from "./methods/auth.js";
@@ -128,7 +128,7 @@ export function registerIPCHandlers(runtime) {
   // Auth
   ipcMain.handle("auth:register", handleRegister);
   ipcMain.handle("auth:login", handleLogin);
-  ipcMain.handle("login:google", handleGoogleLogin);
+  ipcMain.handle("auth:check-username", handleCheckUsername);
 
   // User
   ipcMain.handle("user:get-me", userGetMe);

@@ -1,7 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
-import api from "../../api/axios";
 import { AuthLayout } from "../../layouts/AuthLayout";
 import {
   Cloud,
@@ -13,10 +11,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import zxcvbn from "zxcvbn";
-import { useAuth } from "../../hooks/useAuth";
-import GoogleLoginElectron, {
-  type GoogleLoginResult,
-} from "../../components/googleLoginElectron";
 import { authService } from "../../api/authService";
 import Stepper, { Step } from "../../components/ui/Stepper";
 import { motion, AnimatePresence } from "framer-motion"; // Import motion components
@@ -139,7 +133,6 @@ export default function Register() {
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<"online" | "offline">("offline");
   const [usernameChecking, setUsernameChecking] = useState(false);
-  const { login } = useAuth();
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const [, setIsLoading] = useState(false);
@@ -168,19 +161,11 @@ export default function Register() {
     setUsernameChecking(true);
     const delayDebounce = setTimeout(async () => {
       try {
-        const res = await api.post("/auth/check-username", {
-          username: form.username,
-        });
-        if (res.status === 200) {
-          setUsernameAvailable(true);
-        }
+        const { available } = await authService.checkUsername(form.username);
+        setUsernameAvailable(available);
       } catch (err) {
-        if (axios.isAxiosError(err) && err.response?.status === 409) {
-          setUsernameAvailable(false);
-        } else {
-          setUsernameAvailable(null);
-          console.error("Username check error:", err);
-        }
+        setUsernameAvailable(null);
+        console.error("Username check error:", err);
       } finally {
         setUsernameChecking(false);
       }
@@ -203,23 +188,6 @@ export default function Register() {
     } catch (err) {
       console.log(err);
       setError("Registration failed. Try a different username or email.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSuccess = async (result: GoogleLoginResult) => {
-    setError("");
-    setIsLoading(true);
-    try {
-      const res = await api.post("/auth/google-login", {
-        response: result,
-      });
-      login(res.data.accessToken, res.data.userInfo, authMode);
-      navigate("/");
-    } catch (err) {
-      console.error("Google login failed:", err);
-      setError("Google login failed");
     } finally {
       setIsLoading(false);
     }
@@ -461,22 +429,6 @@ export default function Register() {
                   </p>
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {authMode === "online" && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.3 }}
-            >
-              <GoogleLoginElectron
-                onError={() => console.log("Error in google login")}
-                onSuccess={handleGoogleSuccess}
-              />
             </motion.div>
           )}
         </AnimatePresence>

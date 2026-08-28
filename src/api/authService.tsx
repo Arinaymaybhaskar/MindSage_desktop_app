@@ -86,4 +86,19 @@ export const authService = {
       details,
     );
   },
+
+  /**
+   * Reports whether a username is still free, so the registration form can
+   * say so while the user types. Registration re-checks before inserting, so
+   * this is a courtesy rather than the guarantee.
+   */
+  checkUsername: async (username: string): Promise<{ available: boolean }> => {
+    if (!window.electron?.ipcRenderer) {
+      throw new Error("Not in an Electron environment.");
+    }
+    return await window.electron.ipcRenderer.invoke(
+      "auth:check-username",
+      username,
+    );
+  },
 };
