@@ -7,32 +7,15 @@ const checkElectron = () => {
 };
 
 export const categoryService = {
-  getCategories: async (
-    authMode: "online" | "offline",
-    token: string,
-  ): Promise<Category[]> => {
+  getCategories: async (token: string): Promise<Category[]> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "category:get-all",
-      authMode,
-      token,
-    );
+    return await window.electron.ipcRenderer.invoke("category:get-all", token);
   },
-  deleteCategory: async (
-    authMode: "online" | "offline",
-    token: string,
-    id: number,
-  ) => {
+  deleteCategory: async (token: string, id: number) => {
     checkElectron();
-    await window.electron.ipcRenderer.invoke(
-      "category:delete",
-      authMode,
-      token,
-      id,
-    );
+    await window.electron.ipcRenderer.invoke("category:delete", token, id);
   },
   addCategory: async (
-    authMode: "online" | "offline",
     token: string,
     name: string,
     color: string,
@@ -44,17 +27,11 @@ export const categoryService = {
     };
     return await window.electron.ipcRenderer.invoke(
       "category:add",
-      authMode,
       token,
       category,
     );
   },
-  updateCategory: async (
-    authMode: "online" | "offline",
-    token: string,
-    name: string,
-    color: string,
-  ) => {
+  updateCategory: async (token: string, name: string, color: string) => {
     checkElectron();
     const category = {
       name: name,
@@ -62,7 +39,6 @@ export const categoryService = {
     };
     await window.electron.ipcRenderer.invoke(
       "category:update",
-      authMode,
       token,
       category,
     );

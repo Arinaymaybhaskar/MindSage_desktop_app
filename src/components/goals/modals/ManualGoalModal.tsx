@@ -46,8 +46,6 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
   const [newCategoryColor, setNewCategoryColor] = useState("#4ade80");
 
   const { accessToken } = useAuth();
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    "offline" | "online";
 
   const themeColor =
     categories.find((c) => c.id === categoryId)?.color || "var(--color-info)";
@@ -92,7 +90,6 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
       }
       try {
         createdCategory = await categoryService.addCategory(
-          authMode,
           accessToken!,
           newCategoryName,
           newCategoryColor,

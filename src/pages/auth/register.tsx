@@ -1,15 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthLayout } from "../../layouts/AuthLayout";
-import {
-  Cloud,
-  Shield,
-  Info,
-  X,
-  Eye,
-  EyeOff,
-  AlertTriangle,
-} from "lucide-react";
+import { Shield, Info, X, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import zxcvbn from "zxcvbn";
 import { authService } from "../../api/authService";
 import Stepper, { Step } from "../../components/ui/Stepper";
@@ -131,7 +123,6 @@ export default function Register() {
     null,
   );
   const [usernameError, setUsernameError] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<"online" | "offline">("offline");
   const [usernameChecking, setUsernameChecking] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -149,10 +140,6 @@ export default function Register() {
   };
 
   useEffect(() => {
-    if (authMode === "offline") {
-      setUsernameAvailable(true);
-      return;
-    }
     if (!form.username) {
       setUsernameAvailable(null);
       return;
@@ -172,7 +159,7 @@ export default function Register() {
     }, 1000);
 
     return () => clearTimeout(delayDebounce);
-  }, [form.username, authMode]);
+  }, [form.username]);
 
   const handleSubmit = async () => {
     // This function is now called by onFinalStepCompleted
@@ -183,7 +170,7 @@ export default function Register() {
         ...form,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
-      await authService.register(authMode, payload);
+      await authService.register(payload);
       navigate("/login");
     } catch (err) {
       console.log(err);
@@ -208,12 +195,13 @@ export default function Register() {
 
   useEffect(() => {
     setInfoBadge(true);
-  }, [authMode]); // --- Step-specific validation logic ---
+  }, []); // --- Step-specific validation logic ---
 
   const isStep1Valid =
     form.username.trim() &&
     !usernameError &&
-    (authMode === "offline" || (usernameAvailable && !usernameChecking));
+    usernameAvailable &&
+    !usernameChecking;
 
   const isStep2Valid =
     form.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
@@ -243,11 +231,7 @@ export default function Register() {
     "block text-sm font-medium text-text-light dark:text-text-dark mb-1.5";
 
   return (
-    <AuthLayout
-      title="Create your account"
-      authMode={authMode}
-      setAuthMode={setAuthMode}
-    >
+    <AuthLayout title="Create your account">
       <motion.div layout transition={{ type: "spring", duration: 0.5 }}>
         <Stepper
           initialStep={1}
@@ -300,8 +284,7 @@ export default function Register() {
                     {usernameError && (
                       <span className="text-danger">{usernameError}</span>
                     )}
-                    {authMode === "online" &&
-                      !usernameError &&
+                    {!usernameError &&
                       (usernameChecking ? (
                         <span className="text-text-light-sub dark:text-text-dark-sub">
                           Checking...
@@ -395,11 +378,7 @@ export default function Register() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className={`border-l-4 p-4 mt-6 rounded-r-lg relative ${
-                authMode === "offline"
-                  ? "bg-warning/10 border-warning"
-                  : "bg-light1 dark:bg-dark1/10 border-info"
-              }`}
+              className="border-l-4 p-4 mt-6 rounded-r-lg relative bg-warning/10 border-warning"
             >
               <button
                 onClick={() => setInfoBadge(false)}
@@ -409,23 +388,11 @@ export default function Register() {
               </button>
               <div className="flex">
                 <div className="flex-shrink-0">
-                  {authMode === "offline" ? (
-                    <Shield className="h-5 w-5 text-warning" />
-                  ) : (
-                    <Cloud className="h-5 w-5 text-dark1 dark:text-light1" />
-                  )}
+                  <Shield className="h-5 w-5 text-warning" />
                 </div>
                 <div className="ml-3">
-                  <p
-                    className={`text-sm ${
-                      authMode === "offline"
-                        ? "text-yellow-800 dark:text-yellow-200"
-                        : "text-blue-800 dark:text-blue-200"
-                    }`}
-                  >
-                    {authMode === "offline"
-                      ? "Your information is stored locally and is 100% private."
-                      : "Your information is securely stored in the cloud."}
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    Your information is stored locally and is 100% private.
                   </p>
                 </div>
               </div>

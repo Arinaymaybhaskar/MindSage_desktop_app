@@ -57,9 +57,6 @@ export default function Dashboard() {
   /** Every day the user has ever written, for the heatmap and the streak. */
   const [allTimeScores, setAllTimeScores] = useState<DayScore[]>([]);
 
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    "offline" | "online";
-
   useEffect(() => {
     const fetchCoreData = async () => {
       if (!accessToken) {
@@ -67,26 +64,13 @@ export default function Dashboard() {
         return;
       }
       try {
-        const dashboardData = await dashboardService.getData(
-          authMode,
-          accessToken,
-        );
-        const imageData = await journalService.getImages(
-          authMode,
-          accessToken,
-          "random",
-        );
-        const userData = await userService.getMe(authMode, accessToken);
-        const statsData = await dashboardService.getStats(
-          authMode,
-          accessToken,
-        );
+        const dashboardData = await dashboardService.getData(accessToken);
+        const imageData = await journalService.getImages(accessToken, "random");
+        const userData = await userService.getMe(accessToken);
+        const statsData = await dashboardService.getStats(accessToken);
         // Already exposed for the chart's "All Time" range; reused here so the
         // heatmap and streak need no new query.
-        const allTime = await dashboardService.getAllTimeScore(
-          authMode,
-          accessToken,
-        );
+        const allTime = await dashboardService.getAllTimeScore(accessToken);
 
         console.log(statsData, "Stats Data");
         console.log(dashboardData, "dashBoard data");
@@ -106,7 +90,7 @@ export default function Dashboard() {
     };
 
     fetchCoreData();
-  }, [accessToken, authMode, logout]);
+  }, [accessToken, logout]);
 
   const loadProfileImage = async (imagePath?: string | null) => {
     if (!imagePath) {

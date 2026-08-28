@@ -24,8 +24,6 @@ export default function Memories() {
   const [entries, setEntries] = useState<ImageEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const authMode = localStorage.getItem("authMode") || "offline";
-
   useEffect(() => {
     if (!accessToken) {
       setIsLoading(false);
@@ -36,7 +34,6 @@ export default function Memories() {
     const load = async () => {
       try {
         const keys: ImageEntry[] = await journalService.getImages(
-          authMode,
           accessToken,
           "all",
         );
@@ -68,7 +65,7 @@ export default function Memories() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, authMode]);
+  }, [accessToken]);
 
   const items = useMemo(
     () =>

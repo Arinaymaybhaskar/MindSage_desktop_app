@@ -17,32 +17,25 @@ const checkElectron = () => {
 export const userService = {
   /**
    * Fetches the current user's profile information.
-   * @param mode - 'online' or 'offline'
    * @param token - The user's access token.
    */
-  getMe: async (
-    mode: "online" | "offline",
-    token: string,
-  ): Promise<UserInfo> => {
+  getMe: async (token: string): Promise<UserInfo> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke("user:get-me", mode, token);
+    return await window.electron.ipcRenderer.invoke("user:get-me", token);
   },
 
   /**
    * Updates the current user's profile.
-   * @param mode - 'online' or 'offline'
    * @param token - The user's access token.
    * @param payload - The data to update (e.g., { username, email }).
    */
   updateProfile: async (
-    mode: "online" | "offline",
     token: string,
     payload: ProfileUpdate,
   ): Promise<{ user: UserInfo }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:update-profile",
-      mode,
       token,
       payload,
     );
@@ -50,19 +43,11 @@ export const userService = {
 
   /**
    * Fetches the current user's settings.
-   * @param mode - 'online' or 'offline'
    * @param token - The user's access token.
    */
-  getSettings: async (
-    mode: "online" | "offline",
-    token: string,
-  ): Promise<UserSettings> => {
+  getSettings: async (token: string): Promise<UserSettings> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "user:get-settings",
-      mode,
-      token,
-    );
+    return await window.electron.ipcRenderer.invoke("user:get-settings", token);
   },
 
   /**
@@ -72,14 +57,12 @@ export const userService = {
    * @param payload - The settings to update.
    */
   updateSettings: async (
-    mode: "online" | "offline",
     token: string,
     payload: Partial<UserSettings>,
   ): Promise<UserSettings> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:update-settings",
-      mode,
       token,
       payload,
     );
@@ -92,14 +75,12 @@ export const userService = {
    * @param payload - { old_password, new_password }.
    */
   changePassword: async (
-    mode: "online" | "offline",
     token: string,
     payload: { old_password: string; new_password: string },
   ): Promise<{ message: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:change-password",
-      mode,
       token,
       payload,
     );
@@ -112,14 +93,12 @@ export const userService = {
    * @param payload - { password }.
    */
   deleteAccount: async (
-    mode: "online" | "offline",
     token: string,
     payload: { password: string },
   ): Promise<{ message: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:delete-account",
-      mode,
       token,
       payload,
     );

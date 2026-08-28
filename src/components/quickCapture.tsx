@@ -9,9 +9,6 @@ export default function QuickCapture() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    "offline" | "online";
   const { accessToken } = useAuth();
 
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
@@ -36,11 +33,7 @@ export default function QuickCapture() {
         mood_tags: [],
       };
 
-      const res = await journalService.create(
-        authMode,
-        accessToken!,
-        mergedEntry,
-      );
+      const res = await journalService.create(accessToken!, mergedEntry);
 
       await window.electron.ipcRenderer.invoke("qdrant:sync-journal", res.id);
       toast.success("Journal entry saved!");
@@ -54,7 +47,7 @@ export default function QuickCapture() {
     } finally {
       setIsSaving(false);
     }
-  }, [title, content, authMode, accessToken, isSaving, handleCloseWindow]);
+  }, [title, content, accessToken, isSaving, handleCloseWindow]);
 
   // Keyboard shortcut for manual save (Ctrl/Cmd + Enter)
   useEffect(() => {

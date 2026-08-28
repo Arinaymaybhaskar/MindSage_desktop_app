@@ -1,6 +1,5 @@
 import localDB from "../db/index.js";
 import jwt from "jsonwebtoken";
-import axios from "axios";
 
 function getUserIdFromToken(token) {
   try {
@@ -17,52 +16,35 @@ function getUserIdFromToken(token) {
   }
 }
 
-export const handleGetCategories = async (event, authMode, token) => {
+export const handleGetCategories = async (event, token) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
 
-  if (authMode === "online") {
-    console.log("online mode");
-  } else {
-    return localDB.getCategories(userId);
-  }
+  return localDB.getCategories(userId);
 };
 
-export const handleAddCategory = async (event, authMode, token, category) => {
+export const handleAddCategory = async (event, token, category) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") console.log("online mode");
-  else return localDB.addCategory(userId, category);
+  return localDB.addCategory(userId, category);
 };
 
-export const handleUpdateCategory = async (
-  event,
-  authMode,
-  token,
-  category,
-) => {
+export const handleUpdateCategory = async (event, token, category) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") console.log("online mode");
-  else return localDB.updateCategory(userId, category);
+  return localDB.updateCategory(userId, category);
 };
 
-export const handleDeleteCategory = async (
-  event,
-  authMode,
-  token,
-  categoryId,
-) => {
+export const handleDeleteCategory = async (event, token, categoryId) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") console.log("online mode");
-  else return localDB.deleteCategory(userId, categoryId);
+  return localDB.deleteCategory(userId, categoryId);
 };

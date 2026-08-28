@@ -18,7 +18,6 @@ export default function Login() {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [authMode, setAuthMode] = useState<"online" | "offline">("offline");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,11 +25,11 @@ export default function Login() {
     setIsLoading(true);
     try {
       // Using the authService we defined earlier
-      const res = await authService.login(authMode, {
+      const res = await authService.login({
         identifier: form.identifier,
         password: form.password,
       });
-      login(res.accessToken, res.userInfo, authMode);
+      login(res.accessToken, res.userInfo);
       navigate("/");
     } catch (err) {
       setError(errorMessage(err, "Invalid username or password"));
@@ -45,11 +44,7 @@ export default function Login() {
     "block text-sm font-medium text-text-light dark:text-text-dark mb-1.5";
 
   return (
-    <AuthLayout
-      title="Welcome back"
-      authMode={authMode}
-      setAuthMode={setAuthMode}
-    >
+    <AuthLayout title="Welcome back">
       {/* --- CHANGE: Added motion.div with layout to animate height changes --- */}
       <motion.div layout transition={{ type: "spring", duration: 0.5 }}>
         <form onSubmit={handleSubmit} className="space-y-6">

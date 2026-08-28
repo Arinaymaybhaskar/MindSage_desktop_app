@@ -14,29 +14,18 @@ beforeEach(() => {
 });
 
 describe("journalService", () => {
-  it("getOne routes to journal:get-by-id with mode, token, id", async () => {
-    await journalService.getOne("offline", "tok", 42);
-    expect(invoke).toHaveBeenCalledWith(
-      "journal:get-by-id",
-      "offline",
-      "tok",
-      42,
-    );
+  it("getOne routes to journal:get-by-id with token and id", async () => {
+    await journalService.getOne("tok", 42);
+    expect(invoke).toHaveBeenCalledWith("journal:get-by-id", "tok", 42);
   });
 
   it("update routes to journal:update with the payload", async () => {
     const payload = { title: "t", content: "c" };
-    await journalService.update("offline", "tok", 7, payload);
-    expect(invoke).toHaveBeenCalledWith(
-      "journal:update",
-      "offline",
-      "tok",
-      7,
-      payload,
-    );
+    await journalService.update("tok", 7, payload);
+    expect(invoke).toHaveBeenCalledWith("journal:update", "tok", 7, payload);
   });
 
-  it("retryAIMetadata routes to journal:retry-ai-metadata (no mode arg)", async () => {
+  it("retryAIMetadata routes to journal:retry-ai-metadata", async () => {
     await journalService.retryAIMetadata("tok", 5, "summary");
     expect(invoke).toHaveBeenCalledWith(
       "journal:retry-ai-metadata",
@@ -49,8 +38,6 @@ describe("journalService", () => {
   it("throws when not running in an Electron environment", async () => {
     // @ts-expect-error intentionally clear the bridge
     globalThis.window = {};
-    await expect(journalService.getOne("offline", "tok", 1)).rejects.toThrow(
-      /Electron/,
-    );
+    await expect(journalService.getOne("tok", 1)).rejects.toThrow(/Electron/);
   });
 });

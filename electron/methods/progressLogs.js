@@ -18,23 +18,18 @@ function getUserIdFromToken(token) {
   }
 }
 
-export const handleGetProgressLogs = async (event, authMode, token, goalId) => {
+export const handleGetProgressLogs = async (event, token, goalId) => {
   const userId = getUserIdFromToken(token);
 
   if (!userId) {
     return { error: "Invalid token" };
   }
 
-  if (authMode === "online") {
-    console.log("online mode");
-  } else {
-    return localDB.getProgressLogs(goalId);
-  }
+  return localDB.getProgressLogs(goalId);
 };
 
 export const handleAddProgressLog = async (
   event,
-  authMode,
   token,
   goalId,
   value,
@@ -45,20 +40,16 @@ export const handleAddProgressLog = async (
     return { error: "Invalid token" };
   }
 
-  if (authMode === "online") {
-    console.log("online mode");
-  } else {
-    const addedLog = localDB.logProgress(goalId, value, description);
-    if (addedLog) {
-      // Emit event - worker will automatically pick this up
-      eventBus.emit("progress_log:created", { entry: addedLog });
+  const addedLog = localDB.logProgress(goalId, value, description);
+  if (addedLog) {
+    // Emit event - worker will automatically pick this up
+    eventBus.emit("progress_log:created", { entry: addedLog });
 
-      // Also emit goal updated event since current_value changed
-      const updatedGoal = db
-        .prepare("SELECT * FROM goals WHERE id = ?")
-        .get(addedLog.goal_id);
-      eventBus.emit("goal:updated", { entry: updatedGoal });
-    }
-    return addedLog;
+    // Also emit goal updated event since current_value changed
+    const updatedGoal = db
+      .prepare("SELECT * FROM goals WHERE id = ?")
+      .get(addedLog.goal_id);
+    eventBus.emit("goal:updated", { entry: updatedGoal });
   }
+  return addedLog;
 };

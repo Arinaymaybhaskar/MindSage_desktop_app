@@ -53,8 +53,6 @@ export default function JournalForm() {
   const { recordingBlob, resetRecording } = voiceRecorderState;
   const { accessToken } = useAuth();
   const [selectedModel, setSelectedModel] = useState<string>("");
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    "offline" | "online";
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -122,11 +120,7 @@ export default function JournalForm() {
   useEffect(() => {
     const loadEntry = async () => {
       if (isEdit && id) {
-        const fetchedEntry = await journalService.getOne(
-          authMode,
-          accessToken!,
-          +id,
-        );
+        const fetchedEntry = await journalService.getOne(accessToken!, +id);
 
         const entryToSet = {
           ...fetchedEntry,
@@ -201,7 +195,7 @@ export default function JournalForm() {
     };
 
     loadEntry();
-  }, [id, isEdit, authMode, accessToken, DRAFT_KEY]);
+  }, [id, isEdit, accessToken, DRAFT_KEY]);
 
   // Auto-save draft
   useEffect(() => {
@@ -322,13 +316,12 @@ export default function JournalForm() {
       let res;
       if (isEdit && id) {
         res = await journalService.update(
-          authMode,
           accessToken!,
           +Number(id),
           mergedEntry,
         );
       } else {
-        res = await journalService.create(authMode, accessToken!, mergedEntry);
+        res = await journalService.create(accessToken!, mergedEntry);
       }
 
       const journalId = isEdit ? Number(id) : Number(res.id);
@@ -370,7 +363,6 @@ export default function JournalForm() {
                 transcription: transcription,
               };
               await journalService.update(
-                authMode,
                 accessToken!,
                 journalId,
                 entryWithTranscription,
@@ -387,7 +379,7 @@ export default function JournalForm() {
         imageKey !== res.image_key || audioKey !== res.audio_key;
 
       if (needsMediaUpdate) {
-        await journalService.update(authMode, accessToken!, journalId, {
+        await journalService.update(accessToken!, journalId, {
           ...mergedEntry,
           image_key: imageKey,
           audio_key: audioKey,

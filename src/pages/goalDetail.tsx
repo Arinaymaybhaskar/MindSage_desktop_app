@@ -10,24 +10,18 @@ export default function GoalDetail() {
   const navigate = useNavigate();
   const [data, setData] = useState<GoalDetailData | null>(null);
   const { accessToken } = useAuth();
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    "offline" | "online";
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const goal = await goalService.getGoalById(
-          authMode,
-          accessToken!,
-          Number(id),
-        );
+        const goal = await goalService.getGoalById(accessToken!, Number(id));
         setData(goal);
       } catch (error) {
         console.error(error, "Error fetching goal details");
       }
     };
     fetchData();
-  }, [id, authMode, accessToken]);
+  }, [id, accessToken]);
 
   if (!data)
     return (
