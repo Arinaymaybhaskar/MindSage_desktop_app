@@ -140,7 +140,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
-    "@rive-app/canvas": "^2.40.1",
     "@tailwindcss/vite": "^4.1.11",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",
