@@ -1,0 +1,89 @@
+# Creating goals, by hand or by decomposing an ambition with a local model.
+# Derived from src/components/goals/modals/AIGenerationModal.tsx,
+# ManualGoalModal.tsx and electron/methods/goal.js.
+
+direction: down
+
+start: "User adds a goal" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+choice: "Manual or AI-assisted?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+manual: "ManualGoalModal\ntitle · target · category · colour" {
+  style.stroke-width: 2
+}
+
+ambition: "User describes an ambition\n\"run a half marathon this year\"" {
+  style.stroke-width: 2
+}
+
+prompt1: "getGoalPrompt(ambition, categories)\nfirst model call" {
+  style.stroke-width: 2
+}
+
+prompt2: "AmbitionNamePrompt(ambition)\nsecond call, shortens the\nambition into a name" {
+  style.stroke-width: 2
+}
+
+ollama: "Ollama\nthe user's selected model" {
+  shape: hexagon
+  style.stroke-width: 2
+}
+
+parse: "Strip code fences, JSON.parse,\nnormalise into goals" {
+  style.stroke-width: 2
+}
+
+ok: "Valid goals returned?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+retry: "Ask the user to refine\nthe ambition\nnothing is saved" {
+  style.stroke-width: 2
+}
+
+review: "User reviews the draft goals\nedit fields, drop any that miss" {
+  style.stroke-width: 2
+}
+
+save: "goal:add\nhandleCreateGoal" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\ngoals · categories" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+sync: "syncGoalToQdrant\nembed and index the goal" {
+  style.stroke-width: 2
+}
+
+qdrant: "Qdrant\nvector index" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+start -> choice
+choice -> manual: "manual"
+choice -> ambition: "AI-assisted"
+ambition -> prompt1
+prompt1 -> ollama: "generate goals"
+prompt1 -> prompt2
+prompt2 -> ollama: "name the ambition"
+prompt2 -> parse
+parse -> ok
+ok -> retry: "no"
+retry -> ambition
+ok -> review: "yes"
+review -> save
+manual -> save
+save -> sqlite: "INSERT"
+save -> sync
+sync -> qdrant: "upsert"

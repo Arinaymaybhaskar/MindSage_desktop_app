@@ -1,0 +1,76 @@
+# The offline audio transcription pipeline.
+# Derived from electron/methods/media.js, whisper.js and journal.js.
+
+direction: down
+
+record: "User records an audio journal\nMediaRecorder produces WebM" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+saveMedia: "media:save\nwrite the WebM to disk,\nstore the path on the entry" {
+  style.stroke-width: 2
+}
+
+emit: "eventBus.emit(\"journal:audio-saved\")" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+listener: "whisper.js listener" {
+  style.stroke-width: 2
+}
+
+ffmpeg: "FFmpeg   ffmpeg-static\nWebM to WAV, 16 kHz mono" {
+  shape: hexagon
+  style.stroke-width: 2
+}
+
+whisper: "whisper.cpp\nggml-tiny.en.bin, CPU only" {
+  shape: hexagon
+  style.stroke-width: 2
+}
+
+ok: "Transcription succeeded?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+ended: "whisper:transcribe-ended" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+failed: "Transcription failed\nthe audio is still playable,\nthe entry keeps its text" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+store: "journal.js listener\nwrite the transcript\nonto the entry" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\nmind-sage.db" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+reindex: "Transcript joins the content\nfor the next embedding" {
+  style.stroke-width: 2
+}
+
+detail: "Detail view plays the audio\nnext to its transcript" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+record -> saveMedia -> emit -> listener
+listener -> ffmpeg: "convert container"
+ffmpeg -> whisper: "raw WAV"
+whisper -> ok
+ok -> ended: "yes"
+ok -> failed: "no"
+ended -> store
+store -> sqlite: "write transcript"
+store -> reindex
+store -> detail

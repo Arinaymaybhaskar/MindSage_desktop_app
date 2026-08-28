@@ -1,0 +1,85 @@
+# Updating a journal entry. What re-runs depends on which fields changed.
+# Derived from electron/methods/journal.js and qdrantWorker.js.
+
+direction: down
+
+edit: "User edits an entry" {
+  shape: oval
+  style.stroke-width: 2
+}
+
+ipc: "journalService.updateJournal\ninvoke \"journal:update\"" {
+  style.stroke-width: 2
+}
+
+write: "handleUpdateJournal\nUPDATE journal_entries" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\nmind-sage.db" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+emit: "eventBus.emit(\"journal:updated\")" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+changed: "What changed?" {
+  shape: diamond
+  style.stroke-width: 2
+}
+
+contentPath: "Content" {
+  style.stroke-width: 2
+}
+
+moodPath: "Mood score or tags only" {
+  style.stroke-width: 2
+}
+
+audioPath: "New audio" {
+  style.stroke-width: 2
+}
+
+reembed: "Re-embed the entry\ncontent plus transcription\nwhen one exists" {
+  style.stroke-width: 2
+}
+
+resummarise: "Regenerate the summary" {
+  style.stroke-width: 2
+}
+
+payloadOnly: "Update the Qdrant payload only\nno re-embedding needed" {
+  style.stroke-width: 2
+}
+
+transcribe: "journal:audio-saved\nsee transcription.svg" {
+  shape: queue
+  style.stroke-width: 2
+}
+
+qdrant: "Qdrant upsert\nsame point id, new vector" {
+  shape: cylinder
+  style.stroke-width: 2
+}
+
+edit -> ipc -> write
+write -> sqlite: "write"
+write -> emit
+emit -> changed
+changed -> contentPath
+changed -> moodPath
+changed -> audioPath
+
+contentPath -> reembed
+contentPath -> resummarise
+resummarise -> sqlite: "store summary"
+reembed -> qdrant
+
+moodPath -> payloadOnly
+payloadOnly -> qdrant
+
+audioPath -> transcribe
+transcribe -> reembed: "transcript feeds\nthe next embedding"

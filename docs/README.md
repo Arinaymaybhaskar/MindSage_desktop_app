@@ -8,6 +8,7 @@ Reference documents for the MindSage desktop app. Orientation docs stay at the r
 | --- | --- |
 | [MASTER_TODO.md](MASTER_TODO.md) | **The queue.** Every actionable item from every document below, deduplicated and merged into one order of execution. Start here to decide what to work on. |
 | [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) | **The argument.** Everything between the current code and a shippable product, grouped by severity, with a verified-state table. Read it for *why* an item matters; read MASTER_TODO for *when*. |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | **The reasoning.** Why each significant technical choice was made, the trade-offs accepted, and what would change at a different scale. Read it before proposing a replacement for any of them. |
 
 ## Audits and reviews
 
