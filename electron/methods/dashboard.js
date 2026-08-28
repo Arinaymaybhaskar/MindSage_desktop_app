@@ -1,4 +1,4 @@
-import { getUserIdFromToken } from "../../src/utils/electronUtils";
+import { getUserIdFromToken } from "./authToken.js";
 import localDB from "../db";
 
 export const getDashboardData = (event, authMode, token) => {
