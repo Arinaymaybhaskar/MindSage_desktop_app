@@ -24,20 +24,14 @@ export default defineConfig({
           plugins: [
             viteStaticCopy({
               targets: [
-                {
-                  src: "electron/qdrantWorker.js",
-                  dest: ".", // copy into dist-electron root
-                },
-                { src: "electron/db/*", dest: "db" },
-                // Tests sit next to the module they cover, as they do under
-                // src/, but they must not be copied into the packaged app.
-                {
-                  src: ["electron/methods/*", "!electron/methods/*.test.js"],
-                  dest: "methods",
-                },
-                { src: "electron/store.js", dest: "." },
-                { src: "electron/services/*", dest: "services" },
+                // Only what qdrantWorker.js needs at runtime. Everything
+                // else under electron/ is bundled into main.js, so copying
+                // it here would ship a second, dead copy. The worker is
+                // spawned from a file path rather than imported, which is
+                // why it and its imports have to exist as real files.
+                { src: "electron/qdrantWorker.js", dest: "." },
                 { src: "electron/eventBus.js", dest: "." },
+                { src: "electron/db/connection.js", dest: "db" },
               ],
             }),
           ],
