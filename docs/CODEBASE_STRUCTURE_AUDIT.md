@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-25
 **Scope:** folder layout, file placement, naming, dead code, and packaging hygiene.
-**Status:** findings only — no code was changed.
+**Status:** phases 1, 2 and 4 implemented on 2026-08-28. See the status table below.
 
 The architecture is sound. The three-layer split (renderer → IPC → main → db) is real
 and consistently followed; `electron/db`, `electron/methods`, and `electron/services`
@@ -18,8 +18,73 @@ call sites**. Those three are the items worth doing first.
 
 ## 0. Priority summary
 
-| #   | Item                                                     | Effort | Risk if left                                          |
-| --- | -------------------------------------------------------- | ------ | ----------------------------------------------------- |
+| #   | Item                                                         | Effort | Status |
+| --- | ------------------------------------------------------------ | ------ | ------ |
+| P1  | Delete `src/server/` and cut the 4 call sites still using it  | M      | Done |
+| P2  | Remove the unreferenced files under `src/`                    | S      | Done, 21 of them rather than 22 |
+| P3  | Move `resources/` binaries to Git LFS or a release asset      | M      | Not started. The 13 unused whisper binaries are gone, but the large blobs remain in history |
+| P4  | Normalize file naming (`camelCase` vs `PascalCase`)           | M      | Declined. Judged churn without functional gain |
+| P5  | Fix the extensionless imports in `electron/methods/`          | S      | Done |
+| P6  | Narrow `viteStaticCopy` to what the worker actually needs     | S      | Done, 37 copied items down to 3 |
+| P7  | Split the 7 files over 600 lines                              | L      | Not started, and deliberately left as ongoing work |
+| P8  | Consolidate stray root/`src` files and orphan CSS             | S      | Done |
+
+## 0.1 What this audit got wrong
+
+Recorded because the same verification gaps would recur. Every item below was
+checked against the tree before acting on it, and several findings did not
+survive that check.
+
+- **`playbackWaveformVisualizer.tsx` is live, not dead.** `voiceRecorder.tsx`
+  imports it and `journalForm.tsx` renders that. The unreferenced list is 21
+  files, not 22.
+- **`src/utils/electronUtils.js` was referenced.** Two main-process modules,
+  `methods/dashboard.js` and `methods/ollama.js`, imported it. The search
+  behind the finding covered `src/` but not `electron/`. Deleting it broke the
+  production build while typecheck, lint and the tests all stayed green,
+  because `tsconfig.app.json` covers only the renderer and ESLint matches only
+  `.ts`/`.tsx`. It was misfiled rather than dead, and now lives at
+  `electron/methods/authToken.js`.
+- **`src/global.d.ts` had already been fixed.** It no longer declares the dead
+  `electronAPI` surface or the four undefined types. It declares
+  `webkitAudioContext`, which live code in `useVoiceRecorder` depends on, so
+  it had to stay. `src/electron.d.ts` is likewise complete now.
+- **`src/types/` is not sparse.** It holds seven files and is already the home
+  for shared row shapes, so there was nothing to consolidate.
+- **The unused whisper binaries were 14, not 12.** The list missed
+  `whisper-server.exe` and `vad-speech-segments.exe`. Thirteen were removed;
+  `whisper-server.exe` was kept because it is the proposed fix for the open
+  transcription startup cost in `docs/benchmarks/OPTIMIZATION_LOG.md`.
+- **`@rive-app/canvas` was in `devDependencies`,** not `dependencies`, so it
+  never shipped to users.
+- **The camelCase IPC channels were 7, not 2.** The five `media:` channels were
+  missed alongside `goal:getPinned` and `logs:getAll`.
+- **`/memories` and `/qdrant` are not the same case.** `/memories` is linked
+  from the dashboard, so it is a real signed-in feature that needed a guard.
+  Only `/qdrant` is a developer tool, and it is now dev-build only.
+- **The 27 tracked screenshots could not simply be untracked.** `README.md`
+  embeds six of them and GitHub renders the README from the repository, so
+  those six stay tracked and the ignore rule now negates them explicitly.
+
+## 0.2 Found while verifying, and not in this audit
+
+**The packaged app never started the Qdrant worker.** `createQdrantWorker`
+resolved `process.resourcesPath/dist-electron/qdrantWorker.js` when packaged,
+but `build.files` packs `dist-electron/**/*` into `app.asar` and `build.asar`
+is left at its default of true, so that path does not exist in an install.
+The worker performs title, tag, mood and summary generation plus embeddings,
+so background AI enrichment was silently dead in every packaged build while
+dev mode kept working. Fixed by resolving from `__dirname`, which points
+inside the archive when packaged, after confirming against a real
+`electron-builder` output that a Worker can load an ES module from inside the
+asar.
+
+**`extraResources` shipped every platform's binaries to every platform.** The
+filter was `**/*`, so a Windows installer carried the 74 MB macOS Qdrant
+build. This is the fix already prescribed in `docs/MAC_RELEASE_PLAN.md`
+section 3.2, now implemented as per-platform `extraResources`.
+
+--- | -------------------------------------------------------- | ------ | ----------------------------------------------------- |
 | P1  | Delete `src/server/` and cut the 4 call sites still using it | M      | Auth flows silently hit a server that never runs      |
 | P2  | Remove the 22 unreferenced files under `src/`            | S      | Every reader has to re-derive what is live            |
 | P3  | Move `resources/` binaries to Git LFS or a release asset | M      | ~240 MB repo; every clone pays it                     |

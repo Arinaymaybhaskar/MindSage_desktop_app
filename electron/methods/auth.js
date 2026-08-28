@@ -1,193 +1,76 @@
-import localDB from "../db";
+import localDB from "../db/index.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import axios from "axios";
-import http from "http";
-import url from "url";
-import { shell } from "electron";
 import { getOfflineAccessTokenSecret } from "../services/tokenSecret.js";
 
-// Generated per install and persisted outside the bundle. See
-// services/tokenSecret.js for why this is uniqueness, not confidentiality.
-
-function describeApiConnectionError(error, fallbackMessage) {
-  const code = error?.code || error?.cause?.code;
-  const isNetworkCode = [
-    "ENOTFOUND",
-    "EAI_AGAIN",
-    "ECONNREFUSED",
-    "ECONNRESET",
-    "ECONNABORTED",
-    "ETIMEDOUT",
-  ].includes(code);
-
-  if (isNetworkCode || (!error?.response && !error?.request)) {
-    const apiCode = code || "UNREACHABLE";
-    return `Can't reach the API server; check your internet or DNS (${apiCode})`;
-  }
-
-  if (error?.response?.data?.message) {
-    return error.response.data.message;
-  }
-
-  if (error?.message) {
-    return error.message;
-  }
-
-  return fallbackMessage;
-}
+// The signing secret is generated per install and persisted outside the
+// bundle. See services/tokenSecret.js for why that is uniqueness, not
+// confidentiality.
 
 const generateAccessToken = (user) => {
   return jwt.sign(user, getOfflineAccessTokenSecret(), { expiresIn: "15m" });
 };
 
-export const handleLogin = async (event, mode, credentials) => {
+export const handleLogin = async (event, credentials) => {
   const { identifier, password } = credentials;
-  if (mode === "online") {
-    try {
-      // Call your local backend server
-      const response = await axios.post(
-        "http://localhost:4000/api/auth/login",
-        credentials,
-      );
-      return response.data;
-    } catch (error) {
-      console.error(
-        "Online login error:",
-        error.response?.data || error.message,
-      );
-      throw new Error(describeApiConnectionError(error, "Online login failed"));
-    }
-  } else {
-    // Offline Mode
-    try {
-      const user = localDB.findUserByIdentifier(identifier);
-      if (!user) throw new Error("User not found");
+  try {
+    const user = localDB.findUserByIdentifier(identifier);
+    if (!user) throw new Error("User not found");
 
-      const match = await bcrypt.compare(password, user.password_hash);
-      if (!match) throw new Error("Incorrect password");
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) throw new Error("Incorrect password");
 
-      const accessToken = generateAccessToken({
-        id: user.id,
-        username: user.username,
-      });
-      // --- FIX: Ensure full_name is never undefined ---
-      const userInfo = {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        full_name: user.full_name || null, // Fallback to null if undefined
-        created_at: user.created_at,
-        profile_picture: user.profile_picture || null,
-      };
-      return { accessToken, userInfo };
-    } catch (error) {
-      console.error("Offline login error:", error);
-      throw error;
-    }
+    const accessToken = generateAccessToken({
+      id: user.id,
+      username: user.username,
+    });
+    // --- FIX: Ensure full_name is never undefined ---
+    const userInfo = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      full_name: user.full_name || null, // Fallback to null if undefined
+      created_at: user.created_at,
+      profile_picture: user.profile_picture || null,
+    };
+    return { accessToken, userInfo };
+  } catch (error) {
+    console.error("Offline login error:", error);
+    throw error;
   }
 };
 
-export const handleRegister = async (event, mode, details) => {
-  if (mode === "online") {
-    try {
-      // Call your local backend server started with startServer()
-      const response = await axios.post(
-        "http://localhost:4000/api/auth/register",
-        details,
-      );
-      return response.data;
-    } catch (error) {
-      console.error(
-        "Online registration error:",
-        error.response?.data || error.message,
-      );
-      throw new Error(
-        describeApiConnectionError(error, "Online registration failed"),
-      );
+export const handleRegister = async (event, details) => {
+  try {
+    const existingUser = localDB.findUserForCheck(
+      details.email,
+      details.username,
+    );
+    if (existingUser) {
+      throw new Error("Username or email already exists");
     }
-  } else {
-    // Offline Mode
-    try {
-      const existingUser = localDB.findUserForCheck(
-        details.email,
-        details.username,
-      );
-      if (existingUser) {
-        throw new Error("Username or email already exists");
-      }
-      const newUser = localDB.createUser(details);
-      return { user: newUser };
-    } catch (error) {
-      console.error("Offline registration error:", error);
-      throw error;
-    }
+    const newUser = localDB.createUser(details);
+    return { user: newUser };
+  } catch (error) {
+    console.error("Offline registration error:", error);
+    throw error;
   }
 };
 
-export async function handleGoogleLogin() {
-  return new Promise((resolve, reject) => {
-    const server = http
-      .createServer(async (req, res) => {
-        try {
-          const { code } = url.parse(req.url, true).query;
-          if (!code) {
-            throw new Error("No authorization code received.");
-          }
-
-          // --- Step 3: Exchange Authorization Code for Tokens ---
-          const tokenResponse = await axios.post(
-            "https://oauth2.googleapis.com/token",
-            {
-              code,
-              client_id: process.env.GOOGLE_CLIENT_ID, // <-- PASTE YOUR CLIENT ID HERE
-              client_secret: process.env.GOOGLE_CLIENT_SECRET, // <-- PASTE YOUR CLIENT SECRET HERE
-              redirect_uri: `http://localhost:${server.address().port}`,
-              grant_type: "authorization_code",
-            },
-          );
-
-          const { access_token, refresh_token } = tokenResponse.data;
-
-          // --- Step 4: Use Access Token to get User Profile ---
-          const profileResponse = await axios.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            {
-              headers: { Authorization: `Bearer ${access_token}` },
-            },
-          );
-
-          // --- Success! ---
-          res.end(
-            "<h1>Authentication successful!</h1><p>You can now close this tab.</p>",
-          );
-          server.close();
-          resolve({
-            profile: profileResponse.data,
-            tokens: { access_token, refresh_token },
-          });
-        } catch (error) {
-          console.error("OAuth Error:", error.response?.data || error.message);
-          res.end("<h1>Authentication failed.</h1>");
-          server.close();
-          reject(error);
-        }
-      })
-      .listen(0, () => {
-        // Listen on a random free port
-        const { port } = server.address();
-        const redirectUri = `http://localhost:${port}`;
-
-        // --- Step 2: Open the Google Auth URL in the user's default browser ---
-        const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-        authUrl.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID); // <-- PASTE YOUR CLIENT ID HERE
-        authUrl.searchParams.set("redirect_uri", redirectUri);
-        authUrl.searchParams.set("response_type", "code");
-        authUrl.searchParams.set("scope", "openid profile email");
-        authUrl.searchParams.set("access_type", "offline");
-        authUrl.searchParams.set("prompt", "consent");
-
-        shell.openExternal(authUrl.toString());
-      });
-  });
-}
+/**
+ * Reports whether a username is still free in the local database.
+ *
+ * Registration re-checks this before inserting; this exists so the form can
+ * tell the user while they type rather than after they submit.
+ */
+export const handleCheckUsername = async (event, username) => {
+  const name = typeof username === "string" ? username.trim() : "";
+  if (!name) {
+    return { available: false };
+  }
+  // findUserForCheck matches email OR username. Passing the name as both
+  // would also reject it when it happens to equal someone's email, so the
+  // email side is passed a value no address can equal.
+  const existing = localDB.findUserForCheck(null, name);
+  return { available: !existing };
+};

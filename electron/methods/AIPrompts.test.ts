@@ -9,7 +9,7 @@ import {
   MIN_SUMMARY_WORDS,
   sanitizeSummary,
   // @ts-expect-error plain JS module without type declarations
-} from "../../electron/methods/AIPrompts.js";
+} from "./AIPrompts.js";
 
 describe("clampMoodScore", () => {
   it("clamps into the 1-5 range and rounds", () => {

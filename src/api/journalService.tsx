@@ -43,7 +43,6 @@ export const journalService = {
    * Fetches all journal entries for the current user.
    */
   getAll: async (
-    mode: "online" | "offline",
     token: string,
     page: number = 0,
     limit: number = 10,
@@ -51,7 +50,6 @@ export const journalService = {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-all",
-      mode,
       token,
       page,
       limit,
@@ -61,15 +59,10 @@ export const journalService = {
   /**
    * Fetches a single journal entry by its ID.
    */
-  getOne: async (
-    mode: "online" | "offline",
-    token: string,
-    id: number,
-  ): Promise<JournalEntry> => {
+  getOne: async (token: string, id: number): Promise<JournalEntry> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-by-id",
-      mode,
       token,
       id,
     );
@@ -78,15 +71,10 @@ export const journalService = {
   /**
    * Creates a new journal entry.
    */
-  create: async (
-    mode: "online" | "offline",
-    token: string,
-    data: JournalEntry,
-  ): Promise<JournalEntry> => {
+  create: async (token: string, data: JournalEntry): Promise<JournalEntry> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:create",
-      mode,
       token,
       data,
     );
@@ -96,7 +84,6 @@ export const journalService = {
    * Updates an existing journal entry.
    */
   update: async (
-    mode: "online" | "offline",
     token: string,
     id: number,
     data: JournalEntry,
@@ -104,7 +91,6 @@ export const journalService = {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:update",
-      mode,
       token,
       id,
       data,
@@ -114,15 +100,10 @@ export const journalService = {
   /**
    * Deletes a journal entry.
    */
-  remove: async (
-    mode: "online" | "offline",
-    token: string,
-    id: number,
-  ): Promise<{ message: string }> => {
+  remove: async (token: string, id: number): Promise<{ message: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:delete",
-      mode,
       token,
       id,
     );
@@ -132,7 +113,6 @@ export const journalService = {
    * Fetches mood scores for a given date range.
    */
   getMoodRange: async (
-    mode: "online" | "offline",
     token: string,
     range: number,
   ): Promise<MoodScoreData[]> => {
@@ -140,82 +120,49 @@ export const journalService = {
     // Assuming you have a 'journal:get-mood-scores' handler
     return await window.electron.ipcRenderer.invoke(
       "journal:get-mood-scores",
-      mode,
       token,
       range,
     );
   },
-  getRecent: async (authMode: string, token: string) => {
+  getRecent: async (token: string) => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-recent",
-      authMode,
       token,
     );
   },
 
+  /**
+   * `getMode` selects which images come back (for example "all" or
+   * "random"). It is unrelated to the removed online/offline auth mode; it
+   * was previously also called `mode`, which made the two easy to confuse.
+   */
   getImages: async (
-    authMode: string,
     token: string,
-    mode: string,
+    getMode: string,
   ): Promise<JournalImageEntry[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-images",
-      authMode,
       token,
-      mode,
+      getMode,
     );
   },
 
   /**
-   * Sends a query to the AI chat. Online only.
+   * Sends a query to the AI chat.
    */
   chat: async (token: string, query: string): Promise<{ answer: string }> => {
     checkElectron();
-    // Chat is an online-only feature, so we hardcode the mode.
-    return await window.electron.ipcRenderer.invoke(
-      "chat:send",
-      "online",
-      token,
-      { query },
-    );
-  },
-
-  /**
-   * Gets a pre-signed URL for uploading media. Online only.
-   */
-  getUploadUrl: async (token: string, type: string, postId: string) => {
-    checkElectron();
-    // This is an online-only feature.
-    return await window.electron.ipcRenderer.invoke(
-      "media:get-upload-url",
-      "online",
-      token,
-      { type, postId },
-    );
-  },
-
-  /**
-   * Gets a temporary URL for viewing media. Online only.
-   */
-  getMediaUrl: async (_token: string, key: string) => {
-    checkElectron();
-    // This is an online-only feature.
-    // You would need to add a 'media:get-media-url' IPC handler.
-    // return await window.electron.ipcRenderer.invoke('media:get-media-url', 'online', token, key);
-    console.warn(
-      "getMediaUrl is an online-only feature and not fully implemented in this mock.",
-    );
-    return Promise.resolve({
-      url: `https://s3-media-url.com/${encodeURIComponent(key)}`,
+    return await window.electron.ipcRenderer.invoke("chat:send", token, {
+      query,
     });
   },
-  getChartData: async (authMode: string, token: string, range: number) => {
+
+  getChartData: async (token: string, range: number) => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-chart-data",
-      authMode,
       token,
       range,
     );

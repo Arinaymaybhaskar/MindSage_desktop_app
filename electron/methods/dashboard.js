@@ -1,52 +1,34 @@
-import { getUserIdFromToken } from "../../src/utils/electronUtils";
-import localDB from "../db";
+import { getUserIdFromToken } from "./authToken.js";
+import localDB from "../db/index.js";
 
-export const getDashboardData = (event, authMode, token) => {
+export const getDashboardData = (event, token) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") {
-    console.log("online mode");
-  } else {
-    return localDB.getDashboardData(userId);
-  }
+  return localDB.getDashboardData(userId);
 };
 
-export const getMonthlyScores = (event, authMode, token) => {
+export const getMonthlyScores = (event, token) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") {
-    console.log("online mode");
-  } else {
-    return localDB.getMonthlyScores(userId);
-  }
+  return localDB.getMonthlyScores(userId);
 };
 
-export const getAllTimeScores = (event, authMode, token) => {
+export const getAllTimeScores = (event, token) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") {
-    console.log("online mode");
-  } else {
-    return localDB.getAllTimeScores(userId);
-  }
+  return localDB.getAllTimeScores(userId);
 };
 
-export const getUserStats = (event, authMode, token) => {
+export const getUserStats = (event, token) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") {
-    console.log("online mode for stats - not implemented yet");
-    // Here you would fetch stats from your online API
-  } else {
-    // Fetches the comprehensive stats from the local DB layer
-    return localDB.getUserStats(userId);
-  }
+  return localDB.getUserStats(userId);
 };

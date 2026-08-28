@@ -8,47 +8,31 @@ const checkElectron = () => {
 };
 
 export const dashboardService = {
-  getData: async (
-    authMode: "online" | "offline",
-    token: string,
-  ): Promise<DashboardData> => {
+  getData: async (token: string): Promise<DashboardData> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-data",
-      authMode,
       token,
     );
   },
-  getMonthlyScore: async (
-    authMode: "online" | "offline",
-    token: string,
-  ): Promise<DayScore[]> => {
+  getMonthlyScore: async (token: string): Promise<DayScore[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-monthly-scores",
-      authMode,
       token,
     );
   },
-  getAllTimeScore: async (
-    authMode: "online" | "offline",
-    token: string,
-  ): Promise<DayScore[]> => {
+  getAllTimeScore: async (token: string): Promise<DayScore[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-all-time-scores",
-      authMode,
       token,
     );
   },
-  getStats: async (
-    authMode: "online" | "offline",
-    token: string,
-  ): Promise<DashboardStats> => {
+  getStats: async (token: string): Promise<DashboardStats> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-stats",
-      authMode,
       token,
     );
   },

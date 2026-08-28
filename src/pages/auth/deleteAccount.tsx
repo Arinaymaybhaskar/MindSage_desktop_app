@@ -14,8 +14,6 @@ export function DeleteAccount() {
   const { accessToken, logout } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    "offline" | "online";
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
@@ -35,7 +33,7 @@ export function DeleteAccount() {
     setIsDeleting(true);
     showToast("Deleting your account...", "info");
     try {
-      await userService.deleteAccount(authMode, accessToken!, { password });
+      await userService.deleteAccount(accessToken!, { password });
       showToast("Your account has been deleted.", "success");
       logout(); // Log the user out
       navigate("/login");

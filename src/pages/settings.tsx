@@ -63,8 +63,6 @@ const settingsSections: Record<string, SettingsSection> = {
 
 const Settings = () => {
   const { accessToken } = useAuth();
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    "offline" | "online";
 
   const [user, setUser] = useState<UserInfo | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -90,8 +88,8 @@ const Settings = () => {
     const fetchInitialData = async () => {
       try {
         const [userResponse, settingsResponse] = await Promise.all([
-          userService.getMe(authMode, accessToken!),
-          userService.getSettings(authMode, accessToken!),
+          userService.getMe(accessToken!),
+          userService.getSettings(accessToken!),
         ]);
         localStorage.setItem("userInfo", JSON.stringify(userResponse));
         setUser(userResponse);
@@ -104,14 +102,13 @@ const Settings = () => {
       }
     };
     fetchInitialData();
-  }, [authMode, accessToken, showToast]);
+  }, [accessToken, showToast]);
 
   // Save handlers
   const handleProfileSave = async (newProfile: ProfileUpdate) => {
     try {
       showToast("Saving profile...", "info");
       const updatedUser = await userService.updateProfile(
-        authMode,
         accessToken!,
         newProfile,
       );
@@ -128,7 +125,6 @@ const Settings = () => {
     showToast("Saving settings...", "info");
     try {
       const updatedSettings = await userService.updateSettings(
-        authMode,
         accessToken!,
         newSettings,
       );

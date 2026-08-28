@@ -10,8 +10,6 @@ const ChangePassword = () => {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
   const { showToast } = useToast();
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    "offline" | "online";
 
   const [form, setForm] = useState({
     oldPassword: "",
@@ -58,7 +56,7 @@ const ChangePassword = () => {
         old_password: form.oldPassword,
         new_password: form.newPassword,
       };
-      await userService.changePassword(authMode, accessToken!, payload);
+      await userService.changePassword(accessToken!, payload);
 
       showToast("Password updated successfully.", "success");
       navigate("/settings#security");

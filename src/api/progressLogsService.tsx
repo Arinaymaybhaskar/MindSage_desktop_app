@@ -8,20 +8,17 @@ const checkElectron = () => {
 
 export const progressLogsService = {
   getProgressLogs: async (
-    authMode: string,
     token: string,
     goalId: number,
   ): Promise<ProgressLog[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
-      "logs:getAll",
-      authMode,
+      "logs:get-all",
       token,
       goalId,
     );
   },
   addProgress: async (
-    authMode: string,
     token: string,
     goalId: number,
     value: number,
@@ -30,7 +27,6 @@ export const progressLogsService = {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "logs:add",
-      authMode,
       token,
       goalId,
       value,

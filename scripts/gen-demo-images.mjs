@@ -109,7 +109,7 @@ const drawScript = (w, h, palette, seed) => `(() => {
   g.putImageData(img, 0, 0);
 
   // JPEG, not PNG. These are photographic-style gradients, so PNG buys nothing
-  // and costs ~10x the bytes - and media:getImage hands them to the renderer as
+  // and costs ~10x the bytes - and media:get-image hands them to the renderer as
   // base64 data URLs, where the size difference decides whether the Memories
   // grid paints before the screenshot or not.
   return c.toDataURL('image/jpeg', 0.82);

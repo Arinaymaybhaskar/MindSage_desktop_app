@@ -1,5 +1,5 @@
 import { execSync, exec } from "child_process";
-import { getUserIdFromToken } from "../../src/utils/electronUtils";
+import { getUserIdFromToken } from "./authToken.js";
 import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
 import {

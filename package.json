@@ -45,15 +45,6 @@
   },
   "build": {
     "copyright": "Copyright © 2025 Arinaymay",
-    "extraResources": [
-      {
-        "from": "resources/",
-        "to": ".",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
     "appId": "com.mindsage.app",
     "productName": "MindSage",
     "publish": [
@@ -74,11 +65,32 @@
       "output": "release"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "extraResources": [
+        {
+          "from": "resources/mac/",
+          "to": "mac"
+        }
+      ]
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon2.ico"
+      "icon": "assets/icon2.ico",
+      "extraResources": [
+        {
+          "from": "resources/win/",
+          "to": "win",
+          "filter": [
+            "**/*",
+            "!.qdrant-initialized",
+            "!snapshots/**"
+          ]
+        },
+        {
+          "from": "resources/whisper-bin-x64/",
+          "to": "whisper-bin-x64"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -94,8 +106,6 @@
     }
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.842.0",
-    "@aws-sdk/s3-request-presigner": "^3.842.0",
     "@google/genai": "^1.10.0",
     "@qdrant/js-client-rest": "^1.15.1",
     "axios": "^1.10.0",
@@ -104,14 +114,11 @@
     "buffer": "^6.0.3",
     "chart.js": "^4.5.0",
     "clsx": "^2.1.1",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
     "dotenv": "^17.2.1",
     "electron-store": "^10.1.0",
     "electron-updater": "^6.3.9",
-    "express": "^5.1.0",
     "ffmpeg-static": "^5.2.0",
     "framer-motion": "^12.23.12",
     "get-port": "^7.1.0",
@@ -120,8 +127,6 @@
     "jsonwebtoken": "^9.0.2",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.525.0",
-    "nodemailer": "^7.0.5",
-    "pg": "^8.16.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-easy-crop": "^5.5.0",
@@ -140,7 +145,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
-    "@rive-app/canvas": "^2.40.1",
     "@tailwindcss/vite": "^4.1.11",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",

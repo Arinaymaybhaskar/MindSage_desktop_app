@@ -1,7 +1,6 @@
-import localDB from "../db";
+import localDB from "../db/index.js";
 import { db } from "../db/connection.js";
 import jwt from "jsonwebtoken";
-import axios from "axios";
 import { eventBus } from "../eventBus.js";
 import { updateJournalEntry } from "../db/journal.js";
 import {
@@ -28,125 +27,53 @@ function getUserIdFromToken(token) {
   }
 }
 
-export async function handleCreateJournal(event, mode, token, payload) {
+export async function handleCreateJournal(event, token, payload) {
   const userId = getUserIdFromToken(token).id;
   if (!userId) throw new Error("Invalid token");
   let createdJournal;
-  if (mode === "online") {
-    const response = await axios.post(
-      "http://localhost:4000/api/journals",
-      payload,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    return response.data;
-  } else {
-    // Offline
-    createdJournal = localDB.createJournalEntry(userId, payload);
-  }
+  createdJournal = localDB.createJournalEntry(userId, payload);
   eventBus.emit("journal:created", {
     userId,
     entry: createdJournal,
-    mode,
   });
   return createdJournal;
 }
 
-export async function handleGettingImages(event, mode, token, getMode) {
+export async function handleGettingImages(event, token, getMode) {
   const userId = getUserIdFromToken(token).id;
   if (!userId) throw new Error("Invalid token");
-  if (mode === "online") {
-    const response = await axios.get(
-      "http://localhost:4000/api/journals/images",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    return response.data;
-  } else {
-    // Offline
-    return localDB.getImageKeysAndIds(userId, getMode);
-  }
+  return localDB.getImageKeysAndIds(userId, getMode);
 }
 
-export async function handleGetRecentJournals(event, mode, token) {
+export async function handleGetRecentJournals(event, token) {
   const userId = getUserIdFromToken(token).id;
   if (!userId) throw new Error("Invalid token");
 
-  if (mode === "online") {
-    const response = await axios.get(
-      "http://localhost:4000/api/journals/recent",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    return response.data;
-  } else {
-    // Offline
-    return localDB.getRecentEntries(userId);
-  }
+  return localDB.getRecentEntries(userId);
 }
 
-export async function handleGetAllJournals(event, mode, token, page, limit) {
+export async function handleGetAllJournals(event, token, page, limit) {
   const userId = getUserIdFromToken(token).id;
   if (!userId) throw new Error("Invalid token");
 
-  if (mode === "online") {
-    const response = await axios.get("http://localhost:4000/api/journals", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return response.data;
-  } else {
-    // Offline
-    const offset = page * limit; // Calculate offset from page and limit
-    const ans = localDB.getAllEntries(userId, limit, offset);
-    return ans;
-  }
+  const offset = page * limit; // Calculate offset from page and limit
+  const ans = localDB.getAllEntries(userId, limit, offset);
+  return ans;
 }
 
-export async function handleGetJournalById(event, mode, token, journalId) {
+export async function handleGetJournalById(event, token, journalId) {
   const userId = getUserIdFromToken(token).id;
   if (!userId) throw new Error("Invalid token");
 
-  if (mode === "online") {
-    const response = await axios.get(
-      `http://localhost:4000/api/journals/${journalId}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    return response.data;
-  } else {
-    // Offline
-    console.log("Fetching journal by ID in offline mode:", journalId);
-    return localDB.getJournalById(userId, journalId);
-  }
+  console.log("Fetching journal by ID in offline mode:", journalId);
+  return localDB.getJournalById(userId, journalId);
 }
 
-export async function handleUpdateJournal(
-  event,
-  mode,
-  token,
-  journalId,
-  payload,
-) {
+export async function handleUpdateJournal(event, token, journalId, payload) {
   const userId = getUserIdFromToken(token).id;
   if (!userId) throw new Error("Invalid token");
   let updatedJournal;
-  if (mode === "online") {
-    const response = await axios.put(
-      `http://localhost:4000/api/journals/${journalId}`,
-      payload,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    updatedJournal = response.data;
-  } else {
-    // Offline
-    updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
-  }
+  updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
   if (updatedJournal.audio_key) {
     eventBus.emit("journal:audio-saved", { entry: updatedJournal, event });
   }
@@ -161,56 +88,27 @@ export async function handleUpdateAIStatus(event, token, journalId, fields) {
   return { success: changes > 0 };
 }
 
-export async function handleDeleteJournal(event, mode, token, journalId) {
+export async function handleDeleteJournal(event, token, journalId) {
   const userId = getUserIdFromToken(token).id;
   if (!userId) throw new Error("Invalid token");
 
-  if (mode === "online") {
-    const response = await axios.delete(
-      `http://localhost:4000/api/journals/${journalId}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    return response.data;
-  } else {
-    // Offline
-    const changes = localDB.deleteJournalEntry(userId, journalId);
-    if (changes === 0)
-      throw new Error("Journal entry not found or permission denied");
-    return { message: "Journal entry marked for deletion" };
-  }
+  const changes = localDB.deleteJournalEntry(userId, journalId);
+  if (changes === 0)
+    throw new Error("Journal entry not found or permission denied");
+  return { message: "Journal entry marked for deletion" };
 }
 
-export async function handleChat(event, mode, token, payload) {
-  if (mode === "online") {
-    const response = await axios.post(
-      "http://localhost:4000/api/journals/chat",
-      payload,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    return response.data;
-  } else {
-    // Offline
-    // AI chat is not available offline. Return a helpful message.
-    return {
-      answer:
-        "I can only answer questions when you are online. Please connect to the internet to use the chat feature.",
-    };
-  }
+export async function handleChat(event, token, payload) {
+  return {
+    answer:
+      "I can only answer questions when you are online. Please connect to the internet to use the chat feature.",
+  };
 }
 
-export async function handleGetChartData(event, mode, token, range) {
+export async function handleGetChartData(event, token, range) {
   const userId = getUserIdFromToken(token).id;
   if (!userId) throw new Error("Invalid token");
-  if (mode === "online") {
-    console.log("later");
-  } else {
-    // Offline
-    return localDB.getMoodScores(userId, range);
-  }
+  return localDB.getMoodScores(userId, range);
 }
 
 export const getPendingJournals = (userId) => {

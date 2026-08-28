@@ -349,10 +349,9 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!accessToken) return;
     let cancelled = false;
-    const authMode = localStorage.getItem("authMode") || "offline";
 
     journalService
-      .getRecent(authMode, accessToken)
+      .getRecent(accessToken)
       .then((rows: unknown) => {
         if (cancelled || !Array.isArray(rows)) return;
         setRecents(

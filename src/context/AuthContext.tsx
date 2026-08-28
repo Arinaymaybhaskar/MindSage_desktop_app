@@ -3,11 +3,7 @@ import { createContext, useState, type ReactNode } from "react";
 export interface AuthContextType {
   accessToken: string | null;
   user: UserInfo | null;
-  login: (
-    access: string,
-    user: UserInfo,
-    authMode: "online" | "offline",
-  ) => void;
+  login: (access: string, user: UserInfo) => void;
   logout: () => void;
 }
 
@@ -30,12 +26,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return storedUser ? JSON.parse(storedUser) : null;
   });
 
-  const login = (
-    access: string,
-    userInfo: UserInfo,
-    authMode: "offline" | "online",
-  ) => {
-    localStorage.setItem("authMode", authMode);
+  const login = (access: string, userInfo: UserInfo) => {
     setAccessToken(access);
 
     // Clone before mutation

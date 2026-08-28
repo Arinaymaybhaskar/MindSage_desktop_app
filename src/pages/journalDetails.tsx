@@ -94,8 +94,6 @@ export default function JournalDetail() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isTranscriptionOpen, setIsTranscriptionOpen] = useState(false);
   const { accessToken } = useAuth();
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    "offline" | "online";
   const { showToast } = useToast();
 
   // AI Metadata Status
@@ -145,21 +143,21 @@ export default function JournalDetail() {
       setError(false);
 
       try {
-        const res = await journalService.getOne(authMode, accessToken!, +id);
+        const res = await journalService.getOne(accessToken!, +id);
         if (!res) {
           if (!silent) setError(true);
         } else {
           setEntry(res);
           if (res.image_key) {
             const url = await window.electron.ipcRenderer.invoke<string>(
-              "media:getImage",
+              "media:get-image",
               res.image_key.toString(),
             );
             setImageUrl(url);
           }
           if (res.audio_key) {
             const url = await window.electron.ipcRenderer.invoke<string | null>(
-              "media:getAudio",
+              "media:get-audio",
               res.audio_key.toString(),
             );
             setAudioUrl(url);
@@ -172,7 +170,7 @@ export default function JournalDetail() {
         if (!silent) setLoading(false);
       }
     },
-    [id, authMode, accessToken],
+    [id, accessToken],
   );
 
   // Sync AI status from entry when it loads/changes
@@ -368,7 +366,7 @@ export default function JournalDetail() {
 
   const handleDeleteConfirm = async () => {
     if (!id) return;
-    await journalService.remove(authMode, accessToken!, +id);
+    await journalService.remove(accessToken!, +id);
     setIsDeleteModalOpen(false);
     navigate("/journals");
   };

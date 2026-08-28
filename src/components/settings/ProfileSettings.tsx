@@ -31,7 +31,7 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
     }
     try {
       const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
-        "media:getImage",
+        "media:get-image",
         imagePath,
       );
       setPreviewSrc(dataUrl || null);

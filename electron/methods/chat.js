@@ -1,18 +1,18 @@
-import localDB from "../db";
+import localDB from "../db/index.js";
 import jwt from "jsonwebtoken";
-import { eventBus } from "../eventBus";
+import { eventBus } from "../eventBus.js";
 import {
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
   respondWithoutContext,
-} from "./AIPrompts";
+} from "./AIPrompts.js";
 import {
   generateEmbedding,
   handleOllamaPrompt,
   streamOllamaPrompt,
-} from "./ollama";
+} from "./ollama.js";
 import { partialJsonString } from "./jsonStream.js";
-import { SemanticSearch } from "./qdrant";
+import { SemanticSearch } from "./qdrant.js";
 import z from "zod";
 
 function getUserIdFromToken(token) {
@@ -246,7 +246,6 @@ async function storeAIResponse(aiRes, chatId) {
 
 export const handleUserMessage = async (
   event,
-  authMode,
   token,
   chatId,
   message,
@@ -260,96 +259,87 @@ export const handleUserMessage = async (
     return { error: "Invalid token" };
   }
   const emit = makeStreamEmitter(event, streamId);
-  if (authMode === "online") {
-    console.log("online mode");
-  } else {
-    // If chatId is null → create new chat
-    if (!chatId) {
-      const title = message.length < 20 ? message : "chat";
-      const newChat = await localDB.AddChat(userId, { title, model });
-      chatId = newChat.id;
-    }
-
-    // Add the user's message
-    const userMessage = await localDB.addMessage(
-      chatId,
-      "user",
-      message,
-      sources,
-      files,
-    );
-    const messageId = userMessage.id;
-    // eventBus.emit("chat:new-message", { content: message, chatId, messageId, model, userId });
-    console.log(
-      "aiResponse called with",
-      "content: ",
-      message,
-      "chatId: ",
-      chatId,
-      "messageId: ",
-      messageId,
-      "model: ",
-      model,
-      "userId: ",
-      userId,
-    );
-
-    // The chat id is only known here once a new chat has been created, and
-    // the renderer needs it before the reply finishes so a mid-generation
-    // chat switch can tell whose stream it is watching.
-    emit("start", { chatId, messageId });
-
-    let aiRes;
-    try {
-      aiRes = await aiResponse(message, chatId, messageId, model, userId, {
-        onPhase: (phase, extra) => emit("phase", { phase, ...extra }),
-        onDelta: (text) => emit("delta", { text }),
-        onReset: () => emit("reset"),
-      });
-    } catch (err) {
-      emit("error", { message: err?.message || "Generation failed." });
-      throw err;
-    }
-
-    // aiResponse swallows its own errors and returns undefined, so an empty
-    // result is a failure the renderer still has to be told about - without
-    // this it would sit on a half-streamed bubble forever.
-    if (!aiRes || !aiRes.chatResponse) {
-      emit("error", { message: "The model did not return a usable answer." });
-      return {
-        error: "The model did not return a usable answer.",
-        chatId,
-        messageId,
-      };
-    }
-
-    // Store AI response in DB
-    const stored = await storeAIResponse(aiRes, chatId);
-    const aiMessageId = stored?.aiMessageId ?? null;
-    emit("done", { aiMessageId });
-
-    // `messageId` is the id of the user's own message. The renderer
-    // destructures it to swap its optimistic id for the real one and gates
-    // image/PDF upload on it - omitting it left that gate permanently
-    // closed, so attachments silently never uploaded.
-    return { chatId, messageId, aiMessageId, aiRes };
+  if (!chatId) {
+    const title = message.length < 20 ? message : "chat";
+    const newChat = await localDB.AddChat(userId, { title, model });
+    chatId = newChat.id;
   }
+
+  // Add the user's message
+  const userMessage = await localDB.addMessage(
+    chatId,
+    "user",
+    message,
+    sources,
+    files,
+  );
+  const messageId = userMessage.id;
+  // eventBus.emit("chat:new-message", { content: message, chatId, messageId, model, userId });
+  console.log(
+    "aiResponse called with",
+    "content: ",
+    message,
+    "chatId: ",
+    chatId,
+    "messageId: ",
+    messageId,
+    "model: ",
+    model,
+    "userId: ",
+    userId,
+  );
+
+  // The chat id is only known here once a new chat has been created, and
+  // the renderer needs it before the reply finishes so a mid-generation
+  // chat switch can tell whose stream it is watching.
+  emit("start", { chatId, messageId });
+
+  let aiRes;
+  try {
+    aiRes = await aiResponse(message, chatId, messageId, model, userId, {
+      onPhase: (phase, extra) => emit("phase", { phase, ...extra }),
+      onDelta: (text) => emit("delta", { text }),
+      onReset: () => emit("reset"),
+    });
+  } catch (err) {
+    emit("error", { message: err?.message || "Generation failed." });
+    throw err;
+  }
+
+  // aiResponse swallows its own errors and returns undefined, so an empty
+  // result is a failure the renderer still has to be told about - without
+  // this it would sit on a half-streamed bubble forever.
+  if (!aiRes || !aiRes.chatResponse) {
+    emit("error", { message: "The model did not return a usable answer." });
+    return {
+      error: "The model did not return a usable answer.",
+      chatId,
+      messageId,
+    };
+  }
+
+  // Store AI response in DB
+  const stored = await storeAIResponse(aiRes, chatId);
+  const aiMessageId = stored?.aiMessageId ?? null;
+  emit("done", { aiMessageId });
+
+  // `messageId` is the id of the user's own message. The renderer
+  // destructures it to swap its optimistic id for the real one and gates
+  // image/PDF upload on it - omitting it left that gate permanently
+  // closed, so attachments silently never uploaded.
+  return { chatId, messageId, aiMessageId, aiRes };
 };
 
-export const handleGetChats = async (event, authMode, token, page, limit) => {
+export const handleGetChats = async (event, token, page, limit) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") {
-    console.log("online mode");
-  } else {
-    const offset = (page - 1) * limit;
-    return localDB.getChatsTitlesByUsers(userId, limit, offset);
-  }
+  const offset = (page - 1) * limit;
+  return localDB.getChatsTitlesByUsers(userId, limit, offset);
 };
 
-export const handleGetChatById = (event, authMode, token, chatId) => {
+export const handleGetChatById = (event, token, chatId) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return Promise.resolve({
@@ -357,55 +347,33 @@ export const handleGetChatById = (event, authMode, token, chatId) => {
     });
   }
 
-  if (authMode === "online") {
-    console.log("online mode");
-    return Promise.resolve({ error: "Online mode not implemented" });
-  }
   return localDB.getChatById(userId, chatId);
 };
 
-export const handleDeleteChat = async (event, authMode, token, chatId) => {
+export const handleDeleteChat = async (event, token, chatId) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") {
-    console.log("online mode");
-    return { error: "Online mode not implemented" };
-  } else {
-    return localDB.deleteChat(userId, chatId);
-  }
+  return localDB.deleteChat(userId, chatId);
 };
 
-export const handleChangeChatTitle = async (
-  event,
-  authMode,
-  token,
-  chatId,
-  newTitle,
-) => {
+export const handleChangeChatTitle = async (event, token, chatId, newTitle) => {
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") {
-    console.log("online mode");
-    return { error: "Online mode not implemented" };
-  } else {
-    return localDB.changeChatTitle(userId, chatId, newTitle);
-  }
+  return localDB.changeChatTitle(userId, chatId, newTitle);
 };
 
 export const linkMediaToMessage = async (
   event,
-  authMode,
   token,
   messageId,
   chatId,
   imageKey,
 ) => {
   console.log("linkMediaToMessage called with in method file:", {
-    authMode,
     token,
     messageId,
     chatId,
@@ -415,28 +383,22 @@ export const linkMediaToMessage = async (
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") {
-    console.log("online mode");
-    return { error: "Online mode not implemented" };
-  } else {
-    // Infer file type from extension
-    try {
-      const lower = String(imageKey).toLowerCase();
-      let fileType = "image";
-      if (lower.endsWith(".pdf")) fileType = "pdf";
-      else if (
-        lower.endsWith(".png") ||
-        lower.endsWith(".jpg") ||
-        lower.endsWith(".jpeg") ||
-        lower.endsWith(".gif") ||
-        lower.endsWith(".webp")
-      )
-        fileType = "image";
-      // Store with inferred type
-      return localDB.linkMediaToMessage(messageId, chatId, imageKey, fileType);
-    } catch (err) {
-      console.error("Failed to infer file type for media link:", err);
-      return localDB.linkMediaToMessage(messageId, chatId, imageKey, "image");
-    }
+  try {
+    const lower = String(imageKey).toLowerCase();
+    let fileType = "image";
+    if (lower.endsWith(".pdf")) fileType = "pdf";
+    else if (
+      lower.endsWith(".png") ||
+      lower.endsWith(".jpg") ||
+      lower.endsWith(".jpeg") ||
+      lower.endsWith(".gif") ||
+      lower.endsWith(".webp")
+    )
+      fileType = "image";
+    // Store with inferred type
+    return localDB.linkMediaToMessage(messageId, chatId, imageKey, fileType);
+  } catch (err) {
+    console.error("Failed to infer file type for media link:", err);
+    return localDB.linkMediaToMessage(messageId, chatId, imageKey, "image");
   }
 };

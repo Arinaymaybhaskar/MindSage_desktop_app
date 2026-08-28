@@ -1,4 +1,4 @@
-import localDB from "../db";
+import localDB from "../db/index.js";
 import jwt from "jsonwebtoken";
 
 function getUserIdFromToken(token) {
@@ -16,21 +16,13 @@ function getUserIdFromToken(token) {
   }
 }
 
-export const handleExportUserData = async (
-  event,
-  authMode,
-  token,
-  filePath,
-) => {
+export const handleExportUserData = async (event, token, filePath) => {
   console.log("Starting data export process...", filePath);
   const userId = getUserIdFromToken(token);
   if (!userId) {
     return { error: "Invalid token" };
   }
-  if (authMode === "online") {
-    console.log("online mode");
-    return { error: "Export not available in online mode" };
-  }
+
   // -- 1. Fetch all user data from the local database --
   let exportData;
   try {

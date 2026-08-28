@@ -149,8 +149,8 @@ const imageKey = await cdp.evaluate(`(async () => {
 
 if (imageKey) {
   for (const [name, channel] of [
-    ["media:getImage (full)", "media:getImage"],
-    ["media:getThumbnail", "media:getThumbnail"],
+    ["media:get-image (full)", "media:get-image"],
+    ["media:get-thumbnail", "media:get-thumbnail"],
   ]) {
     results[name] = await benchInvoke(channel, [imageKey], 10);
     const bytes = await payloadBytes(channel, [imageKey]);

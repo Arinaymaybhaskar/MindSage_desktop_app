@@ -1,15 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../../api/axios";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthLayout } from "../../layouts/AuthLayout";
 import { Eye, EyeOff, AlertTriangle } from "lucide-react";
-import GoogleLoginElectron, {
-  type GoogleLoginResult,
-} from "../../components/googleLoginElectron";
 import { errorMessage } from "../../utils/errors";
 import { authService } from "../../api/authService";
-import { motion, AnimatePresence } from "framer-motion"; // Import motion components
+import { motion } from "framer-motion";
 
 export default function Login() {
   const [form, setForm] = useState({
@@ -22,40 +18,21 @@ export default function Login() {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [authMode, setAuthMode] = useState<"online" | "offline">("offline");
 
-  // All logic (handleSubmit, handleGoogleSuccess) remains the same...
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
     try {
       // Using the authService we defined earlier
-      const res = await authService.login(authMode, {
+      const res = await authService.login({
         identifier: form.identifier,
         password: form.password,
       });
-      login(res.accessToken, res.userInfo, authMode);
+      login(res.accessToken, res.userInfo);
       navigate("/");
     } catch (err) {
       setError(errorMessage(err, "Invalid username or password"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSuccess = async (response: GoogleLoginResult) => {
-    setError("");
-    setIsLoading(true);
-    try {
-      const res = await api.post("/auth/google-login", {
-        response,
-      });
-      login(res.data.accessToken, res.data.userInfo, authMode);
-      navigate("/");
-    } catch (err) {
-      console.error("Google login failed:", err);
-      setError("Google login failed");
     } finally {
       setIsLoading(false);
     }
@@ -67,11 +44,7 @@ export default function Login() {
     "block text-sm font-medium text-text-light dark:text-text-dark mb-1.5";
 
   return (
-    <AuthLayout
-      title="Welcome back"
-      authMode={authMode}
-      setAuthMode={setAuthMode}
-    >
+    <AuthLayout title="Welcome back">
       {/* --- CHANGE: Added motion.div with layout to animate height changes --- */}
       <motion.div layout transition={{ type: "spring", duration: 0.5 }}>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -159,23 +132,6 @@ export default function Login() {
             </button>
           </div>
         </form>
-
-        {/* --- CHANGE: Wrapped Google login in AnimatePresence for smooth entry/exit --- */}
-        <AnimatePresence>
-          {authMode === "online" && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.3 }}
-            >
-              <GoogleLoginElectron
-                onError={() => console.log("Error in google login")}
-                onSuccess={handleGoogleSuccess}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <div className="mt-6 text-center text-sm">
           <span className="text-text-light-sub dark:text-text-dark-sub">

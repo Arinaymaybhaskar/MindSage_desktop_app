@@ -51,39 +51,40 @@ interface RegistrationDetails {
  */
 export const authService = {
   /**
-   * @param mode - 'online' or 'offline'
    * @param credentials - { identifier, password }
    */
-  login: async (
-    mode: "online" | "offline",
-    credentials: LoginCredentials,
-  ): Promise<AuthResponse> => {
+  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     if (!window.electron?.ipcRenderer) {
       console.error("Electron API is not available.");
       throw new Error("Not in an Electron environment.");
     }
-    return await window.electron.ipcRenderer.invoke(
-      "auth:login",
-      mode,
-      credentials,
-    );
+    return await window.electron.ipcRenderer.invoke("auth:login", credentials);
   },
 
   /**
-   * @param mode - 'online' or 'offline'
    * @param details - { username, email, password, ... }
    */
   register: async (
-    mode: "online" | "offline",
     details: RegistrationDetails,
   ): Promise<{ user: UserInfo }> => {
     if (!window.electron?.ipcRenderer) {
       throw new Error("Not in an Electron environment.");
     }
+    return await window.electron.ipcRenderer.invoke("auth:register", details);
+  },
+
+  /**
+   * Reports whether a username is still free, so the registration form can
+   * say so while the user types. Registration re-checks before inserting, so
+   * this is a courtesy rather than the guarantee.
+   */
+  checkUsername: async (username: string): Promise<{ available: boolean }> => {
+    if (!window.electron?.ipcRenderer) {
+      throw new Error("Not in an Electron environment.");
+    }
     return await window.electron.ipcRenderer.invoke(
-      "auth:register",
-      mode,
-      details,
+      "auth:check-username",
+      username,
     );
   },
 };

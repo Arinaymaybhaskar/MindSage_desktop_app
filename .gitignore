@@ -31,6 +31,18 @@ dist
 dist-electron
 scripts/demo-data/generated/
 
-# Marketing/demo screenshots. Regenerate with `npm run capture` rather than
-# carrying several MB of PNGs in history; nothing in the app loads them.
-public/screenshots/
+# Marketing/demo screenshots. `npm run capture` regenerates these, so they
+# are not carried in history. The six stills README.md embeds are the
+# exception: GitHub renders the README straight from the repository, so
+# those have to stay tracked.
+public/screenshots/*
+!public/screenshots/ChatBot.png
+!public/screenshots/dashboard.png
+!public/screenshots/goalsPage.png
+!public/screenshots/journalDetails.png
+!public/screenshots/myjournals.png
+!public/screenshots/newJournal.png
+
+# Qdrant runtime state, written next to the binary on first start.
+resources/win/.qdrant-initialized
+resources/win/snapshots/

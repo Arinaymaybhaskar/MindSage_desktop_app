@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import { app } from "electron";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
-import { eventBus } from "../eventBus";
+import { eventBus } from "../eventBus.js";
 import fs from "fs";
 
 let liveProcess = null;
