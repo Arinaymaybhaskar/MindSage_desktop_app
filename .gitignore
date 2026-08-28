@@ -32,5 +32,16 @@ dist-electron
 scripts/demo-data/generated/
 
 # Marketing/demo screenshots. Regenerate with `npm run capture` rather than
-# carrying several MB of PNGs in history; nothing in the app loads them.
-public/screenshots/
+# carrying several MB of PNGs in history; nothing in the app loads them. The
+# five stills README.md embeds are the exception: GitHub renders the README
+# straight from the repository, so an untracked screenshot shows up as a
+# broken image on the project page. Git never descends into an excluded
+# directory, so v2/ is unignored before its contents are filtered.
+public/screenshots/*
+!public/screenshots/v2/
+public/screenshots/v2/*
+!public/screenshots/v2/chat.png
+!public/screenshots/v2/editor.png
+!public/screenshots/v2/goals.png
+!public/screenshots/v2/journals.png
+!public/screenshots/v2/search.png
