@@ -37,6 +37,7 @@ Claims still open in older docs that are actually resolved. Checked against the 
 | **Item 55 — `electronUtils.js` to TypeScript** | Phase 9 | **Moot.** It was main-process code misfiled under `src/`, and two `electron/methods` modules imported it. Now `electron/methods/authToken.js` |
 | **Item 56 — import-extension policy** | Phase 9 | **Done 2026-08-28.** CLAUDE.md now documents the majority style (extensionless in the renderer, explicit `.js` in `electron/`), and AGENTS.md was rewritten against the current tree |
 | Half of item 53 | Phase 9 | 0-byte `electron/services/chat.js` and root `test-color-db.js` are gone. The duplicate `.gitignore` entries remain |
+| **Items 3, 4, 5, 6 — the renderer data-loss paths** | Phase 0 | **Done 2026-08-30.** Quick Capture persists a draft and shows no writing surface when signed out; a route-level and a root-level `ErrorBoundary` replace the white screen (and the root one fires the splash handshake, which used to be stranded in `AppLayout`); `logout()` resets context state and removes three keys instead of `localStorage.clear()`; the dashboard settles its five reads independently and never calls `logout()` on a failed fetch. The dead `react-hot-toast` imports in `quickCapture.tsx` and `ModelSettings.tsx` went with them, since no `<Toaster/>` was ever mounted and every one of those messages rendered nothing |
 | **Packaged Qdrant worker never started** | (not previously listed) | **Fixed 2026-08-28.** `createQdrantWorker` resolved a packaged path outside `app.asar`, so background AI enrichment was dead in every install. → [CODEBASE_STRUCTURE_AUDIT §3](CODEBASE_STRUCTURE_AUDIT.md) |
 
 ---
@@ -47,10 +48,12 @@ Nothing else matters if the app eats entries. Every item is small and none needs
 
 1. 🔴 S — **Back up the DB file before any schema change.** Nothing copies `mind-sage.db` before `initDatabase()` runs its `ALTER` blocks. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
 2. 🔴 M — **Add `PRAGMA user_version` and an ordered migration list.** Follows directly from 1; today there is no migration framework at all. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
-3. 🔴 S — **Quick Capture destroys entries when logged out.** Global shortcut opens it unconditionally, `accessToken` is `null`, the handler throws, the user sees "Failed to save entry" and their text is gone. → [AUTH_REVIEW §2.7](AUTH_REVIEW.md)
-4. 🔴 S — **Add a React ErrorBoundary.** Verified absent. One render exception white-screens the app with no recovery and no draft preservation. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
-5. 🔴 S — **Fix `logout()`** — reset `accessToken`/`user` state, and delete the three auth keys instead of `localStorage.clear()`, which also wipes the user's theme and zoom. → [AUTH_REVIEW §2.2–2.3](AUTH_REVIEW.md)
-6. 🟠 S — **Stop the dashboard calling `logout()` on any fetch error.** One slow Qdrant call currently destroys the session. → [AUTH_REVIEW §2.4](AUTH_REVIEW.md)
+3. ✅ **Done 2026-08-30** — Quick Capture keeps a draft and refuses to offer a writing surface when signed out. See §0.
+4. ✅ **Done 2026-08-30** — a route-level and a root-level React ErrorBoundary. See §0.
+5. ✅ **Done 2026-08-30** — `logout()` resets state and removes only the auth keys. See §0.
+6. ✅ **Done 2026-08-30** — the dashboard degrades instead of ending the session. See §0.
+
+**Phase 0 is closed.** Every known data-loss path in the app is now either fixed or recorded as recoverable.
 
 ## Phase 1 — The free wins
 
