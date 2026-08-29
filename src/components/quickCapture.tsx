@@ -1,17 +1,66 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import QuickCaptureTitleBar from "./QuickCaptureTitleBar";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, LogIn } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
-import { toast } from "react-hot-toast";
+import { useToast } from "../hooks/useToast";
+import { errorMessage } from "../utils/errors";
+
+/**
+ * Quick capture used to hold the entry in component state and nowhere else,
+ * so a failed save, an Escape press or the close button lost whatever had
+ * been typed. The draft is persisted instead, which makes closing the window
+ * non-destructive: this window shares an origin with the main one, so the
+ * text is still here the next time the shortcut is pressed.
+ */
+const DRAFT_KEY = "draft-quick-capture";
+const DRAFT_DEBOUNCE_MS = 1500;
 
 export default function QuickCapture() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const { accessToken } = useAuth();
+  const { showToast } = useToast();
 
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(DRAFT_KEY);
+      if (stored) {
+        const draft = JSON.parse(stored) as {
+          title?: string;
+          content?: string;
+        };
+        setTitle(draft.title ?? "");
+        setContent(draft.content ?? "");
+      }
+    } catch (err) {
+      console.error("[QuickCapture] Could not restore the draft:", err);
+    } finally {
+      // Guards the autosave below, so an unreadable draft is never written
+      // back over a readable one.
+      setIsDraftLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isDraftLoaded) return;
+    const timer = setTimeout(() => {
+      try {
+        if (!title && !content) {
+          localStorage.removeItem(DRAFT_KEY);
+          return;
+        }
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content }));
+      } catch (err) {
+        console.error("[QuickCapture] Could not save the draft:", err);
+      }
+    }, DRAFT_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [title, content, isDraftLoaded]);
 
   const handleCloseWindow = useCallback(async () => {
     await window.electron.ipcRenderer.invoke("quick-capture:close");
@@ -19,7 +68,12 @@ export default function QuickCapture() {
 
   const performSave = useCallback(async () => {
     if (!content.trim() || isSaving) {
-      if (!content.trim()) toast.error("Entry content cannot be empty.");
+      if (!content.trim())
+        showToast("Entry content cannot be empty.", "warning");
+      return;
+    }
+    if (!accessToken) {
+      showToast("Sign in to MindSage before saving.", "warning");
       return;
     }
 
@@ -33,21 +87,27 @@ export default function QuickCapture() {
         mood_tags: [],
       };
 
-      const res = await journalService.create(accessToken!, mergedEntry);
+      const res = await journalService.create(accessToken, mergedEntry);
 
       await window.electron.ipcRenderer.invoke("qdrant:sync-journal", res.id);
-      toast.success("Journal entry saved!");
+      showToast("Journal entry saved.", "success");
 
+      localStorage.removeItem(DRAFT_KEY);
       setTitle("");
       setContent("");
       handleCloseWindow();
     } catch (error) {
       console.error("Error saving quick capture entry:", error);
-      toast.error("Failed to save entry. Please try again.");
+      // The draft is deliberately left in place, so the text is still here
+      // after a failure.
+      showToast(
+        errorMessage(error, "Could not save the entry. Your text is kept."),
+        "danger",
+      );
     } finally {
       setIsSaving(false);
     }
-  }, [title, content, accessToken, isSaving, handleCloseWindow]);
+  }, [title, content, accessToken, isSaving, handleCloseWindow, showToast]);
 
   // Keyboard shortcut for manual save (Ctrl/Cmd + Enter)
   useEffect(() => {
@@ -66,6 +126,30 @@ export default function QuickCapture() {
   }, []);
 
   const isSaveDisabled = !content.trim() || isSaving;
+
+  // The global shortcut opens this window whether or not anyone is signed in,
+  // and the main process cannot see the renderer's session to refuse. Showing
+  // no writing surface is the equivalent: there is nothing to type, so there
+  // is nothing to lose to a save that was always going to fail.
+  if (!accessToken) {
+    return (
+      <div className="flex h-screen flex-col overflow-hidden rounded-lg border border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark">
+        <QuickCaptureTitleBar />
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 pb-6 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border-light bg-secondary-light text-text-light-sub dark:border-border-dark dark:bg-secondary-dark dark:text-text-dark-sub">
+            <LogIn size={18} />
+          </div>
+          <p className="font-display text-lg font-semibold text-text-light dark:text-text-dark">
+            You are signed out
+          </p>
+          <p className="max-w-xs text-sm leading-relaxed text-text-light-sub dark:text-text-dark-sub">
+            Open MindSage and sign in, then press the shortcut again to capture
+            a thought.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-surface-light dark:bg-surface-dark rounded-lg overflow-hidden border border-border-light dark:border-border-dark">
