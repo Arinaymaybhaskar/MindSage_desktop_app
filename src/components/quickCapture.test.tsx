@@ -96,7 +96,12 @@ describe("QuickCapture saving", () => {
       fireEvent.click(screen.getByRole("button", { name: /save/i }));
     });
 
-    expect(showToast).toHaveBeenCalledWith("no session", "danger");
+    // A fixed message, not the raw IPC rejection: what the user needs to
+    // know is that the text was kept.
+    expect(showToast).toHaveBeenCalledWith(
+      "Could not save the entry. Your text is kept.",
+      "danger",
+    );
     // The text is still on screen, and a later debounce still persists it.
     expect(screen.getByDisplayValue("do not lose this")).toBeTruthy();
   });

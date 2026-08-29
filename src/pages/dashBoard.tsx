@@ -44,6 +44,28 @@ interface PinnedGoal {
   unit: string;
 }
 
+/**
+ * A settled read, or null.
+ *
+ * A fulfilled promise is not the same as a successful read here: the main
+ * process resolves with `{ error: "Invalid token" }` rather than rejecting
+ * (electron/methods/dashboard.js), so an error envelope arrives looking
+ * exactly like data. Storing one of those as `stats` is what crashed the
+ * page, since every field the summary reads was undefined.
+ */
+function read<T>(result: PromiseSettledResult<T>, label: string): T | null {
+  if (result.status === "rejected") {
+    console.error(`Failed to load ${label}:`, result.reason);
+    return null;
+  }
+  const envelope = result.value as { error?: unknown } | null;
+  if (envelope && typeof envelope === "object" && envelope.error) {
+    console.error(`Failed to load ${label}:`, envelope.error);
+    return null;
+  }
+  return result.value;
+}
+
 export default function Dashboard() {
   const { accessToken } = useAuth();
   const [user, setUser] = useState<UserInfo | null>(null);
@@ -81,37 +103,21 @@ export default function Dashboard() {
         dashboardService.getAllTimeScore(accessToken),
       ]);
 
-    if (dashboardData.status === "fulfilled") {
-      setRecentEntries(dashboardData.value.recentJournals);
-      setPinnedGoals(dashboardData.value.pinnedGoals);
-    } else {
-      console.error("Failed to load dashboard data:", dashboardData.reason);
-    }
+    setRecentEntries(
+      read(dashboardData, "dashboard data")?.recentJournals ?? [],
+    );
+    setPinnedGoals(read(dashboardData, "pinned goals")?.pinnedGoals ?? []);
 
-    if (imageData.status === "fulfilled") {
-      setImageKeys(imageData.value);
-    } else {
-      console.error("Failed to load dashboard images:", imageData.reason);
-    }
+    setImageKeys(read(imageData, "dashboard images") ?? []);
     setIsMasonryLoading(false);
 
-    if (userData.status === "fulfilled") {
-      setUser(userData.value);
-    } else {
-      console.error("Failed to load the user:", userData.reason);
-    }
+    const me = read(userData, "the user");
+    if (me) setUser(me);
 
-    if (statsData.status === "fulfilled") {
-      setStats(statsData.value);
-    } else {
-      console.error("Failed to load dashboard stats:", statsData.reason);
-    }
+    setStats(read(statsData, "dashboard stats"));
 
-    if (allTime.status === "fulfilled") {
-      setAllTimeScores(Array.isArray(allTime.value) ? allTime.value : []);
-    } else {
-      console.error("Failed to load all-time scores:", allTime.reason);
-    }
+    const scores = read(allTime, "all-time scores");
+    setAllTimeScores(Array.isArray(scores) ? scores : []);
 
     setIsDashboardLoading(false);
   }, [accessToken]);

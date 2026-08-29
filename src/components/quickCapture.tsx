@@ -4,7 +4,6 @@ import { Loader2, Save, LogIn } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
-import { errorMessage } from "../utils/errors";
 
 /**
  * Quick capture used to hold the entry in component state and nowhere else,
@@ -98,12 +97,11 @@ export default function QuickCapture() {
       handleCloseWindow();
     } catch (error) {
       console.error("Error saving quick capture entry:", error);
-      // The draft is deliberately left in place, so the text is still here
-      // after a failure.
-      showToast(
-        errorMessage(error, "Could not save the entry. Your text is kept."),
-        "danger",
-      );
+      // A fixed message rather than errorMessage(): what surfaces here is the
+      // raw IPC rejection ("Error invoking remote method 'journal:create'..."),
+      // which tells the user nothing and hides the part they need, which is
+      // that their text was kept. The real error goes to the console above.
+      showToast("Could not save the entry. Your text is kept.", "danger");
     } finally {
       setIsSaving(false);
     }
