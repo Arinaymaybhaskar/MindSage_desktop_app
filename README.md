@@ -417,7 +417,6 @@ New files under `electron/db`, `electron/methods`, or `electron/services` must b
 Ordered by what actually blocks a confident public release. The full queue lives in [docs/MASTER_TODO.md](docs/MASTER_TODO.md).
 
 - Encryption at rest for the journal database
-- Schema versioning, migrations, and a pre-migration backup
 - Gating the update check behind an explicit setting
 - Code signing for the Windows installer
 - Indexes and WAL mode, measured through the optimisation ledger

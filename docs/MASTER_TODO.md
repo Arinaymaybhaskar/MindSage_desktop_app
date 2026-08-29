@@ -37,6 +37,7 @@ Claims still open in older docs that are actually resolved. Checked against the 
 | **Item 55 — `electronUtils.js` to TypeScript** | Phase 9 | **Moot.** It was main-process code misfiled under `src/`, and two `electron/methods` modules imported it. Now `electron/methods/authToken.js` |
 | **Item 56 — import-extension policy** | Phase 9 | **Done 2026-08-28.** CLAUDE.md now documents the majority style (extensionless in the renderer, explicit `.js` in `electron/`), and AGENTS.md was rewritten against the current tree |
 | Half of item 53 | Phase 9 | 0-byte `electron/services/chat.js` and root `test-color-db.js` are gone. The duplicate `.gitignore` entries remain |
+| **Items 1, 2 — pre-migration backup and `PRAGMA user_version`** | Phase 0 | **Done 2026-08-30.** `electron/db/migrations.js` holds an ordered `MIGRATIONS` list applied against `user_version`, one transaction per migration; `initDatabase()` takes a `VACUUM INTO` snapshot into `<userData>/backups/` (5 kept) before the first one runs. The two unconditional `DROP TABLE` statements are now migration 3 rather than a per-boot instruction, and `PRAGMA foreign_keys` moved to connection scope, where the worker's own handle finally reaches it |
 | **Packaged Qdrant worker never started** | (not previously listed) | **Fixed 2026-08-28.** `createQdrantWorker` resolved a packaged path outside `app.asar`, so background AI enrichment was dead in every install. → [CODEBASE_STRUCTURE_AUDIT §3](CODEBASE_STRUCTURE_AUDIT.md) |
 
 ---
@@ -45,8 +46,8 @@ Claims still open in older docs that are actually resolved. Checked against the 
 
 Nothing else matters if the app eats entries. Every item is small and none needs a design decision.
 
-1. 🔴 S — **Back up the DB file before any schema change.** Nothing copies `mind-sage.db` before `initDatabase()` runs its `ALTER` blocks. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
-2. 🔴 M — **Add `PRAGMA user_version` and an ordered migration list.** Follows directly from 1; today there is no migration framework at all. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
+1. ✅ **Done 2026-08-30** — pre-migration backup. See §0.
+2. ✅ **Done 2026-08-30** — `PRAGMA user_version` and an ordered migration list. See §0.
 3. 🔴 S — **Quick Capture destroys entries when logged out.** Global shortcut opens it unconditionally, `accessToken` is `null`, the handler throws, the user sees "Failed to save entry" and their text is gone. → [AUTH_REVIEW §2.7](AUTH_REVIEW.md)
 4. 🔴 S — **Add a React ErrorBoundary.** Verified absent. One render exception white-screens the app with no recovery and no draft preservation. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
 5. 🔴 S — **Fix `logout()`** — reset `accessToken`/`user` state, and delete the three auth keys instead of `localStorage.clear()`, which also wipes the user's theme and zoom. → [AUTH_REVIEW §2.2–2.3](AUTH_REVIEW.md)
