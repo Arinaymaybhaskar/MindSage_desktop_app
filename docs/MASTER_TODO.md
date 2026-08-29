@@ -31,6 +31,13 @@ Claims still open in older docs that are actually resolved. Checked against the 
 | `ffmpeg-static` broken by asar | (retracted in MAC §3.1, BUNDLE §2.2) | Never broken; it is only large |
 | `feat/ai-metadata-status` review findings | TODO | All five fixed |
 | iOS port items | TECHNICAL_DEBT §7, TODO, BUNDLE §3.2 | **`ios/` no longer exists** — these items and their links are obsolete |
+| **Items 20, 21, 23, 24 — the online backend** | Phase 3 | **Done 2026-08-28.** `src/server/` and `src/api/axios.ts` deleted with the 7 server-only dependencies; Google sign-in and the `login:google` channel removed; all 44 `mode === "online"` branches collapsed; `authMode` retired from every service, handler, call site and `localStorage`. `journalService.chat` was kept, since `chat:send` has a live handler |
+| **Item 22 — forgot password** | Phase 3 | **Resolved differently.** Route and page kept, page rewritten to state there is no account server and no reset. Not a deletion |
+| **Item 12 — per-platform `extraResources`** | Phase 1 | **Done 2026-08-28.** Verified against a real `electron-builder` run: `resources/mac` is absent from `win-unpacked` |
+| **Item 55 — `electronUtils.js` to TypeScript** | Phase 9 | **Moot.** It was main-process code misfiled under `src/`, and two `electron/methods` modules imported it. Now `electron/methods/authToken.js` |
+| **Item 56 — import-extension policy** | Phase 9 | **Done 2026-08-28.** CLAUDE.md now documents the majority style (extensionless in the renderer, explicit `.js` in `electron/`), and AGENTS.md was rewritten against the current tree |
+| Half of item 53 | Phase 9 | 0-byte `electron/services/chat.js` and root `test-color-db.js` are gone. The duplicate `.gitignore` entries remain |
+| **Packaged Qdrant worker never started** | (not previously listed) | **Fixed 2026-08-28.** `createQdrantWorker` resolved a packaged path outside `app.asar`, so background AI enrichment was dead in every install. → [CODEBASE_STRUCTURE_AUDIT §3](CODEBASE_STRUCTURE_AUDIT.md) |
 
 ---
 
@@ -54,7 +61,7 @@ Config and two-line changes with measured or obvious payoff. The whole phase is 
 9. 🟠 S — **Remove the `DATE()` / `DATETIME()` wrappers in `getAllEntries`** so the new index is usable at all. → [PERFORMANCE §1.3](PERFORMANCE.md)
 10. 🔴 S — **Add a LICENSE file.** Verified absent. The repo is legally unshippable without one. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
 11. 🔴 S — **Gate the auto-updater** behind an explicit setting (default off) or a manual button. It fires on every packaged launch with `autoDownload = true` — the one thing that contradicts the offline-first claim. → [NETWORK_AUDIT §1.1](NETWORK_AUDIT.md)
-12. 🟢 S — **Per-platform `extraResources`** — the Windows installer ships 73.5 MB of macOS binaries. **−74 MB**, and a prerequisite for any mac build. → [BUNDLE_SIZE_PLAN §2.1](BUNDLE_SIZE_PLAN.md)
+12. ✅ **Done 2026-08-28** — per-platform `extraResources`. See §0.
 13. 🟢 S — **Four packaging one-liners: −72 MB.** `electronLanguages: ["en-US"]` (−42), drop `public/**` from `files` (−20), exclude `better-sqlite3/{deps,src}` (−9.6), `compression: "maximum"` (installer only). → [BUNDLE_SIZE_PLAN §2.5–2.8](BUNDLE_SIZE_PLAN.md)
 14. 🔴 S — **Write the DB to `app.getPath("userData")`.** On macOS it currently lands in `~/Library/Preferences`, where its own logs do not. Two lines now; a migration once anyone has shipped. → [MAC_RELEASE_PLAN §1.3](MAC_RELEASE_PLAN.md)
 
@@ -73,11 +80,11 @@ Config and two-line changes with measured or obvious payoff. The whole phase is 
 
 Independently shippable, and it shrinks everything downstream — fewer files to type, test, sign, and package.
 
-20. 🟡 M — **Delete `src/server/`** — 1,877 orphaned LOC, 10 removable dependencies (**−15 MB**), and `db.pdf` (684 KB, still tracked) goes with it. → [ONLINE_MODE_REMOVAL §2](ONLINE_MODE_REMOVAL.md)
-21. 🟢 S — **Delete the zero-caller code:** `src/api/axios.ts`, `googleLoginElectron.tsx`, the `login:google` handler and channel, and `journalService.chat` / `getUploadUrl` / `getMediaUrl`. → [ONLINE_MODE_REMOVAL §5](ONLINE_MODE_REMOVAL.md), [NETWORK_AUDIT §1.3–1.4](NETWORK_AUDIT.md)
-22. 🟡 S — **Remove the forgot-password link, route, and page.** Verified still linked from the login screen; it always fails. The only user-visible casualty of the current state. → [ONLINE_MODE_REMOVAL §6.1](ONLINE_MODE_REMOVAL.md)
-23. 🟢 S — **Collapse the 44 `mode === 'online'` branches**, adding the stale-`localStorage` coercion in the *same* commit or a legacy install routes into deleted code. → [ONLINE_MODE_REMOVAL §3, §7](ONLINE_MODE_REMOVAL.md)
-24. 🟡 M — **Retire the `authMode` parameter** — 151 references across 25 files. Mechanical but positional: remove it from a service and its handler in lockstep, one service at a time. Safe to defer. → [ONLINE_MODE_REMOVAL §4](ONLINE_MODE_REMOVAL.md)
+20. ✅ **Done 2026-08-28** — `src/server/` deleted. See §0.
+21. ✅ **Done 2026-08-28**, with one exception: `journalService.chat` stays, because `chat:send` has a live handler. See §0.
+22. ⚠️ **Resolved differently 2026-08-28.** The route and page were kept rather than removed, and the page rewritten to say plainly that there is no account server and therefore no password reset. A dead-end that explains itself beats a missing link. See §0.
+23. ✅ **Done 2026-08-28** — all 44 branches collapsed. The count was exact. See §0.
+24. ✅ **Done 2026-08-28** — `authMode` retired everywhere, in one pass rather than service by service. See §0.
 25. 🟢 S — **Move renderer-only libraries to `devDependencies`.** They ship twice today — once minified in the 2.6 MB bundle, once as raw source in `app.asar`. **−80 MB**, one line per package. → [BUNDLE_SIZE_PLAN §2.3](BUNDLE_SIZE_PLAN.md)
 
 ## Phase 4 — Make the quality gates real
@@ -130,10 +137,10 @@ Independently shippable, and it shrinks everything downstream — fewer files to
 ## Phase 9 — Code health
 
 52. 🟠 L — **Split the monoliths** — `journalForm.tsx` (29 KB), `ModelSettings.tsx`, `journalList.tsx`, `dashBoard.tsx`, `qdrantWorker.js`, `db/connection.js`. → [TECHNICAL_DEBT §4.1](TECHNICAL_DEBT.md)
-53. 🟡 S — **Repo hygiene** — the 0-byte `electron/services/chat.js`, the duplicate `dist` / `dist-electron` entries in `.gitignore`, and the root `test-color-db.js`. All three verified still present. → [TECHNICAL_DEBT §3](TECHNICAL_DEBT.md)
+53. 🟡 S — **Repo hygiene.** The 0-byte `electron/services/chat.js` and the root `test-color-db.js` are gone as of 2026-08-28. Still open: the duplicate `dist` / `dist-electron` entries in `.gitignore`. → [TECHNICAL_DEBT §3](TECHNICAL_DEBT.md)
 54. 🟡 S — **Tighten catch blocks** — `unknown` plus narrowing, routed to a central error handler, instead of ~95 catch-alls. → [TECHNICAL_DEBT §4.4](TECHNICAL_DEBT.md)
-55. 🟡 S — **Convert `src/utils/electronUtils.js` to TypeScript** — the only JS file in an otherwise-TS directory. → [TECHNICAL_DEBT §4.6](TECHNICAL_DEBT.md)
-56. 🟡 M — **Settle the import-extension policy** and align AGENTS.md with TECHNICAL_DEBT §4.5, which currently contradict each other. → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
+55. ✅ **Moot 2026-08-28** — the file was main-process code misfiled under `src/`. It moved to `electron/methods/authToken.js` and stays JavaScript, like the rest of `electron/`. See §0.
+56. ✅ **Done 2026-08-28** — the policy is documented as it is actually practised, and AGENTS.md was rewritten. See §0.
 57. 🟡 S — **Finish the dependency trim** — `chart.js` vs `recharts`, `date-fns` vs `dayjs`, and `react-hot-toast` vs the in-house `ToastContext` (still imported in 3 files). → [TODO §High](TODO.md)
 58. 🟢 M — **Accessibility** — 72 aria attributes across 166 buttons, and exactly one `prefers-reduced-motion` rule in a heavily animated app. No focus-trap or skip-link pattern. → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
 59. 🟢 S — **`CONTRIBUTING.md` and `CHANGELOG.md`.** → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
@@ -146,6 +153,7 @@ Each is a real architecture decision, not a cleanup. Schedule deliberately.
 61. 🟡 M — **Drop or shrink FFmpeg** — 81 MB for one job (audio → 16 kHz mono WAV). Check whether `MediaRecorder` can produce that directly before building custom binaries. **−65 to −81 MB.** → [BUNDLE_SIZE_PLAN §2.2](BUNDLE_SIZE_PLAN.md)
 62. 🔴 M — **Fetch the Whisper model on first use** instead of bundling 77 MB. Decide together with item 34 — it adds a network dependency to an otherwise-offline feature. → [BUNDLE_SIZE_PLAN §3.1](BUNDLE_SIZE_PLAN.md)
 63. 🔴 L — **Replace Qdrant with `sqlite-vec`** — deletes a 77 MB binary, a spawned process, the port-allocation dance, the `synced_to_qdrant` state machine, and the debug viewer. → [BUNDLE_SIZE_PLAN §3.2](BUNDLE_SIZE_PLAN.md)
+64. 🟡 M — **Move `resources/` out of plain git.** About 230 MB across 11 tracked binaries, no Git LFS configured. Every clone pays it and every binary update adds another full copy to history permanently. Deleting the unused Whisper executables shrank the installer, not the history. Gets harder the longer it waits. → [CODEBASE_STRUCTURE_AUDIT §4](CODEBASE_STRUCTURE_AUDIT.md)
 
 ---
 
@@ -167,7 +175,8 @@ Every item in every doc is accounted for here. Nothing was dropped silently.
 | [TECHNICAL_DEBT.md](TECHNICAL_DEBT.md) | 20 | 16, 28, 32, 52–57 · rest in §0 |
 | [TODO.md](TODO.md) | 30 | 40, 44, 46, 57 · rest in §0 or duplicated above |
 | [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) | 34 | Throughout; §0 verified table folded into §0 here |
+| [CODEBASE_STRUCTURE_AUDIT.md](CODEBASE_STRUCTURE_AUDIT.md) | 8 (P1–P8) | 20–24, 52, 64 · P4 declined · rest in §0 |
 
-**Totals by severity:** 16 🔴 · 22 🟠 · 16 🟡 · 9 🟢.
+**Totals by severity:** 56 items still open, 20 🔴 · 20 🟠 · 9 🟡 · 7 🟢, plus 8 closed on 2026-08-28 and recorded in §0. The previous line here read 16 · 22 · 16 · 9, which did not match the list even before those closures; these numbers are counted from it.
 
 **The short version.** Phases 0 and 1 are about twenty items, nearly all `S`, and they remove every known data-loss path, the worst latency cliff, and ~145 MB — before a single architectural decision is required. Phase 2 is the product's actual promise. Everything after that is a real roadmap rather than a sprint.
