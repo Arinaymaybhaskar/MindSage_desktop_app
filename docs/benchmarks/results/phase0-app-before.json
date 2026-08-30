@@ -1,0 +1,33 @@
+{
+  "label": "phase0-app-before",
+  "timestamp": "2026-08-30T01:04:33.167Z",
+  "commit": "1c21eb0e7afaaadc337a7ce8922836ea9c6d15df",
+  "branch": "main",
+  "dirty": false,
+  "machine": {
+    "platform": "win32 10.0.26200",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "app"
+  ],
+  "dbRuns": [],
+  "media": null,
+  "size": null,
+  "ai": null,
+  "vector": null,
+  "whisper": null,
+  "startup": null,
+  "app": {
+    "skipped": true,
+    "reason": "bench-app.mjs exited with code 1"
+  },
+  "bundle": null,
+  "rag": null,
+  "quality": null
+}
