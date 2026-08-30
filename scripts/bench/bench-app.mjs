@@ -166,12 +166,11 @@ try {
    * today and silently stop working the moment that is fixed.
    */
   const session = await cdp.evaluate(`(async () => {
-    const res = await window.electron.ipcRenderer.invoke("auth:login", "offline", {
+    const res = await window.electron.ipcRenderer.invoke("auth:login", {
       identifier: ${JSON.stringify(BENCH_USER.email)},
       password: ${JSON.stringify(BENCH_USER.password)},
     });
     if (!res || !res.accessToken) return { error: JSON.stringify(res) };
-    localStorage.setItem("authMode", "offline");
     localStorage.setItem("accessToken", res.accessToken);
     localStorage.setItem("userInfo", JSON.stringify(res.user ?? {}));
     return { token: res.accessToken };
@@ -189,7 +188,10 @@ try {
 
   console.log("  IPC round-trip");
 
-  const auth = ["offline", token];
+  // Just the token: the handlers took an auth mode ahead of it once, and
+  // passing the stale "offline" made every call below measure a rejection or
+  // an { error } envelope rather than the query it names.
+  const auth = [token];
   const ipcScenarios = {
     "journal:get-all (10)": ["journal:get-all", [...auth, 1, 10]],
     "journal:get-all (50)": ["journal:get-all", [...auth, 1, 50]],
