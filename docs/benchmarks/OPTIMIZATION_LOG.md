@@ -70,6 +70,7 @@ Add a row here before touching anything else.
 | 2026-08-25 | `baseline` | Nothing — first measurement of the tree as it stands | `llama3.2:latest` / `nomic-embed-text:v1.5` | Seventeen issues opened. Worst: `dashboard.stats` 1.69s, chat reply 14.06s, reads stalling 200ms under worker writes | [results/baseline.json](results/baseline.json) → [BASELINE.md](BASELINE.md) |
 | 2026-08-27 | `baseline-extra` | Nothing — ran the four stages the baseline predated (`app`, `bundle`, `rag`, `quality`) and merged them into the `baseline` record, so one file now covers all eleven | `llama3.2:latest` / `nomic-embed-text:v1.5` | Reproduced the ad-hoc figures the log already quoted: chat 14.00s p50, precision@1 0.467, 1.9 MB of JavaScript | [results/baseline-extra.json](results/baseline-extra.json) |
 | 2026-08-27 | `embeddinggemma` | Embedding model swapped, retrieval-quality stage only. **Measured, not shipped** | — / `embeddinggemma` | precision@1 0.467 → **0.733**, recall@5 → 0.933, MRR → 0.867. Costs −20% embedding throughput and +347 MB on disk. See [SEARCH-1](#candidate-measured-embeddinggemma) | [results/embeddinggemma.json](results/embeddinggemma.json) → [comparison](COMPARISON-baseline-vs-embeddinggemma.md) |
+| 2026-08-30 | `phase0-after` | Phase 0 database work: the schema moved behind an ordered migration list applied against `PRAGMA user_version`, a `VACUUM INTO` snapshot is taken before the first migration, and `PRAGMA foreign_keys` moved to connection scope so the Qdrant worker's own handle finally enforces it | — | **No effect detectable.** Every delta against `phase0-before` was smaller than this machine's noise on the day. See [PHASE0](#phase0--schema-migrations-and-worker-foreign-keys-measured-no-detectable-effect) | [results/phase0-after.json](results/phase0-after.json) → [comparison](COMPARISON-phase0-before-vs-phase0-after.md) |
 
 All runs so far are on the same machine: i5-9300H / 16 GB / Windows 11.
 
@@ -655,3 +656,46 @@ Three items remain deliberately manual, with the reasoning recorded in
 | Live transcription lag | Needs audio played into the mic through a virtual audio device. Already bounded by RTF 0.11 and the 1.40s spawn cost. |
 | First-run model download | 274 MB, bandwidth-bound. Measures the network, not the code. |
 | Installer run time | Would install and uninstall the app on every run; dominated by antivirus and disk state. |
+
+---
+
+## PHASE0 — schema migrations and worker foreign keys (measured: no detectable effect)
+
+**Not an optimisation.** Phase 0 exists to stop data loss, and this entry is
+here because the house rule is that anything which could move a number gets
+measured. Two changes could plausibly have:
+
+- `initDatabase()` no longer re-executes the whole schema on every launch. It
+  now runs only the migrations newer than `PRAGMA user_version`, which on an
+  up-to-date install is none.
+- `PRAGMA foreign_keys = ON` moved from inside the DDL to connection scope.
+  The main connection always had it; the **Qdrant worker's connection never
+  did**, so the worker has been writing with foreign keys off and now pays for
+  enforcement on every insert. That was the change most likely to cost
+  something, and the reason for measuring rather than assuming.
+
+**Result: nothing measurable, and the run cannot resolve anything smaller than
+roughly an order of magnitude.**
+
+The first comparison looked alarming — `write.create` 2.1× slower and
+`contention.listWhileWorkerWrites` 2.0× slower at 50,000 entries, which fits
+the foreign-key hypothesis neatly. It also showed contention **2.5× faster** at
+5,000 entries from the same code, which does not fit anything.
+
+So the same branch was measured against itself
+([comparison](COMPARISON-phase0-after-vs-phase0-after-2.md)). With **no code
+change at all**, that run reports `write.create` **13.2× slower** and
+`contention.listWhileWorkerWrites` **5.2× slower**, and twelve measurements
+"got worse". The noise floor is larger than every delta in the real
+before/after, so the real before/after establishes nothing in either direction.
+
+Two caveats on the record, so nobody quotes these numbers later:
+
+- The machine was busy. Electron, a Vite dev server and Qdrant had been
+  starting and stopping across the session. A trustworthy figure needs a quiet
+  machine and repeated runs.
+- **The dashboard change is not covered here.** Collapsing five sequential IPC
+  reads into one `Promise.allSettled` batch is a renderer-to-main change, so it
+  belongs to the `app` / `ipc` stages, which need the running app and were not
+  run. Expect it to save a few IPC round trips, which is well inside the noise
+  shown above; it was made for correctness, not speed.
