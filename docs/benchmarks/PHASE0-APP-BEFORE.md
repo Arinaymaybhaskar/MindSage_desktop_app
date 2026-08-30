@@ -1,6 +1,6 @@
 # MindSage — Benchmark: `phase0-app-before`
 
-**Run:** 2026-08-30T01:05:37.445Z
+**Run:** 2026-08-30T01:06:52.745Z
 **Machine:** Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz · 8 cores · 15.84 GB RAM · win32 10.0.26200
 **Runtime:** Node 24.19.0
 
@@ -59,28 +59,28 @@ Measured against a generated profile of **5,000 entries**.
 
 | Measurement | p50 | p95 | Payload / detail |
 | --- | --- | --- | --- |
-| `ipc.journal:get-all (10)` | error | - | Error invoking remote method 'journal:get-all': TypeError: Cannot read properties of null (reading 'id') |
-| `ipc.journal:get-all (50)` | error | - | Error invoking remote method 'journal:get-all': TypeError: Cannot read properties of null (reading 'id') |
-| `ipc.journal:get-recent` | error | - | Error invoking remote method 'journal:get-recent': TypeError: Cannot read properties of null (reading 'id') |
-| `ipc.journal:get-images (top)` | error | - | Error invoking remote method 'journal:get-images': TypeError: Cannot read properties of null (reading 'id') |
-| `ipc.dashboard:get-data` | 0.30ms | 0.40ms | 25 B |
-| `ipc.dashboard:get-stats` | 0.30ms | 0.50ms | 25 B |
-| `ipc.goal:get-active-goals` | 0.30ms | 0.50ms | 25 B |
-| `media.getImage` | 1.00ms | 1.90ms | 122.5 KB |
-| `media.getThumbnail` | 0.80ms | 1.80ms | 4.7 KB |
-| `render.dashboardSettle` | 359ms | 452ms | - |
+| `ipc.journal:get-all (10)` | 10ms | 21ms | 21.5 KB |
+| `ipc.journal:get-all (50)` | 11ms | 13ms | 111.7 KB |
+| `ipc.journal:get-recent` | 9.40ms | 12ms | 6.9 KB |
+| `ipc.journal:get-images (top)` | 2.10ms | 2.50ms | 667 B |
+| `ipc.dashboard:get-data` | 8.40ms | 10ms | 7.5 KB |
+| `ipc.dashboard:get-stats` | 66ms | 70ms | 494 B |
+| `ipc.goal:get-active-goals` | 0.40ms | 0.40ms | 2 B |
+| `media.getImage` | 0.90ms | 1.40ms | 122.5 KB |
+| `media.getThumbnail` | 0.70ms | 0.80ms | 4.7 KB |
+| `render.dashboardSettle` | 367ms | 440ms | - |
 
 **Journal list scrolling**
 
 | Frame p50 | Frame p95 | Dropped frames | DOM nodes |
 | --- | --- | --- | --- |
-| 5.60ms | 10ms | 16/941 (1.7%) | 4185 |
+| 5.60ms | 11ms | 17/946 (1.8%) | 4185 |
 
 **Memory across three passes over five routes**
 
 | Start RSS | End RSS | Change |
 | --- | --- | --- |
-| 675.6 MB | 657.2 MB | 18.4 MB |
+| 679.0 MB | 614.9 MB | 64.1 MB |
 
 _Three passes over five routes. Growth here is not proof of a leak - caches warm too._
 

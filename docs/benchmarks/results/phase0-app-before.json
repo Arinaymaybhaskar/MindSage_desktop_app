@@ -1,7 +1,7 @@
 {
   "label": "phase0-app-before",
-  "timestamp": "2026-08-30T01:05:37.445Z",
-  "commit": "6d3a795c83a86b5af43f7a657236f2a965ab19ac",
+  "timestamp": "2026-08-30T01:06:52.745Z",
+  "commit": "8229a6fa6d4c389ab5b8761d2fba77df300adf7e",
   "branch": "fix/bench-harness-login",
   "dirty": false,
   "machine": {
@@ -28,81 +28,105 @@
     "runs": 20,
     "results": {
       "ipc.journal:get-all (10)": {
-        "error": "Error invoking remote method 'journal:get-all': TypeError: Cannot read properties of null (reading 'id')"
+        "n": 20,
+        "min": 9.5,
+        "p50": 10.3,
+        "p95": 20.5,
+        "max": 21.6,
+        "mean": 12.43,
+        "payloadBytes": 22057
       },
       "ipc.journal:get-all (50)": {
-        "error": "Error invoking remote method 'journal:get-all': TypeError: Cannot read properties of null (reading 'id')"
+        "n": 20,
+        "min": 10.8,
+        "p50": 11.4,
+        "p95": 12.8,
+        "max": 14,
+        "mean": 11.68,
+        "payloadBytes": 114385
       },
       "ipc.journal:get-recent": {
-        "error": "Error invoking remote method 'journal:get-recent': TypeError: Cannot read properties of null (reading 'id')"
+        "n": 20,
+        "min": 8.7,
+        "p50": 9.4,
+        "p95": 11.5,
+        "max": 11.6,
+        "mean": 9.605,
+        "payloadBytes": 7104
       },
       "ipc.journal:get-images (top)": {
-        "error": "Error invoking remote method 'journal:get-images': TypeError: Cannot read properties of null (reading 'id')"
+        "n": 20,
+        "min": 1.7,
+        "p50": 2.1,
+        "p95": 2.5,
+        "max": 2.8,
+        "mean": 2.145,
+        "payloadBytes": 667
       },
       "ipc.dashboard:get-data": {
         "n": 20,
-        "min": 0.2,
-        "p50": 0.3,
-        "p95": 0.4,
-        "max": 1.2,
-        "mean": 0.385,
-        "payloadBytes": 25
+        "min": 6.7,
+        "p50": 8.4,
+        "p95": 10.2,
+        "max": 11.4,
+        "mean": 8.595,
+        "payloadBytes": 7694
       },
       "ipc.dashboard:get-stats": {
         "n": 20,
-        "min": 0.2,
-        "p50": 0.3,
-        "p95": 0.5,
-        "max": 1.2,
-        "mean": 0.375,
-        "payloadBytes": 25
+        "min": 64.8,
+        "p50": 65.6,
+        "p95": 70.3,
+        "max": 71.5,
+        "mean": 66.505,
+        "payloadBytes": 494
       },
       "ipc.goal:get-active-goals": {
         "n": 20,
-        "min": 0.2,
-        "p50": 0.3,
-        "p95": 0.5,
-        "max": 0.9,
+        "min": 0.3,
+        "p50": 0.4,
+        "p95": 0.4,
+        "max": 0.4,
         "mean": 0.36,
-        "payloadBytes": 25
+        "payloadBytes": 2
       },
       "media.getImage": {
         "n": 6,
-        "min": 0.9,
-        "p50": 1,
-        "p95": 1.9,
-        "max": 1.9,
-        "mean": 1.267,
+        "min": 0.8,
+        "p50": 0.9,
+        "p95": 1.4,
+        "max": 1.4,
+        "mean": 1,
         "payloadBytes": 125483
       },
       "media.getThumbnail": {
         "n": 6,
-        "min": 0.7,
-        "p50": 0.8,
-        "p95": 1.8,
-        "max": 1.8,
-        "mean": 0.967,
+        "min": 0.6,
+        "p50": 0.7,
+        "p95": 0.8,
+        "max": 0.8,
+        "mean": 0.7,
         "payloadBytes": 4823
       },
       "render.dashboardSettle": {
         "n": 5,
-        "min": 331.1,
-        "p50": 358.5,
-        "p95": 452.1,
-        "max": 452.1,
-        "mean": 369.28,
+        "min": 327.2,
+        "p50": 366.5,
+        "p95": 439.6,
+        "max": 439.6,
+        "mean": 374.26,
         "note": "Time until rendered text stops changing, minus a 200ms stability window."
       },
       "render.journalListScroll": {
-        "n": 941,
-        "min": 0.7,
+        "n": 946,
+        "min": 0.5,
         "p50": 5.6,
-        "p95": 10.4,
+        "p95": 11,
         "max": 46.2,
-        "mean": 6.655,
-        "framesSampled": 941,
-        "droppedFrames": 16,
-        "droppedPercent": 1.7,
+        "mean": 6.67,
+        "framesSampled": 946,
+        "droppedFrames": 17,
+        "droppedPercent": 1.8,
         "domNodes": 4185,
         "cardsRendered": 0
       },
@@ -111,99 +135,99 @@
           {
             "cycle": 0,
             "route": "#/dashboard",
-            "rssBytes": 708440064,
-            "heapBytes": 17100000
+            "rssBytes": 711974912,
+            "heapBytes": 31200000
           },
           {
             "cycle": 0,
             "route": "#/journals",
-            "rssBytes": 710656000,
-            "heapBytes": 17100000
+            "rssBytes": 711434240,
+            "heapBytes": 31200000
           },
           {
             "cycle": 0,
             "route": "#/goals",
-            "rssBytes": 711278592,
-            "heapBytes": 17100000
+            "rssBytes": 712613888,
+            "heapBytes": 31200000
           },
           {
             "cycle": 0,
             "route": "#/memories",
-            "rssBytes": 712617984,
-            "heapBytes": 17100000
+            "rssBytes": 714813440,
+            "heapBytes": 31200000
           },
           {
             "cycle": 0,
             "route": "#/chat",
-            "rssBytes": 713138176,
-            "heapBytes": 17100000
+            "rssBytes": 714698752,
+            "heapBytes": 31200000
           },
           {
             "cycle": 1,
             "route": "#/dashboard",
-            "rssBytes": 694632448,
-            "heapBytes": 17100000
+            "rssBytes": 695316480,
+            "heapBytes": 31200000
           },
           {
             "cycle": 1,
             "route": "#/journals",
-            "rssBytes": 691638272,
-            "heapBytes": 17100000
+            "rssBytes": 694247424,
+            "heapBytes": 31200000
           },
           {
             "cycle": 1,
             "route": "#/goals",
-            "rssBytes": 690880512,
-            "heapBytes": 17100000
+            "rssBytes": 692547584,
+            "heapBytes": 31200000
           },
           {
             "cycle": 1,
             "route": "#/memories",
-            "rssBytes": 690393088,
-            "heapBytes": 17100000
+            "rssBytes": 692113408,
+            "heapBytes": 31200000
           },
           {
             "cycle": 1,
             "route": "#/chat",
-            "rssBytes": 689102848,
-            "heapBytes": 17100000
+            "rssBytes": 691961856,
+            "heapBytes": 31200000
           },
           {
             "cycle": 2,
             "route": "#/dashboard",
-            "rssBytes": 689106944,
-            "heapBytes": 17100000
+            "rssBytes": 691339264,
+            "heapBytes": 31200000
           },
           {
             "cycle": 2,
             "route": "#/journals",
-            "rssBytes": 689111040,
-            "heapBytes": 17100000
+            "rssBytes": 691347456,
+            "heapBytes": 31200000
           },
           {
             "cycle": 2,
             "route": "#/goals",
-            "rssBytes": 689123328,
-            "heapBytes": 17100000
+            "rssBytes": 691314688,
+            "heapBytes": 31200000
           },
           {
             "cycle": 2,
             "route": "#/memories",
-            "rssBytes": 689106944,
-            "heapBytes": 17100000
+            "rssBytes": 691281920,
+            "heapBytes": 31200000
           },
           {
             "cycle": 2,
             "route": "#/chat",
-            "rssBytes": 689111040,
-            "heapBytes": 17100000
+            "rssBytes": 644796416,
+            "heapBytes": 31200000
           }
         ],
-        "startRssBytes": 708440064,
-        "endRssBytes": 689111040,
-        "growthBytes": -19329024,
-        "startHeapBytes": 17100000,
-        "endHeapBytes": 17100000,
+        "startRssBytes": 711974912,
+        "endRssBytes": 644796416,
+        "growthBytes": -67178496,
+        "startHeapBytes": 31200000,
+        "endHeapBytes": 31200000,
         "note": "Three passes over five routes. Growth here is not proof of a leak - caches warm too."
       }
     }
