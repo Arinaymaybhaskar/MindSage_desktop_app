@@ -1,0 +1,214 @@
+{
+  "label": "phase0-app-before",
+  "timestamp": "2026-08-30T01:05:37.445Z",
+  "commit": "6d3a795c83a86b5af43f7a657236f2a965ab19ac",
+  "branch": "fix/bench-harness-login",
+  "dirty": false,
+  "machine": {
+    "platform": "win32 10.0.26200",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "app"
+  ],
+  "dbRuns": [],
+  "media": null,
+  "size": null,
+  "ai": null,
+  "vector": null,
+  "whisper": null,
+  "startup": null,
+  "app": {
+    "entries": 5000,
+    "runs": 20,
+    "results": {
+      "ipc.journal:get-all (10)": {
+        "error": "Error invoking remote method 'journal:get-all': TypeError: Cannot read properties of null (reading 'id')"
+      },
+      "ipc.journal:get-all (50)": {
+        "error": "Error invoking remote method 'journal:get-all': TypeError: Cannot read properties of null (reading 'id')"
+      },
+      "ipc.journal:get-recent": {
+        "error": "Error invoking remote method 'journal:get-recent': TypeError: Cannot read properties of null (reading 'id')"
+      },
+      "ipc.journal:get-images (top)": {
+        "error": "Error invoking remote method 'journal:get-images': TypeError: Cannot read properties of null (reading 'id')"
+      },
+      "ipc.dashboard:get-data": {
+        "n": 20,
+        "min": 0.2,
+        "p50": 0.3,
+        "p95": 0.4,
+        "max": 1.2,
+        "mean": 0.385,
+        "payloadBytes": 25
+      },
+      "ipc.dashboard:get-stats": {
+        "n": 20,
+        "min": 0.2,
+        "p50": 0.3,
+        "p95": 0.5,
+        "max": 1.2,
+        "mean": 0.375,
+        "payloadBytes": 25
+      },
+      "ipc.goal:get-active-goals": {
+        "n": 20,
+        "min": 0.2,
+        "p50": 0.3,
+        "p95": 0.5,
+        "max": 0.9,
+        "mean": 0.36,
+        "payloadBytes": 25
+      },
+      "media.getImage": {
+        "n": 6,
+        "min": 0.9,
+        "p50": 1,
+        "p95": 1.9,
+        "max": 1.9,
+        "mean": 1.267,
+        "payloadBytes": 125483
+      },
+      "media.getThumbnail": {
+        "n": 6,
+        "min": 0.7,
+        "p50": 0.8,
+        "p95": 1.8,
+        "max": 1.8,
+        "mean": 0.967,
+        "payloadBytes": 4823
+      },
+      "render.dashboardSettle": {
+        "n": 5,
+        "min": 331.1,
+        "p50": 358.5,
+        "p95": 452.1,
+        "max": 452.1,
+        "mean": 369.28,
+        "note": "Time until rendered text stops changing, minus a 200ms stability window."
+      },
+      "render.journalListScroll": {
+        "n": 941,
+        "min": 0.7,
+        "p50": 5.6,
+        "p95": 10.4,
+        "max": 46.2,
+        "mean": 6.655,
+        "framesSampled": 941,
+        "droppedFrames": 16,
+        "droppedPercent": 1.7,
+        "domNodes": 4185,
+        "cardsRendered": 0
+      },
+      "memory.overSession": {
+        "samples": [
+          {
+            "cycle": 0,
+            "route": "#/dashboard",
+            "rssBytes": 708440064,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 0,
+            "route": "#/journals",
+            "rssBytes": 710656000,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 0,
+            "route": "#/goals",
+            "rssBytes": 711278592,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 0,
+            "route": "#/memories",
+            "rssBytes": 712617984,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 0,
+            "route": "#/chat",
+            "rssBytes": 713138176,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/dashboard",
+            "rssBytes": 694632448,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/journals",
+            "rssBytes": 691638272,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/goals",
+            "rssBytes": 690880512,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/memories",
+            "rssBytes": 690393088,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 1,
+            "route": "#/chat",
+            "rssBytes": 689102848,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/dashboard",
+            "rssBytes": 689106944,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/journals",
+            "rssBytes": 689111040,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/goals",
+            "rssBytes": 689123328,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/memories",
+            "rssBytes": 689106944,
+            "heapBytes": 17100000
+          },
+          {
+            "cycle": 2,
+            "route": "#/chat",
+            "rssBytes": 689111040,
+            "heapBytes": 17100000
+          }
+        ],
+        "startRssBytes": 708440064,
+        "endRssBytes": 689111040,
+        "growthBytes": -19329024,
+        "startHeapBytes": 17100000,
+        "endHeapBytes": 17100000,
+        "note": "Three passes over five routes. Growth here is not proof of a leak - caches warm too."
+      }
+    }
+  },
+  "bundle": null,
+  "rag": null,
+  "quality": null
+}
