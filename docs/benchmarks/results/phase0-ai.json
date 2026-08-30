@@ -1,0 +1,278 @@
+{
+  "label": "phase0-ai",
+  "timestamp": "2026-08-30T01:26:54.532Z",
+  "commit": "c2622993f784ca7508a5277c119e19f9a9bca115",
+  "branch": "fix/db-backup-and-migrations",
+  "dirty": false,
+  "machine": {
+    "platform": "win32 10.0.26200",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "ai",
+    "vector"
+  ],
+  "dbRuns": [],
+  "media": null,
+  "size": null,
+  "ai": {
+    "ollama": {
+      "chatModel": "llama3.2:latest",
+      "embedModel": "nomic-embed-text:v1.5",
+      "modelsAvailable": [
+        {
+          "name": "embeddinggemma:latest",
+          "sizeBytes": 621875917
+        },
+        {
+          "name": "nomic-embed-text:v1.5",
+          "sizeBytes": 274302450
+        },
+        {
+          "name": "llama3.2:latest",
+          "sizeBytes": 2019393189
+        }
+      ]
+    },
+    "runs": 5,
+    "embedRuns": 15,
+    "notes": {
+      "coldStart": "Single sample each. Cold = first call after an explicit keep_alive:0 unload."
+    },
+    "results": {
+      "embed.title": {
+        "n": 14,
+        "min": 16.676,
+        "p50": 18.507,
+        "p95": 22.148,
+        "max": 22.148,
+        "mean": 18.932,
+        "dimensions": 768,
+        "inputChars": 28
+      },
+      "embed.short": {
+        "n": 14,
+        "min": 36.918,
+        "p50": 38.186,
+        "p95": 45.581,
+        "max": 45.581,
+        "mean": 40.494,
+        "dimensions": 768,
+        "inputChars": 115
+      },
+      "embed.medium": {
+        "n": 14,
+        "min": 94.805,
+        "p50": 95.937,
+        "p95": 113.012,
+        "max": 113.012,
+        "mean": 97.4,
+        "dimensions": 768,
+        "inputChars": 787
+      },
+      "embed.long": {
+        "n": 14,
+        "min": 215.155,
+        "p50": 216.757,
+        "p95": 284.175,
+        "max": 284.175,
+        "mean": 223.946,
+        "dimensions": 768,
+        "inputChars": 2310
+      },
+      "embed.sustainedThroughput": {
+        "embeddingsPerSec": 10.33,
+        "msPerEmbedding": 96.8
+      },
+      "embed.projectedBacklog": {
+        "150 entries": "0.2 min",
+        "5000 entries": "8.1 min",
+        "50000 entries": "80.7 min"
+      },
+      "generate.coldStart": {
+        "n": 1,
+        "wallMs": 5727,
+        "loadMs": 5550
+      },
+      "generate.warm": {
+        "n": 1,
+        "wallMs": 208,
+        "loadMs": 181
+      },
+      "enrich.metadata.short": {
+        "n": 5,
+        "min": 2395.407,
+        "p50": 2713.532,
+        "p95": 4097.746,
+        "max": 4097.746,
+        "mean": 2952.531,
+        "parseSuccessRate": "5/5",
+        "tokensPerSec": 57.4
+      },
+      "enrich.summary.short": {
+        "skipped": true,
+        "reason": "below MIN_SUMMARY_WORDS (25) - the app skips this path"
+      },
+      "enrich.metadata.medium": {
+        "n": 5,
+        "min": 2371.45,
+        "p50": 2680.327,
+        "p95": 3043.41,
+        "max": 3043.41,
+        "mean": 2711.774,
+        "parseSuccessRate": "5/5",
+        "tokensPerSec": 55.3
+      },
+      "enrich.summary.medium": {
+        "n": 5,
+        "min": 1249.186,
+        "p50": 1392.971,
+        "p95": 2309.809,
+        "max": 2309.809,
+        "mean": 1559.802,
+        "usableRate": "5/5"
+      },
+      "enrich.metadata.long": {
+        "n": 5,
+        "min": 2746.595,
+        "p50": 2854.731,
+        "p95": 6366.751,
+        "max": 6366.751,
+        "mean": 3538.706,
+        "parseSuccessRate": "5/5",
+        "tokensPerSec": 53.9
+      },
+      "enrich.summary.long": {
+        "n": 5,
+        "min": 1075.658,
+        "p50": 1167.899,
+        "p95": 3048.931,
+        "max": 3048.931,
+        "mean": 1577.662,
+        "usableRate": "5/5"
+      },
+      "enrich.endToEnd.medium": {
+        "n": 5,
+        "min": 6349.468,
+        "p50": 6627.096,
+        "p95": 6746.645,
+        "max": 6746.645,
+        "mean": 6565.849,
+        "lastBreakdown": {
+          "metadataMs": 4166,
+          "summaryMs": 2080,
+          "embeddingMs": 103
+        }
+      },
+      "chat.timeToFirstToken": {
+        "n": 5,
+        "min": 330.903,
+        "p50": 374.491,
+        "p95": 1006.539,
+        "max": 1006.539,
+        "mean": 495.511
+      },
+      "chat.totalGeneration": {
+        "n": 5,
+        "min": 4286.566,
+        "p50": 4597.83,
+        "p95": 5490.313,
+        "max": 5490.313,
+        "mean": 4716.341,
+        "tokensPerSec": 66.7
+      },
+      "ghostText.suggestion": {
+        "n": 15,
+        "min": 272.969,
+        "p50": 348.615,
+        "p95": 589.237,
+        "max": 589.237,
+        "mean": 376.579,
+        "budgetNote": "Fires while the user types. Above a few hundred ms the suggestion arrives after the thought and is worse than absent."
+      },
+      "ollamaList.execSyncBlock": {
+        "error": "ollama CLI not on PATH"
+      }
+    }
+  },
+  "vector": {
+    "dimensions": 768,
+    "sizes": [
+      150,
+      5000,
+      50000
+    ],
+    "results": {
+      "qdrant.startupToReady": {
+        "n": 1,
+        "wallMs": 321
+      },
+      "qdrant.rssIdle": {
+        "bytes": 45662208
+      },
+      "upsert.to150": {
+        "added": 150,
+        "seconds": 0.1,
+        "vectorsPerSec": 1458
+      },
+      "search.at150": {
+        "n": 30,
+        "min": 1.26,
+        "p50": 1.903,
+        "p95": 7.336,
+        "max": 9.088,
+        "mean": 2.24
+      },
+      "qdrant.rssAt150": {
+        "bytes": 63037440
+      },
+      "upsert.to5000": {
+        "added": 4850,
+        "seconds": 1.5,
+        "vectorsPerSec": 3169
+      },
+      "search.at5000": {
+        "n": 30,
+        "min": 2.037,
+        "p50": 2.163,
+        "p95": 2.575,
+        "max": 2.731,
+        "mean": 2.22
+      },
+      "qdrant.rssAt5000": {
+        "bytes": 96759808
+      },
+      "upsert.to50000": {
+        "added": 45000,
+        "seconds": 21.3,
+        "vectorsPerSec": 2108
+      },
+      "search.at50000": {
+        "n": 30,
+        "min": 3.338,
+        "p50": 4.097,
+        "p95": 6.079,
+        "max": 15.94,
+        "mean": 4.732
+      },
+      "qdrant.rssAt50000": {
+        "bytes": 399888384
+      },
+      "qdrant.storageOnDisk": {
+        "bytes": 754510027,
+        "vectors": 50000
+      }
+    }
+  },
+  "whisper": null,
+  "startup": null,
+  "app": null,
+  "bundle": null,
+  "rag": null,
+  "quality": null
+}

@@ -1,0 +1,346 @@
+{
+  "label": "phase0-rag",
+  "timestamp": "2026-08-30T01:30:02.179Z",
+  "commit": "c2622993f784ca7508a5277c119e19f9a9bca115",
+  "branch": "fix/db-backup-and-migrations",
+  "dirty": true,
+  "machine": {
+    "platform": "win32 10.0.26200",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "rag",
+    "quality"
+  ],
+  "dbRuns": [],
+  "media": null,
+  "size": null,
+  "ai": null,
+  "vector": null,
+  "whisper": null,
+  "startup": null,
+  "app": null,
+  "bundle": null,
+  "rag": {
+    "chatModel": "llama3.2:latest",
+    "embedModel": "nomic-embed-text:v1.5",
+    "corpusSize": 60,
+    "runs": 3,
+    "results": {
+      "rag.1.queryPlanning": {
+        "n": 9,
+        "min": 4097.32,
+        "p50": 4631.489,
+        "p95": 6850.915,
+        "max": 6850.915,
+        "mean": 4760.485,
+        "planParseRate": "9/9"
+      },
+      "rag.2.embedding": {
+        "n": 9,
+        "min": 20.714,
+        "p50": 53.046,
+        "p95": 59.409,
+        "max": 59.409,
+        "mean": 43.335
+      },
+      "rag.3.vectorSearch": {
+        "n": 9,
+        "min": 2.531,
+        "p50": 3.577,
+        "p95": 5.04,
+        "max": 5.04,
+        "mean": 3.615
+      },
+      "rag.4.answerGeneration": {
+        "n": 9,
+        "min": 5770.062,
+        "p50": 7126.839,
+        "p95": 7405.461,
+        "max": 7405.461,
+        "mean": 6771.388
+      },
+      "rag.total": {
+        "n": 9,
+        "min": 9918.481,
+        "p50": 11661.217,
+        "p95": 14128.781,
+        "max": 14128.781,
+        "mean": 11578.856
+      },
+      "rag.shareOfTotal": {
+        "rag.1.queryPlanning": "39.7%",
+        "rag.2.embedding": "0.5%",
+        "rag.3.vectorSearch": "0%",
+        "rag.4.answerGeneration": "61.1%"
+      }
+    }
+  },
+  "quality": {
+    "summary": {
+      "embedModel": "nomic-embed-text:v1.5",
+      "taskPrefixes": false,
+      "k": 5,
+      "corpusEntries": 18,
+      "queries": 15,
+      "recall@5": 0.767,
+      "mrr": 0.644,
+      "precision@1": 0.467
+    },
+    "perQuery": [
+      {
+        "query": "What have I written about my knee?",
+        "relevant": [
+          1
+        ],
+        "returned": [
+          13,
+          1,
+          15,
+          6,
+          14
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.5,
+        "topHitRelevant": false
+      },
+      {
+        "query": "When did I last talk to my sister?",
+        "relevant": [
+          2
+        ],
+        "returned": [
+          2,
+          13,
+          14,
+          5,
+          6
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Notes about things going wrong at work",
+        "relevant": [
+          3,
+          16
+        ],
+        "returned": [
+          14,
+          8,
+          3,
+          10,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 0.33,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Am I sleeping badly?",
+        "relevant": [
+          4,
+          17
+        ],
+        "returned": [
+          4,
+          13,
+          17,
+          3,
+          11
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "What is my mum up to these days?",
+        "relevant": [
+          5
+        ],
+        "returned": [
+          14,
+          2,
+          17,
+          5,
+          4
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.25,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Have I been reading anything?",
+        "relevant": [
+          6,
+          18
+        ],
+        "returned": [
+          6,
+          4,
+          14,
+          15,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Times I spent time outdoors",
+        "relevant": [
+          7,
+          15
+        ],
+        "returned": [
+          7,
+          15,
+          14,
+          5,
+          6
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Do I struggle to accept compliments?",
+        "relevant": [
+          8,
+          16
+        ],
+        "returned": [
+          8,
+          10,
+          15,
+          4,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "What am I worried about financially?",
+        "relevant": [
+          9
+        ],
+        "returned": [
+          9,
+          4,
+          14,
+          13,
+          8
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Am I looking after myself during the workday?",
+        "relevant": [
+          10,
+          4
+        ],
+        "returned": [
+          11,
+          7,
+          10,
+          14,
+          4
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.33,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Thoughts about where I live",
+        "relevant": [
+          11
+        ],
+        "returned": [
+          14,
+          11,
+          5,
+          13,
+          18
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.5,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Anything about cooking or food I made",
+        "relevant": [
+          12
+        ],
+        "returned": [
+          5,
+          10,
+          11,
+          13,
+          4
+        ],
+        "recall": 0,
+        "reciprocalRank": 0,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Have I been to any medical appointments?",
+        "relevant": [
+          13,
+          1
+        ],
+        "returned": [
+          7,
+          13,
+          18,
+          17,
+          14
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 0.5,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Which friendships have been on my mind?",
+        "relevant": [
+          14,
+          2
+        ],
+        "returned": [
+          6,
+          15,
+          10,
+          14,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 0.25,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Have I been drinking less?",
+        "relevant": [
+          17
+        ],
+        "returned": [
+          17,
+          4,
+          13,
+          14,
+          7
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      }
+    ]
+  }
+}
