@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Login from "./pages/auth/login";
+import Profiles from "./pages/auth/profiles";
 import PrivateRoute from "./routes/privateRoute";
 import Dashboard from "./pages/dashBoard";
 import Register from "./pages/auth/register";
@@ -144,6 +145,7 @@ function AppLayout() {
   }, [navigate]);
   const isAuthPage =
     location.pathname === "/login" ||
+    location.pathname === "/profiles" ||
     location.pathname === "/register" ||
     location.pathname === "/forgot-password" ||
     location.pathname === "/reset-password" ||
@@ -248,6 +250,7 @@ function AppLayout() {
                   />
                 )}
                 <Route path="/register" element={<Register />} />
+                <Route path="/profiles" element={<Profiles />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 {/* CHANGED: The root path "/" now renders JournalForm. */}

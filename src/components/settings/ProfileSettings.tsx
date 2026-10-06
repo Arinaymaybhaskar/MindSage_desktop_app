@@ -141,7 +141,6 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
         }>("media:save-profile", {
           arrayBuffer,
           filename: selectedFile.name,
-          userId: user?.id,
         });
         finalImagePath = res?.path ?? finalImagePath;
       } else if (!previewSrc) {

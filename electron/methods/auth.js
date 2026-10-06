@@ -1,6 +1,7 @@
 import Store from "electron-store";
 import { ipcMain } from "electron";
 import localDB from "../db/index.js";
+import { getThumbnailBase64 } from "./media.js";
 import bcrypt from "bcryptjs";
 import {
   currentUserId,
@@ -50,6 +51,30 @@ export const handleGetSession = async () => {
   } catch {
     return { userInfo: null };
   }
+};
+
+/**
+ * The accounts to offer on the profile picker, each with a small avatar
+ * already encoded, so the picker needs no other handler to draw itself.
+ */
+export const handleListProfiles = async () => {
+  let rows = [];
+  try {
+    rows = localDB.listProfiles();
+  } catch {
+    // The schema may not exist yet on a first launch.
+    return [];
+  }
+  return Promise.all(
+    rows.map(async (row) => ({
+      id: row.id,
+      username: row.username,
+      full_name: row.full_name || null,
+      avatar: row.profile_picture
+        ? await getThumbnailBase64(row.profile_picture, 192).catch(() => null)
+        : null,
+    })),
+  );
 };
 
 export const handleLogout = async () => {
@@ -134,6 +159,7 @@ export const handleCheckUsername = async (event, username) => {
  */
 export function registerSessionIPC() {
   ipcMain.handle("auth:get-session", handleGetSession);
+  ipcMain.handle("auth:list-profiles", handleListProfiles);
   ipcMain.handle("auth:logout", handleLogout);
   ipcMain.handle("auth:adopt-legacy-session", handleAdoptLegacySession);
 }

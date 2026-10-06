@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld("electron", {
       const validChannels = [
         "auth:check-username",
         "auth:get-session",
+        "auth:list-profiles",
         "auth:logout",
         "auth:adopt-legacy-session",
         "db:upsertJournalEntry",

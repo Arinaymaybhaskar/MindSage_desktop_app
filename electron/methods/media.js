@@ -5,6 +5,7 @@ import path from "node:path";
 import localDB from "../db/index.js";
 import ffmpegPath from "ffmpeg-static";
 import { spawn } from "child_process";
+import { currentUserId } from "../session.js";
 
 export async function getImageBase64(imagePath) {
   try {
@@ -204,10 +205,10 @@ export async function handleOpenMedia(event, filePath) {
 }
 
 // NEW: save profile image without attempting to link to journal DB
-export async function handleSaveProfileImage(
-  event,
-  { arrayBuffer, filename, userId },
-) {
+export async function handleSaveProfileImage(event, { arrayBuffer, filename }) {
+  // The picture belongs to whoever is signed in. The renderer used to name the
+  // user id itself, which let any caller set any account's picture.
+  const userId = currentUserId();
   try {
     const buffer = Buffer.from(arrayBuffer);
     const mediaDir = path.join(app.getPath("userData"), "media", "profile");
@@ -218,7 +219,7 @@ export async function handleSaveProfileImage(
 
     fs.writeFileSync(destPath, buffer);
 
-    // If caller provided a userId, persist the profile_picture path to users table.
+    // Persist the profile_picture path to the signed-in user's row.
     if (userId) {
       try {
         if (typeof localDB.updateUser === "function") {

@@ -105,7 +105,7 @@ export const ProfileDropdown: React.FC = () => {
     // that did not reset any state. Reloading also throws away the colour
     // theme and zoom that logout now deliberately leaves alone.
     if (logout) logout();
-    navigate("/login");
+    navigate("/profiles");
   };
 
   const displayName = user?.full_name || user?.username;

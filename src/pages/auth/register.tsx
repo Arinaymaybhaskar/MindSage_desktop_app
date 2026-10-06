@@ -171,7 +171,8 @@ export default function Register() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       await authService.register(payload);
-      navigate("/login");
+      // Straight to the new profile's password, not back to the full grid.
+      navigate("/profiles", { state: { select: form.username } });
     } catch (err) {
       console.log(err);
       setError("Registration failed. Try a different username or email.");
@@ -405,7 +406,7 @@ export default function Register() {
             Already have an account?{" "}
           </span>
           <Link
-            to="/login"
+            to="/profiles"
             className="font-medium text-dark1 dark:text-light1 hover:text-dark1 dark:text-light1/90"
           >
             Login
