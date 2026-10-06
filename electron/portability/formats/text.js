@@ -48,7 +48,7 @@ export const text = {
           if (trailer) {
             for (const line of trailer[1].trim().split("\n")) {
               const t = /^Tags: (.*)$/.exec(line);
-              const m = /^Mood: (\d+)\/100$/.exec(line);
+              const m = /^Mood: (\d)\/5$/.exec(line);
               if (t)
                 tags = t[1]
                   .split(",")
@@ -103,7 +103,7 @@ export const text = {
       const extra = [];
       if (e.tags.length) extra.push(`Tags: ${e.tags.join(", ")}`);
       if (e.mood !== null && e.mood !== undefined)
-        extra.push(`Mood: ${e.mood}/100`);
+        extra.push(`Mood: ${e.mood}/5`);
       return `${RULE}\n${head}\n${RULE}\n${e.content.trim()}\n${extra.length ? `\n${extra.join("\n")}\n` : ""}`;
     });
     return { files: new Map([["MindSage.txt", out.join("\n")]]), single: true };

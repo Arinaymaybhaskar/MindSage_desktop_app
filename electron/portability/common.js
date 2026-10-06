@@ -10,7 +10,7 @@
 //     content:   string            plain text or Markdown, as the editor stores it
 //     createdAt: string            ISO 8601 UTC, which is what the app stores
 //     updatedAt: string | null
-//     mood:      number | null     0 to 100, the editor's slider scale
+//     mood:      number | null     1 to 5, the editor's slider scale
 //     tags:      string[]
 //     images:    { name, data }[]  data is a Uint8Array; the app keeps the first
 //     audio:     { name, data }[]  likewise
@@ -61,17 +61,25 @@ export function cleanTags(tags) {
   return out;
 }
 
-/** Clamps anything numeric onto the 0 to 100 mood scale, else null. */
+/**
+ * Puts a mood from any app onto MindSage's 1 to 5 scale (the editor's slider,
+ * the mood orb and the calendar all use it), or null for none. 0 means none,
+ * as Quick Capture writes it. Above 5 the source is read as out of 10 or out
+ * of 100, the two other scales apps use.
+ */
 export function clampMood(value) {
   const n = Number(value);
   if (
     value === null ||
     value === undefined ||
     value === "" ||
-    !Number.isFinite(n)
+    !Number.isFinite(n) ||
+    n <= 0
   )
     return null;
-  return Math.max(0, Math.min(100, Math.round(n)));
+  const onFive =
+    n <= 5 ? n : n <= 10 ? n / 2 : 1 + (Math.min(n, 100) / 100) * 4;
+  return Math.max(1, Math.min(5, Math.round(onFive)));
 }
 
 /**

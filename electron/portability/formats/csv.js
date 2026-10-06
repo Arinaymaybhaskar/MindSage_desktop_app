@@ -16,8 +16,8 @@ import {
   toIso,
 } from "../common.js";
 
-// Daylio's five default moods. Custom moods fall back to their position.
-const DAYLIO_MOODS = { rad: 100, good: 75, meh: 50, bad: 25, awful: 0 };
+// Daylio's five default moods onto our 1 to 5 scale.
+const DAYLIO_MOODS = { rad: 5, good: 4, meh: 3, bad: 2, awful: 1 };
 
 const norm = (h) =>
   h
@@ -117,11 +117,8 @@ export const csv = {
           const key = moodRaw.toLowerCase();
           if (key in DAYLIO_MOODS) mood = DAYLIO_MOODS[key];
           else if (/^\d+(\.\d+)?$/.test(moodRaw)) {
-            const v = Number(moodRaw);
-            // 1 to 5 and 1 to 10 scales are common; 0 to 100 is ours.
-            mood = clampMood(
-              v <= 5 ? ((v - 1) / 4) * 100 : v <= 10 ? v * 10 : v,
-            );
+            // clampMood reads 1 to 5, 1 to 10 and 0 to 100 scales.
+            mood = clampMood(Number(moodRaw));
           }
         }
 

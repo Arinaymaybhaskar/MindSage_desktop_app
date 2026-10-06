@@ -73,7 +73,8 @@ function loadEntries(userId) {
     content: r.content ?? "",
     createdAt: r.created_at,
     updatedAt: r.updated_at || null,
-    mood: r.mood_score ?? null,
+    // 1 to 5; 0 is how Quick Capture writes "none".
+    mood: r.mood_score || null,
     tags: r.tag_list ? r.tag_list.split("\u001f") : [],
     images: media(r.image_key),
     audio: media(r.audio_key),

@@ -4,7 +4,7 @@
 // AI-generated insights in the backup are not restored by this importer; the
 // import summary says so when a backup contains them.
 
-import { basename, cleanTags, makeEntry, toIso } from "../common.js";
+import { basename, cleanTags, clampMood, makeEntry, toIso } from "../common.js";
 
 function backupJson(files) {
   for (const [p, bytes] of files) {
@@ -60,7 +60,7 @@ export const mindsage = {
           content: String(e.content ?? ""),
           createdAt: toIso(e.created_at) ?? new Date().toISOString(),
           updatedAt: toIso(e.updated_at),
-          mood: e.mood_score ?? null,
+          mood: clampMood(e.mood_score),
           tags: cleanTags(tagsFor.get(e.id) ?? []),
           images: media(e.image_key),
           audio: media(e.audio_key),

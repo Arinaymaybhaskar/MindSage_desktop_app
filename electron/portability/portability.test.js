@@ -19,7 +19,7 @@ const ENTRIES = [
       'Canal loop before work.\n\nPast the bridge my legs went light, "quietly", and that, was it.',
     createdAt: "2026-09-27T06:40:00.000Z",
     updatedAt: "2026-09-27T07:00:00.000Z",
-    mood: 82,
+    mood: 4,
     tags: ["running", "proud"],
     images: [{ name: "canal.png", data: PNG }],
     audio: [{ name: "note.wav", data: WAV }],
@@ -60,7 +60,7 @@ describe("round trips", () => {
     expect(a.title).toBe("Fastest 10K yet");
     expect(a.content).toBe(ENTRIES[0].content);
     expect(a.createdAt).toBe(ENTRIES[0].createdAt);
-    expect(a.mood).toBe(82);
+    expect(a.mood).toBe(4);
     expect(a.tags).toEqual(["running", "proud"]);
     expect(a.images[0].data).toEqual(PNG);
     expect(a.audio[0].data).toEqual(WAV);
@@ -88,7 +88,7 @@ describe("round trips", () => {
     const [a, b] = byDate(entries);
     expect(a.title).toBe("Fastest 10K yet");
     expect(a.content).toBe(ENTRIES[0].content);
-    expect(a.mood).toBe(82);
+    expect(a.mood).toBe(4);
     expect(a.tags).toEqual(["running", "proud"]);
     expect(b.content).toBe(ENTRIES[1].content);
   });
@@ -113,7 +113,7 @@ describe("round trips", () => {
     expect(a.title).toBe("Fastest 10K yet");
     expect(a.content).toBe(ENTRIES[0].content);
     expect(a.tags).toEqual(["running", "proud"]);
-    expect(a.mood).toBe(82);
+    expect(a.mood).toBe(4);
     expect(b.title).toBeNull();
     // Minutes survive; the text format does not carry seconds.
     expect(a.createdAt).toBe(ENTRIES[0].createdAt);
@@ -133,13 +133,13 @@ describe("other apps' exports", () => {
     expect(entries[0]).toMatchObject({
       title: "Dinner",
       content: "Made pasta, finally.",
-      mood: 100,
+      mood: 5,
       tags: ["friends", "cooking"],
     });
     expect(entries[1]).toMatchObject({
       title: null,
       content: "Long day",
-      mood: 50,
+      mood: 3,
     });
     expect(new Date(entries[0].createdAt).getHours()).toBe(21);
   });
@@ -166,7 +166,7 @@ describe("other apps' exports", () => {
       content:
         "Rode my new bike for the first time!\n\nIt looks *very dark grey*!",
       createdAt: "2019-10-18T08:07:39.000Z",
-      mood: 100,
+      mood: 5,
       tags: ["bike"],
     });
     expect(entries[0].images[0].data).toEqual(PNG);
@@ -239,7 +239,7 @@ describe("other apps' exports", () => {
           title: "Kept",
           content: "Body",
           created_at: "2026-01-02T03:04:05.000Z",
-          mood_score: 60,
+          mood_score: 3,
           image_key: "images/1-a.png",
           is_deleted: 0,
         },
@@ -266,7 +266,7 @@ describe("other apps' exports", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
       title: "Kept",
-      mood: 60,
+      mood: 3,
       tags: ["calm"],
     });
     expect(entries[0].images[0].data).toEqual(PNG);
@@ -282,6 +282,17 @@ describe("other apps' exports", () => {
 });
 
 describe("helpers", () => {
+  it("puts every app's mood onto MindSage's 1 to 5 scale", async () => {
+    const { clampMood } = await import("./common.js");
+    expect(clampMood(0)).toBeNull(); // Quick Capture's "no mood"
+    expect(clampMood(null)).toBeNull();
+    expect(clampMood(3)).toBe(3);
+    expect(clampMood(5)).toBe(5);
+    expect(clampMood(8)).toBe(4); // out of 10
+    expect(clampMood(100)).toBe(5); // out of 100
+    expect(clampMood(25)).toBe(2);
+  });
+
   it("parses CSV quoting, embedded newlines and a BOM", () => {
     expect(parseCsv('﻿a,b\r\n"x, ""y""","line1\nline2"\r\n')).toEqual([
       ["a", "b"],

@@ -64,9 +64,8 @@ export const journey = {
           content: text,
           createdAt: toIso(Number(j.date_journal)) ?? new Date().toISOString(),
           updatedAt: toIso(Number(j.date_modified)),
-          // Journey: 1 (worst) to 5 (best); 0 or missing means unset.
-          mood:
-            mood >= 1 && mood <= 5 ? Math.round(((mood - 1) / 4) * 100) : null,
+          // Journey: 1 (worst) to 5 (best), our scale too; 0 means unset.
+          mood: mood >= 1 && mood <= 5 ? Math.round(mood) : null,
           tags: cleanTags(j.tags),
           images,
         }),
