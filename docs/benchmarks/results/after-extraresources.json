@@ -1,0 +1,91 @@
+{
+  "label": "after-extraresources",
+  "timestamp": "2026-10-06T06:57:29.359Z",
+  "commit": "6f219b99e8ee4bf1d8f7f2de089b33885a9f4281",
+  "branch": "fix/bench-harness-login",
+  "dirty": true,
+  "machine": {
+    "platform": "win32 10.0.26300",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "size"
+  ],
+  "dbRuns": [],
+  "media": null,
+  "size": {
+    "results": {
+      "renderer bundle (dist/)": {
+        "bytes": 8230262,
+        "files": 41
+      },
+      "main process (dist-electron/)": {
+        "bytes": 213068,
+        "files": 6
+      },
+      "bundled binaries (resources/)": {
+        "bytes": 240900715,
+        "files": 12
+      },
+      "packaged output (release/)": {
+        "bytes": 791842682,
+        "files": 142
+      },
+      "dependencies (node_modules/)": {
+        "bytes": 1054556512,
+        "files": 42319
+      }
+    },
+    "resourceBreakdown": {
+      "mac": {
+        "bytes": 77098080,
+        "files": 1
+      },
+      "whisper-bin-x64": {
+        "bytes": 83342859,
+        "files": 9
+      },
+      "win": {
+        "bytes": 80459776,
+        "files": 2
+      }
+    },
+    "installers": {
+      "MindSage Setup 1.0.0.exe": 228222989
+    },
+    "userData": {
+      "database": {
+        "bytes": 659456,
+        "files": 1
+      },
+      "media/journals": {
+        "bytes": 42061949,
+        "files": 128
+      },
+      "media/thumbs": {
+        "bytes": 1177633,
+        "files": 97
+      },
+      "media/profile": {
+        "bytes": 7895023,
+        "files": 22
+      },
+      "qdrant storage": {
+        "missing": true
+      }
+    }
+  },
+  "ai": null,
+  "vector": null,
+  "whisper": null,
+  "startup": null,
+  "app": null,
+  "bundle": null,
+  "rag": null,
+  "quality": null
+}

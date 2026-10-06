@@ -71,11 +71,45 @@ Add a row here before touching anything else.
 | 2026-08-27 | `baseline-extra` | Nothing — ran the four stages the baseline predated (`app`, `bundle`, `rag`, `quality`) and merged them into the `baseline` record, so one file now covers all eleven | `llama3.2:latest` / `nomic-embed-text:v1.5` | Reproduced the ad-hoc figures the log already quoted: chat 14.00s p50, precision@1 0.467, 1.9 MB of JavaScript | [results/baseline-extra.json](results/baseline-extra.json) |
 | 2026-08-27 | `embeddinggemma` | Embedding model swapped, retrieval-quality stage only. **Measured, not shipped** | — / `embeddinggemma` | precision@1 0.467 → **0.733**, recall@5 → 0.933, MRR → 0.867. Costs −20% embedding throughput and +347 MB on disk. See [SEARCH-1](#candidate-measured-embeddinggemma) | [results/embeddinggemma.json](results/embeddinggemma.json) → [comparison](COMPARISON-baseline-vs-embeddinggemma.md) |
 
-All runs so far are on the same machine: i5-9300H / 16 GB / Windows 11.
+| 2026-08-30 | `phase0-app-before` | Nothing — app stage only, re-run after the harness stopped passing the retired `"offline"` argument to `auth:login`. The earlier attempt measured error envelopes, not queries | `llama3.2:latest` / `nomic-embed-text:v1.5` | `dashboard:get-stats` 67ms p95 over IPC at 5k, journal list 1.8% dropped frames, RSS stable across three route passes | [results/phase0-app-before.json](results/phase0-app-before.json) → [PHASE0-APP-BEFORE.md](PHASE0-APP-BEFORE.md) |
+| 2026-10-06 | `phase0-before` | Nothing in the measured paths — all eleven stages on a fresh packaged build at `6f219b9`, as the "before" for Phase 0 and 1 of MASTER_TODO | `llama3.2:latest` / `nomic-embed-text:v1.5` | Every DB issue still open: `dashboard.stats` 1.63s, `list.page1` 586→244ms, contention 204ms at 150 entries, `journal_mode` still `delete`, 41 full scans. Chat 11.00s p50. See the note below on what is noise | [results/phase0-before.json](results/phase0-before.json) → [PHASE0-BEFORE.md](PHASE0-BEFORE.md) · [vs baseline](COMPARISON-baseline-vs-phase0-before.md) |
+| 2026-10-06 | `after-extraresources` | MASTER_TODO item 12: per-platform `extraResources`, so the Windows build no longer ships `resources/mac`. Size stage only | — | Installer 248.3 → **217.7 MB** (−30.6 MB). PKG-1's target needs the remaining packaging items too | [results/after-extraresources.json](results/after-extraresources.json) → [AFTER-EXTRARESOURCES.md](AFTER-EXTRARESOURCES.md) |
 
-**No code change has landed yet.** Every row above is a measurement, so every
-After cell on the status board is still empty by design — the ledger is loaded
-and waiting for the first fix.
+All runs are on the same hardware: i5-9300H / 16 GB / Windows 11. **The OS build
+changed between them:** every run up to 2026-08-30 is on 10.0.26200, and the
+2026-10-06 runs are on 10.0.26300. That is why the baseline-vs-`phase0-before`
+comparison opens with a "different machines" warning. Compare Phase 0 and 1
+fixes against `phase0-before` (`--compare phase0-before`), not against
+`baseline`.
+
+**Reading `phase0-before` against `baseline`.** Nothing in the database or AI
+code changed between the two runs, so treat the movements as the noise floor,
+not as findings:
+
+- The DB scenarios came out 1.1–2.4× faster across the board with the same
+  query plans and the same 41 full scans. That spread is the OS update and
+  machine state. It is about as large as a small fix would be, which is the
+  reason for a same-OS before.
+- `generate.coldStart` went from 6.40s to 64.89s. It is a single sample: the
+  first load of a 2 GB model from disk straight after `ollama serve` started on
+  a cold file cache. It is a fair picture of a first launch after reboot, but
+  not comparable with the baseline's warm-cache 6.40s. Ollama 0.20.5.
+- `ghostText` p95 went from 670ms to 9.42s, but that is one outlier in 15
+  samples (p95 = max at n=15), most likely a model reload. The p50
+  *improved*, from 448ms to 335ms. The same thing explains the `rag.2.embedding`
+  and `rag.3.vectorSearch` p95s, whose p50s are 56ms and 3.3ms.
+- `write.create` at 5k (6.51 → 86ms p95) is the noisy fsync-per-call scenario
+  that README already warns about.
+- **One to investigate:** in two of the three `startup` runs, the log has no
+  "Qdrant started" step or anything after it, yet the renderer still signalled
+  ready. The cause, a product change or a log race in the harness, has not been
+  checked.
+
+These runs are listed in `baselineLabels` in [issues.json](issues.json), so the
+status board never shows them as an "after".
+
+**First code change measured:** item 12 (PKG-1, above). Every other After cell
+on the status board is still empty, waiting for its fix.
 
 ---
 
@@ -86,7 +120,7 @@ and waiting for the first fix.
 _Generated from `results/` by `npm run bench:board` — every figure below is
 read out of a stored run, so none of them can go stale. Before = `baseline`
 (2026-08-25).
-After = the most recent run that measured each metric. 3 runs on record._
+After = the most recent run that measured each metric. 6 runs on record._
 
 | ID | Issue | Key metric | Before | Target | After | Change | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -101,7 +135,7 @@ After = the most recent run that measured each metric. 3 runs on record._
 | **AI-4** | Ghost text slower than its budget | `ghostText` p95 | **670ms** | < 300ms | — | — | 🟠 open |
 | **STT-1** | Whisper respawns per transcription | fixed overhead per call | **1.40s** | < 200ms | — | — | 🟠 open |
 | **STT-2** | ffmpeg conversion on the critical path | per voice note | **92ms** | eliminate | — | — | 🟡 open |
-| **PKG-1** | mac binaries inside the Windows build | installer size | **248.3 MB** | < 180.0 MB | — | — | 🟠 open |
+| **PKG-1** | mac binaries inside the Windows build | installer size | **248.3 MB** | < 180.0 MB | **217.7 MB** _(after-extraresources)_ | 1.1× faster | 🟠 improved, target not met |
 | **CHAT-1** | RAG runs two serial generations | chat reply p50 | **14.00s** | < 6.00s | — | — | 🔴 open |
 | **SEARCH-1** | Retrieval ranks the wrong entry first | precision@1 | **0.467** | > 0.750 | **0.733** _(embeddinggemma)_ | +57% | 🔴 improved, target not met |
 | **UI-1** | Journal list drops frames while scrolling | frames over 16.7ms | **2.4%** | < 2.0% | — | — | 🟠 open |

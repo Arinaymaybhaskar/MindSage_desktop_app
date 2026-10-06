@@ -17,9 +17,20 @@
     "`baseline-extra` belongs here: it added the four stages the original",
     "baseline predated, on the same code, and was merged into the baseline",
     "record. Once every run carries a commit hash this list becomes redundant -",
-    "a run sharing the baseline's commit cannot be an after by definition."
+    "a run sharing the baseline's commit cannot be an after by definition.",
+    "",
+    "`phase0-app-before` and `phase0-before` belong here too. They re-measure",
+    "the tree before the Phase 0 and 1 fixes, so any movement they show against",
+    "`baseline` is noise (a Windows update between the runs, a cold Ollama), not",
+    "a fix. A Phase 0 or 1 change should be compared with",
+    "`--compare phase0-before`, which is on the same OS build."
   ],
-  "baselineLabels": ["baseline", "baseline-extra"],
+  "baselineLabels": [
+    "baseline",
+    "baseline-extra",
+    "phase0-app-before",
+    "phase0-before"
+  ],
   "issues": [
     {
       "id": "DB-1",
