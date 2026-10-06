@@ -103,8 +103,18 @@ export const setupService = {
   },
 };
 
+export interface AppPrefs {
+  launchAtStartup: boolean;
+  checkForUpdates: boolean;
+}
+
+export type UpdateCheckResult =
+  | { status: "unavailable-in-dev" | "unavailable" }
+  | { status: "up-to-date" | "downloading"; version: string }
+  | { status: "error"; message: string };
+
 export const appPrefsService = {
-  get: async (): Promise<{ launchAtStartup: boolean } | null> => {
+  get: async (): Promise<AppPrefs | null> => {
     if (!hasElectron()) return null;
     return window.electron.ipcRenderer.invoke("settings:get-app");
   },
@@ -116,5 +126,18 @@ export const appPrefsService = {
       "settings:set-launch-at-startup",
       enabled,
     );
+  },
+  setCheckForUpdates: async (
+    enabled: boolean,
+  ): Promise<{ checkForUpdates: boolean }> => {
+    if (!hasElectron()) return { checkForUpdates: enabled };
+    return window.electron.ipcRenderer.invoke(
+      "settings:set-check-for-updates",
+      enabled,
+    );
+  },
+  checkForUpdatesNow: async (): Promise<UpdateCheckResult> => {
+    if (!hasElectron()) return { status: "unavailable" };
+    return window.electron.ipcRenderer.invoke("update:check");
   },
 };

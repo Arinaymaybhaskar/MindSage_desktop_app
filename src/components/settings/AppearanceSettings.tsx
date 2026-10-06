@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Minus, Plus, Loader2 } from "lucide-react";
 import { Switch } from "../ui/Switch";
-import { appPrefsService } from "../../api/setupService";
+import {
+  appPrefsService,
+  type UpdateCheckResult,
+} from "../../api/setupService";
 
 const ZOOM_MIN = 80;
 const ZOOM_MAX = 150;
@@ -234,6 +237,90 @@ export const LaunchAtStartupSetting = () => {
 };
 
 // ----------------------
+// Updates Setting
+// ----------------------
+const describeCheck = (r: UpdateCheckResult): string => {
+  switch (r.status) {
+    case "up-to-date":
+      return `You're on the latest version (${r.version}).`;
+    case "downloading":
+      return `Version ${r.version} is downloading. It installs when you quit MindSage.`;
+    case "unavailable-in-dev":
+      return "Updates are only available in the installed app.";
+    case "unavailable":
+      return "Updates aren't available in this build.";
+    case "error":
+      return `Couldn't check for updates: ${r.message}`;
+  }
+};
+
+export const UpdatesSetting = () => {
+  const [enabled, setEnabled] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    appPrefsService.get().then((prefs) => {
+      if (prefs) setEnabled(prefs.checkForUpdates);
+    });
+  }, []);
+
+  const handleChange = async (value: boolean) => {
+    setEnabled(value); // optimistic
+    const res = await appPrefsService.setCheckForUpdates(value);
+    setEnabled(res.checkForUpdates);
+  };
+
+  const checkNow = async () => {
+    setChecking(true);
+    setResult(null);
+    try {
+      setResult(describeCheck(await appPrefsService.checkForUpdatesNow()));
+    } catch (err) {
+      setResult(describeCheck({ status: "error", message: String(err) }));
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <div className="p-4 rounded-lg bg-tertiary-light dark:bg-tertiary-dark space-y-3">
+      <div className="flex justify-between items-center">
+        <div>
+          <label className="font-medium text-text-light dark:text-text-dark">
+            Check for Updates Automatically
+          </label>
+          <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+            Off by default. When on, MindSage asks GitHub for a newer version
+            each time it starts. Your journal is never sent.
+          </p>
+        </div>
+        <Switch checked={enabled} onCheckedChange={handleChange} />
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={checkNow}
+          disabled={checking}
+          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border border-border-light dark:border-border-dark text-text-light dark:text-text-dark hover:bg-secondary-light dark:hover:bg-secondary-dark disabled:opacity-60"
+        >
+          {checking && <Loader2 size={14} className="animate-spin" />}
+          {checking ? "Checking for updates" : "Check now"}
+        </button>
+        {result && (
+          <p
+            role="status"
+            className="text-sm text-text-light-sub dark:text-text-dark-sub"
+          >
+            {result}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ----------------------
 // Appearance Settings Wrapper
 // ----------------------
 const AppearanceSettings = () => {
@@ -252,6 +339,7 @@ const AppearanceSettings = () => {
         <PathOnTitlebar />
         <ZoomScaleSetting />
         <LaunchAtStartupSetting />
+        <UpdatesSetting />
       </div>
     </div>
   );

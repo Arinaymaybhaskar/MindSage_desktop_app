@@ -131,6 +131,8 @@ contextBridge.exposeInMainWorld("electron", {
         // App preferences
         "settings:get-app",
         "settings:set-launch-at-startup",
+        "settings:set-check-for-updates",
+        "update:check",
       ];
 
       if (validChannels.includes(channel)) {

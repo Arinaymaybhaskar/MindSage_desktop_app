@@ -15,7 +15,7 @@ import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
 import { registerSetupIPC } from "./services/appSetup.js";
 import { applyLaunchAtStartup, registerAppSettingsIPC } from "./appSettings.js";
-import { initAutoUpdater } from "./services/autoUpdater.js";
+import { initAutoUpdater, registerUpdaterIPC } from "./services/autoUpdater.js";
 import { Worker } from "node:worker_threads";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -198,12 +198,11 @@ app.whenReady().then(async () => {
     try {
       win.show();
     } catch {}
-    // Check for app updates once the UI is visible (packaged builds only).
-    try {
-      initAutoUpdater(win);
-    } catch (e) {
-      log(`Auto-updater init error: ${e?.stack || e}`);
-    }
+    // Check for app updates once the UI is visible: packaged builds only,
+    // and only if the user turned automatic checks on in Settings.
+    initAutoUpdater(win).catch((e) =>
+      log(`Auto-updater init error: ${e?.stack || e}`),
+    );
   };
 
   // Register setup + app-settings IPC up front so the renderer's first-run
@@ -211,6 +210,7 @@ app.whenReady().then(async () => {
   try {
     registerSetupIPC();
     registerAppSettingsIPC();
+    registerUpdaterIPC(() => win);
     applyLaunchAtStartup();
   } catch (e) {
     log(`Setup/settings IPC init error: ${e?.stack || e}`);
