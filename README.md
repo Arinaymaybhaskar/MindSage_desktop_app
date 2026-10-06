@@ -36,7 +36,7 @@ Most journaling apps that offer AI features do so by shipping your most private 
 ## See it in action
 
 <div align="center">
-  <a href="https://github.com/Arinaymaybhaskar/MindSage_desktop_app/releases/download/media-showcase/MindSage-walkthrough-1080p60.mp4"><img src="./assets/showcase/walkthrough-poster.jpg" alt="Frame from the MindSage walkthrough: an opened journal entry with its mood, AI summary, sentiment and tags in the side panel, under the caption 'Search by feeling'" width="880" /></a>
+  <a href="https://github.com/Arinaymaybhaskar/MindSage_desktop_app/releases/download/media-showcase/MindSage-walkthrough-1080p60.mp4"><img src="./assets/showcase/walkthrough.webp" alt="Sixty-second walkthrough of the running MindSage app: writing an entry with AI autocomplete, searching by feeling, an AI summary, asking the journal a question, and generating goals" width="880" /></a>
   <br /><br />
   <img src="./assets/showcase/walkthrough-loop.webp" alt="Looping motion piece built from MindSage's UI states: an entry being written, a voice note recording, the mood slider, semantic search, a cited chat answer, goals, the streak ring and the journal list" width="800" />
 </div>
