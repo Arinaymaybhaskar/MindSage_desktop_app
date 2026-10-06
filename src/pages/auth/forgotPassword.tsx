@@ -21,7 +21,7 @@ const ForgotPassword = () => {
     >
       <div className="w-full max-w-md space-y-6 bg-surface-light dark:bg-surface-dark p-8 rounded-lg">
         <Link
-          to="/login"
+          to="/profiles"
           className="text-sm flex items-center text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:hover:text-light1 transition-colors"
         >
           <ArrowLeftIcon size={16} className="mr-2" />
@@ -60,7 +60,7 @@ const ForgotPassword = () => {
         </div>
 
         <Link
-          to="/login"
+          to="/profiles"
           className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-light1 dark:bg-dark1 hover:brightness-110 transition"
         >
           Back to sign in

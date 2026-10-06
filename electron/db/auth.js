@@ -19,6 +19,21 @@ export function findUserById(id) {
 }
 
 /**
+ * Every account on this install, for the profile picker shown while signed
+ * out. Deliberately narrow: no email, no hash, nothing a stranger at the
+ * keyboard should learn beyond who has a journal here. User 0 is the seeded
+ * system account and never signs in.
+ */
+export function listProfiles() {
+  return db
+    .prepare(
+      `SELECT id, username, full_name, profile_picture
+         FROM users WHERE id != 0 ORDER BY id`,
+    )
+    .all();
+}
+
+/**
  * Finds a user by email or username to check for uniqueness during registration.
  */
 export function findUserForCheck(email, username) {

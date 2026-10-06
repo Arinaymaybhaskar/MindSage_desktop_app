@@ -209,7 +209,7 @@ export default function Dashboard() {
           Try again
         </button>
         <Link
-          to="/login"
+          to="/profiles"
           className="text-sm text-text-light-sub underline-offset-4 hover:underline dark:text-text-dark-sub"
         >
           Go to login

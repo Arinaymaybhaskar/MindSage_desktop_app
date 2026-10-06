@@ -10,7 +10,7 @@ export default function PrivateRoute({ children }: { children: JSX.Element }) {
   if (checking) return null;
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/profiles" replace />;
   }
 
   return children;

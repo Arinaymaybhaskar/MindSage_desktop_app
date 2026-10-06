@@ -36,7 +36,7 @@ export function DeleteAccount() {
       await userService.deleteAccount({ password });
       showToast("Your account has been deleted.", "success");
       logout(); // Log the user out
-      navigate("/login");
+      navigate("/profiles");
       window.location.reload();
     } catch (error) {
       showToast(

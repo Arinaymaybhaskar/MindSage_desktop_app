@@ -29,6 +29,17 @@ interface LoginCredentials {
 }
 
 /**
+ * One account on this install, as the profile picker shows it. `avatar` is a
+ * ready-to-use data URL, or null when the user never set a picture.
+ */
+export interface Profile {
+  id: number;
+  username: string;
+  full_name: string | null;
+  avatar: string | null;
+}
+
+/**
  * Describes the details required for user registration.
  */
 interface RegistrationDetails {
@@ -79,6 +90,12 @@ export const authService = {
    * say so while the user types. Registration re-checks before inserting, so
    * this is a courtesy rather than the guarantee.
    */
+  /** Every account on this install, for the signed-out profile picker. */
+  listProfiles: async (): Promise<Profile[]> => {
+    if (!window.electron?.ipcRenderer) return [];
+    return await window.electron.ipcRenderer.invoke("auth:list-profiles");
+  },
+
   checkUsername: async (username: string): Promise<{ available: boolean }> => {
     if (!window.electron?.ipcRenderer) {
       throw new Error("Not in an Electron environment.");
