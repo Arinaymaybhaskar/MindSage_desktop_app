@@ -113,6 +113,29 @@ for (const stage of STAGES) {
 const RENDER_ONLY = argv.includes("--render");
 
 /**
+ * What kind of run this is. The two that matter are kept apart everywhere a
+ * run is stored or shown:
+ *
+ *   full    - every stage, recorded at the end of each MASTER_TODO phase by
+ *             `npm run bench:phase`. Committed, and the only runs the
+ *             optimisation board reads.
+ *   quick   - the db stage at small volumes, run by the pre-commit hook
+ *             (`npm run bench:quick`). A per-commit trend line: written to
+ *             results/quick/, which is not committed, and published with
+ *             kind "quick" so the website never treats one as a fix.
+ *   partial - anything else: a few stages run by hand to measure one change.
+ */
+const KIND =
+  flag("--kind", null) ??
+  (STAGES.length === ALL_STAGES.length ? "full" : "partial");
+if (!["full", "quick", "partial"].includes(KIND)) {
+  console.error(`Unknown kind "${KIND}". Valid: full, quick, partial.`);
+  process.exit(1);
+}
+const runResultsDir =
+  KIND === "quick" ? path.join(resultsDir, "quick") : resultsDir;
+
+/**
  * Mirror the finished run to the benchmark API.
  *
  * Opt-in rather than automatic: a smoke run or a throwaway label should not
@@ -290,6 +313,7 @@ ${stage}`);
   const git = gitInfo();
   const report = {
     label: LABEL,
+    kind: KIND,
     timestamp,
     commit: git.commit,
     branch: git.branch,
@@ -309,20 +333,23 @@ ${stage}`);
     quality: optional.quality ?? null,
   };
 
-  fs.mkdirSync(resultsDir, { recursive: true });
-  const jsonFile = path.join(resultsDir, `${LABEL}.json`);
+  fs.mkdirSync(runResultsDir, { recursive: true });
+  const jsonFile = path.join(runResultsDir, `${LABEL}.json`);
   fs.writeFileSync(jsonFile, JSON.stringify(report, null, 2));
-
-  const mdFile = path.join(
-    repoRoot,
-    "docs",
-    "benchmarks",
-    `${LABEL.toUpperCase()}.md`,
-  );
-  fs.writeFileSync(mdFile, renderMarkdown(report));
-
   console.log(`\nWrote ${path.relative(repoRoot, jsonFile)}`);
-  console.log(`Wrote ${path.relative(repoRoot, mdFile)}`);
+
+  // A quick run gets no markdown report: one is made every few commits, and
+  // the website's trend view is where they are read.
+  if (KIND !== "quick") {
+    const mdFile = path.join(
+      repoRoot,
+      "docs",
+      "benchmarks",
+      `${LABEL.toUpperCase()}.md`,
+    );
+    fs.writeFileSync(mdFile, renderMarkdown(report));
+    console.log(`Wrote ${path.relative(repoRoot, mdFile)}`);
+  }
 
   // Publishing is opt-in and always advisory. The files above are the record;
   // the API is a mirror, so a failure here must never cost the run.
@@ -330,13 +357,17 @@ ${stage}`);
     console.log("\nPublishing");
     const { publishRun, publishIssues, reportPublish } =
       await import("./bench/lib/publish.mjs");
-    reportPublish(await publishRun(report), `run "${LABEL}"`);
-    reportPublish(
-      await publishIssues(
-        path.join(repoRoot, "docs", "benchmarks", "issues.json"),
-      ),
-      "issue list",
-    );
+    reportPublish(await publishRun(report), `${KIND} run "${LABEL}"`);
+    // The issue list only changes alongside committed work, so a quick run
+    // has no reason to re-send it.
+    if (KIND !== "quick") {
+      reportPublish(
+        await publishIssues(
+          path.join(repoRoot, "docs", "benchmarks", "issues.json"),
+        ),
+        "issue list",
+      );
+    }
   }
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });

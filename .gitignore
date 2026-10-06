@@ -46,3 +46,9 @@ public/screenshots/*
 # Qdrant runtime state, written next to the binary on first start.
 resources/win/.qdrant-initialized
 resources/win/snapshots/
+
+# Benchmarks: quick (pre-commit) runs are a local trend line, published to the
+# website but not committed. Full and partial runs in results/ are committed.
+docs/benchmarks/results/quick/
+# Benchmark publishing credentials (see .env.bench.example)
+.env.bench

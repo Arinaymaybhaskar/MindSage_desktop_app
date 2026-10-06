@@ -32,7 +32,9 @@
     "test:watch": "vitest",
     "prepare": "husky",
     "bench:board": "node scripts/bench/render-board.mjs",
-    "bench:publish": "node scripts/bench/publish-run.mjs"
+    "bench:publish": "node scripts/bench/publish-run.mjs",
+    "bench:quick": "node scripts/bench/quick-commit.mjs",
+    "bench:phase": "node scripts/bench/phase-run.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
