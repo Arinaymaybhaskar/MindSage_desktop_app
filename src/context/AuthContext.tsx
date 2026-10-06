@@ -2,6 +2,7 @@ import {
   createContext,
   useState,
   useCallback,
+  useEffect,
   useMemo,
   type ReactNode,
 } from "react";
@@ -29,16 +30,32 @@ interface UserInfo {
  */
 const AUTH_KEYS = ["accessToken", "userInfo", "authMode"] as const;
 
+function readStoredUser(): UserInfo | null {
+  const storedUser = localStorage.getItem("userInfo");
+  return storedUser ? JSON.parse(storedUser) : null;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accessToken, setAccessToken] = useState<string | null>(() =>
     localStorage.getItem("accessToken"),
   );
-  const [user, setUser] = useState<UserInfo | null>(() => {
-    const storedUser = localStorage.getItem("userInfo");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const [user, setUser] = useState<UserInfo | null>(readStoredUser);
+
+  // The main window and Quick Capture each run their own AuthProvider over the
+  // same localStorage. A login or logout in one fires a storage event in the
+  // other, so neither keeps acting on a session that has changed under it.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== null && !(AUTH_KEYS as readonly string[]).includes(e.key))
+        return;
+      setAccessToken(localStorage.getItem("accessToken"));
+      setUser(readStoredUser());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const login = useCallback((access: string, userInfo: UserInfo) => {
     setAccessToken(access);

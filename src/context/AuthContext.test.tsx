@@ -83,3 +83,43 @@ describe("AuthProvider logout", () => {
     expect(auth.logout).toBe(first);
   });
 });
+
+describe("AuthProvider across windows", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("follows a login made in another window", () => {
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+    expect(screen.getByTestId("token").textContent).toBe("none");
+
+    // What the main window's login() writes, seen from Quick Capture.
+    localStorage.setItem("accessToken", "from-main-window");
+    localStorage.setItem("userInfo", JSON.stringify(USER));
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: "accessToken" }));
+    });
+
+    expect(screen.getByTestId("token").textContent).toBe("from-main-window");
+    expect(auth.user?.username).toBe("ada");
+  });
+
+  it("ignores storage changes to keys outside the session", () => {
+    localStorage.setItem("accessToken", "tok");
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+    localStorage.removeItem("accessToken");
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: "zoom_scale" }));
+    });
+
+    expect(screen.getByTestId("token").textContent).toBe("tok");
+  });
+});
