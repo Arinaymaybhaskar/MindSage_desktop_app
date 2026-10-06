@@ -74,8 +74,16 @@ export async function checkForUpdates(win) {
     }
     return { status: "up-to-date", version: app.getVersion() };
   } catch (err) {
-    console.error("[updater] check failed:", err?.message || err);
-    return { status: "error", message: String(err?.message || err) };
+    const full = String(err?.message || err);
+    console.error("[updater] check failed:", full);
+    // electron-updater's messages embed the whole HTTP response, headers and
+    // feed included. The Settings page gets one readable line.
+    const message = /Unable to find latest version|No published versions/i.test(
+      full,
+    )
+      ? "no published release was found on GitHub"
+      : full.split("\n")[0].slice(0, 160);
+    return { status: "error", message };
   }
 }
 
