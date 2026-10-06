@@ -111,12 +111,12 @@ export function getRecentEntries(userId) {
   const stmt = db.prepare(`
         SELECT
             j.*,
-            GROUP_CONCAT(t.name) AS mood_tags
+            (SELECT GROUP_CONCAT(t.name)
+               FROM journal_entry_tags jt
+               JOIN tags t ON t.id = jt.tag_id
+              WHERE jt.journal_entry_id = j.id) AS mood_tags
         FROM journal_entries j
-        LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id
-        LEFT JOIN tags t ON jt.tag_id = t.id
         WHERE j.user_id = ? AND j.is_deleted = 0
-        GROUP BY j.id
         ORDER BY j.created_at DESC
         LIMIT 3
     `);
@@ -144,33 +144,39 @@ export function getAllEntries(
   fromDate,
   toDate,
 ) {
-  // Base SQL: Select all columns from journal_entries and use GROUP_CONCAT to aggregate tags.
-  // LEFT JOIN ensures entries without tags are still included.
+  // Tags come from a correlated subquery rather than a LEFT JOIN with
+  // GROUP BY j.id: grouping forced SQLite to visit and sort every entry
+  // before LIMIT applied, while this form lets the
+  // (user_id, is_deleted, created_at) index serve the ORDER BY and stop after
+  // one page.
   let sql = `
         SELECT
             j.*,
-            GROUP_CONCAT(t.name) AS mood_tags
+            (SELECT GROUP_CONCAT(t.name)
+               FROM journal_entry_tags jt
+               JOIN tags t ON t.id = jt.tag_id
+              WHERE jt.journal_entry_id = j.id) AS mood_tags
         FROM journal_entries j
-        LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id
-        LEFT JOIN tags t ON jt.tag_id = t.id
         WHERE j.user_id = ? AND j.is_deleted = 0
     `;
   const params = [userId];
 
-  // Dynamically add date filtering to the WHERE clause if provided.
+  // created_at is compared bare so the index can range over it; wrapping the
+  // column in DATE() made every row evaluate the function. Every writer
+  // stores ISO 8601 UTC (toISOString), which sorts as text, so these bounds
+  // select exactly the days DATE(created_at) did. The upper bound is
+  // exclusive of the following day, which keeps the whole of toDate.
   if (fromDate) {
-    sql += ` AND DATE(j.created_at) >= DATE(?)`;
+    sql += ` AND j.created_at >= DATE(?)`;
     params.push(fromDate);
   }
   if (toDate) {
-    sql += ` AND DATE(j.created_at) <= DATE(?)`;
+    sql += ` AND j.created_at < DATE(?, '+1 day')`;
     params.push(toDate);
   }
 
-  // Add grouping, ordering, and pagination to the end of the query.
   sql += `
-        GROUP BY j.id
-        ORDER BY DATETIME(j.created_at) DESC
+        ORDER BY j.created_at DESC
         LIMIT ? OFFSET ?
     `;
 
