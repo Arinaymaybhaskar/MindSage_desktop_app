@@ -411,6 +411,20 @@ export const MIGRATIONS = [
         DROP TABLE IF EXISTS daily_challenges;
       `),
   },
+  {
+    // Every journal list, dashboard and gallery query filters on user_id and
+    // is_deleted and sorts or ranges on created_at; without this index each
+    // one scanned the whole table (DB-1, 41 scans per bench run). The
+    // journal_entry_tags lookup MASTER_TODO item 7 also asked for is already
+    // served by that table's primary key, (journal_entry_id, tag_id).
+    version: 4,
+    name: "journal-entries-list-index",
+    up: (d) =>
+      d.exec(`
+        CREATE INDEX IF NOT EXISTS idx_journal_entries_user_deleted_created
+          ON journal_entries(user_id, is_deleted, created_at);
+      `),
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
