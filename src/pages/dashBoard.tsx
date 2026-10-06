@@ -45,7 +45,7 @@ interface PinnedGoal {
 }
 
 export default function Dashboard() {
-  const { accessToken, logout } = useAuth();
+  const { accessToken } = useAuth();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
@@ -56,6 +56,8 @@ export default function Dashboard() {
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
   /** Every day the user has ever written, for the heatmap and the streak. */
   const [allTimeScores, setAllTimeScores] = useState<DayScore[]>([]);
+  /** Bumped by the Retry button to re-run the fetch effect. */
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const fetchCoreData = async () => {
@@ -63,6 +65,7 @@ export default function Dashboard() {
         setIsDashboardLoading(false);
         return;
       }
+      setIsDashboardLoading(true);
       try {
         const dashboardData = await dashboardService.getData(accessToken);
         const imageData = await journalService.getImages(accessToken, "random");
@@ -82,15 +85,17 @@ export default function Dashboard() {
         setIsMasonryLoading(false);
         setAllTimeScores(Array.isArray(allTime) ? allTime : []);
       } catch (err) {
+        // A failed fetch is not a failed login. Logging out here used to turn
+        // one slow Qdrant call or a transient SQLite error into a lost
+        // session, so the error now stays on this page with a retry.
         console.error("Failed to fetch core dashboard data:", err);
-        logout();
       } finally {
         setIsDashboardLoading(false);
       }
     };
 
     fetchCoreData();
-  }, [accessToken, logout]);
+  }, [accessToken, reloadKey]);
 
   const loadProfileImage = async (imagePath?: string | null) => {
     if (!imagePath) {
@@ -160,11 +165,20 @@ export default function Dashboard() {
 
   if (!user || !stats) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center text-gray-500 text-xl">
-        <p>Could not load user data.</p>
-        <Link to="/login" className="mt-4 text-indigo-600 hover:underline">
-          Go to Login
-        </Link>
+      <div className="h-full flex flex-col items-center justify-center gap-4 bg-base-light dark:bg-base-dark px-6 text-center">
+        <p className="text-lg text-text-light dark:text-text-dark">
+          The dashboard could not load.
+        </p>
+        <p className="max-w-sm text-sm text-text-light-sub dark:text-text-dark-sub">
+          Your journal is safe. This is usually a background service that is
+          still starting up.
+        </p>
+        <button
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="rounded-lg bg-light1 px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 dark:bg-dark1"
+        >
+          Try again
+        </button>
       </div>
     );
   }

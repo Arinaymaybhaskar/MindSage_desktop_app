@@ -5,11 +5,46 @@ import journalService, { type JournalEntry } from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "react-hot-toast";
 
+/**
+ * The window closes on Escape and on a successful save, and it can be opened
+ * while logged out. Whatever the user typed is kept here until a save
+ * succeeds, so neither a stray Escape nor a failed save loses it. It shares
+ * localStorage with the main window, and logout does not touch this key.
+ */
+const DRAFT_KEY = "quick-capture-draft";
+
+interface QuickCaptureDraft {
+  title: string;
+  content: string;
+}
+
+function readDraft(): QuickCaptureDraft {
+  try {
+    const stored = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
+    return {
+      title: typeof stored?.title === "string" ? stored.title : "",
+      content: typeof stored?.content === "string" ? stored.content : "",
+    };
+  } catch {
+    return { title: "", content: "" };
+  }
+}
+
 export default function QuickCapture() {
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [title, setTitle] = useState(() => readDraft().title);
+  const [content, setContent] = useState(() => readDraft().content);
   const [isSaving, setIsSaving] = useState(false);
   const { accessToken } = useAuth();
+
+  // Written on every keystroke rather than debounced: Escape closes the window
+  // immediately, and a debounce would drop whatever was typed last.
+  useEffect(() => {
+    if (title || content) {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content }));
+    } else {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+  }, [title, content]);
 
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -20,6 +55,10 @@ export default function QuickCapture() {
   const performSave = useCallback(async () => {
     if (!content.trim() || isSaving) {
       if (!content.trim()) toast.error("Entry content cannot be empty.");
+      return;
+    }
+    if (!accessToken) {
+      toast.error("Log in to MindSage to save. Your note is kept here.");
       return;
     }
 
@@ -33,17 +72,18 @@ export default function QuickCapture() {
         mood_tags: [],
       };
 
-      const res = await journalService.create(accessToken!, mergedEntry);
+      const res = await journalService.create(accessToken, mergedEntry);
 
       await window.electron.ipcRenderer.invoke("qdrant:sync-journal", res.id);
       toast.success("Journal entry saved!");
 
+      localStorage.removeItem(DRAFT_KEY);
       setTitle("");
       setContent("");
       handleCloseWindow();
     } catch (error) {
       console.error("Error saving quick capture entry:", error);
-      toast.error("Failed to save entry. Please try again.");
+      toast.error("Could not save. Your note is kept, so try again.");
     } finally {
       setIsSaving(false);
     }
@@ -65,7 +105,7 @@ export default function QuickCapture() {
     contentInputRef.current?.focus();
   }, []);
 
-  const isSaveDisabled = !content.trim() || isSaving;
+  const isSaveDisabled = !content.trim() || isSaving || !accessToken;
 
   return (
     <div className="flex flex-col h-screen bg-surface-light dark:bg-surface-dark rounded-lg overflow-hidden border border-border-light dark:border-border-dark">
@@ -91,7 +131,9 @@ export default function QuickCapture() {
 
         <div className="flex shrink-0 items-center justify-between pt-1">
           <span className="text-[11px] text-text-light-sub dark:text-text-dark-sub">
-            Ctrl/Cmd + Enter to save
+            {accessToken
+              ? "Ctrl/Cmd + Enter to save"
+              : "Log in to MindSage to save. Your note is kept until then."}
           </span>
           <button
             onClick={performSave}
