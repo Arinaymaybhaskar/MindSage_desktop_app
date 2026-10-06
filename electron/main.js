@@ -1,4 +1,6 @@
 // main.js
+// Must stay first: it redirects userData before any module reads it.
+import "./userDataOverride.js";
 import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
 import fs from "node:fs";
 import path, { dirname, join } from "node:path";

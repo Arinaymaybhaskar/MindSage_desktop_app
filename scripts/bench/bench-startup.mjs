@@ -11,17 +11,21 @@
  * on purpose: dev mode boots a Vite server and loads unbundled modules, which
  * describes a developer's experience and not a user's.
  *
- * **This runs the real application against the real database.** It is the only
- * benchmark in the suite that does, because a startup path pointed at a
- * throwaway profile is not the startup path being measured. The app is
- * launched and killed, nothing is written by this script itself, but expect
- * the background worker to do its normal sync work during each run.
+ * **It runs against a copy of the real profile, never the profile itself.** An
+ * empty profile would not be the startup path being measured: Qdrant's start
+ * time depends on the size of its collections, and the database open on the
+ * size of the journal. So the database, qdrant-data and Local Storage are
+ * copied into a scratch directory, and the app is pointed there with APPDATA
+ * and MS_USER_DATA_DIR. Caches and media are not copied; startup does not read
+ * them. Launching against the real profile used to be the design, and it meant
+ * a benchmark could run a schema migration on the user's only journal.
  *
  *   node scripts/bench/bench-startup.mjs --out results.json --runs 2
  */
 
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,13 +45,35 @@ const RUNS = Number(flag("--runs", "2"));
 const SETTLE_MS = Number(flag("--settle", "6000"));
 
 const exePath = path.join(repoRoot, "release", "win-unpacked", "MindSage.exe");
-const userData = path.join(
+const realUserData = path.join(
   process.env.APPDATA ||
     (process.platform === "darwin"
       ? path.join(process.env.HOME, "Library", "Preferences")
       : path.join(process.env.HOME, ".local", "share")),
   "MindSage",
 );
+
+/** What startup reads. Everything else under userData is cache or media. */
+const PROFILE_PARTS = [
+  "mind-sage.db",
+  "mind-sage.db-wal",
+  "mind-sage.db-shm",
+  "qdrant-data",
+  "Local Storage",
+];
+
+const scratchAppData = fs.mkdtempSync(
+  path.join(os.tmpdir(), "mindsage-startup-"),
+);
+const userData = path.join(scratchAppData, "MindSage");
+fs.mkdirSync(userData, { recursive: true });
+const copied = [];
+for (const part of PROFILE_PARTS) {
+  const from = path.join(realUserData, part);
+  if (!fs.existsSync(from)) continue;
+  fs.cpSync(from, path.join(userData, part), { recursive: true });
+  copied.push(part);
+}
 const logPath = path.join(userData, "main.log");
 
 if (!fs.existsSync(exePath)) {
@@ -119,7 +145,11 @@ for (let i = 0; i < RUNS; i++) {
   // here too - and it turns MindSage.exe into a bare Node process that exits
   // immediately with code 0, logging nothing. That failure looks exactly like
   // a broken build, which is a costly hour to spend.
-  const appEnv = { ...process.env };
+  const appEnv = {
+    ...process.env,
+    APPDATA: scratchAppData,
+    MS_USER_DATA_DIR: userData,
+  };
   delete appEnv.ELECTRON_RUN_AS_NODE;
 
   const proc = spawn(exePath, [], {
@@ -179,6 +209,14 @@ for (let i = 0; i < RUNS; i++) {
   }
 }
 
+// The last run's processes are dead (killTree plus the settle wait), so the
+// copy can go. A failure here only leaves files in the temp directory.
+try {
+  fs.rmSync(scratchAppData, { recursive: true, force: true, maxRetries: 5 });
+} catch {
+  /* best effort */
+}
+
 if (runs.length === 0) {
   console.error("No complete startup runs were captured.");
   process.exit(1);
@@ -199,8 +237,9 @@ const report = {
   perRun: runs,
   stepStats,
   totals: summarise(runs.map((r) => r.totalMs)),
+  profile: `copy of the real profile: ${copied.join(", ") || "nothing found, empty profile"}`,
   note:
-    "Measured against the packaged build and the real user profile. The first run " +
+    "Measured against the packaged build and a copy of the real user profile. The first run " +
     "of a session is the closest to cold; later runs benefit from the OS file cache. " +
     "A launch after a reboot would be colder than anything measured here.",
 };
