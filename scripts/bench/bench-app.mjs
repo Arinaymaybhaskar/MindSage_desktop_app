@@ -116,7 +116,14 @@ try {
   // ELECTRON_RUN_AS_NODE must go: the suite runner sets it so better-sqlite3
   // loads against Electron's ABI, and inheriting it here turns MindSage.exe
   // into a bare Node process that exits immediately with code 0.
-  const appEnv = { ...process.env, APPDATA: profile, MS_REMOTE_DEBUG: PORT };
+  // APPDATA moves the database; MS_USER_DATA_DIR moves everything Electron
+  // keeps under userData (logs, media, qdrant-data), which APPDATA does not.
+  const appEnv = {
+    ...process.env,
+    APPDATA: profile,
+    MS_USER_DATA_DIR: path.join(profile, "MindSage"),
+    MS_REMOTE_DEBUG: PORT,
+  };
   delete appEnv.ELECTRON_RUN_AS_NODE;
 
   proc = spawn(exePath, [], { detached: true, stdio: "ignore", env: appEnv });
