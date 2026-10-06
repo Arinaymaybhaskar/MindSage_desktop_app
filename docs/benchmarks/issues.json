@@ -19,7 +19,13 @@
     "record. Once every run carries a commit hash this list becomes redundant -",
     "a run sharing the baseline's commit cannot be an after by definition."
   ],
-  "baselineLabels": ["baseline", "baseline-extra"],
+  "baselineLabels": [
+    "baseline",
+    "baseline-extra",
+    "phase0-before",
+    "phase0-app-before",
+    "main-2026-10-06"
+  ],
   "issues": [
     {
       "id": "DB-1",
