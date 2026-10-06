@@ -1,0 +1,171 @@
+{
+  "label": "after-packaging-trims",
+  "kind": "partial",
+  "timestamp": "2026-10-06T11:32:16.216Z",
+  "commit": "f4072e3fdda9f60104952a5f544cee9535bd9263",
+  "branch": "chore/phase1-remaining",
+  "dirty": true,
+  "machine": {
+    "platform": "win32 10.0.26300",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "size",
+    "bundle"
+  ],
+  "dbRuns": [],
+  "media": null,
+  "size": {
+    "results": {
+      "renderer bundle (dist/)": {
+        "bytes": 9618903,
+        "files": 45
+      },
+      "main process (dist-electron/)": {
+        "bytes": 207170,
+        "files": 6
+      },
+      "bundled binaries (resources/)": {
+        "bytes": 240900715,
+        "files": 12
+      },
+      "packaged output (release/)": {
+        "bytes": 717458534,
+        "files": 76
+      },
+      "dependencies (node_modules/)": {
+        "bytes": 1054558411,
+        "files": 42320
+      }
+    },
+    "resourceBreakdown": {
+      "mac": {
+        "bytes": 77098080,
+        "files": 1
+      },
+      "whisper-bin-x64": {
+        "bytes": 83342859,
+        "files": 9
+      },
+      "win": {
+        "bytes": 80459776,
+        "files": 2
+      }
+    },
+    "installers": {
+      "MindSage Setup 1.0.0.exe": 208073995
+    },
+    "userData": {
+      "database": {
+        "bytes": 659456,
+        "files": 1
+      },
+      "media/journals": {
+        "bytes": 42061949,
+        "files": 128
+      },
+      "media/thumbs": {
+        "bytes": 1184831,
+        "files": 99
+      },
+      "media/profile": {
+        "bytes": 7895023,
+        "files": 22
+      },
+      "qdrant storage": {
+        "missing": true
+      }
+    }
+  },
+  "ai": null,
+  "vector": null,
+  "whisper": null,
+  "startup": null,
+  "app": null,
+  "bundle": {
+    "sourcemapsAnalysed": 8,
+    "totals": {
+      "javascriptBytes": 1898006,
+      "javascriptGzipBytes": 729129,
+      "cssBytes": 91055,
+      "unattributedBytes": 2740
+    },
+    "byOwner": {
+      "zxcvbn": 819196,
+      "chart.js": 199451,
+      "src/components": 191348,
+      "react-dom": 174347,
+      "src/pages": 124954,
+      "framer-motion": 83137,
+      "gsap": 69926,
+      "lucide-react": 44238,
+      "motion-dom": 37881,
+      "react-router": 32623,
+      "react-easy-crop": 19885,
+      "date-fns": 19855,
+      "src/utils": 14342,
+      "src/api": 9551,
+      "dayjs": 9129,
+      "react": 8243,
+      "@kurkle/color": 7806,
+      "src/hooks": 4709,
+      "src": 4366,
+      "scheduler": 3579,
+      "normalize-wheel": 3495,
+      "react-textarea-autosize": 3056,
+      "src/layouts": 2602,
+      "src/context": 1937,
+      "motion-utils": 1896
+    },
+    "largestChunks": [
+      {
+        "file": "index-D_IyN1Ej.js",
+        "bytes": 1760013,
+        "gzipBytes": 680025
+      },
+      {
+        "file": "masonry-0xoHqEi9.js",
+        "bytes": 73527,
+        "gzipBytes": 29231
+      },
+      {
+        "file": "ProfileSettings-C8IXn-_k.js",
+        "bytes": 30710,
+        "gzipBytes": 9619
+      },
+      {
+        "file": "ModelSettings-BE0st_li.js",
+        "bytes": 16568,
+        "gzipBytes": 4511
+      },
+      {
+        "file": "AppearanceSettings-BNoDs8Rc.js",
+        "bytes": 7780,
+        "gzipBytes": 2473
+      },
+      {
+        "file": "ColorSettings-D3ufRAdU.js",
+        "bytes": 6358,
+        "gzipBytes": 2090
+      },
+      {
+        "file": "SecuritySettings-yXZRBVw3.js",
+        "bytes": 1814,
+        "gzipBytes": 592
+      },
+      {
+        "file": "ExportSettings-DSRZ-eU_.js",
+        "bytes": 1236,
+        "gzipBytes": 588
+      }
+    ],
+    "note": "Bytes attributed by decoding sourcemap mappings; unattributed bytes are bundler scaffolding."
+  },
+  "rag": null,
+  "quality": null
+}
