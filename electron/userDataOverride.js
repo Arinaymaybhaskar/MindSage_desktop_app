@@ -9,6 +9,10 @@
 // main.log, logs/, media/ and qdrant-data/ into the user's real profile, so a
 // benchmark run could reach the real vector index.
 //
+// It also tells connection.js where the database goes (MS_DB_DIR): userData,
+// beside the logs and media, which the Qdrant worker thread inherits through
+// the environment because it has no Electron app object to ask.
+//
 // This module must be the first import in main.js. electron-store builds its
 // file path when appSettings.js, store.js and tokenSecret.js are evaluated,
 // so setting the path any later leaves those stores in the real profile.
@@ -18,3 +22,5 @@ import { app } from "electron";
 if (process.env.MS_USER_DATA_DIR) {
   app.setPath("userData", process.env.MS_USER_DATA_DIR);
 }
+
+process.env.MS_DB_DIR = app.getPath("userData");
