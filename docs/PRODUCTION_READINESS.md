@@ -42,10 +42,10 @@ Run before trusting any older doc in this folder.
 
 ### Data-loss paths (not tracked in any prior doc)
 
-- [ ] 🔴 S — **Quick Capture destroys entries when logged out.** Opened unconditionally by the global shortcut ([main.js:311](../electron/main.js#L311)), not wrapped in `PrivateRoute` ([App.tsx:232](../src/App.tsx#L232)); `accessToken!` is `null`, [journal.js:26](../electron/methods/journal.js#L26) throws, and the user sees only "Failed to save entry" with their text gone.
-- [ ] 🔴 S — **No React ErrorBoundary anywhere.** A single render exception white-screens the whole app, with no recovery and no draft preservation.
-- [ ] 🔴 M — **No schema versioning, no migration framework, no pre-migration backup.** [connection.js](../electron/db/connection.js) uses `CREATE TABLE IF NOT EXISTS` plus ad-hoc `ALTER` blocks; there is no `PRAGMA user_version`, no ordered migration list, and nothing copies the DB before a schema change. A bad upgrade lands on the user's only copy of their journal. **This is the largest untracked risk in the repo.**
-- [ ] 🔴 S — **`logout()` doesn't reset React state**, and `localStorage.clear()` also wipes `colorTheme` and `zoom_scale`. The dashboard calls `logout()` on *any* fetch error ([dashBoard.tsx:139](../src/pages/dashBoard.tsx#L139)). See [AUTH_REVIEW.md](AUTH_REVIEW.md) §2.2–2.4.
+- [x] **Done 2026-10-06 (MASTER_TODO Phase 0).** 🔴 S — **Quick Capture destroys entries when logged out.** Opened unconditionally by the global shortcut ([main.js:311](../electron/main.js#L311)), not wrapped in `PrivateRoute` ([App.tsx:232](../src/App.tsx#L232)); `accessToken!` is `null`, [journal.js:26](../electron/methods/journal.js#L26) throws, and the user sees only "Failed to save entry" with their text gone.
+- [x] **Done 2026-10-06 (MASTER_TODO Phase 0).** 🔴 S — **No React ErrorBoundary anywhere.** A single render exception white-screens the whole app, with no recovery and no draft preservation.
+- [x] **Done 2026-10-06 (MASTER_TODO Phase 0).** 🔴 M — **No schema versioning, no migration framework, no pre-migration backup.** [connection.js](../electron/db/connection.js) uses `CREATE TABLE IF NOT EXISTS` plus ad-hoc `ALTER` blocks; there is no `PRAGMA user_version`, no ordered migration list, and nothing copies the DB before a schema change. A bad upgrade lands on the user's only copy of their journal. **This is the largest untracked risk in the repo.**
+- [x] **Done 2026-10-06 (MASTER_TODO Phase 0).** 🔴 S — **`logout()` doesn't reset React state**, and `localStorage.clear()` also wipes `colorTheme` and `zoom_scale`. The dashboard calls `logout()` on *any* fetch error ([dashBoard.tsx:139](../src/pages/dashBoard.tsx#L139)). See [AUTH_REVIEW.md](AUTH_REVIEW.md) §2.2–2.4.
 
 ### Distribution trust
 
