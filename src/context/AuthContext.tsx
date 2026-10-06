@@ -1,4 +1,11 @@
-import { createContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  type ReactNode,
+} from "react";
 
 export interface AuthContextType {
   accessToken: string | null;
@@ -15,18 +22,42 @@ interface UserInfo {
   timezone: string;
 }
 
+/**
+ * Everything logout() is allowed to remove. localStorage also holds the
+ * colour theme, zoom level, onboarding flag, title-bar preference and any
+ * unsaved journal draft, none of which belong to the session. Clearing the
+ * lot, as this used to, was silent data loss inside a logout button.
+ */
+const AUTH_KEYS = ["accessToken", "userInfo", "authMode"] as const;
+
+function readStoredUser(): UserInfo | null {
+  const storedUser = localStorage.getItem("userInfo");
+  return storedUser ? JSON.parse(storedUser) : null;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accessToken, setAccessToken] = useState<string | null>(() =>
     localStorage.getItem("accessToken"),
   );
-  const [user, setUser] = useState<UserInfo | null>(() => {
-    const storedUser = localStorage.getItem("userInfo");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const [user, setUser] = useState<UserInfo | null>(readStoredUser);
 
-  const login = (access: string, userInfo: UserInfo) => {
+  // The main window and Quick Capture each run their own AuthProvider over the
+  // same localStorage. A login or logout in one fires a storage event in the
+  // other, so neither keeps acting on a session that has changed under it.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== null && !(AUTH_KEYS as readonly string[]).includes(e.key))
+        return;
+      setAccessToken(localStorage.getItem("accessToken"));
+      setUser(readStoredUser());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const login = useCallback((access: string, userInfo: UserInfo) => {
     setAccessToken(access);
 
     // Clone before mutation
@@ -37,16 +68,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("accessToken", access);
 
     localStorage.setItem("userInfo", JSON.stringify(clonedUserInfo));
-  };
+  }, []);
 
-  const logout = () => {
-    localStorage.clear();
-  };
-  return (
-    <AuthContext.Provider value={{ accessToken, user, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+  const logout = useCallback(() => {
+    // PrivateRoute reads this context rather than localStorage, so resetting
+    // the state is what actually signs the user out. Without it the session
+    // survived until the next reload.
+    setAccessToken(null);
+    setUser(null);
+    for (const key of AUTH_KEYS) localStorage.removeItem(key);
+  }, []);
+
+  // A stable value: consumers put logout in effect dependency arrays, and an
+  // inline object literal gave it a fresh identity on every render.
+  const value = useMemo(
+    () => ({ accessToken, user, login, logout }),
+    [accessToken, user, login, logout],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export default AuthContext;

@@ -101,9 +101,11 @@ export const ProfileDropdown: React.FC = () => {
   }, []);
 
   const handleLogout = () => {
+    // No reload: it was only ever here to force the app to notice a logout
+    // that did not reset any state. Reloading also throws away the colour
+    // theme and zoom that logout now deliberately leaves alone.
     if (logout) logout();
     navigate("/login");
-    window.location.reload();
   };
 
   const displayName = user?.full_name || user?.username;

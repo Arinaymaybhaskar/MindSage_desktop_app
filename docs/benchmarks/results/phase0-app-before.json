@@ -1,0 +1,238 @@
+{
+  "label": "phase0-app-before",
+  "timestamp": "2026-08-30T01:06:52.745Z",
+  "commit": "8229a6fa6d4c389ab5b8761d2fba77df300adf7e",
+  "branch": "fix/bench-harness-login",
+  "dirty": false,
+  "machine": {
+    "platform": "win32 10.0.26200",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "app"
+  ],
+  "dbRuns": [],
+  "media": null,
+  "size": null,
+  "ai": null,
+  "vector": null,
+  "whisper": null,
+  "startup": null,
+  "app": {
+    "entries": 5000,
+    "runs": 20,
+    "results": {
+      "ipc.journal:get-all (10)": {
+        "n": 20,
+        "min": 9.5,
+        "p50": 10.3,
+        "p95": 20.5,
+        "max": 21.6,
+        "mean": 12.43,
+        "payloadBytes": 22057
+      },
+      "ipc.journal:get-all (50)": {
+        "n": 20,
+        "min": 10.8,
+        "p50": 11.4,
+        "p95": 12.8,
+        "max": 14,
+        "mean": 11.68,
+        "payloadBytes": 114385
+      },
+      "ipc.journal:get-recent": {
+        "n": 20,
+        "min": 8.7,
+        "p50": 9.4,
+        "p95": 11.5,
+        "max": 11.6,
+        "mean": 9.605,
+        "payloadBytes": 7104
+      },
+      "ipc.journal:get-images (top)": {
+        "n": 20,
+        "min": 1.7,
+        "p50": 2.1,
+        "p95": 2.5,
+        "max": 2.8,
+        "mean": 2.145,
+        "payloadBytes": 667
+      },
+      "ipc.dashboard:get-data": {
+        "n": 20,
+        "min": 6.7,
+        "p50": 8.4,
+        "p95": 10.2,
+        "max": 11.4,
+        "mean": 8.595,
+        "payloadBytes": 7694
+      },
+      "ipc.dashboard:get-stats": {
+        "n": 20,
+        "min": 64.8,
+        "p50": 65.6,
+        "p95": 70.3,
+        "max": 71.5,
+        "mean": 66.505,
+        "payloadBytes": 494
+      },
+      "ipc.goal:get-active-goals": {
+        "n": 20,
+        "min": 0.3,
+        "p50": 0.4,
+        "p95": 0.4,
+        "max": 0.4,
+        "mean": 0.36,
+        "payloadBytes": 2
+      },
+      "media.getImage": {
+        "n": 6,
+        "min": 0.8,
+        "p50": 0.9,
+        "p95": 1.4,
+        "max": 1.4,
+        "mean": 1,
+        "payloadBytes": 125483
+      },
+      "media.getThumbnail": {
+        "n": 6,
+        "min": 0.6,
+        "p50": 0.7,
+        "p95": 0.8,
+        "max": 0.8,
+        "mean": 0.7,
+        "payloadBytes": 4823
+      },
+      "render.dashboardSettle": {
+        "n": 5,
+        "min": 327.2,
+        "p50": 366.5,
+        "p95": 439.6,
+        "max": 439.6,
+        "mean": 374.26,
+        "note": "Time until rendered text stops changing, minus a 200ms stability window."
+      },
+      "render.journalListScroll": {
+        "n": 946,
+        "min": 0.5,
+        "p50": 5.6,
+        "p95": 11,
+        "max": 46.2,
+        "mean": 6.67,
+        "framesSampled": 946,
+        "droppedFrames": 17,
+        "droppedPercent": 1.8,
+        "domNodes": 4185,
+        "cardsRendered": 0
+      },
+      "memory.overSession": {
+        "samples": [
+          {
+            "cycle": 0,
+            "route": "#/dashboard",
+            "rssBytes": 711974912,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 0,
+            "route": "#/journals",
+            "rssBytes": 711434240,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 0,
+            "route": "#/goals",
+            "rssBytes": 712613888,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 0,
+            "route": "#/memories",
+            "rssBytes": 714813440,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 0,
+            "route": "#/chat",
+            "rssBytes": 714698752,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/dashboard",
+            "rssBytes": 695316480,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/journals",
+            "rssBytes": 694247424,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/goals",
+            "rssBytes": 692547584,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/memories",
+            "rssBytes": 692113408,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/chat",
+            "rssBytes": 691961856,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/dashboard",
+            "rssBytes": 691339264,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/journals",
+            "rssBytes": 691347456,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/goals",
+            "rssBytes": 691314688,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/memories",
+            "rssBytes": 691281920,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/chat",
+            "rssBytes": 644796416,
+            "heapBytes": 31200000
+          }
+        ],
+        "startRssBytes": 711974912,
+        "endRssBytes": 644796416,
+        "growthBytes": -67178496,
+        "startHeapBytes": 31200000,
+        "endHeapBytes": 31200000,
+        "note": "Three passes over five routes. Growth here is not proof of a leak - caches warm too."
+      }
+    }
+  },
+  "bundle": null,
+  "rag": null,
+  "quality": null
+}

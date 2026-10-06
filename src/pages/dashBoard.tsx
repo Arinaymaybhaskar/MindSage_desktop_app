@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useAuth } from "../hooks/useAuth";
@@ -44,8 +44,30 @@ interface PinnedGoal {
   unit: string;
 }
 
+/**
+ * A settled read, or null.
+ *
+ * A fulfilled promise is not the same as a successful read here: the main
+ * process resolves with `{ error: "Invalid token" }` rather than rejecting
+ * (electron/methods/dashboard.js), so an error envelope arrives looking
+ * exactly like data. Storing one of those as `stats` is what crashed the
+ * page, since every field the summary reads was undefined.
+ */
+function read<T>(result: PromiseSettledResult<T>, label: string): T | null {
+  if (result.status === "rejected") {
+    console.error(`Failed to load ${label}:`, result.reason);
+    return null;
+  }
+  const envelope = result.value as { error?: unknown } | null;
+  if (envelope && typeof envelope === "object" && envelope.error) {
+    console.error(`Failed to load ${label}:`, envelope.error);
+    return null;
+  }
+  return result.value;
+}
+
 export default function Dashboard() {
-  const { accessToken, logout } = useAuth();
+  const { accessToken } = useAuth();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
@@ -57,40 +79,52 @@ export default function Dashboard() {
   /** Every day the user has ever written, for the heatmap and the streak. */
   const [allTimeScores, setAllTimeScores] = useState<DayScore[]>([]);
 
-  useEffect(() => {
-    const fetchCoreData = async () => {
-      if (!accessToken) {
-        setIsDashboardLoading(false);
-        return;
-      }
-      try {
-        const dashboardData = await dashboardService.getData(accessToken);
-        const imageData = await journalService.getImages(accessToken, "random");
-        const userData = await userService.getMe(accessToken);
-        const statsData = await dashboardService.getStats(accessToken);
+  /**
+   * These five reads are independent, so they are settled together rather than
+   * awaited in sequence. Each failure degrades its own tile and nothing else:
+   * a failed read must never end the session, which is what a shared catch
+   * calling logout() used to do on any slow or unhappy IPC call.
+   */
+  const fetchCoreData = useCallback(async () => {
+    if (!accessToken) {
+      setIsDashboardLoading(false);
+      return;
+    }
+    setIsDashboardLoading(true);
+
+    const [dashboardData, imageData, userData, statsData, allTime] =
+      await Promise.allSettled([
+        dashboardService.getData(accessToken),
+        journalService.getImages(accessToken, "random"),
+        userService.getMe(accessToken),
+        dashboardService.getStats(accessToken),
         // Already exposed for the chart's "All Time" range; reused here so the
         // heatmap and streak need no new query.
-        const allTime = await dashboardService.getAllTimeScore(accessToken);
+        dashboardService.getAllTimeScore(accessToken),
+      ]);
 
-        console.log(statsData, "Stats Data");
-        console.log(dashboardData, "dashBoard data");
-        setUser(userData);
-        setStats(statsData);
-        setRecentEntries(dashboardData.recentJournals);
-        setPinnedGoals(dashboardData.pinnedGoals);
-        setImageKeys(imageData);
-        setIsMasonryLoading(false);
-        setAllTimeScores(Array.isArray(allTime) ? allTime : []);
-      } catch (err) {
-        console.error("Failed to fetch core dashboard data:", err);
-        logout();
-      } finally {
-        setIsDashboardLoading(false);
-      }
-    };
+    setRecentEntries(
+      read(dashboardData, "dashboard data")?.recentJournals ?? [],
+    );
+    setPinnedGoals(read(dashboardData, "pinned goals")?.pinnedGoals ?? []);
 
-    fetchCoreData();
-  }, [accessToken, logout]);
+    setImageKeys(read(imageData, "dashboard images") ?? []);
+    setIsMasonryLoading(false);
+
+    const me = read(userData, "the user");
+    if (me) setUser(me);
+
+    setStats(read(statsData, "dashboard stats"));
+
+    const scores = read(allTime, "all-time scores");
+    setAllTimeScores(Array.isArray(scores) ? scores : []);
+
+    setIsDashboardLoading(false);
+  }, [accessToken]);
+
+  useEffect(() => {
+    void fetchCoreData();
+  }, [fetchCoreData]);
 
   const loadProfileImage = async (imagePath?: string | null) => {
     if (!imagePath) {
@@ -160,10 +194,25 @@ export default function Dashboard() {
 
   if (!user || !stats) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center text-gray-500 text-xl">
-        <p>Could not load user data.</p>
-        <Link to="/login" className="mt-4 text-indigo-600 hover:underline">
-          Go to Login
+      <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="font-display text-xl text-text-light dark:text-text-dark">
+          Could not load your dashboard.
+        </p>
+        <p className="max-w-sm text-sm text-text-light-sub dark:text-text-dark-sub">
+          Your entries are safe. This is usually a background service still
+          starting up.
+        </p>
+        <button
+          onClick={() => void fetchCoreData()}
+          className="rounded-xl bg-light1 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 dark:bg-dark1"
+        >
+          Try again
+        </button>
+        <Link
+          to="/login"
+          className="text-sm text-text-light-sub underline-offset-4 hover:underline dark:text-text-dark-sub"
+        >
+          Go to login
         </Link>
       </div>
     );

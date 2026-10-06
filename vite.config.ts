@@ -32,6 +32,7 @@ export default defineConfig({
                 { src: "electron/qdrantWorker.js", dest: "." },
                 { src: "electron/eventBus.js", dest: "." },
                 { src: "electron/db/connection.js", dest: "db" },
+                { src: "electron/db/migrations.js", dest: "db" },
               ],
             }),
           ],
