@@ -485,7 +485,7 @@ Not as a distributed installer yet. You can build from source; see [Development]
 
 ## License
 
-No licence has been selected for this repository yet, which means default copyright applies and no usage rights are granted. A licence file is tracked as a release blocker.
+MindSage is proprietary software. The source is public so it can be read and reviewed, but all rights are reserved: no permission is granted to use, copy, modify or distribute it. See [LICENSE](LICENSE). Bundled third-party components keep their own licences.
 
 ---
 

@@ -1,6 +1,7 @@
 {
   "name": "mindsage-desktop-app",
   "private": true,
+  "license": "UNLICENSED",
   "productName": "MindSage",
   "description": "AI-powered journaling app",
   "author": "Arinaymay arinaymay.bhaskar.7500@gmail.com",
