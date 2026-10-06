@@ -1,8 +1,8 @@
-import { toast } from "react-hot-toast";
 import { Loader2, Download, CheckCircle, Info, X, Trash2 } from "lucide-react";
 import { ollamaService } from "../../api/ollamaService";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { useToast } from "../../hooks/useToast";
 import { Dropdown } from "../ui/Dropdown";
 import type { OllamaModel, OllamaModelInfo } from "../../types/Ollama";
 import type { SettingsPanelProps } from "../../types/User";
@@ -245,6 +245,7 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
   const [capabilityFilter, setCapabilityFilter] = useState<string>("all");
   const [selectedTier, setSelectedTier] = useState<string>("high");
   const { accessToken } = useAuth();
+  const { showToast } = useToast();
   const [modelToDelete, setModelToDelete] = useState<ParsedModel | null>(null);
 
   // MODIFIED: Added a new state to handle the initial loading of the component.
@@ -252,15 +253,15 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
 
   const handleDelete = async (modelName: string) => {
-    const toastId = toast.loading(`Deleting ${modelName}...`);
+    showToast(`Deleting ${modelName}...`);
     try {
       await ollamaService.deleteModel(accessToken!, modelName);
       const rawModels = await ollamaService.getModels(accessToken!);
       setInstalledModels(rawModels.map(parseModelData));
-      toast.success(`${modelName} deleted!`, { id: toastId });
+      showToast(`${modelName} deleted.`, "success");
     } catch (err) {
       console.error(err);
-      toast.error(`Failed to delete ${modelName}`, { id: toastId });
+      showToast(`Could not delete ${modelName}.`, "danger");
     } finally {
       setModelToDelete(null);
     }
@@ -274,13 +275,14 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
         setInstalledModels(rawModels.map(parseModelData));
       } catch (err) {
         console.error(err);
-        toast.error("Failed to fetch models");
+        showToast("Could not fetch the installed models.", "danger");
       } finally {
         setIsInitializing(false); // Set loading to false after fetch completes
       }
     };
     fetchModels();
-  }, [accessToken]);
+    // showToast is stable (useCallback with no deps in ToastContext).
+  }, [accessToken, showToast]);
 
   // Modified: Initialize from electron-store
   useEffect(() => {
@@ -294,11 +296,11 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
         }
       } catch (error) {
         console.error("Failed to load model settings", error);
-        toast.error("Failed to load saved model settings");
+        showToast("Could not load the saved model settings.", "danger");
       }
     };
     loadSelectedModels();
-  }, []);
+  }, [showToast]);
 
   // Modified: Save to electron-store
   const handleChange = async (task: string, model: string) => {
@@ -307,24 +309,24 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
 
     try {
       await window.electron.ipcRenderer.invoke("models:save-selected", updated);
-      toast.success("Model selection saved!");
+      showToast("Model selection saved.", "success");
     } catch (error) {
       console.error("Failed to save model selections", error);
-      toast.error("Could not save model selection");
+      showToast("Could not save the model selection.", "danger");
     }
   };
 
   const handleDownload = async (modelName: string) => {
     setLoadingModel(modelName);
-    const toastId = toast.loading(`Downloading ${modelName}...`);
+    showToast(`Downloading ${modelName}...`);
     try {
       await ollamaService.downloadModel(accessToken!, modelName);
       const rawModels = await ollamaService.getModels(accessToken!);
       setInstalledModels(rawModels.map(parseModelData));
-      toast.success(`${modelName} downloaded!`, { id: toastId });
+      showToast(`${modelName} downloaded.`, "success");
     } catch (err) {
       console.error(err);
-      toast.error(`Download failed for ${modelName}`, { id: toastId });
+      showToast(`Download failed for ${modelName}.`, "danger");
     } finally {
       setLoadingModel(null);
     }
