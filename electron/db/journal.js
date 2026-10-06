@@ -48,7 +48,7 @@ export function createJournalEntry(userId, entry) {
       userId,
       title: title || null,
       content: content || "",
-      mood_score: mood_score ?? null, // 0 is a mood (the slider's lowest), not "none"
+      mood_score: mood_score || null,
       sentiment_score,
       created_at: entryCreatedAt,
       updated_at: now,
@@ -331,7 +331,7 @@ export function updateJournalEntry(userId, journalId, entry) {
     const result = updateStmt.run({
       title: title || null,
       content: content || "",
-      mood_score: mood_score ?? null, // 0 is a mood, not "none"
+      mood_score: mood_score || null,
       sentiment_score,
       updated_at,
       created_at: created_at || new Date().toISOString(),
