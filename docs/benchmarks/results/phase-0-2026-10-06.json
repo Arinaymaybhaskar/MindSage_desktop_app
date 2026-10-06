@@ -1,0 +1,2765 @@
+{
+  "label": "phase-0-2026-10-06",
+  "kind": "full",
+  "timestamp": "2026-10-06T08:39:27.588Z",
+  "commit": "a67979242d5b0204214ded8b26410b9a13f99343",
+  "branch": "main",
+  "dirty": true,
+  "machine": {
+    "platform": "win32 10.0.26300",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "db",
+    "media",
+    "size",
+    "ai",
+    "vector",
+    "whisper",
+    "startup",
+    "app",
+    "bundle",
+    "rag",
+    "quality"
+  ],
+  "dbRuns": [
+    {
+      "entries": 150,
+      "runs": 50,
+      "seedMs": 211,
+      "dbSizeBytes": 602112,
+      "pragmas": {
+        "journal_mode": "delete",
+        "synchronous": 2,
+        "busy_timeout": 5000,
+        "cache_size": -16000
+      },
+      "totalScans": 41,
+      "results": {
+        "list.page1": {
+          "n": 50,
+          "min": 0.597,
+          "p50": 0.624,
+          "p95": 0.762,
+          "max": 1.204,
+          "mean": 0.652
+        },
+        "list.deepPage": {
+          "n": 50,
+          "min": 0.837,
+          "p50": 0.93,
+          "p95": 1.115,
+          "max": 1.765,
+          "mean": 0.976
+        },
+        "list.dateFiltered": {
+          "n": 50,
+          "min": 0.517,
+          "p50": 0.53,
+          "p95": 0.621,
+          "max": 1.104,
+          "mean": 0.553
+        },
+        "entry.byId": {
+          "n": 50,
+          "min": 0.124,
+          "p50": 0.131,
+          "p95": 0.16,
+          "max": 0.22,
+          "mean": 0.137
+        },
+        "dashboard.recent": {
+          "n": 50,
+          "min": 0.36,
+          "p50": 0.378,
+          "p95": 0.453,
+          "max": 0.515,
+          "mean": 0.39
+        },
+        "dashboard.stats": {
+          "n": 50,
+          "min": 2.675,
+          "p50": 2.774,
+          "p95": 3.991,
+          "max": 4.041,
+          "mean": 2.93
+        },
+        "dashboard.data": {
+          "n": 50,
+          "min": 0.659,
+          "p50": 0.698,
+          "p95": 0.771,
+          "max": 0.864,
+          "mean": 0.706
+        },
+        "dashboard.monthlyScores": {
+          "n": 50,
+          "min": 0.178,
+          "p50": 0.184,
+          "p95": 0.204,
+          "max": 0.207,
+          "mean": 0.187
+        },
+        "dashboard.allTimeScores": {
+          "n": 50,
+          "min": 0.257,
+          "p50": 0.265,
+          "p95": 0.289,
+          "max": 0.323,
+          "mean": 0.269
+        },
+        "gallery.top": {
+          "n": 50,
+          "min": 0.117,
+          "p50": 0.12,
+          "p95": 0.15,
+          "max": 0.152,
+          "mean": 0.124
+        },
+        "gallery.random": {
+          "n": 50,
+          "min": 0.821,
+          "p50": 1.387,
+          "p95": 2.445,
+          "max": 2.764,
+          "mean": 1.437
+        },
+        "gallery.all": {
+          "n": 50,
+          "min": 0.146,
+          "p50": 0.171,
+          "p95": 0.336,
+          "max": 0.753,
+          "mean": 0.208
+        },
+        "write.create": {
+          "n": 30,
+          "min": 5.596,
+          "p50": 6.695,
+          "p95": 8.349,
+          "max": 8.804,
+          "mean": 6.943
+        },
+        "export.everything": {
+          "n": 3,
+          "min": 82.697,
+          "p50": 91.293,
+          "p95": 100.882,
+          "max": 100.882,
+          "mean": 91.624,
+          "archiveBytes": 121223
+        },
+        "contention.listWhileWorkerWrites": {
+          "n": 33,
+          "min": 1.146,
+          "p50": 92.729,
+          "p95": 310.761,
+          "max": 454.879,
+          "mean": 121.526,
+          "busyErrors": 0,
+          "writesCompleted": 650
+        }
+      },
+      "plans": {
+        "list.page1": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "list.deepPage": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "list.dateFiltered": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 AND DATE(j.created_at) >= DATE(?) AND DATE(j.created_at) <= DATE(?) GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "entry.byId": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.id = ? AND j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id",
+            "scans": [],
+            "steps": [
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN"
+            ]
+          }
+        ],
+        "dashboard.recent": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY j.created_at DESC LIMIT 3",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "dashboard.stats": [
+          {
+            "sql": "SELECT COUNT(id) as totalEntries FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT SUM( CASE WHEN content IS NULL OR TRIM(content) = '' THEN 0 ELSE LENGTH(TRIM(content)) - LENGTH(REPLACE(TRIM(content), ' ', '')) + 1 END ) as totalWords FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT MIN(created_at) as firstEntry, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "WITH DayStreaks AS ( SELECT DATE(created_at) as entry_date, DATE(created_at, '-' || (ROW_NUMBER() OVER (ORDER BY DATE(created_at))) || ' days') as streak_group FROM (SELECT DISTINCT DATE(created_at) as created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0) ) SELECT COUNT(*) as longestStreak FROM DayStreaks GROUP BY streak_group ORDER BY longestStreak DESC LIMIT 1;",
+            "scans": [
+              "SCAN journal_entries",
+              "SCAN (subquery-1)",
+              "SCAN (subquery-4)",
+              "SCAN DayStreaks"
+            ],
+            "steps": [
+              "CO-ROUTINE DayStreaks",
+              "CO-ROUTINE (subquery-4)",
+              "CO-ROUTINE (subquery-1)",
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR DISTINCT",
+              "SCAN (subquery-1)",
+              "USE TEMP B-TREE FOR ORDER BY",
+              "SCAN (subquery-4)",
+              "SCAN DayStreaks",
+              "USE TEMP B-TREE FOR GROUP BY",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "SELECT AVG(mood_score) as averageMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND mood_score IS NOT NULL",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT COUNT(id) as totalGoals, SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completedGoals, SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as activeGoals FROM goals WHERE user_id = ?",
+            "scans": [],
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
+          },
+          {
+            "sql": "SELECT t.name FROM journal_entry_tags jet JOIN tags t ON jet.tag_id = t.id WHERE t.user_id = ? GROUP BY t.name ORDER BY COUNT(jet.tag_id) DESC LIMIT 1",
+            "scans": [],
+            "steps": [
+              "SEARCH t USING COVERING INDEX idx_tags_user_id_name (user_id=?)",
+              "SEARCH jet USING COVERING INDEX idx_jet_tag_id (tag_id=?)",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "WITH UserTimeSpan AS ( SELECT MAX(1.0, (JULIANDAY('now', 'localtime') - JULIANDAY(MIN(created_at))) / 7.0) AS total_weeks FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ), Days AS ( SELECT 'Sunday' AS day, '0' AS w UNION ALL SELECT 'Monday', '1' UNION ALL SELECT 'Tuesday', '2' UNION ALL SELECT 'Wednesday', '3' UNION ALL SELECT 'Thursday', '4' UNION ALL SELECT 'Friday', '5' UNION ALL SELECT 'Saturday', '6' ), EntryCounts AS ( SELECT STRFTIME('%w', created_at) AS w, COUNT(*) AS count FROM journal_entries WHERE user_id = ? AND is_deleted = 0 GROUP BY w ) SELECT d.day, ROUND( COALESCE(e.count, 0) / (SELECT total_weeks FROM UserTimeSpan), 2 ) AS average FROM Days d LEFT JOIN EntryCounts e ON d.w = e.w ORDER BY d.w;",
+            "scans": [
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN journal_entries",
+              "SCAN d",
+              "SCAN UserTimeSpan"
+            ],
+            "steps": [
+              "CO-ROUTINE Days",
+              "COMPOUND QUERY",
+              "LEFT-MOST SUBQUERY",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "MATERIALIZE EntryCounts",
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY",
+              "SCAN d",
+              "BLOOM FILTER ON e (w=?)",
+              "SEARCH e USING AUTOMATIC COVERING INDEX (w=?) LEFT-JOIN",
+              "SCALAR SUBQUERY 10",
+              "CO-ROUTINE UserTimeSpan",
+              "SEARCH journal_entries",
+              "SCAN UserTimeSpan",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "dashboard.data": [
+          {
+            "sql": "SELECT COUNT(id) as entryCount, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-7 days') GROUP BY day ORDER BY day ASC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
+          },
+          {
+            "sql": "SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 3",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "SELECT image_key FROM journal_entries WHERE user_id = ? AND image_key IS NOT NULL AND is_deleted = 0 ORDER BY RANDOM() LIMIT 10",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1",
+            "scans": [],
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
+          }
+        ],
+        "dashboard.monthlyScores": [
+          {
+            "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-30 days') GROUP BY day ORDER BY day ASC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
+          }
+        ],
+        "dashboard.allTimeScores": [
+          {
+            "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 GROUP BY day ORDER BY day ASC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
+          }
+        ],
+        "gallery.top": [
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC LIMIT 10",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "gallery.random": [
+          {
+            "sql": "SELECT COUNT(*) AS total FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          }
+        ],
+        "gallery.all": [
+          {
+            "sql": "SELECT id, image_key, title, created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "entries": 5000,
+      "runs": 50,
+      "seedMs": 514,
+      "dbSizeBytes": 14544896,
+      "pragmas": {
+        "journal_mode": "delete",
+        "synchronous": 2,
+        "busy_timeout": 5000,
+        "cache_size": -16000
+      },
+      "totalScans": 41,
+      "results": {
+        "list.page1": {
+          "n": 50,
+          "min": 8.129,
+          "p50": 8.395,
+          "p95": 9.35,
+          "max": 10.078,
+          "mean": 8.563
+        },
+        "list.deepPage": {
+          "n": 50,
+          "min": 14.542,
+          "p50": 15.061,
+          "p95": 16.24,
+          "max": 20.552,
+          "mean": 15.284
+        },
+        "list.dateFiltered": {
+          "n": 50,
+          "min": 1.678,
+          "p50": 1.765,
+          "p95": 2.05,
+          "max": 2.247,
+          "mean": 1.8
+        },
+        "entry.byId": {
+          "n": 50,
+          "min": 0.126,
+          "p50": 0.133,
+          "p95": 0.176,
+          "max": 0.195,
+          "mean": 0.14
+        },
+        "dashboard.recent": {
+          "n": 50,
+          "min": 7.764,
+          "p50": 8.137,
+          "p95": 8.741,
+          "max": 9.414,
+          "mean": 8.185
+        },
+        "dashboard.stats": {
+          "n": 50,
+          "min": 59.943,
+          "p50": 61.778,
+          "p95": 63.453,
+          "max": 64.38,
+          "mean": 61.805
+        },
+        "dashboard.data": {
+          "n": 50,
+          "min": 4.333,
+          "p50": 4.495,
+          "p95": 5.087,
+          "max": 5.534,
+          "mean": 4.573
+        },
+        "dashboard.monthlyScores": {
+          "n": 50,
+          "min": 0.854,
+          "p50": 0.88,
+          "p95": 1.03,
+          "max": 1.254,
+          "mean": 0.912
+        },
+        "dashboard.allTimeScores": {
+          "n": 50,
+          "min": 5.358,
+          "p50": 5.609,
+          "p95": 6.707,
+          "max": 7.276,
+          "mean": 5.702
+        },
+        "gallery.top": {
+          "n": 50,
+          "min": 0.77,
+          "p50": 0.788,
+          "p95": 0.917,
+          "max": 0.999,
+          "mean": 0.813
+        },
+        "gallery.random": {
+          "n": 50,
+          "min": 3.429,
+          "p50": 4.451,
+          "p95": 5.62,
+          "max": 5.908,
+          "mean": 4.515
+        },
+        "gallery.all": {
+          "n": 50,
+          "min": 1.811,
+          "p50": 1.909,
+          "p95": 2.451,
+          "max": 2.598,
+          "mean": 1.953
+        },
+        "write.create": {
+          "n": 30,
+          "min": 4.953,
+          "p50": 6.528,
+          "p95": 7.754,
+          "max": 8.922,
+          "mean": 6.443
+        },
+        "export.everything": {
+          "n": 3,
+          "min": 1339.453,
+          "p50": 1363.717,
+          "p95": 1373.664,
+          "max": 1373.664,
+          "mean": 1358.945,
+          "archiveBytes": 3737971
+        },
+        "contention.listWhileWorkerWrites": {
+          "n": 30,
+          "min": 8.836,
+          "p50": 139.748,
+          "p95": 281.126,
+          "max": 297.494,
+          "mean": 148.862,
+          "busyErrors": 0,
+          "writesCompleted": 600
+        }
+      },
+      "plans": {
+        "list.page1": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "list.deepPage": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "list.dateFiltered": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 AND DATE(j.created_at) >= DATE(?) AND DATE(j.created_at) <= DATE(?) GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "entry.byId": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.id = ? AND j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id",
+            "scans": [],
+            "steps": [
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN"
+            ]
+          }
+        ],
+        "dashboard.recent": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY j.created_at DESC LIMIT 3",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "dashboard.stats": [
+          {
+            "sql": "SELECT COUNT(id) as totalEntries FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT SUM( CASE WHEN content IS NULL OR TRIM(content) = '' THEN 0 ELSE LENGTH(TRIM(content)) - LENGTH(REPLACE(TRIM(content), ' ', '')) + 1 END ) as totalWords FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT MIN(created_at) as firstEntry, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "WITH DayStreaks AS ( SELECT DATE(created_at) as entry_date, DATE(created_at, '-' || (ROW_NUMBER() OVER (ORDER BY DATE(created_at))) || ' days') as streak_group FROM (SELECT DISTINCT DATE(created_at) as created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0) ) SELECT COUNT(*) as longestStreak FROM DayStreaks GROUP BY streak_group ORDER BY longestStreak DESC LIMIT 1;",
+            "scans": [
+              "SCAN journal_entries",
+              "SCAN (subquery-1)",
+              "SCAN (subquery-4)",
+              "SCAN DayStreaks"
+            ],
+            "steps": [
+              "CO-ROUTINE DayStreaks",
+              "CO-ROUTINE (subquery-4)",
+              "CO-ROUTINE (subquery-1)",
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR DISTINCT",
+              "SCAN (subquery-1)",
+              "USE TEMP B-TREE FOR ORDER BY",
+              "SCAN (subquery-4)",
+              "SCAN DayStreaks",
+              "USE TEMP B-TREE FOR GROUP BY",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "SELECT AVG(mood_score) as averageMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND mood_score IS NOT NULL",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT COUNT(id) as totalGoals, SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completedGoals, SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as activeGoals FROM goals WHERE user_id = ?",
+            "scans": [],
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
+          },
+          {
+            "sql": "SELECT t.name FROM journal_entry_tags jet JOIN tags t ON jet.tag_id = t.id WHERE t.user_id = ? GROUP BY t.name ORDER BY COUNT(jet.tag_id) DESC LIMIT 1",
+            "scans": [],
+            "steps": [
+              "SEARCH t USING COVERING INDEX idx_tags_user_id_name (user_id=?)",
+              "SEARCH jet USING COVERING INDEX idx_jet_tag_id (tag_id=?)",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "WITH UserTimeSpan AS ( SELECT MAX(1.0, (JULIANDAY('now', 'localtime') - JULIANDAY(MIN(created_at))) / 7.0) AS total_weeks FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ), Days AS ( SELECT 'Sunday' AS day, '0' AS w UNION ALL SELECT 'Monday', '1' UNION ALL SELECT 'Tuesday', '2' UNION ALL SELECT 'Wednesday', '3' UNION ALL SELECT 'Thursday', '4' UNION ALL SELECT 'Friday', '5' UNION ALL SELECT 'Saturday', '6' ), EntryCounts AS ( SELECT STRFTIME('%w', created_at) AS w, COUNT(*) AS count FROM journal_entries WHERE user_id = ? AND is_deleted = 0 GROUP BY w ) SELECT d.day, ROUND( COALESCE(e.count, 0) / (SELECT total_weeks FROM UserTimeSpan), 2 ) AS average FROM Days d LEFT JOIN EntryCounts e ON d.w = e.w ORDER BY d.w;",
+            "scans": [
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN journal_entries",
+              "SCAN d",
+              "SCAN UserTimeSpan"
+            ],
+            "steps": [
+              "CO-ROUTINE Days",
+              "COMPOUND QUERY",
+              "LEFT-MOST SUBQUERY",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "MATERIALIZE EntryCounts",
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY",
+              "SCAN d",
+              "BLOOM FILTER ON e (w=?)",
+              "SEARCH e USING AUTOMATIC COVERING INDEX (w=?) LEFT-JOIN",
+              "SCALAR SUBQUERY 10",
+              "CO-ROUTINE UserTimeSpan",
+              "SEARCH journal_entries",
+              "SCAN UserTimeSpan",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "dashboard.data": [
+          {
+            "sql": "SELECT COUNT(id) as entryCount, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-7 days') GROUP BY day ORDER BY day ASC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
+          },
+          {
+            "sql": "SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 3",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "SELECT image_key FROM journal_entries WHERE user_id = ? AND image_key IS NOT NULL AND is_deleted = 0 ORDER BY RANDOM() LIMIT 10",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1",
+            "scans": [],
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
+          }
+        ],
+        "dashboard.monthlyScores": [
+          {
+            "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-30 days') GROUP BY day ORDER BY day ASC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
+          }
+        ],
+        "dashboard.allTimeScores": [
+          {
+            "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 GROUP BY day ORDER BY day ASC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
+          }
+        ],
+        "gallery.top": [
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC LIMIT 10",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "gallery.random": [
+          {
+            "sql": "SELECT COUNT(*) AS total FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          }
+        ],
+        "gallery.all": [
+          {
+            "sql": "SELECT id, image_key, title, created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "entries": 50000,
+      "runs": 50,
+      "seedMs": 3681,
+      "dbSizeBytes": 143790080,
+      "pragmas": {
+        "journal_mode": "delete",
+        "synchronous": 2,
+        "busy_timeout": 5000,
+        "cache_size": -16000
+      },
+      "totalScans": 41,
+      "results": {
+        "list.page1": {
+          "n": 50,
+          "min": 234.698,
+          "p50": 240.183,
+          "p95": 246.464,
+          "max": 268.031,
+          "mean": 240.829
+        },
+        "list.deepPage": {
+          "n": 50,
+          "min": 243.49,
+          "p50": 249.737,
+          "p95": 259.485,
+          "max": 270.767,
+          "mean": 250.257
+        },
+        "list.dateFiltered": {
+          "n": 50,
+          "min": 145.587,
+          "p50": 147.593,
+          "p95": 152.965,
+          "max": 179.011,
+          "mean": 148.909
+        },
+        "entry.byId": {
+          "n": 50,
+          "min": 0.125,
+          "p50": 0.13,
+          "p95": 0.162,
+          "max": 0.356,
+          "mean": 0.139
+        },
+        "dashboard.recent": {
+          "n": 50,
+          "min": 227.003,
+          "p50": 230.315,
+          "p95": 258.103,
+          "max": 265.026,
+          "mean": 233.459
+        },
+        "dashboard.stats": {
+          "n": 13,
+          "min": 1575.654,
+          "p50": 1580.791,
+          "p95": 1629.462,
+          "max": 1629.462,
+          "mean": 1591.122
+        },
+        "dashboard.data": {
+          "n": 35,
+          "min": 577.799,
+          "p50": 583.492,
+          "p95": 603.201,
+          "max": 604.964,
+          "mean": 586.826
+        },
+        "dashboard.monthlyScores": {
+          "n": 50,
+          "min": 139.684,
+          "p50": 141.06,
+          "p95": 144.655,
+          "max": 158.426,
+          "mean": 141.665
+        },
+        "dashboard.allTimeScores": {
+          "n": 50,
+          "min": 199.588,
+          "p50": 202.621,
+          "p95": 362.35,
+          "max": 407.762,
+          "mean": 222.933
+        },
+        "gallery.top": {
+          "n": 50,
+          "min": 138.374,
+          "p50": 140.686,
+          "p95": 160.523,
+          "max": 170.205,
+          "mean": 143.371
+        },
+        "gallery.random": {
+          "n": 25,
+          "min": 504.024,
+          "p50": 806.434,
+          "p95": 953.333,
+          "max": 1041.669,
+          "mean": 810.35
+        },
+        "gallery.all": {
+          "n": 50,
+          "min": 150.409,
+          "p50": 151.656,
+          "p95": 156.153,
+          "max": 160.975,
+          "mean": 152.291
+        },
+        "write.create": {
+          "n": 30,
+          "min": 5.614,
+          "p50": 6.192,
+          "p95": 6.76,
+          "max": 7.018,
+          "mean": 6.239
+        },
+        "export.everything": {
+          "n": 3,
+          "min": 14230.104,
+          "p50": 14296.636,
+          "p95": 15985.489,
+          "max": 15985.489,
+          "mean": 14837.41,
+          "archiveBytes": 37276262
+        },
+        "contention.listWhileWorkerWrites": {
+          "n": 30,
+          "min": 241.181,
+          "p50": 341.708,
+          "p95": 436.098,
+          "max": 621.57,
+          "mean": 352.186,
+          "busyErrors": 0,
+          "writesCompleted": 450
+        }
+      },
+      "plans": {
+        "list.page1": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "list.deepPage": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "list.dateFiltered": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 AND DATE(j.created_at) >= DATE(?) AND DATE(j.created_at) <= DATE(?) GROUP BY j.id ORDER BY DATETIME(j.created_at) DESC LIMIT ? OFFSET ?",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "entry.byId": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.id = ? AND j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id",
+            "scans": [],
+            "steps": [
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN"
+            ]
+          }
+        ],
+        "dashboard.recent": [
+          {
+            "sql": "SELECT j.*, GROUP_CONCAT(t.name) AS mood_tags FROM journal_entries j LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id LEFT JOIN tags t ON jt.tag_id = t.id WHERE j.user_id = ? AND j.is_deleted = 0 GROUP BY j.id ORDER BY j.created_at DESC LIMIT 3",
+            "scans": [
+              "SCAN j"
+            ],
+            "steps": [
+              "SCAN j",
+              "SEARCH jt USING COVERING INDEX sqlite_autoindex_journal_entry_tags_1 (journal_entry_id=?) LEFT-JOIN",
+              "SEARCH t USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "dashboard.stats": [
+          {
+            "sql": "SELECT COUNT(id) as totalEntries FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT SUM( CASE WHEN content IS NULL OR TRIM(content) = '' THEN 0 ELSE LENGTH(TRIM(content)) - LENGTH(REPLACE(TRIM(content), ' ', '')) + 1 END ) as totalWords FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT MIN(created_at) as firstEntry, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "WITH DayStreaks AS ( SELECT DATE(created_at) as entry_date, DATE(created_at, '-' || (ROW_NUMBER() OVER (ORDER BY DATE(created_at))) || ' days') as streak_group FROM (SELECT DISTINCT DATE(created_at) as created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0) ) SELECT COUNT(*) as longestStreak FROM DayStreaks GROUP BY streak_group ORDER BY longestStreak DESC LIMIT 1;",
+            "scans": [
+              "SCAN journal_entries",
+              "SCAN (subquery-1)",
+              "SCAN (subquery-4)",
+              "SCAN DayStreaks"
+            ],
+            "steps": [
+              "CO-ROUTINE DayStreaks",
+              "CO-ROUTINE (subquery-4)",
+              "CO-ROUTINE (subquery-1)",
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR DISTINCT",
+              "SCAN (subquery-1)",
+              "USE TEMP B-TREE FOR ORDER BY",
+              "SCAN (subquery-4)",
+              "SCAN DayStreaks",
+              "USE TEMP B-TREE FOR GROUP BY",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "SELECT AVG(mood_score) as averageMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND mood_score IS NOT NULL",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT COUNT(id) as totalGoals, SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completedGoals, SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as activeGoals FROM goals WHERE user_id = ?",
+            "scans": [],
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
+          },
+          {
+            "sql": "SELECT t.name FROM journal_entry_tags jet JOIN tags t ON jet.tag_id = t.id WHERE t.user_id = ? GROUP BY t.name ORDER BY COUNT(jet.tag_id) DESC LIMIT 1",
+            "scans": [],
+            "steps": [
+              "SEARCH t USING COVERING INDEX idx_tags_user_id_name (user_id=?)",
+              "SEARCH jet USING COVERING INDEX idx_jet_tag_id (tag_id=?)",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "WITH UserTimeSpan AS ( SELECT MAX(1.0, (JULIANDAY('now', 'localtime') - JULIANDAY(MIN(created_at))) / 7.0) AS total_weeks FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ), Days AS ( SELECT 'Sunday' AS day, '0' AS w UNION ALL SELECT 'Monday', '1' UNION ALL SELECT 'Tuesday', '2' UNION ALL SELECT 'Wednesday', '3' UNION ALL SELECT 'Thursday', '4' UNION ALL SELECT 'Friday', '5' UNION ALL SELECT 'Saturday', '6' ), EntryCounts AS ( SELECT STRFTIME('%w', created_at) AS w, COUNT(*) AS count FROM journal_entries WHERE user_id = ? AND is_deleted = 0 GROUP BY w ) SELECT d.day, ROUND( COALESCE(e.count, 0) / (SELECT total_weeks FROM UserTimeSpan), 2 ) AS average FROM Days d LEFT JOIN EntryCounts e ON d.w = e.w ORDER BY d.w;",
+            "scans": [
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN CONSTANT ROW",
+              "SCAN journal_entries",
+              "SCAN d",
+              "SCAN UserTimeSpan"
+            ],
+            "steps": [
+              "CO-ROUTINE Days",
+              "COMPOUND QUERY",
+              "LEFT-MOST SUBQUERY",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "UNION ALL",
+              "SCAN CONSTANT ROW",
+              "MATERIALIZE EntryCounts",
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY",
+              "SCAN d",
+              "BLOOM FILTER ON e (w=?)",
+              "SEARCH e USING AUTOMATIC COVERING INDEX (w=?) LEFT-JOIN",
+              "SCALAR SUBQUERY 10",
+              "CO-ROUTINE UserTimeSpan",
+              "SEARCH journal_entries",
+              "SCAN UserTimeSpan",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "dashboard.data": [
+          {
+            "sql": "SELECT COUNT(id) as entryCount, MAX(created_at) as lastEntry FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-7 days') GROUP BY day ORDER BY day ASC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
+          },
+          {
+            "sql": "SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 3",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "SELECT image_key FROM journal_entries WHERE user_id = ? AND image_key IS NOT NULL AND is_deleted = 0 ORDER BY RANDOM() LIMIT 10",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          },
+          {
+            "sql": "SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1",
+            "scans": [],
+            "steps": [
+              "SEARCH goals USING INDEX idx_goals_user_id (user_id=?)"
+            ]
+          }
+        ],
+        "dashboard.monthlyScores": [
+          {
+            "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND created_at >= date('now', '-30 days') GROUP BY day ORDER BY day ASC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
+          }
+        ],
+        "dashboard.allTimeScores": [
+          {
+            "sql": "SELECT strftime('%Y-%m-%d', created_at) as day, AVG(mood_score) as avgMood FROM journal_entries WHERE user_id = ? AND is_deleted = 0 GROUP BY day ORDER BY day ASC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR GROUP BY"
+            ]
+          }
+        ],
+        "gallery.top": [
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC LIMIT 10",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ],
+        "gallery.random": [
+          {
+            "sql": "SELECT COUNT(*) AS total FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          },
+          {
+            "sql": "SELECT id, image_key, title FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL LIMIT 1 OFFSET ?",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries"
+            ]
+          }
+        ],
+        "gallery.all": [
+          {
+            "sql": "SELECT id, image_key, title, created_at FROM journal_entries WHERE user_id = ? AND is_deleted = 0 AND image_key IS NOT NULL ORDER BY created_at DESC",
+            "scans": [
+              "SCAN journal_entries"
+            ],
+            "steps": [
+              "SCAN journal_entries",
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "media": {
+    "results": {
+      "image.single.demo": {
+        "n": 60,
+        "min": 0.129,
+        "p50": 0.177,
+        "p95": 0.335,
+        "max": 1.116,
+        "mean": 0.229,
+        "fileBytes": 94095,
+        "encodedBytes": 125483
+      },
+      "image.dashboardTen.demo": {
+        "n": 25,
+        "min": 2.01,
+        "p50": 2.389,
+        "p95": 3.616,
+        "max": 3.652,
+        "mean": 2.58,
+        "fileBytes": 1097315,
+        "avgFileBytes": 109390
+      },
+      "image.single.3mb": {
+        "n": 30,
+        "min": 1.832,
+        "p50": 1.873,
+        "p95": 6.882,
+        "max": 7.231,
+        "mean": 2.686,
+        "fileBytes": 3145728,
+        "encodedBytes": 4194327,
+        "inflation": 1.33
+      },
+      "image.dashboardTen.3mb": {
+        "n": 10,
+        "min": 22.324,
+        "p50": 26.464,
+        "p95": 31.434,
+        "max": 31.434,
+        "mean": 26.57,
+        "fileBytes": 31457280
+      },
+      "audio.fiveMinuteNote": {
+        "n": 15,
+        "min": 5.375,
+        "p50": 5.518,
+        "p95": 13.145,
+        "max": 13.145,
+        "mean": 7.632,
+        "fileBytes": 9600000
+      }
+    }
+  },
+  "size": {
+    "results": {
+      "renderer bundle (dist/)": {
+        "bytes": 8228457,
+        "files": 41
+      },
+      "main process (dist-electron/)": {
+        "bytes": 202621,
+        "files": 6
+      },
+      "bundled binaries (resources/)": {
+        "bytes": 240900715,
+        "files": 12
+      },
+      "packaged output (release/)": {
+        "bytes": 791841360,
+        "files": 141
+      },
+      "dependencies (node_modules/)": {
+        "bytes": 1054557669,
+        "files": 42319
+      }
+    },
+    "resourceBreakdown": {
+      "mac": {
+        "bytes": 77098080,
+        "files": 1
+      },
+      "whisper-bin-x64": {
+        "bytes": 83342859,
+        "files": 9
+      },
+      "win": {
+        "bytes": 80459776,
+        "files": 2
+      }
+    },
+    "installers": {
+      "MindSage Setup 1.0.0.exe": 228221988
+    },
+    "userData": {
+      "database": {
+        "bytes": 659456,
+        "files": 1
+      },
+      "media/journals": {
+        "bytes": 42061949,
+        "files": 128
+      },
+      "media/thumbs": {
+        "bytes": 1184831,
+        "files": 99
+      },
+      "media/profile": {
+        "bytes": 7895023,
+        "files": 22
+      },
+      "qdrant storage": {
+        "missing": true
+      }
+    }
+  },
+  "ai": {
+    "ollama": {
+      "chatModel": "llama3.2:latest",
+      "embedModel": "nomic-embed-text:v1.5",
+      "modelsAvailable": [
+        {
+          "name": "embeddinggemma:latest",
+          "sizeBytes": 621875917
+        },
+        {
+          "name": "nomic-embed-text:v1.5",
+          "sizeBytes": 274302450
+        },
+        {
+          "name": "llama3.2:latest",
+          "sizeBytes": 2019393189
+        }
+      ]
+    },
+    "runs": 5,
+    "embedRuns": 15,
+    "notes": {
+      "coldStart": "Single sample each. Cold = first call after an explicit keep_alive:0 unload."
+    },
+    "results": {
+      "embed.title": {
+        "n": 14,
+        "min": 18.4,
+        "p50": 20.506,
+        "p95": 28.741,
+        "max": 28.741,
+        "mean": 21.866,
+        "dimensions": 768,
+        "inputChars": 28
+      },
+      "embed.short": {
+        "n": 14,
+        "min": 36.144,
+        "p50": 37.089,
+        "p95": 44.519,
+        "max": 44.519,
+        "mean": 39.424,
+        "dimensions": 768,
+        "inputChars": 115
+      },
+      "embed.medium": {
+        "n": 14,
+        "min": 93.168,
+        "p50": 94.493,
+        "p95": 94.727,
+        "max": 94.727,
+        "mean": 94.241,
+        "dimensions": 768,
+        "inputChars": 787
+      },
+      "embed.long": {
+        "n": 14,
+        "min": 211.449,
+        "p50": 213.096,
+        "p95": 214.858,
+        "max": 214.858,
+        "mean": 213.031,
+        "dimensions": 768,
+        "inputChars": 2310
+      },
+      "embed.sustainedThroughput": {
+        "embeddingsPerSec": 10.51,
+        "msPerEmbedding": 95.1
+      },
+      "embed.projectedBacklog": {
+        "150 entries": "0.2 min",
+        "5000 entries": "7.9 min",
+        "50000 entries": "79.3 min"
+      },
+      "generate.coldStart": {
+        "n": 1,
+        "wallMs": 5877,
+        "loadMs": 5696
+      },
+      "generate.warm": {
+        "n": 1,
+        "wallMs": 202,
+        "loadMs": 161
+      },
+      "enrich.metadata.short": {
+        "n": 5,
+        "min": 2095.24,
+        "p50": 2414.148,
+        "p95": 3742.204,
+        "max": 3742.204,
+        "mean": 2629.371,
+        "parseSuccessRate": "5/5",
+        "tokensPerSec": 61
+      },
+      "enrich.summary.short": {
+        "skipped": true,
+        "reason": "below MIN_SUMMARY_WORDS (25) - the app skips this path"
+      },
+      "enrich.metadata.medium": {
+        "n": 5,
+        "min": 2360.12,
+        "p50": 2519.669,
+        "p95": 2804.741,
+        "max": 2804.741,
+        "mean": 2545.935,
+        "parseSuccessRate": "5/5",
+        "tokensPerSec": 58.6
+      },
+      "enrich.summary.medium": {
+        "n": 5,
+        "min": 1062.48,
+        "p50": 1151.278,
+        "p95": 2140.351,
+        "max": 2140.351,
+        "mean": 1322.839,
+        "usableRate": "5/5"
+      },
+      "enrich.metadata.long": {
+        "n": 5,
+        "min": 2468.306,
+        "p50": 2870.697,
+        "p95": 5346.863,
+        "max": 5346.863,
+        "mean": 3298.638,
+        "parseSuccessRate": "5/5",
+        "tokensPerSec": 59.1
+      },
+      "enrich.summary.long": {
+        "n": 5,
+        "min": 1007.717,
+        "p50": 1349.847,
+        "p95": 3393.486,
+        "max": 3393.486,
+        "mean": 1687.923,
+        "usableRate": "5/5"
+      },
+      "enrich.endToEnd.medium": {
+        "n": 5,
+        "min": 6299.338,
+        "p50": 6484.605,
+        "p95": 7009.37,
+        "max": 7009.37,
+        "mean": 6542.845,
+        "lastBreakdown": {
+          "metadataMs": 3956,
+          "summaryMs": 2244,
+          "embeddingMs": 99
+        }
+      },
+      "chat.timeToFirstToken": {
+        "n": 5,
+        "min": 333.784,
+        "p50": 408.136,
+        "p95": 1033.831,
+        "max": 1033.831,
+        "mean": 531.718
+      },
+      "chat.totalGeneration": {
+        "n": 5,
+        "min": 4563.823,
+        "p50": 5245.283,
+        "p95": 6855.99,
+        "max": 6855.99,
+        "mean": 5538.465,
+        "tokensPerSec": 66.1
+      },
+      "ghostText.suggestion": {
+        "n": 15,
+        "min": 267.822,
+        "p50": 356.535,
+        "p95": 564.732,
+        "max": 564.732,
+        "mean": 357.597,
+        "budgetNote": "Fires while the user types. Above a few hundred ms the suggestion arrives after the thought and is worse than absent."
+      },
+      "ollamaList.execSyncBlock": {
+        "error": "ollama CLI not on PATH"
+      }
+    }
+  },
+  "vector": {
+    "dimensions": 768,
+    "sizes": [
+      150,
+      5000,
+      50000
+    ],
+    "results": {
+      "qdrant.startupToReady": {
+        "n": 1,
+        "wallMs": 357
+      },
+      "qdrant.rssIdle": {
+        "bytes": 45010944
+      },
+      "upsert.to150": {
+        "added": 150,
+        "seconds": 0.1,
+        "vectorsPerSec": 1269
+      },
+      "search.at150": {
+        "n": 30,
+        "min": 1.354,
+        "p50": 1.621,
+        "p95": 3.315,
+        "max": 3.683,
+        "mean": 1.799
+      },
+      "qdrant.rssAt150": {
+        "bytes": 62574592
+      },
+      "upsert.to5000": {
+        "added": 4850,
+        "seconds": 1.5,
+        "vectorsPerSec": 3177
+      },
+      "search.at5000": {
+        "n": 30,
+        "min": 1.898,
+        "p50": 2.037,
+        "p95": 2.251,
+        "max": 2.313,
+        "mean": 2.051
+      },
+      "qdrant.rssAt5000": {
+        "bytes": 95490048
+      },
+      "upsert.to50000": {
+        "added": 45000,
+        "seconds": 17.4,
+        "vectorsPerSec": 2588
+      },
+      "search.at50000": {
+        "n": 30,
+        "min": 4.377,
+        "p50": 5.203,
+        "p95": 5.743,
+        "max": 12.704,
+        "mean": 5.417
+      },
+      "qdrant.rssAt50000": {
+        "bytes": 565661696
+      },
+      "qdrant.storageOnDisk": {
+        "bytes": 962174582,
+        "vectors": 50000
+      }
+    }
+  },
+  "whisper": {
+    "model": "ggml-tiny.en",
+    "modelBytes": 77704715,
+    "runs": 3,
+    "results": {
+      "transcribe.short": {
+        "n": 3,
+        "min": 1570.024,
+        "p50": 1570.828,
+        "p95": 1596.796,
+        "max": 1596.796,
+        "mean": 1579.216,
+        "audioDurationSec": 10,
+        "realTimeFactor": 0.157,
+        "speedVsRealtime": "6.4x"
+      },
+      "transcribe.medium": {
+        "n": 3,
+        "min": 6137.429,
+        "p50": 6209.726,
+        "p95": 6471.629,
+        "max": 6471.629,
+        "mean": 6272.928,
+        "audioDurationSec": 63.7,
+        "realTimeFactor": 0.097,
+        "speedVsRealtime": "10.3x"
+      },
+      "transcribe.long": {
+        "n": 3,
+        "min": 17835.641,
+        "p50": 18064.839,
+        "p95": 18450.283,
+        "max": 18450.283,
+        "mean": 18116.921,
+        "audioDurationSec": 187.5,
+        "realTimeFactor": 0.096,
+        "speedVsRealtime": "10.4x"
+      },
+      "ffmpeg.conversion": {
+        "n": 3,
+        "min": 65.205,
+        "p50": 86.384,
+        "p95": 265.421,
+        "max": 265.421,
+        "mean": 139.003
+      },
+      "whisper.spawnAndModelLoad": {
+        "n": 3,
+        "min": 1183.975,
+        "p50": 1258.656,
+        "p95": 1300.606,
+        "max": 1300.606,
+        "mean": 1247.745,
+        "note": "Near-empty clip: approximates the fixed per-transcription overhead."
+      }
+    }
+  },
+  "startup": {
+    "target": "release\\win-unpacked\\MindSage.exe",
+    "runs": 3,
+    "perRun": [
+      {
+        "kind": "first-of-session",
+        "spawnToAppReadyMs": 2172,
+        "steps": {
+          "Splash window shown": 263,
+          "Main window created": 26,
+          "Initializing localDB": 1,
+          "Running OllamaEmbeddingModelSetup": 38,
+          "Starting Qdrant": 36,
+          "Qdrant started": 847,
+          "IPC handlers, event bus, and worker initialized": 9,
+          "Sent services-ready to renderer": 0,
+          "Renderer signaled visually ready": 133
+        },
+        "totalMs": 1353
+      },
+      {
+        "kind": "warm-filesystem-cache",
+        "spawnToAppReadyMs": 648,
+        "steps": {
+          "Splash window shown": 67,
+          "Main window created": 21,
+          "Initializing localDB": 1,
+          "Running OllamaEmbeddingModelSetup": 30,
+          "Starting Qdrant": 35,
+          "Renderer signaled visually ready": 528,
+          "Qdrant started": 177,
+          "IPC handlers, event bus, and worker initialized": 4,
+          "Sent services-ready to renderer": 1
+        },
+        "totalMs": 864
+      },
+      {
+        "kind": "warm-filesystem-cache",
+        "spawnToAppReadyMs": 644,
+        "steps": {
+          "Splash window shown": 70,
+          "Main window created": 19,
+          "Initializing localDB": 1,
+          "Running OllamaEmbeddingModelSetup": 437,
+          "Starting Qdrant": 26,
+          "Renderer signaled visually ready": 677
+        },
+        "totalMs": 1230
+      }
+    ],
+    "stepStats": {
+      "Splash window shown": {
+        "n": 3,
+        "min": 67,
+        "p50": 70,
+        "p95": 263,
+        "max": 263,
+        "mean": 133.333
+      },
+      "Main window created": {
+        "n": 3,
+        "min": 19,
+        "p50": 21,
+        "p95": 26,
+        "max": 26,
+        "mean": 22
+      },
+      "Initializing localDB": {
+        "n": 3,
+        "min": 1,
+        "p50": 1,
+        "p95": 1,
+        "max": 1,
+        "mean": 1
+      },
+      "Running OllamaEmbeddingModelSetup": {
+        "n": 3,
+        "min": 30,
+        "p50": 38,
+        "p95": 437,
+        "max": 437,
+        "mean": 168.333
+      },
+      "Starting Qdrant": {
+        "n": 3,
+        "min": 26,
+        "p50": 35,
+        "p95": 36,
+        "max": 36,
+        "mean": 32.333
+      },
+      "Qdrant started": {
+        "n": 2,
+        "min": 177,
+        "p50": 177,
+        "p95": 847,
+        "max": 847,
+        "mean": 512
+      },
+      "IPC handlers, event bus, and worker initialized": {
+        "n": 2,
+        "min": 4,
+        "p50": 4,
+        "p95": 9,
+        "max": 9,
+        "mean": 6.5
+      },
+      "Sent services-ready to renderer": {
+        "n": 2,
+        "min": 0,
+        "p50": 0,
+        "p95": 1,
+        "max": 1,
+        "mean": 0.5
+      },
+      "Renderer signaled visually ready": {
+        "n": 3,
+        "min": 133,
+        "p50": 528,
+        "p95": 677,
+        "max": 677,
+        "mean": 446
+      }
+    },
+    "totals": {
+      "n": 3,
+      "min": 864,
+      "p50": 1230,
+      "p95": 1353,
+      "max": 1353,
+      "mean": 1149
+    },
+    "profile": "copy of the real profile: mind-sage.db, qdrant-data, Local Storage",
+    "note": "Measured against the packaged build and a copy of the real user profile. The first run of a session is the closest to cold; later runs benefit from the OS file cache. A launch after a reboot would be colder than anything measured here."
+  },
+  "app": {
+    "entries": 5000,
+    "runs": 20,
+    "results": {
+      "ipc.journal:get-all (10)": {
+        "n": 20,
+        "min": 10.2,
+        "p50": 10.7,
+        "p95": 11.1,
+        "max": 11.4,
+        "mean": 10.71,
+        "payloadBytes": 22057
+      },
+      "ipc.journal:get-all (50)": {
+        "n": 20,
+        "min": 10.5,
+        "p50": 10.7,
+        "p95": 11.5,
+        "max": 12.3,
+        "mean": 10.885,
+        "payloadBytes": 114385
+      },
+      "ipc.journal:get-recent": {
+        "n": 20,
+        "min": 8.4,
+        "p50": 8.8,
+        "p95": 9.9,
+        "max": 10,
+        "mean": 8.89,
+        "payloadBytes": 7104
+      },
+      "ipc.journal:get-images (top)": {
+        "n": 20,
+        "min": 1.3,
+        "p50": 1.4,
+        "p95": 1.5,
+        "max": 1.9,
+        "mean": 1.43,
+        "payloadBytes": 667
+      },
+      "ipc.dashboard:get-data": {
+        "n": 20,
+        "min": 5.8,
+        "p50": 6,
+        "p95": 6.5,
+        "max": 6.7,
+        "mean": 6.085,
+        "payloadBytes": 7703
+      },
+      "ipc.dashboard:get-stats": {
+        "n": 20,
+        "min": 63.2,
+        "p50": 64.9,
+        "p95": 65.8,
+        "max": 66,
+        "mean": 64.84,
+        "payloadBytes": 491
+      },
+      "ipc.goal:get-active-goals": {
+        "n": 20,
+        "min": 0.3,
+        "p50": 0.4,
+        "p95": 0.4,
+        "max": 0.5,
+        "mean": 0.365,
+        "payloadBytes": 2
+      },
+      "media.getImage": {
+        "n": 6,
+        "min": 0.8,
+        "p50": 0.9,
+        "p95": 0.9,
+        "max": 0.9,
+        "mean": 0.883,
+        "payloadBytes": 125483
+      },
+      "media.getThumbnail": {
+        "n": 6,
+        "min": 0.9,
+        "p50": 0.9,
+        "p95": 1.6,
+        "max": 1.6,
+        "mean": 1.033,
+        "payloadBytes": 4823
+      },
+      "render.dashboardSettle": {
+        "n": 5,
+        "min": 322.4,
+        "p50": 328.7,
+        "p95": 497.9,
+        "max": 497.9,
+        "mean": 361.38,
+        "note": "Time until rendered text stops changing, minus a 200ms stability window."
+      },
+      "render.journalListScroll": {
+        "n": 833,
+        "min": 0.6,
+        "p50": 7,
+        "p95": 9.3,
+        "max": 40,
+        "mean": 7.47,
+        "framesSampled": 833,
+        "droppedFrames": 16,
+        "droppedPercent": 1.9,
+        "domNodes": 4152,
+        "cardsRendered": 0
+      },
+      "memory.overSession": {
+        "samples": [
+          {
+            "cycle": 0,
+            "route": "#/dashboard",
+            "rssBytes": 709271552,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 0,
+            "route": "#/journals",
+            "rssBytes": 712511488,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 0,
+            "route": "#/goals",
+            "rssBytes": 714145792,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 0,
+            "route": "#/memories",
+            "rssBytes": 717225984,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 0,
+            "route": "#/chat",
+            "rssBytes": 717942784,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/dashboard",
+            "rssBytes": 721559552,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/journals",
+            "rssBytes": 726331392,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/goals",
+            "rssBytes": 727601152,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/memories",
+            "rssBytes": 729018368,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 1,
+            "route": "#/chat",
+            "rssBytes": 701419520,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/dashboard",
+            "rssBytes": 713469952,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/journals",
+            "rssBytes": 716152832,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/goals",
+            "rssBytes": 716124160,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/memories",
+            "rssBytes": 716242944,
+            "heapBytes": 31200000
+          },
+          {
+            "cycle": 2,
+            "route": "#/chat",
+            "rssBytes": 716468224,
+            "heapBytes": 31200000
+          }
+        ],
+        "startRssBytes": 709271552,
+        "endRssBytes": 716468224,
+        "growthBytes": 7196672,
+        "startHeapBytes": 31200000,
+        "endHeapBytes": 31200000,
+        "note": "Three passes over five routes. Growth here is not proof of a leak - caches warm too."
+      }
+    }
+  },
+  "bundle": {
+    "sourcemapsAnalysed": 8,
+    "totals": {
+      "javascriptBytes": 1895853,
+      "javascriptGzipBytes": 728591,
+      "cssBytes": 91055,
+      "unattributedBytes": 2735
+    },
+    "byOwner": {
+      "zxcvbn": 819196,
+      "chart.js": 199451,
+      "src/components": 189431,
+      "react-dom": 174347,
+      "src/pages": 124954,
+      "framer-motion": 83137,
+      "gsap": 69926,
+      "lucide-react": 44238,
+      "motion-dom": 37881,
+      "react-router": 32623,
+      "react-easy-crop": 19885,
+      "date-fns": 19855,
+      "src/utils": 14342,
+      "src/api": 9320,
+      "dayjs": 9129,
+      "react": 8243,
+      "@kurkle/color": 7806,
+      "src/hooks": 4709,
+      "src": 4366,
+      "scheduler": 3579,
+      "normalize-wheel": 3495,
+      "react-textarea-autosize": 3056,
+      "src/layouts": 2602,
+      "src/context": 1937,
+      "motion-utils": 1896
+    },
+    "largestChunks": [
+      {
+        "file": "index-Bx5uHC6b.js",
+        "bytes": 1759782,
+        "gzipBytes": 679975
+      },
+      {
+        "file": "masonry-Db-GW57w.js",
+        "bytes": 73527,
+        "gzipBytes": 29231
+      },
+      {
+        "file": "ProfileSettings-CMnel_eR.js",
+        "bytes": 30710,
+        "gzipBytes": 9618
+      },
+      {
+        "file": "ModelSettings-Bv2P9Kxc.js",
+        "bytes": 16568,
+        "gzipBytes": 4512
+      },
+      {
+        "file": "ColorSettings-BeyX6SYO.js",
+        "bytes": 6358,
+        "gzipBytes": 2092
+      },
+      {
+        "file": "AppearanceSettings-3MR_aMVi.js",
+        "bytes": 5858,
+        "gzipBytes": 1984
+      },
+      {
+        "file": "SecuritySettings-CdWXQTJd.js",
+        "bytes": 1814,
+        "gzipBytes": 591
+      },
+      {
+        "file": "ExportSettings-xoGSiFTX.js",
+        "bytes": 1236,
+        "gzipBytes": 588
+      }
+    ],
+    "note": "Bytes attributed by decoding sourcemap mappings; unattributed bytes are bundler scaffolding."
+  },
+  "rag": {
+    "chatModel": "llama3.2:latest",
+    "embedModel": "nomic-embed-text:v1.5",
+    "corpusSize": 60,
+    "runs": 3,
+    "results": {
+      "rag.1.queryPlanning": {
+        "n": 9,
+        "min": 3454.293,
+        "p50": 4103.018,
+        "p95": 5339.217,
+        "max": 5339.217,
+        "mean": 4121.656,
+        "planParseRate": "9/9"
+      },
+      "rag.2.embedding": {
+        "n": 9,
+        "min": 17.375,
+        "p50": 45.29,
+        "p95": 54.589,
+        "max": 54.589,
+        "mean": 36.841
+      },
+      "rag.3.vectorSearch": {
+        "n": 9,
+        "min": 2.963,
+        "p50": 3.296,
+        "p95": 18.197,
+        "max": 18.197,
+        "mean": 4.989
+      },
+      "rag.4.answerGeneration": {
+        "n": 9,
+        "min": 4866.012,
+        "p50": 6445.979,
+        "p95": 7719.588,
+        "max": 7719.588,
+        "mean": 6438.339
+      },
+      "rag.total": {
+        "n": 9,
+        "min": 8991.22,
+        "p50": 10648.147,
+        "p95": 11971.941,
+        "max": 11971.941,
+        "mean": 10601.856
+      },
+      "rag.shareOfTotal": {
+        "rag.1.queryPlanning": "38.5%",
+        "rag.2.embedding": "0.4%",
+        "rag.3.vectorSearch": "0%",
+        "rag.4.answerGeneration": "60.5%"
+      }
+    }
+  },
+  "quality": {
+    "summary": {
+      "embedModel": "nomic-embed-text:v1.5",
+      "taskPrefixes": false,
+      "k": 5,
+      "corpusEntries": 18,
+      "queries": 15,
+      "recall@5": 0.767,
+      "mrr": 0.644,
+      "precision@1": 0.467
+    },
+    "perQuery": [
+      {
+        "query": "What have I written about my knee?",
+        "relevant": [
+          1
+        ],
+        "returned": [
+          13,
+          1,
+          15,
+          6,
+          14
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.5,
+        "topHitRelevant": false
+      },
+      {
+        "query": "When did I last talk to my sister?",
+        "relevant": [
+          2
+        ],
+        "returned": [
+          2,
+          13,
+          14,
+          5,
+          6
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Notes about things going wrong at work",
+        "relevant": [
+          3,
+          16
+        ],
+        "returned": [
+          14,
+          8,
+          3,
+          10,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 0.33,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Am I sleeping badly?",
+        "relevant": [
+          4,
+          17
+        ],
+        "returned": [
+          4,
+          13,
+          17,
+          3,
+          11
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "What is my mum up to these days?",
+        "relevant": [
+          5
+        ],
+        "returned": [
+          14,
+          2,
+          17,
+          5,
+          4
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.25,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Have I been reading anything?",
+        "relevant": [
+          6,
+          18
+        ],
+        "returned": [
+          6,
+          4,
+          14,
+          15,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Times I spent time outdoors",
+        "relevant": [
+          7,
+          15
+        ],
+        "returned": [
+          7,
+          15,
+          14,
+          5,
+          6
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Do I struggle to accept compliments?",
+        "relevant": [
+          8,
+          16
+        ],
+        "returned": [
+          8,
+          10,
+          15,
+          4,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "What am I worried about financially?",
+        "relevant": [
+          9
+        ],
+        "returned": [
+          9,
+          4,
+          14,
+          13,
+          8
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      },
+      {
+        "query": "Am I looking after myself during the workday?",
+        "relevant": [
+          10,
+          4
+        ],
+        "returned": [
+          11,
+          7,
+          10,
+          14,
+          4
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.33,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Thoughts about where I live",
+        "relevant": [
+          11
+        ],
+        "returned": [
+          14,
+          11,
+          5,
+          13,
+          18
+        ],
+        "recall": 1,
+        "reciprocalRank": 0.5,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Anything about cooking or food I made",
+        "relevant": [
+          12
+        ],
+        "returned": [
+          5,
+          10,
+          11,
+          13,
+          4
+        ],
+        "recall": 0,
+        "reciprocalRank": 0,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Have I been to any medical appointments?",
+        "relevant": [
+          13,
+          1
+        ],
+        "returned": [
+          7,
+          13,
+          18,
+          17,
+          14
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 0.5,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Which friendships have been on my mind?",
+        "relevant": [
+          14,
+          2
+        ],
+        "returned": [
+          6,
+          15,
+          10,
+          14,
+          13
+        ],
+        "recall": 0.5,
+        "reciprocalRank": 0.25,
+        "topHitRelevant": false
+      },
+      {
+        "query": "Have I been drinking less?",
+        "relevant": [
+          17
+        ],
+        "returned": [
+          17,
+          4,
+          13,
+          14,
+          7
+        ],
+        "recall": 1,
+        "reciprocalRank": 1,
+        "topHitRelevant": true
+      }
+    ]
+  }
+}
