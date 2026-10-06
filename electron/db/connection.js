@@ -23,6 +23,16 @@ export const db = new Database(dbPath);
 // never reached it at all.
 db.pragma("foreign_keys = ON");
 
+// WAL lets the main process read while the Qdrant worker writes; in the
+// default rollback journal every worker write blocked every read, measured at
+// 200ms for a 1ms query (docs/benchmarks/FINDINGS.md §2). journal_mode is
+// stored in the file, so this is a no-op after the first launch, and the
+// worker's handle repeats it harmlessly. synchronous is per connection: NORMAL
+// is durable against an app crash in WAL mode and can only lose the last
+// commits on a power cut, which FULL would cost an fsync per write to prevent.
+db.pragma("journal_mode = WAL");
+db.pragma("synchronous = NORMAL");
+
 // A pre-migration snapshot is the user's only insurance: the database is the
 // single copy of their journal and there is no undo for a bad ALTER.
 const BACKUP_DIR_NAME = "backups";

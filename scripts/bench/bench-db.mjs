@@ -250,12 +250,18 @@ try {
 
 const dbFile = db.name;
 const sizeBytes = fs.existsSync(dbFile) ? fs.statSync(dbFile).size : 0;
+// In WAL mode recent writes live in the -wal file until a checkpoint, so the
+// main file alone understates what is on disk.
+const walBytes = fs.existsSync(`${dbFile}-wal`)
+  ? fs.statSync(`${dbFile}-wal`).size
+  : 0;
 
 const report = {
   entries: ENTRIES,
   runs: RUNS,
   seedMs: Math.round(seedMs),
   dbSizeBytes: sizeBytes,
+  walBytes,
   pragmas,
   totalScans: countScans(Object.values(plans).flat()),
   results,
