@@ -58,7 +58,11 @@ const settingsSections: Record<string, SettingsSection> = {
   },
   models: { label: "Models", icon: Boxes, component: ModelSettings },
   security: { label: "Security", icon: Lock, component: SecuritySettings },
-  export: { label: "Data Export", icon: Download, component: ExportSettings },
+  export: {
+    label: "Import & Export",
+    icon: Download,
+    component: ExportSettings,
+  },
 };
 
 const Settings = () => {

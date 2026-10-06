@@ -44,6 +44,8 @@ declare global {
     };
 
     openExternal: (url: string) => Promise<void>;
+    /** The filesystem path of a dropped File (Electron's webUtils). */
+    getPathForFile: (file: File) => string;
 
     onAIStarted: (callback: (data: unknown) => void) => void;
     onAICompleted: (callback: (data: unknown) => void) => void;
