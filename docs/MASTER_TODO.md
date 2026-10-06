@@ -111,6 +111,7 @@ Independently shippable, and it shrinks everything downstream — fewer files to
 34. 🟠 S — **Handle the offline first run.** A 274 MB model pull is required to finish setup; document it and fail gracefully instead of stalling. → [NETWORK_AUDIT §1.2](NETWORK_AUDIT.md)
 35. 🟢 S — **`sandbox: true` on both BrowserWindows.** `contextIsolation` and `nodeIntegration` are already correct. → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
 35b. 🟡 S — **Startup race on `models:get-selected`.** The renderer invokes it before `registerIPCHandlers()` has run, so the packaged log shows `No handler registered for 'models:get-selected'` on launch. Seen 2026-10-06. Related: in two of three `startup` benchmark runs on 2026-10-06 the log stops before "Qdrant started" while the renderer still signals ready. → [benchmarks/OPTIMIZATION_LOG](benchmarks/OPTIMIZATION_LOG.md)
+35c. 🔴 S: **A Qdrant failure takes every IPC handler down with it.** In `main.js`, `startQdrant()` and `registerIPCHandlers()` share one `try` block, so when Qdrant throws, the handlers are never registered and the app opens with nothing working: no login, no journal, no settings, though none of that needs Qdrant. Seen 2026-10-06 on a scratch profile whose fresh `qdrant-data` path exceeded Windows' 260-character limit (`createCollection` returned "os error 3"); any Qdrant start or collection failure does the same. Register the handlers regardless and let search and chat degrade. Likely the same root as part of 35b. → [benchmarks/OPTIMIZATION_LOG](benchmarks/OPTIMIZATION_LOG.md)
 
 ## Phase 6 — Act on what the benchmarks found
 
@@ -186,6 +187,6 @@ Every item in every doc is accounted for here. Nothing was dropped silently.
 | [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) | 34 | Throughout; §0 verified table folded into §0 here |
 | [CODEBASE_STRUCTURE_AUDIT.md](CODEBASE_STRUCTURE_AUDIT.md) | 8 (P1–P8) | 20–24, 52, 64 · P4 declined · rest in §0 |
 
-**Totals by severity:** 45 items still open, 14 🔴 · 15 🟠 · 9 🟡 · 7 🟢. Since the 56 counted on 2026-08-28: Phase 0 closed six (2026-08-30), items 26, 27 and 36 were found done but still listed (2026-10-06), 35b was added, and Phase 1 closed items 7, 8 and 9 (2026-10-06). Everything closed is recorded in §0.
+**Totals by severity:** 46 items still open, 15 🔴 · 15 🟠 · 9 🟡 · 7 🟢. Since the 56 counted on 2026-08-28: Phase 0 closed six (2026-08-30), items 26, 27 and 36 were found done but still listed (2026-10-06), 35b and 35c were added, and Phase 1 closed items 7, 8 and 9 (2026-10-06). Everything closed is recorded in §0.
 
 **The short version.** Phases 0 and 1 are about twenty items, nearly all `S`, and they remove every known data-loss path, the worst latency cliff, and ~145 MB — before a single architectural decision is required. Phase 2 is the product's actual promise. Everything after that is a real roadmap rather than a sprint.
