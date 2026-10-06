@@ -51,7 +51,7 @@ export default function JournalForm() {
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const voiceRecorderState = useVoiceRecorder();
   const { recordingBlob, resetRecording } = voiceRecorderState;
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
   const [selectedModel, setSelectedModel] = useState<string>("");
 
   useEffect(() => {
@@ -120,7 +120,7 @@ export default function JournalForm() {
   useEffect(() => {
     const loadEntry = async () => {
       if (isEdit && id) {
-        const fetchedEntry = await journalService.getOne(accessToken!, +id);
+        const fetchedEntry = await journalService.getOne(+id);
 
         const entryToSet = {
           ...fetchedEntry,
@@ -195,7 +195,7 @@ export default function JournalForm() {
     };
 
     loadEntry();
-  }, [id, isEdit, accessToken, DRAFT_KEY]);
+  }, [id, isEdit, sessionUser, DRAFT_KEY]);
 
   // Auto-save draft
   useEffect(() => {
@@ -315,13 +315,9 @@ export default function JournalForm() {
 
       let res;
       if (isEdit && id) {
-        res = await journalService.update(
-          accessToken!,
-          +Number(id),
-          mergedEntry,
-        );
+        res = await journalService.update(+Number(id), mergedEntry);
       } else {
-        res = await journalService.create(accessToken!, mergedEntry);
+        res = await journalService.create(mergedEntry);
       }
 
       const journalId = isEdit ? Number(id) : Number(res.id);
@@ -362,11 +358,7 @@ export default function JournalForm() {
                 ...mergedEntry,
                 transcription: transcription,
               };
-              await journalService.update(
-                accessToken!,
-                journalId,
-                entryWithTranscription,
-              );
+              await journalService.update(journalId, entryWithTranscription);
             }
           } catch (err) {
             console.error("Failed to transcribe audio:", err);
@@ -379,7 +371,7 @@ export default function JournalForm() {
         imageKey !== res.image_key || audioKey !== res.audio_key;
 
       if (needsMediaUpdate) {
-        await journalService.update(accessToken!, journalId, {
+        await journalService.update(journalId, {
           ...mergedEntry,
           image_key: imageKey,
           audio_key: audioKey,
@@ -409,11 +401,7 @@ export default function JournalForm() {
     setIsGeneratingQuestions(true);
     const prompt = getFollowUpQuestionsPrompt(entry.content);
     try {
-      const res = await ollamaService.getResponse(
-        accessToken!,
-        selectedModel!,
-        prompt,
-      );
+      const res = await ollamaService.getResponse(selectedModel!, prompt);
       const cleaned = (res as string).replace(/```json|```/g, "").trim();
       setFollowUpQuestions(JSON.parse(cleaned));
     } catch (error) {

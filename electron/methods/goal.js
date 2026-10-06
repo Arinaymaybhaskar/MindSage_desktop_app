@@ -1,43 +1,28 @@
 import localDB from "../db/index.js";
-import jwt from "jsonwebtoken";
 import { eventBus } from "../eventBus.js";
+import { currentUserId } from "../session.js";
 
-function getUserIdFromToken(token) {
-  try {
-    // 1. Guard against null or undefined tokens
-    if (!token) {
-      return null;
-    }
-    const decoded = jwt.decode(token);
-    // 2. Ensure the token was successfully decoded and has an id
-    return decoded.id;
-  } catch (e) {
-    console.error("Error decoding token:", e);
-    return null;
-  }
-}
-
-export const handleGetActiveGoals = async (event, token) => {
-  const userId = getUserIdFromToken(token);
+export const handleGetActiveGoals = async (event) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
 
   return localDB.getActiveGoals(userId);
 };
 
-export const handleGetCompletedGoals = async (event, token) => {
-  const userId = getUserIdFromToken(token);
+export const handleGetCompletedGoals = async (event) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.getCompletedGoals(userId);
 };
 
-export const handleCreateGoal = async (event, token, goal) => {
-  const userId = getUserIdFromToken(token);
+export const handleCreateGoal = async (event, goal) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   const goalCreated = await localDB.AddGoal(userId, goal);
   console.log(goalCreated, "goal created");
@@ -48,10 +33,10 @@ export const handleCreateGoal = async (event, token, goal) => {
   return goalCreated;
 };
 
-export const handleUpdateGoal = async (event, token, goalId, goalData) => {
-  const userId = getUserIdFromToken(token);
+export const handleUpdateGoal = async (event, goalId, goalData) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   const updatedGoal = await localDB.updateGoal(userId, goalId, goalData);
   if (updatedGoal) {
@@ -60,50 +45,50 @@ export const handleUpdateGoal = async (event, token, goalId, goalData) => {
   return updatedGoal;
 };
 
-export const handleDeleteGoal = async (event, token, goalId) => {
-  const userId = getUserIdFromToken(token);
+export const handleDeleteGoal = async (event, goalId) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.deleteGoal(userId, goalId);
 };
 
-export const handleTogglePin = async (event, token, goalId) => {
-  const userId = getUserIdFromToken(token);
+export const handleTogglePin = async (event, goalId) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.togglePinGoal(userId, goalId);
 };
 
-export const handleCompleteGoal = async (event, token, goalId) => {
-  const userId = getUserIdFromToken(token);
+export const handleCompleteGoal = async (event, goalId) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.completeGoal(userId, goalId);
 };
 
-export const handleUpdateProgress = async (event, token, goalId, value) => {
-  const userId = getUserIdFromToken(token);
+export const handleUpdateProgress = async (event, goalId, value) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.updateProgress(userId, goalId, value);
 };
 
-export const handleGetPinnedGoals = (event, token) => {
-  const userId = getUserIdFromToken(token);
+export const handleGetPinnedGoals = (event) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.getPinnedGoals(userId);
 };
 
-export const handleGetGoalById = (event, token, goalId) => {
-  const userId = getUserIdFromToken(token);
+export const handleGetGoalById = (event, goalId) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.getGoalById(goalId, userId);
 };

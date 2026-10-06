@@ -1,34 +1,34 @@
-import { getUserIdFromToken } from "./authToken.js";
 import localDB from "../db/index.js";
+import { currentUserId } from "../session.js";
 
-export const getDashboardData = (event, token) => {
-  const userId = getUserIdFromToken(token);
+export const getDashboardData = (event) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.getDashboardData(userId);
 };
 
-export const getMonthlyScores = (event, token) => {
-  const userId = getUserIdFromToken(token);
+export const getMonthlyScores = (event) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.getMonthlyScores(userId);
 };
 
-export const getAllTimeScores = (event, token) => {
-  const userId = getUserIdFromToken(token);
+export const getAllTimeScores = (event) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.getAllTimeScores(userId);
 };
 
-export const getUserStats = (event, token) => {
-  const userId = getUserIdFromToken(token);
+export const getUserStats = (event) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.getUserStats(userId);
 };

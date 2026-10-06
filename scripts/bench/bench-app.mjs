@@ -168,25 +168,22 @@ try {
   // ---------------------------------------------------------------- login ---
 
   /**
-   * Logs in through the real `auth:login` handler rather than forging a token.
-   * Nine handlers currently only `jwt.decode`, so a forged token would work
-   * today and silently stop working the moment that is fixed.
+   * Logs in through the real `auth:login` handler. The session lives in the
+   * main process, so after this every handler knows who is signed in and no
+   * call below carries a credential.
    */
   const session = await cdp.evaluate(`(async () => {
     const res = await window.electron.ipcRenderer.invoke("auth:login", {
       identifier: ${JSON.stringify(BENCH_USER.email)},
       password: ${JSON.stringify(BENCH_USER.password)},
     });
-    if (!res || !res.accessToken) return { error: JSON.stringify(res) };
-    localStorage.setItem("accessToken", res.accessToken);
-    localStorage.setItem("userInfo", JSON.stringify(res.user ?? {}));
-    return { token: res.accessToken };
+    if (!res || !res.userInfo) return { error: JSON.stringify(res) };
+    return { ok: true };
   })()`);
 
-  if (session?.error || !session?.token) {
-    throw new Error(`Login failed: ${session?.error ?? "no token returned"}`);
+  if (session?.error || !session?.ok) {
+    throw new Error(`Login failed: ${session?.error ?? "no user returned"}`);
   }
-  const token = session.token;
 
   await cdp.reload();
   await cdp.waitUntil("!!window.electron", 30000);
@@ -195,10 +192,9 @@ try {
 
   console.log("  IPC round-trip");
 
-  // Just the token: the handlers took an auth mode ahead of it once, and
-  // passing the stale "offline" made every call below measure a rejection or
-  // an { error } envelope rather than the query it names.
-  const auth = [token];
+  // The same arguments as every earlier run minus the token that used to lead
+  // them, so these stay comparable with the stored results.
+  const auth = [];
   const ipcScenarios = {
     "journal:get-all (10)": ["journal:get-all", [...auth, 1, 10]],
     "journal:get-all (50)": ["journal:get-all", [...auth, 1, 50]],

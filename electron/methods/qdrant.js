@@ -1,24 +1,9 @@
 import { ipcMain } from "electron";
 import { QdrantClient } from "@qdrant/js-client-rest";
-import jwt from "jsonwebtoken";
 import { generateEmbedding } from "./ollama.js";
+import { currentUserId } from "../session.js";
 
 let client = null;
-
-function getUserIdFromToken(token) {
-  try {
-    // 1. Guard against null or undefined tokens
-    if (!token) {
-      return null;
-    }
-    const decoded = jwt.decode(token);
-    // 2. Ensure the token was successfully decoded and has an id
-    return decoded;
-  } catch (e) {
-    console.error("Error decoding token:", e);
-    return null;
-  }
-}
 
 export async function SemanticSearch(
   vector,
@@ -68,10 +53,10 @@ export function registerQdrantIPC(runtime) {
   });
   ipcMain.handle(
     "qdrant:search",
-    async (_e, token, collection, queryInput, limit = 5, filter) => {
+    async (_e, collection, queryInput, limit = 5, filter) => {
       try {
         const query = await generateEmbedding(queryInput); // flat number[]
-        const userId = getUserIdFromToken(token).id;
+        const userId = currentUserId();
         return SemanticSearch(query, userId, limit, collection);
       } catch (error) {
         console.error("Error in qdrant:search:", error);

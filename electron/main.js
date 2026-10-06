@@ -15,6 +15,7 @@ import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
 import { registerSetupIPC } from "./services/appSetup.js";
 import { applyLaunchAtStartup, registerAppSettingsIPC } from "./appSettings.js";
+import { registerSessionIPC } from "./methods/auth.js";
 import { initAutoUpdater, registerUpdaterIPC } from "./services/autoUpdater.js";
 import { Worker } from "node:worker_threads";
 
@@ -211,6 +212,7 @@ app.whenReady().then(async () => {
     registerSetupIPC();
     registerAppSettingsIPC();
     registerUpdaterIPC(() => win);
+    registerSessionIPC();
     applyLaunchAtStartup();
   } catch (e) {
     log(`Setup/settings IPC init error: ${e?.stack || e}`);

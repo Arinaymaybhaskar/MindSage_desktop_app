@@ -244,7 +244,7 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
   const [detailedModel, setDetailedModel] = useState<ParsedModel | null>(null);
   const [capabilityFilter, setCapabilityFilter] = useState<string>("all");
   const [selectedTier, setSelectedTier] = useState<string>("high");
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
   const { showToast } = useToast();
   const [modelToDelete, setModelToDelete] = useState<ParsedModel | null>(null);
 
@@ -255,8 +255,8 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
   const handleDelete = async (modelName: string) => {
     showToast(`Deleting ${modelName}...`);
     try {
-      await ollamaService.deleteModel(accessToken!, modelName);
-      const rawModels = await ollamaService.getModels(accessToken!);
+      await ollamaService.deleteModel(modelName);
+      const rawModels = await ollamaService.getModels();
       setInstalledModels(rawModels.map(parseModelData));
       showToast(`${modelName} deleted.`, "success");
     } catch (err) {
@@ -271,7 +271,7 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const rawModels = await ollamaService.getModels(accessToken!);
+        const rawModels = await ollamaService.getModels();
         setInstalledModels(rawModels.map(parseModelData));
       } catch (err) {
         console.error(err);
@@ -282,7 +282,7 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
     };
     fetchModels();
     // showToast is stable (useCallback with no deps in ToastContext).
-  }, [accessToken, showToast]);
+  }, [sessionUser, showToast]);
 
   // Modified: Initialize from electron-store
   useEffect(() => {
@@ -320,8 +320,8 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
     setLoadingModel(modelName);
     showToast(`Downloading ${modelName}...`);
     try {
-      await ollamaService.downloadModel(accessToken!, modelName);
-      const rawModels = await ollamaService.getModels(accessToken!);
+      await ollamaService.downloadModel(modelName);
+      const rawModels = await ollamaService.getModels();
       setInstalledModels(rawModels.map(parseModelData));
       showToast(`${modelName} downloaded.`, "success");
     } catch (err) {

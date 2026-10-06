@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import { AuthProvider } from "./AuthContext";
 import { useAuth } from "../hooks/useAuth";
 
@@ -11,56 +11,128 @@ const USER = {
   timezone: "UTC",
 };
 
+/**
+ * A stand-in for the main process: it owns the session, as
+ * electron/session.js does, and announces changes on "auth:changed".
+ */
+function fakeMain(initial: typeof USER | null = null) {
+  let session = initial;
+  const listeners = new Set<() => void>();
+  const invoke = vi.fn(async (channel: string, ...args: unknown[]) => {
+    if (channel === "auth:get-session") return { userInfo: session };
+    if (channel === "auth:logout") {
+      session = null;
+      return { ok: true };
+    }
+    if (channel === "auth:adopt-legacy-session") {
+      session = args[0] === "legacy-jwt" ? USER : null;
+      return { userInfo: session };
+    }
+    throw new Error(`unexpected channel ${channel}`);
+  });
+  const on = vi.fn((channel: string, cb: () => void) => {
+    if (channel !== "auth:changed") return () => {};
+    listeners.add(cb);
+    return () => listeners.delete(cb);
+  });
+  // @ts-expect-error minimal stub of the preload bridge for tests
+  window.electron = { ipcRenderer: { invoke, on } };
+  return {
+    invoke,
+    /** Another window signed in or out: change the session and announce it. */
+    change(next: typeof USER | null) {
+      session = next;
+      for (const cb of listeners) cb();
+    },
+  };
+}
+
 let auth: ReturnType<typeof useAuth>;
 
 function Probe() {
   auth = useAuth();
-  return <span data-testid="token">{auth.accessToken ?? "none"}</span>;
+  return (
+    <span data-testid="user">
+      {auth.checking ? "checking" : (auth.user?.username ?? "none")}
+    </span>
+  );
 }
 
-describe("AuthProvider logout", () => {
-  beforeEach(() => {
-    localStorage.clear();
+const renderProvider = () =>
+  render(
+    <AuthProvider>
+      <Probe />
+    </AuthProvider>,
+  );
+
+beforeEach(() => {
+  localStorage.clear();
+});
+
+describe("AuthProvider session", () => {
+  it("asks the main process who is signed in", async () => {
+    fakeMain(USER);
+    renderProvider();
+    expect(screen.getByTestId("user").textContent).toBe("checking");
+    await waitFor(() =>
+      expect(screen.getByTestId("user").textContent).toBe("ada"),
+    );
   });
 
-  it("resets the session state, not just storage", () => {
-    render(
-      <AuthProvider>
-        <Probe />
-      </AuthProvider>,
+  it("is signed out when the main process has no session", async () => {
+    fakeMain(null);
+    renderProvider();
+    await waitFor(() =>
+      expect(screen.getByTestId("user").textContent).toBe("none"),
     );
+  });
 
-    act(() => auth.login("token-abc", USER));
-    expect(screen.getByTestId("token").textContent).toBe("token-abc");
+  it("hands a token from an older version over once, then deletes it", async () => {
+    const main = fakeMain(null);
+    localStorage.setItem("accessToken", "legacy-jwt");
+    localStorage.setItem("authMode", "offline");
+    renderProvider();
+    await waitFor(() =>
+      expect(screen.getByTestId("user").textContent).toBe("ada"),
+    );
+    expect(main.invoke).toHaveBeenCalledWith(
+      "auth:adopt-legacy-session",
+      "legacy-jwt",
+    );
+    expect(localStorage.getItem("accessToken")).toBeNull();
+    expect(localStorage.getItem("authMode")).toBeNull();
+  });
+});
 
-    act(() => auth.logout());
+describe("AuthProvider logout", () => {
+  it("resets the state and tells the main process", async () => {
+    const main = fakeMain(USER);
+    renderProvider();
+    await waitFor(() => expect(auth.user?.username).toBe("ada"));
+
+    await act(() => auth.logout());
 
     // PrivateRoute reads the context, so this is what actually signs out.
-    expect(auth.accessToken).toBeNull();
     expect(auth.user).toBeNull();
-    expect(screen.getByTestId("token").textContent).toBe("none");
+    expect(screen.getByTestId("user").textContent).toBe("none");
+    expect(main.invoke).toHaveBeenCalledWith("auth:logout");
   });
 
-  it("removes the auth keys and leaves everything else alone", () => {
-    localStorage.setItem("authMode", "offline");
+  it("removes the auth keys and leaves everything else alone", async () => {
+    fakeMain(USER);
     localStorage.setItem("colorTheme", "Sunset");
     localStorage.setItem("zoom_scale", "1.25");
     localStorage.setItem("setup_complete", "true");
     localStorage.setItem("path_on_titlebar", "false");
     localStorage.setItem("draft-journal", "an unsaved entry");
 
-    render(
-      <AuthProvider>
-        <Probe />
-      </AuthProvider>,
+    renderProvider();
+    await waitFor(() =>
+      expect(localStorage.getItem("userInfo")).not.toBeNull(),
     );
-    act(() => auth.login("token-abc", USER));
-    act(() => auth.logout());
+    await act(() => auth.logout());
 
-    expect(localStorage.getItem("accessToken")).toBeNull();
     expect(localStorage.getItem("userInfo")).toBeNull();
-    expect(localStorage.getItem("authMode")).toBeNull();
-
     expect(localStorage.getItem("colorTheme")).toBe("Sunset");
     expect(localStorage.getItem("zoom_scale")).toBe("1.25");
     expect(localStorage.getItem("setup_complete")).toBe("true");
@@ -68,12 +140,10 @@ describe("AuthProvider logout", () => {
     expect(localStorage.getItem("draft-journal")).toBe("an unsaved entry");
   });
 
-  it("keeps a stable logout identity across renders", () => {
-    const { rerender } = render(
-      <AuthProvider>
-        <Probe />
-      </AuthProvider>,
-    );
+  it("keeps a stable logout identity across renders", async () => {
+    fakeMain(USER);
+    const { rerender } = renderProvider();
+    await waitFor(() => expect(auth.checking).toBe(false));
     const first = auth.logout;
     rerender(
       <AuthProvider>
@@ -85,41 +155,29 @@ describe("AuthProvider logout", () => {
 });
 
 describe("AuthProvider across windows", () => {
-  beforeEach(() => {
-    localStorage.clear();
+  it("follows a sign-in made in another window", async () => {
+    const main = fakeMain(null);
+    renderProvider();
+    await waitFor(() =>
+      expect(screen.getByTestId("user").textContent).toBe("none"),
+    );
+
+    act(() => main.change(USER));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("user").textContent).toBe("ada"),
+    );
   });
 
-  it("follows a login made in another window", () => {
-    render(
-      <AuthProvider>
-        <Probe />
-      </AuthProvider>,
+  it("follows a sign-out made in another window", async () => {
+    const main = fakeMain(USER);
+    renderProvider();
+    await waitFor(() => expect(auth.user?.username).toBe("ada"));
+
+    act(() => main.change(null));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("user").textContent).toBe("none"),
     );
-    expect(screen.getByTestId("token").textContent).toBe("none");
-
-    // What the main window's login() writes, seen from Quick Capture.
-    localStorage.setItem("accessToken", "from-main-window");
-    localStorage.setItem("userInfo", JSON.stringify(USER));
-    act(() => {
-      window.dispatchEvent(new StorageEvent("storage", { key: "accessToken" }));
-    });
-
-    expect(screen.getByTestId("token").textContent).toBe("from-main-window");
-    expect(auth.user?.username).toBe("ada");
-  });
-
-  it("ignores storage changes to keys outside the session", () => {
-    localStorage.setItem("accessToken", "tok");
-    render(
-      <AuthProvider>
-        <Probe />
-      </AuthProvider>,
-    );
-    localStorage.removeItem("accessToken");
-    act(() => {
-      window.dispatchEvent(new StorageEvent("storage", { key: "zoom_scale" }));
-    });
-
-    expect(screen.getByTestId("token").textContent).toBe("tok");
   });
 });

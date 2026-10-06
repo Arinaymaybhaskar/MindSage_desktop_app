@@ -67,7 +67,7 @@ function read<T>(result: PromiseSettledResult<T>, label: string): T | null {
 }
 
 export default function Dashboard() {
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
@@ -86,7 +86,7 @@ export default function Dashboard() {
    * calling logout() used to do on any slow or unhappy IPC call.
    */
   const fetchCoreData = useCallback(async () => {
-    if (!accessToken) {
+    if (!sessionUser) {
       setIsDashboardLoading(false);
       return;
     }
@@ -94,13 +94,13 @@ export default function Dashboard() {
 
     const [dashboardData, imageData, userData, statsData, allTime] =
       await Promise.allSettled([
-        dashboardService.getData(accessToken),
-        journalService.getImages(accessToken, "random"),
-        userService.getMe(accessToken),
-        dashboardService.getStats(accessToken),
+        dashboardService.getData(),
+        journalService.getImages("random"),
+        userService.getMe(),
+        dashboardService.getStats(),
         // Already exposed for the chart's "All Time" range; reused here so the
         // heatmap and streak need no new query.
-        dashboardService.getAllTimeScore(accessToken),
+        dashboardService.getAllTimeScore(),
       ]);
 
     setRecentEntries(
@@ -120,7 +120,7 @@ export default function Dashboard() {
     setAllTimeScores(Array.isArray(scores) ? scores : []);
 
     setIsDashboardLoading(false);
-  }, [accessToken]);
+  }, [sessionUser]);
 
   useEffect(() => {
     void fetchCoreData();

@@ -28,7 +28,11 @@ export function getUserById(userId) {
   user.lastEntryDate = lastEntryDate?.last_entry_ || null;
 
   user.entriesCount = entriesThisMonth?.count || 0;
-  return user;
+
+  // This goes to the renderer, which caches it in localStorage for the title
+  // bar and profile menu. The bcrypt hash used to ride along into that cache.
+  const { password_hash: _hash, ...safe } = user;
+  return safe;
 }
 
 export function updateUserProfile(

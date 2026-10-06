@@ -37,7 +37,7 @@ Run before trusting any older doc in this folder.
 
 - [ ] 🔴 M — **Encrypt the database at rest.** [connection.js:6-10](../electron/db/connection.js#L6-L10) opens a plain `better-sqlite3` file at a predictable path. Journal text, moods, and the bcrypt hash are readable by anyone with file access, which makes the login screen a UI gate in front of an open door. Depends on the recovery decision in [OFFLINE_AUTH_DESIGN.md](OFFLINE_AUTH_DESIGN.md).
 - [ ] 🔴 S — **Remove the hardcoded JWT secret** from [electron/methods/auth.js:9](../electron/methods/auth.js#L9) — it now ships *inside the packaged app*. Rotate it and scrub git history.
-- [ ] 🔴 S — **Resolve the token charade.** Nine handlers call `jwt.decode`, never `jwt.verify`; `expiresIn: '15m'` is never enforced. Decide lock-vs-profile first ([AUTH_REVIEW.md](AUTH_REVIEW.md) §1) — fixing verification alone logs every user out with no refresh path.
+- [x] 🔴 S — **Resolve the token charade.** Done 2026-10-06: profile-selection chosen (option B), tokens deleted, the session held in the main process. See [MASTER_TODO §0](MASTER_TODO.md).
 - [ ] 🔴 S — **Gate the auto-updater.** Fires unprompted on every packaged launch with `autoDownload = true` ([NETWORK_AUDIT.md](NETWORK_AUDIT.md) §1.1). Contradicts the offline-first claim.
 
 ### Data-loss paths (not tracked in any prior doc)

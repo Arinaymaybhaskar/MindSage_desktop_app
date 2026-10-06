@@ -1,18 +1,29 @@
+import Store from "electron-store";
+import { ipcMain } from "electron";
 import localDB from "../db/index.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { getOfflineAccessTokenSecret } from "../services/tokenSecret.js";
+import {
+  currentUserId,
+  restoreRememberedSession,
+  signIn,
+  signOut,
+} from "../session.js";
 
-// The signing secret is generated per install and persisted outside the
-// bundle. See services/tokenSecret.js for why that is uniqueness, not
-// confidentiality.
+// The session lives in the main process (session.js). Login no longer issues
+// a token: there is no server to present one to, and the old one was never
+// verified anyway.
 
-const generateAccessToken = (user) => {
-  return jwt.sign(user, getOfflineAccessTokenSecret(), { expiresIn: "15m" });
-};
+const toUserInfo = (user) => ({
+  id: user.id,
+  username: user.username,
+  email: user.email,
+  full_name: user.full_name || null,
+  created_at: user.created_at,
+  profile_picture: user.profile_picture || null,
+});
 
 export const handleLogin = async (event, credentials) => {
-  const { identifier, password } = credentials;
+  const { identifier, password, rememberMe = false } = credentials;
   try {
     const user = localDB.findUserByIdentifier(identifier);
     if (!user) throw new Error("User not found");
@@ -20,25 +31,66 @@ export const handleLogin = async (event, credentials) => {
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) throw new Error("Incorrect password");
 
-    const accessToken = generateAccessToken({
-      id: user.id,
-      username: user.username,
-    });
-    // --- FIX: Ensure full_name is never undefined ---
-    const userInfo = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      full_name: user.full_name || null, // Fallback to null if undefined
-      created_at: user.created_at,
-      profile_picture: user.profile_picture || null,
-    };
-    return { accessToken, userInfo };
+    signIn(user, { remember: !!rememberMe });
+    markLegacySessionChecked();
+    return { userInfo: toUserInfo(user) };
   } catch (error) {
     console.error("Offline login error:", error);
     throw error;
   }
 };
+
+/** Who is signed in, restoring a remembered session on first ask. */
+export const handleGetSession = async () => {
+  const session = restoreRememberedSession(localDB.findUserById);
+  if (!session) return { userInfo: null };
+  try {
+    const user = localDB.findUserById(session.id);
+    return { userInfo: user ? toUserInfo(user) : null };
+  } catch {
+    return { userInfo: null };
+  }
+};
+
+export const handleLogout = async () => {
+  signOut();
+  return { ok: true };
+};
+
+// Installs from before the session moved here kept a JWT in the renderer's
+// localStorage and stayed signed in indefinitely. Dropping that on upgrade
+// would sign everyone out once, and with no password reset a user who had
+// forgotten their password would lose access to their journal. So the first
+// launch after upgrading may hand the old token over once, and it is honoured
+// exactly as far as the old code honoured it: decoded, not verified. After
+// that one chance the door is shut for good.
+const migration = new Store({
+  name: "session-migration",
+  defaults: { legacyTokenChecked: false },
+});
+
+export const handleAdoptLegacySession = async (event, token) => {
+  if (migration.get("legacyTokenChecked") || currentUserId() != null) {
+    return { userInfo: null };
+  }
+  migration.set("legacyTokenChecked", true);
+  try {
+    const payload = JSON.parse(
+      Buffer.from(String(token).split(".")[1], "base64url").toString("utf8"),
+    );
+    const user = payload?.id != null && localDB.findUserById(payload.id);
+    if (!user) return { userInfo: null };
+    signIn(user, { remember: true });
+    return { userInfo: toUserInfo(user) };
+  } catch {
+    return { userInfo: null };
+  }
+};
+
+/** Closes the one-time door once a fresh install signs in normally. */
+export function markLegacySessionChecked() {
+  migration.set("legacyTokenChecked", true);
+}
 
 export const handleRegister = async (event, details) => {
   try {
@@ -74,3 +126,14 @@ export const handleCheckUsername = async (event, username) => {
   const existing = localDB.findUserForCheck(null, name);
   return { available: !existing };
 };
+
+/**
+ * Registered with the setup IPC, ahead of the database and Qdrant, because
+ * the renderer asks who is signed in as soon as it mounts. The handlers read
+ * the database lazily and treat a missing schema as "nobody".
+ */
+export function registerSessionIPC() {
+  ipcMain.handle("auth:get-session", handleGetSession);
+  ipcMain.handle("auth:logout", handleLogout);
+  ipcMain.handle("auth:adopt-legacy-session", handleAdoptLegacySession);
+}

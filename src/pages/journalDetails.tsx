@@ -17,7 +17,6 @@ import {
   XCircle,
 } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
-import { useAuth } from "../hooks/useAuth";
 import { formatTimeAgo } from "../utils/DateFormatter";
 import { motion, AnimatePresence } from "framer-motion";
 import DeleteConfirmationModal from "../components/goals/modals/DeleteConfirmationModal";
@@ -93,7 +92,6 @@ export default function JournalDetail() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isTranscriptionOpen, setIsTranscriptionOpen] = useState(false);
-  const { accessToken } = useAuth();
   const { showToast } = useToast();
 
   // AI Metadata Status
@@ -143,7 +141,7 @@ export default function JournalDetail() {
       setError(false);
 
       try {
-        const res = await journalService.getOne(accessToken!, +id);
+        const res = await journalService.getOne(+id);
         if (!res) {
           if (!silent) setError(true);
         } else {
@@ -170,7 +168,7 @@ export default function JournalDetail() {
         if (!silent) setLoading(false);
       }
     },
-    [id, accessToken],
+    [id],
   );
 
   // Sync AI status from entry when it loads/changes
@@ -246,11 +244,7 @@ export default function JournalDetail() {
     if (!entry?.id) return;
     setIsRetryingMetadata(true);
     try {
-      const result = await journalService.retryAIMetadata(
-        accessToken!,
-        entry.id,
-        "metadata",
-      );
+      const result = await journalService.retryAIMetadata(entry.id, "metadata");
       if (result.success) {
         // The retry handler completes generation before returning, so this
         // fires on completion, not merely on start.
@@ -273,7 +267,6 @@ export default function JournalDetail() {
     try {
       await window.electron.ipcRenderer.invoke(
         "journal:update-ai-status",
-        accessToken!,
         entry.id,
         {
           ai_metadata_status: "not_started",
@@ -292,11 +285,7 @@ export default function JournalDetail() {
     if (!entry?.id) return;
     setIsRetryingSummary(true);
     try {
-      const result = await journalService.retryAIMetadata(
-        accessToken!,
-        entry.id,
-        "summary",
-      );
+      const result = await journalService.retryAIMetadata(entry.id, "summary");
       if (result.success) {
         if (result.skipped) {
           showToast("Entry too short to summarize", "info");
@@ -318,7 +307,6 @@ export default function JournalDetail() {
     try {
       await window.electron.ipcRenderer.invoke(
         "journal:update-ai-status",
-        accessToken!,
         entry.id,
         {
           ai_summary_status: "not_started",
@@ -366,7 +354,7 @@ export default function JournalDetail() {
 
   const handleDeleteConfirm = async () => {
     if (!id) return;
-    await journalService.remove(accessToken!, +id);
+    await journalService.remove(+id);
     setIsDeleteModalOpen(false);
     navigate("/journals");
   };

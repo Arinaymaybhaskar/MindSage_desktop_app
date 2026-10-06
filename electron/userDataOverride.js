@@ -14,7 +14,7 @@
 // the environment because it has no Electron app object to ask.
 //
 // This module must be the first import in main.js. electron-store builds its
-// file path when appSettings.js, store.js and tokenSecret.js are evaluated,
+// file path when appSettings.js, store.js and session.js are evaluated,
 // so setting the path any later leaves those stores in the real profile.
 
 import { app } from "electron";

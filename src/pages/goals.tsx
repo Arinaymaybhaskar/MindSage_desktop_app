@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { useAuth } from "../hooks/useAuth";
 import { goalService } from "../api/goalService";
 import { categoryService } from "../api/categoryService";
 import type { Category, Goal, ProgressLog } from "../types/Goals";
@@ -24,7 +23,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 const GoalsPage: React.FC = () => {
   // All state, data fetching, and handler logic remains the same...
-  const { accessToken } = useAuth();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeGoals, setActiveGoals] = useState<Goal[]>([]);
@@ -54,9 +52,9 @@ const GoalsPage: React.FC = () => {
     setLoading(true);
     try {
       const [active, completed, cats] = await Promise.all([
-        goalService.getActiveGoals(accessToken!),
-        goalService.getCompletedGoals(accessToken!),
-        categoryService.getCategories(accessToken!),
+        goalService.getActiveGoals(),
+        goalService.getCompletedGoals(),
+        categoryService.getCategories(),
       ]);
       setActiveGoals(Array.isArray(active) ? active : []);
       setCompletedGoals(Array.isArray(completed) ? completed : []);
@@ -69,7 +67,7 @@ const GoalsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, []);
 
   useEffect(() => {
     fetchAllData();
@@ -106,13 +104,9 @@ const GoalsPage: React.FC = () => {
     try {
       let goalAdded;
       if (modalType === "edit" && goalData.id !== undefined) {
-        goalAdded = await goalService.updateGoal(
-          accessToken!,
-          goalData.id,
-          goalData,
-        );
+        goalAdded = await goalService.updateGoal(goalData.id, goalData);
       } else {
-        goalAdded = await goalService.addGoal(accessToken!, goalData);
+        goalAdded = await goalService.addGoal(goalData);
       }
       console.log(goalAdded, "goalAdded");
       if (goalAdded) {
@@ -126,13 +120,13 @@ const GoalsPage: React.FC = () => {
   };
 
   const handleDelete = async (goal: Goal) => {
-    await goalService.deleteGoal(accessToken!, goal.id);
+    await goalService.deleteGoal(goal.id);
     closeModal();
     await fetchAllData();
   };
 
   const handleComplete = async (goalId: number) => {
-    await goalService.completeGoal(accessToken!, goalId);
+    await goalService.completeGoal(goalId);
     await fetchAllData();
   };
 
@@ -143,7 +137,7 @@ const GoalsPage: React.FC = () => {
       ),
     );
     try {
-      await goalService.togglePin(accessToken!, goalId.toString());
+      await goalService.togglePin(goalId.toString());
       await fetchAllData(); // Refetch to confirm state
     } catch (error) {
       console.error("Failed to toggle pin:", error);
@@ -168,15 +162,10 @@ const GoalsPage: React.FC = () => {
     description: string,
   ) => {
     try {
-      const res = await goalService.updateProgress(accessToken!, goalId, value);
+      const res = await goalService.updateProgress(goalId, value);
       let log;
       if (res) {
-        log = await progressLogsService.addProgress(
-          accessToken!,
-          goalId,
-          value,
-          description,
-        );
+        log = await progressLogsService.addProgress(goalId, value, description);
       }
       console.log(log, "log");
       if (log) {
@@ -184,7 +173,7 @@ const GoalsPage: React.FC = () => {
       }
       closeModal();
       if (res.target_value === res.current_value) {
-        await goalService.completeGoal(accessToken!, res.id);
+        await goalService.completeGoal(res.id);
         openModal("completed", res);
       }
       await fetchAllData();
@@ -194,10 +183,7 @@ const GoalsPage: React.FC = () => {
   };
 
   const handleViewReflection = async (goal: Goal) => {
-    const logs = await progressLogsService.getProgressLogs(
-      accessToken!,
-      goal.id,
-    );
+    const logs = await progressLogsService.getProgressLogs(goal.id);
     setProgressLogs(logs);
     openModal("reflection", goal);
   };

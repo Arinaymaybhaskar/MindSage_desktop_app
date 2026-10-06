@@ -5,10 +5,11 @@ import QuickCapture from "./quickCapture";
 
 const showToast = vi.fn();
 const create = vi.fn();
-let accessToken: string | null = "tok";
+const USER = { username: "ada" };
+let signedInUser: typeof USER | null = USER;
 
 vi.mock("../hooks/useAuth", () => ({
-  useAuth: () => ({ accessToken }),
+  useAuth: () => ({ user: signedInUser, checking: false }),
 }));
 vi.mock("../hooks/useToast", () => ({ useToast: () => ({ showToast }) }));
 vi.mock("../api/journalService", () => ({
@@ -18,7 +19,7 @@ vi.mock("../api/journalService", () => ({
 const DRAFT_KEY = "draft-quick-capture";
 
 beforeEach(() => {
-  accessToken = "tok";
+  signedInUser = USER;
   localStorage.clear();
   showToast.mockClear();
   create.mockReset().mockResolvedValue({ id: 1 });
@@ -37,7 +38,7 @@ function type(text: string) {
 
 describe("QuickCapture when signed out", () => {
   it("offers no writing surface, so nothing can be lost", () => {
-    accessToken = null;
+    signedInUser = null;
     render(<QuickCapture />);
 
     expect(screen.getByText("You are signed out")).toBeTruthy();
@@ -118,7 +119,6 @@ describe("QuickCapture saving", () => {
     });
 
     expect(create).toHaveBeenCalledWith(
-      "tok",
       expect.objectContaining({ content: "keep me" }),
     );
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();

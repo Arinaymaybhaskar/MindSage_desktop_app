@@ -57,9 +57,8 @@ const TAG_POOL = [
 export const BENCH_USER = {
   username: "bench",
   email: "bench@mindsage.local",
-  // Hashed with bcrypt so `auth:login` succeeds. The app-level benchmark logs
-  // in through the real IPC handler rather than forging a token, so it keeps
-  // working if token verification is ever tightened.
+  // Hashed with bcrypt so `auth:login` succeeds: the app-level benchmark signs
+  // in through the real IPC handler, which is what sets the session.
   password: "benchpass123",
 };
 

@@ -7,19 +7,11 @@ const checkElectron = () => {
 };
 
 export const progressLogsService = {
-  getProgressLogs: async (
-    token: string,
-    goalId: number,
-  ): Promise<ProgressLog[]> => {
+  getProgressLogs: async (goalId: number): Promise<ProgressLog[]> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "logs:get-all",
-      token,
-      goalId,
-    );
+    return await window.electron.ipcRenderer.invoke("logs:get-all", goalId);
   },
   addProgress: async (
-    token: string,
     goalId: number,
     value: number,
     description: string,
@@ -27,7 +19,6 @@ export const progressLogsService = {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "logs:add",
-      token,
       goalId,
       value,
       description,

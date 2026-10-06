@@ -12,6 +12,13 @@ export function findUserByIdentifier(identifier) {
 }
 
 /**
+ * The signed-in user's row, for session restore and password checks.
+ */
+export function findUserById(id) {
+  return db.prepare("SELECT * FROM users WHERE id = ?").get(id);
+}
+
+/**
  * Finds a user by email or username to check for uniqueness during registration.
  */
 export function findUserForCheck(email, username) {

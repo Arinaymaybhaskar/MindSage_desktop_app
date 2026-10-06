@@ -17,53 +17,45 @@ const checkElectron = () => {
 export const userService = {
   /**
    * Fetches the current user's profile information.
-   * @param token - The user's access token.
    */
-  getMe: async (token: string): Promise<UserInfo> => {
+  getMe: async (): Promise<UserInfo> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke("user:get-me", token);
+    return await window.electron.ipcRenderer.invoke("user:get-me");
   },
 
   /**
    * Updates the current user's profile.
-   * @param token - The user's access token.
    * @param payload - The data to update (e.g., { username, email }).
    */
   updateProfile: async (
-    token: string,
     payload: ProfileUpdate,
   ): Promise<{ user: UserInfo }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:update-profile",
-      token,
       payload,
     );
   },
 
   /**
    * Fetches the current user's settings.
-   * @param token - The user's access token.
    */
-  getSettings: async (token: string): Promise<UserSettings> => {
+  getSettings: async (): Promise<UserSettings> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke("user:get-settings", token);
+    return await window.electron.ipcRenderer.invoke("user:get-settings");
   },
 
   /**
    * Updates the current user's settings.
    * @param mode - 'online' | 'offline'
-   * @param token - The user's access token.
    * @param payload - The settings to update.
    */
   updateSettings: async (
-    token: string,
     payload: Partial<UserSettings>,
   ): Promise<UserSettings> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:update-settings",
-      token,
       payload,
     );
   },
@@ -71,17 +63,15 @@ export const userService = {
   /**
    * Changes the current user's password.
    * @param mode - 'online' | 'offline'
-   * @param token - The user's access token.
    * @param payload - { old_password, new_password }.
    */
-  changePassword: async (
-    token: string,
-    payload: { old_password: string; new_password: string },
-  ): Promise<{ message: string }> => {
+  changePassword: async (payload: {
+    old_password: string;
+    new_password: string;
+  }): Promise<{ message: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:change-password",
-      token,
       payload,
     );
   },
@@ -89,17 +79,14 @@ export const userService = {
   /**
    * Deletes the current user's account.
    * @param mode - 'online' | 'offline'
-   * @param token - The user's access token.
    * @param payload - { password }.
    */
-  deleteAccount: async (
-    token: string,
-    payload: { password: string },
-  ): Promise<{ message: string }> => {
+  deleteAccount: async (payload: {
+    password: string;
+  }): Promise<{ message: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:delete-account",
-      token,
       payload,
     );
   },

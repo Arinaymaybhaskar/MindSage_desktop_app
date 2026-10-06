@@ -39,6 +39,9 @@ contextBridge.exposeInMainWorld("electron", {
     invoke: (channel, ...args) => {
       const validChannels = [
         "auth:check-username",
+        "auth:get-session",
+        "auth:logout",
+        "auth:adopt-legacy-session",
         "db:upsertJournalEntry",
         "db:getAllEntries",
         "dialog:saveFile",
@@ -155,6 +158,7 @@ contextBridge.exposeInMainWorld("electron", {
         "update:available",
         "update:progress",
         "update:downloaded",
+        "auth:changed",
       ];
       if (!validChannels.includes(channel)) {
         return () => {};

@@ -7,16 +7,15 @@ const checkElectron = () => {
 };
 
 export const categoryService = {
-  getCategories: async (token: string): Promise<Category[]> => {
+  getCategories: async (): Promise<Category[]> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke("category:get-all", token);
+    return await window.electron.ipcRenderer.invoke("category:get-all");
   },
-  deleteCategory: async (token: string, id: number) => {
+  deleteCategory: async (id: number) => {
     checkElectron();
-    await window.electron.ipcRenderer.invoke("category:delete", token, id);
+    await window.electron.ipcRenderer.invoke("category:delete", id);
   },
   addCategory: async (
-    token: string,
     name: string,
     color: string,
   ): Promise<SqliteRunResult> => {
@@ -25,22 +24,14 @@ export const categoryService = {
       name: name,
       color: color,
     };
-    return await window.electron.ipcRenderer.invoke(
-      "category:add",
-      token,
-      category,
-    );
+    return await window.electron.ipcRenderer.invoke("category:add", category);
   },
-  updateCategory: async (token: string, name: string, color: string) => {
+  updateCategory: async (name: string, color: string) => {
     checkElectron();
     const category = {
       name: name,
       color: color,
     };
-    await window.electron.ipcRenderer.invoke(
-      "category:update",
-      token,
-      category,
-    );
+    await window.electron.ipcRenderer.invoke("category:update", category);
   },
 };

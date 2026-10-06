@@ -20,7 +20,7 @@ export default function QuickCapture() {
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
-  const { accessToken } = useAuth();
+  const { user: sessionUser, checking } = useAuth();
   const { showToast } = useToast();
 
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
@@ -71,7 +71,7 @@ export default function QuickCapture() {
         showToast("Entry content cannot be empty.", "warning");
       return;
     }
-    if (!accessToken) {
+    if (!sessionUser) {
       showToast("Sign in to MindSage before saving.", "warning");
       return;
     }
@@ -86,7 +86,7 @@ export default function QuickCapture() {
         mood_tags: [],
       };
 
-      const res = await journalService.create(accessToken, mergedEntry);
+      const res = await journalService.create(mergedEntry);
 
       await window.electron.ipcRenderer.invoke("qdrant:sync-journal", res.id);
       showToast("Journal entry saved.", "success");
@@ -105,7 +105,7 @@ export default function QuickCapture() {
     } finally {
       setIsSaving(false);
     }
-  }, [title, content, accessToken, isSaving, handleCloseWindow, showToast]);
+  }, [title, content, sessionUser, isSaving, handleCloseWindow, showToast]);
 
   // Keyboard shortcut for manual save (Ctrl/Cmd + Enter)
   useEffect(() => {
@@ -125,11 +125,18 @@ export default function QuickCapture() {
 
   const isSaveDisabled = !content.trim() || isSaving;
 
-  // The global shortcut opens this window whether or not anyone is signed in,
-  // and the main process cannot see the renderer's session to refuse. Showing
-  // no writing surface is the equivalent: there is nothing to type, so there
-  // is nothing to lose to a save that was always going to fail.
-  if (!accessToken) {
+  // Until the main process answers, say nothing rather than flash "signed
+  // out" at someone who is signed in.
+  if (checking) {
+    return (
+      <div className="h-screen rounded-lg border border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark" />
+    );
+  }
+
+  // The global shortcut opens this window whether or not anyone is signed in.
+  // Showing no writing surface keeps a signed-out user from typing a thought
+  // that a save would then refuse.
+  if (!sessionUser) {
     return (
       <div className="flex h-screen flex-col overflow-hidden rounded-lg border border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark">
         <QuickCaptureTitleBar />

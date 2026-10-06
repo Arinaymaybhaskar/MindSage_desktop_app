@@ -2,6 +2,8 @@
 
 **Reviewed:** 2026-08-24 · **Scope:** The full auth path — `login.tsx` → `authService` → `auth:login` IPC → `electron/methods/auth.js` → `electron/db/auth.js` → SQLite, plus every downstream handler's token check, session persistence, and account management.
 
+> **Status 2026-10-06:** §1 was decided as **Option B** (MASTER_TODO 15). §2.1 is resolved by deleting the tokens: the session lives in `electron/session.js` and no handler takes a credential from the renderer. The biometric toggle in §2.8 is gone; idle and sleep locks remain open (MASTER_TODO 19), and encryption at rest (§2.6) is deferred as a later feature (MASTER_TODO 18). The findings below are kept as written.
+
 Each item has a **severity** (🔴 major · 🟠 moderate · 🟡 minor) and an **effort** estimate (`S` < 1d, `M` 1–3d, `L` > 3d).
 
 ---

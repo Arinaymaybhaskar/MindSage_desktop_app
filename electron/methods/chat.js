@@ -1,5 +1,4 @@
 import localDB from "../db/index.js";
-import jwt from "jsonwebtoken";
 import { eventBus } from "../eventBus.js";
 import {
   generateContextTimeAndBaseQueryPrompt,
@@ -14,21 +13,7 @@ import {
 import { partialJsonString } from "./jsonStream.js";
 import { SemanticSearch } from "./qdrant.js";
 import z from "zod";
-
-function getUserIdFromToken(token) {
-  try {
-    // 1. Guard against null or undefined tokens
-    if (!token) {
-      return null;
-    }
-    const decoded = jwt.decode(token);
-    // 2. Ensure the token was successfully decoded and has an id
-    return decoded.id;
-  } catch (e) {
-    console.error("Error decoding token:", e);
-    return null;
-  }
-}
+import { currentUserId } from "../session.js";
 
 // Schemas
 // Be lenient about optional-ish fields: small local models routinely omit
@@ -246,7 +231,6 @@ async function storeAIResponse(aiRes, chatId) {
 
 export const handleUserMessage = async (
   event,
-  token,
   chatId,
   message,
   model,
@@ -254,9 +238,9 @@ export const handleUserMessage = async (
   files = [],
   streamId = null,
 ) => {
-  const userId = getUserIdFromToken(token);
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   const emit = makeStreamEmitter(event, streamId);
   if (!chatId) {
@@ -330,58 +314,56 @@ export const handleUserMessage = async (
   return { chatId, messageId, aiMessageId, aiRes };
 };
 
-export const handleGetChats = async (event, token, page, limit) => {
-  const userId = getUserIdFromToken(token);
+export const handleGetChats = async (event, page, limit) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   const offset = (page - 1) * limit;
   return localDB.getChatsTitlesByUsers(userId, limit, offset);
 };
 
-export const handleGetChatById = (event, token, chatId) => {
-  const userId = getUserIdFromToken(token);
+export const handleGetChatById = (event, chatId) => {
+  const userId = currentUserId();
   if (!userId) {
     return Promise.resolve({
-      error: "Invalid token",
+      error: "Not signed in",
     });
   }
 
   return localDB.getChatById(userId, chatId);
 };
 
-export const handleDeleteChat = async (event, token, chatId) => {
-  const userId = getUserIdFromToken(token);
+export const handleDeleteChat = async (event, chatId) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.deleteChat(userId, chatId);
 };
 
-export const handleChangeChatTitle = async (event, token, chatId, newTitle) => {
-  const userId = getUserIdFromToken(token);
+export const handleChangeChatTitle = async (event, chatId, newTitle) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   return localDB.changeChatTitle(userId, chatId, newTitle);
 };
 
 export const linkMediaToMessage = async (
   event,
-  token,
   messageId,
   chatId,
   imageKey,
 ) => {
   console.log("linkMediaToMessage called with in method file:", {
-    token,
     messageId,
     chatId,
     imageKey,
   });
-  const userId = getUserIdFromToken(token);
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   try {
     const lower = String(imageKey).toLowerCase();

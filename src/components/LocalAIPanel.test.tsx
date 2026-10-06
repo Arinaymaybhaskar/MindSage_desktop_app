@@ -15,7 +15,7 @@ const navigate = vi.fn();
 const retryAIMetadata = vi.fn().mockResolvedValue({ success: true });
 
 vi.mock("../hooks/useAuth", () => ({
-  useAuth: () => ({ accessToken: "tok" }),
+  useAuth: () => ({ user: { username: "ada" }, checking: false }),
 }));
 vi.mock("../hooks/useToast", () => ({ useToast: () => ({ showToast }) }));
 vi.mock("react-router-dom", async () => {
@@ -194,7 +194,7 @@ describe("LocalAIPanel", () => {
       fireEvent.click(within(panel).getByRole("button", { name: /Retry/ }));
     });
 
-    expect(retryAIMetadata).toHaveBeenCalledWith("tok", 9, "metadata");
+    expect(retryAIMetadata).toHaveBeenCalledWith(9, "metadata");
     // The row goes back to running until the main process reports the outcome.
     expect(pill()).toHaveTextContent("Something");
   });

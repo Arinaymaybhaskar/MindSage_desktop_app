@@ -62,7 +62,7 @@ const settingsSections: Record<string, SettingsSection> = {
 };
 
 const Settings = () => {
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
 
   const [user, setUser] = useState<UserInfo | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -88,8 +88,8 @@ const Settings = () => {
     const fetchInitialData = async () => {
       try {
         const [userResponse, settingsResponse] = await Promise.all([
-          userService.getMe(accessToken!),
-          userService.getSettings(accessToken!),
+          userService.getMe(),
+          userService.getSettings(),
         ]);
         localStorage.setItem("userInfo", JSON.stringify(userResponse));
         setUser(userResponse);
@@ -102,16 +102,13 @@ const Settings = () => {
       }
     };
     fetchInitialData();
-  }, [accessToken, showToast]);
+  }, [sessionUser, showToast]);
 
   // Save handlers
   const handleProfileSave = async (newProfile: ProfileUpdate) => {
     try {
       showToast("Saving profile...", "info");
-      const updatedUser = await userService.updateProfile(
-        accessToken!,
-        newProfile,
-      );
+      const updatedUser = await userService.updateProfile(newProfile);
       setUser(updatedUser.user);
       localStorage.setItem("userInfo", JSON.stringify(updatedUser.user));
       showToast("Profile updated!", "success");
@@ -124,10 +121,7 @@ const Settings = () => {
   const handleSettingsSave = async (newSettings: UserSettings) => {
     showToast("Saving settings...", "info");
     try {
-      const updatedSettings = await userService.updateSettings(
-        accessToken!,
-        newSettings,
-      );
+      const updatedSettings = await userService.updateSettings(newSettings);
       setSettings(updatedSettings);
       showToast("Settings saved!", "success");
     } catch (error) {

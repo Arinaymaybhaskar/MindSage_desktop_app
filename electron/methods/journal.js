@@ -1,6 +1,5 @@
 import localDB from "../db/index.js";
 import { db } from "../db/connection.js";
-import jwt from "jsonwebtoken";
 import { eventBus } from "../eventBus.js";
 import { updateJournalEntry } from "../db/journal.js";
 import {
@@ -11,25 +10,11 @@ import {
   sanitizeSummary,
 } from "./AIPrompts.js";
 import { modelStore } from "../store.js";
+import { currentUserId } from "../session.js";
 
-function getUserIdFromToken(token) {
-  try {
-    // 1. Guard against null or undefined tokens
-    if (!token) {
-      return null;
-    }
-    const decoded = jwt.decode(token);
-    // 2. Ensure the token was successfully decoded and has an id
-    return decoded;
-  } catch (e) {
-    console.error("Error decoding token:", e);
-    return null;
-  }
-}
-
-export async function handleCreateJournal(event, token, payload) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleCreateJournal(event, payload) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
   let createdJournal;
   createdJournal = localDB.createJournalEntry(userId, payload);
   eventBus.emit("journal:created", {
@@ -39,39 +24,39 @@ export async function handleCreateJournal(event, token, payload) {
   return createdJournal;
 }
 
-export async function handleGettingImages(event, token, getMode) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleGettingImages(event, getMode) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
   return localDB.getImageKeysAndIds(userId, getMode);
 }
 
-export async function handleGetRecentJournals(event, token) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleGetRecentJournals(event) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
 
   return localDB.getRecentEntries(userId);
 }
 
-export async function handleGetAllJournals(event, token, page, limit) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleGetAllJournals(event, page, limit) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
 
   const offset = page * limit; // Calculate offset from page and limit
   const ans = localDB.getAllEntries(userId, limit, offset);
   return ans;
 }
 
-export async function handleGetJournalById(event, token, journalId) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleGetJournalById(event, journalId) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
 
   console.log("Fetching journal by ID in offline mode:", journalId);
   return localDB.getJournalById(userId, journalId);
 }
 
-export async function handleUpdateJournal(event, token, journalId, payload) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleUpdateJournal(event, journalId, payload) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
   let updatedJournal;
   updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
   if (updatedJournal.audio_key) {
@@ -81,16 +66,16 @@ export async function handleUpdateJournal(event, token, journalId, payload) {
   return updatedJournal;
 }
 
-export async function handleUpdateAIStatus(event, token, journalId, fields) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleUpdateAIStatus(event, journalId, fields) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
   const changes = localDB.updateAIStatus(userId, journalId, fields || {});
   return { success: changes > 0 };
 }
 
-export async function handleDeleteJournal(event, token, journalId) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleDeleteJournal(event, journalId) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
 
   const changes = localDB.deleteJournalEntry(userId, journalId);
   if (changes === 0)
@@ -98,16 +83,16 @@ export async function handleDeleteJournal(event, token, journalId) {
   return { message: "Journal entry marked for deletion" };
 }
 
-export async function handleChat(event, token, payload) {
+export async function handleChat(event, payload) {
   return {
     answer:
       "I can only answer questions when you are online. Please connect to the internet to use the chat feature.",
   };
 }
 
-export async function handleGetChartData(event, token, range) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleGetChartData(event, range) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
   return localDB.getMoodScores(userId, range);
 }
 
@@ -202,9 +187,9 @@ eventBus.on("custom:test-event", (data) => {
 });
 
 // --- AI Metadata Retry Handler ---
-export async function handleRetryAIMetadata(event, token, journalId, type) {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export async function handleRetryAIMetadata(event, journalId, type) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
 
   const entry = localDB.getJournalById(userId, journalId);
   if (!entry) throw new Error("Journal entry not found");

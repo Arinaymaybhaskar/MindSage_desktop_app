@@ -43,14 +43,12 @@ export const journalService = {
    * Fetches all journal entries for the current user.
    */
   getAll: async (
-    token: string,
     page: number = 0,
     limit: number = 10,
   ): Promise<JournalEntry[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-all",
-      token,
       page,
       limit,
     );
@@ -59,77 +57,49 @@ export const journalService = {
   /**
    * Fetches a single journal entry by its ID.
    */
-  getOne: async (token: string, id: number): Promise<JournalEntry> => {
+  getOne: async (id: number): Promise<JournalEntry> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "journal:get-by-id",
-      token,
-      id,
-    );
+    return await window.electron.ipcRenderer.invoke("journal:get-by-id", id);
   },
 
   /**
    * Creates a new journal entry.
    */
-  create: async (token: string, data: JournalEntry): Promise<JournalEntry> => {
+  create: async (data: JournalEntry): Promise<JournalEntry> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "journal:create",
-      token,
-      data,
-    );
+    return await window.electron.ipcRenderer.invoke("journal:create", data);
   },
 
   /**
    * Updates an existing journal entry.
    */
-  update: async (
-    token: string,
-    id: number,
-    data: JournalEntry,
-  ): Promise<JournalEntry> => {
+  update: async (id: number, data: JournalEntry): Promise<JournalEntry> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "journal:update",
-      token,
-      id,
-      data,
-    );
+    return await window.electron.ipcRenderer.invoke("journal:update", id, data);
   },
 
   /**
    * Deletes a journal entry.
    */
-  remove: async (token: string, id: number): Promise<{ message: string }> => {
+  remove: async (id: number): Promise<{ message: string }> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "journal:delete",
-      token,
-      id,
-    );
+    return await window.electron.ipcRenderer.invoke("journal:delete", id);
   },
 
   /**
    * Fetches mood scores for a given date range.
    */
-  getMoodRange: async (
-    token: string,
-    range: number,
-  ): Promise<MoodScoreData[]> => {
+  getMoodRange: async (range: number): Promise<MoodScoreData[]> => {
     checkElectron();
     // Assuming you have a 'journal:get-mood-scores' handler
     return await window.electron.ipcRenderer.invoke(
       "journal:get-mood-scores",
-      token,
       range,
     );
   },
-  getRecent: async (token: string) => {
+  getRecent: async () => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "journal:get-recent",
-      token,
-    );
+    return await window.electron.ipcRenderer.invoke("journal:get-recent");
   },
 
   /**
@@ -137,14 +107,10 @@ export const journalService = {
    * "random"). It is unrelated to the removed online/offline auth mode; it
    * was previously also called `mode`, which made the two easy to confuse.
    */
-  getImages: async (
-    token: string,
-    getMode: string,
-  ): Promise<JournalImageEntry[]> => {
+  getImages: async (getMode: string): Promise<JournalImageEntry[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-images",
-      token,
       getMode,
     );
   },
@@ -152,31 +118,28 @@ export const journalService = {
   /**
    * Sends a query to the AI chat.
    */
-  chat: async (token: string, query: string): Promise<{ answer: string }> => {
+  chat: async (query: string): Promise<{ answer: string }> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke("chat:send", token, {
+    return await window.electron.ipcRenderer.invoke("chat:send", {
       query,
     });
   },
 
-  getChartData: async (token: string, range: number) => {
+  getChartData: async (range: number) => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:get-chart-data",
-      token,
       range,
     );
   },
 
   retryAIMetadata: async (
-    token: string,
     journalId: number,
     type: "metadata" | "summary",
   ): Promise<{ success: boolean; error?: string; skipped?: boolean }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "journal:retry-ai-metadata",
-      token,
       journalId,
       type,
     );
