@@ -7,8 +7,9 @@ type SecuritySettingsProps = Pick<
   "settings" | "onSettingsSave"
 >;
 
-// The only consumers of `settings`/`onSettingsSave` are the commented-out
-// biometric-lock controls below, so the props are accepted but unread.
+// `settings`/`onSettingsSave` are accepted for the settings-panel contract but
+// unread: the biometric-lock toggle that used them implied a protection the
+// app never had, and was removed (MASTER_TODO 19).
 const SecuritySettings: React.FC<SecuritySettingsProps> = () => {
   return (
     <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
@@ -21,23 +22,20 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = () => {
         </p>
       </div>
       <div className="p-6 divide-y divide-border-light dark:divide-border-dark">
-        {/* Biometric Lock Setting
-        <div className="py-4 flex justify-between items-center">
-          <div>
-            <label className="font-medium text-text-light dark:text-text-dark">
-              Biometric Lock
-            </label>
-            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
-              Require biometrics to access the app.
-            </p>
-          </div>
-          <Switch
-            checked={localSettings?.biometric_lock}
-            onCheckedChange={(v) =>
-              onSettingsSave({ ...settings, biometric_lock: v })
-            }
-          />
-        </div> */}
+        {/* What the password does. MASTER_TODO 15 chose option B: the
+            password picks the account and keeps people out of the app; it
+            does not encrypt anything on disk. Say so where people look. */}
+        <div className="py-4">
+          <label className="font-medium text-text-light dark:text-text-dark">
+            What your password protects
+          </label>
+          <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">
+            It keeps other people out of MindSage on this computer. Your journal
+            file is not encrypted, so anyone who can open your files outside the
+            app can read it. Keep your Windows account locked when you step
+            away.
+          </p>
+        </div>
 
         {/* Change Password Setting */}
         <div className="py-4 flex justify-between items-center">
