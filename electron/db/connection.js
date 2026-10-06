@@ -1,6 +1,13 @@
 import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
+import {
+  LATEST_VERSION,
+  backupDatabase,
+  hasUserData,
+  runMigrations,
+  schemaVersion,
+} from "./migrations.js";
 
 // Define the path for the database in the user's app data folder
 const dbPath = path.join(
@@ -16,7 +23,21 @@ fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 // Create and export the database instance
 export const db = new Database(dbPath);
 
+const backupDir = path.join(path.dirname(dbPath), "backups");
+
 export function initDatabase() {
+  // This file is the user's only copy of their journal. Take a snapshot before
+  // anything below can change an existing database's schema. If the backup
+  // fails this throws, and nothing is migrated.
+  const version = schemaVersion(db);
+  if (hasUserData(db) && version < LATEST_VERSION) {
+    const file = backupDatabase(db, backupDir, version);
+    console.log(
+      `Backed up the database before migrating from v${version}: ${file}`,
+    );
+  }
+
+  // The version-0 schema. Later changes belong in migrations.js, not here.
   db.exec(`
         PRAGMA foreign_keys = ON;
 
@@ -359,43 +380,15 @@ export function initDatabase() {
 
         `);
 
-  // Ensure older DBs get the new column if missing
-  try {
-    const info = db.prepare(`PRAGMA table_info(users)`).all();
-    const hasProfileCol = info.some((col) => col.name === "profile_picture");
-    if (!hasProfileCol) {
-      db.prepare(`ALTER TABLE users ADD COLUMN profile_picture TEXT`).run();
-    }
-  } catch (err) {
-    console.error("Error ensuring profile_picture column exists:", err);
-  }
-
-  // Add AI metadata status columns to journal_entries
-  try {
-    const journalInfo = db.prepare(`PRAGMA table_info(journal_entries)`).all();
-    const cols = journalInfo.map((c) => c.name);
-    if (!cols.includes("ai_metadata_status")) {
-      db.prepare(
-        `ALTER TABLE journal_entries ADD COLUMN ai_metadata_status TEXT DEFAULT 'not_started' CHECK(ai_metadata_status IN ('not_started','pending','completed','failed'))`,
-      ).run();
-    }
-    if (!cols.includes("ai_summary_status")) {
-      db.prepare(
-        `ALTER TABLE journal_entries ADD COLUMN ai_summary_status TEXT DEFAULT 'not_started' CHECK(ai_summary_status IN ('not_started','pending','completed','failed','skipped'))`,
-      ).run();
-    }
-    if (!cols.includes("ai_metadata_error")) {
-      db.prepare(
-        `ALTER TABLE journal_entries ADD COLUMN ai_metadata_error TEXT`,
-      ).run();
-    }
-    if (!cols.includes("ai_summary_error")) {
-      db.prepare(
-        `ALTER TABLE journal_entries ADD COLUMN ai_summary_error TEXT`,
-      ).run();
-    }
-  } catch (err) {
-    console.error("Error ensuring AI metadata columns exist:", err);
+  const migrated = runMigrations(db);
+  if (migrated.newerThanApp) {
+    console.warn(
+      `Database schema v${migrated.from} is newer than this build (v${LATEST_VERSION}); leaving it untouched.`,
+    );
+  } else if (migrated.applied.length) {
+    console.log(
+      `Migrated the database from v${migrated.from} to v${migrated.to}.`,
+    );
   }
 
   // Insert a system user if it doesn't exist
