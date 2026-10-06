@@ -52,9 +52,9 @@ const DEMO_LOGIN = { identifier: "maya@mindsage.local", password: "demo1234" };
  *
  * Without this the run photographs whichever account happens to be logged in -
  * which silently produces a technically perfect screenshot of the wrong data.
- * Goes through the real auth:login IPC and then writes the same two
- * localStorage keys AuthContext does (AuthContext.tsx:38-48), so the app is in
- * exactly the state a normal login leaves it in.
+ * Goes through the real auth:login IPC, which sets the main process's
+ * session, and refreshes the userInfo display cache AuthContext keeps, so the
+ * app is in exactly the state a normal login leaves it in.
  */
 async function ensureDemoUser(cdp) {
   const current = await cdp.evaluate(`(() => {
@@ -79,8 +79,7 @@ async function ensureDemoUser(cdp) {
       const res = await window.electron.ipcRenderer.invoke(
         "auth:login", ${JSON.stringify(DEMO_LOGIN)}
       );
-      if (!res?.accessToken) return { ok: false, error: "no token returned" };
-      localStorage.setItem("accessToken", res.accessToken);
+      if (!res?.userInfo) return { ok: false, error: "no user returned" };
       localStorage.setItem("userInfo", JSON.stringify(res.userInfo));
       return { ok: true, name: res.userInfo.full_name || res.userInfo.username };
     } catch (e) {

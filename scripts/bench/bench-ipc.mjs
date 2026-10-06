@@ -9,11 +9,11 @@
  * the result is a 40 MB base64 string.
  *
  * Unlike the rest of the suite this cannot run headless: it needs a launched,
- * logged-in app, because every handler takes an auth token and the media
- * handlers resolve real files on disk.
+ * signed-in app, because every handler reads the main process's session and
+ * the media handlers resolve real files on disk.
  *
  *   1. npm run dev:capture      (starts the app with CDP on port 9222)
- *   2. log in, so accessToken is in localStorage
+ *   2. sign in
  *   3. node scripts/bench/bench-ipc.mjs --out results.json
  *
  * Numbers from this script are not comparable across machines with different
@@ -39,11 +39,13 @@ const PORT = flag("--port", "9222");
 
 const cdp = await attach(PORT);
 
-const token = await cdp.evaluate(`localStorage.getItem("accessToken")`);
-if (!token) {
+const session = await cdp.evaluate(
+  `window.electron.ipcRenderer.invoke("auth:get-session")`,
+);
+if (!session?.userInfo) {
   console.error(
-    "No accessToken in localStorage - log in to the running app first.\n" +
-      "Every IPC handler decodes a token, so an unauthenticated run measures only error paths.",
+    "Nobody is signed in - sign in to the running app first.\n" +
+      "Every IPC handler reads the session, so a signed-out run measures only error paths.",
   );
   process.exit(1);
 }
@@ -94,7 +96,7 @@ async function payloadBytes(channel, args) {
   })()`);
 }
 
-const auth = ["offline", token];
+const auth = [];
 
 const scenarios = {
   "journal:get-all (page 1, 10)": {
@@ -143,7 +145,7 @@ for (const [name, { channel, args }] of Object.entries(scenarios)) {
  */
 const imageKey = await cdp.evaluate(`(async () => {
   const images = await window.electron.ipcRenderer.invoke(
-    "journal:get-images", "offline", ${JSON.stringify(token)}, "top");
+    "journal:get-images", "top");
   return Array.isArray(images) && images.length ? images[0].image_key : null;
 })()`);
 
@@ -171,7 +173,7 @@ if (imageKey) {
 
 const entryCount = await cdp.evaluate(`(async () => {
   const all = await window.electron.ipcRenderer.invoke(
-    "journal:get-all", "offline", ${JSON.stringify(token)}, 1, 10000);
+    "journal:get-all", 1, 10000);
   return Array.isArray(all) ? all.length : null;
 })()`);
 
