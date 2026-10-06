@@ -22,7 +22,7 @@
 <br />
 
 <div align="center">
-  <img src="./public/screenshots/v2/journals.png" alt="MindSage journal list showing dated entries with AI-generated titles, mood tags, and a colour-coded mood calendar" width="880" />
+  <img src="./assets/showcase/ad-preview.webp" alt="MindSage in fifteen seconds: an entry is typed, the app shows the language model, embeddings, speech-to-text and vector search all running on the local machine, then the four features (write, speak, search by feeling, ask your journal) and the logo" width="880" />
 </div>
 
 <br />
@@ -33,8 +33,32 @@ Most journaling apps that offer AI features do so by shipping your most private 
 
 ---
 
+## See it in action
+
+<div align="center">
+  <a href="https://github.com/Arinaymaybhaskar/MindSage_desktop_app/releases/download/media-showcase/MindSage-walkthrough-1080p60.mp4"><img src="./assets/showcase/walkthrough-poster.jpg" alt="Frame from the MindSage walkthrough: an opened journal entry with its mood, AI summary, sentiment and tags in the side panel, under the caption 'Search by feeling'" width="880" /></a>
+
+**[Watch the 60-second walkthrough](https://github.com/Arinaymaybhaskar/MindSage_desktop_app/releases/download/media-showcase/MindSage-walkthrough-1080p60.mp4)** (MP4, 1080p60, 46 MB)
+
+</div>
+
+The walkthrough is the running app: the real interface, a seeded demo journal in SQLite, and real embeddings and Qdrant lookups behind search and the chat's citations. Two things are staged to fit a minute: the language model's wording is scripted, and model waits are cut out of the timeline.
+
+<div align="center">
+  <img src="./assets/showcase/walkthrough-loop.webp" alt="Looping motion piece built from MindSage's UI states: an entry being written, a voice note recording, the mood slider, semantic search, a cited chat answer, goals, the streak ring and the journal list" width="800" />
+</div>
+
+The loop above is a motion piece built from the app's own states rather than a screen recording. [Full version with sound](https://github.com/Arinaymaybhaskar/MindSage_desktop_app/releases/download/media-showcase/MindSage-walkthrough-v2-brand-1080p60.mp4) (MP4, 9 MB).
+
+<div align="center">
+  <img src="./public/screenshots/v2/journals.png" alt="MindSage journal list showing dated entries with AI-generated titles, mood tags, and a colour-coded mood calendar" width="880" />
+</div>
+
+---
+
 ## Table of contents
 
+- [See it in action](#see-it-in-action)
 - [Download](#download)
 - [Features](#features)
 - [What runs on your machine](#what-runs-on-your-machine)
