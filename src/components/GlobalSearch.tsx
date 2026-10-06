@@ -319,7 +319,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   const [settledQuery, setSettledQuery] = useState("");
 
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
 
   const allSearchableItems = useMemo(
     () => [...actionsCommands, ...settingsCommands] as SearchableItem[],
@@ -347,11 +347,11 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   // Recent entries back the resting state. Fetched once; three rows is what
   // `journal:get-recent` returns.
   useEffect(() => {
-    if (!accessToken) return;
+    if (!sessionUser) return;
     let cancelled = false;
 
     journalService
-      .getRecent(accessToken)
+      .getRecent()
       .then((rows: unknown) => {
         if (cancelled || !Array.isArray(rows)) return;
         setRecents(
@@ -373,7 +373,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [accessToken]);
+  }, [sessionUser]);
 
   // Local matching. Title hits outrank keyword hits, and prefix hits outrank
   // mid-word ones, so typing "the" does not lead with "Change Theme".
@@ -528,7 +528,6 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
     const timer = setTimeout(async () => {
       try {
         const results = await qdrantService.search(
-          accessToken!,
           "mind_entries",
           trimmed,
           SEMANTIC_LIMIT,
@@ -611,7 +610,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [trimmed, hasQuery, isSlash, accessToken]);
+  }, [trimmed, hasQuery, isSlash, sessionUser]);
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);

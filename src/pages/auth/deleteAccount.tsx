@@ -11,7 +11,7 @@ export function DeleteAccount() {
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { accessToken, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -33,7 +33,7 @@ export function DeleteAccount() {
     setIsDeleting(true);
     showToast("Deleting your account...", "info");
     try {
-      await userService.deleteAccount(accessToken!, { password });
+      await userService.deleteAccount({ password });
       showToast("Your account has been deleted.", "success");
       logout(); // Log the user out
       navigate("/login");

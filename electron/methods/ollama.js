@@ -1,5 +1,4 @@
 import { execSync, exec } from "child_process";
-import { getUserIdFromToken } from "./authToken.js";
 import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
 import {
@@ -14,12 +13,13 @@ import {
 } from "./AIPrompts.js";
 import { modelStore } from "../store.js";
 import { SemanticSearch } from "./qdrant.js";
+import { currentUserId } from "../session.js";
 import z from "zod";
 import { db } from "../db/connection.js";
 
-export const handleGetOllamaModels = async (event, token) => {
-  const userId = getUserIdFromToken(token);
-  if (!userId) return { error: "Invalid token" };
+export const handleGetOllamaModels = async (event) => {
+  const userId = currentUserId();
+  if (!userId) return { error: "Not signed in" };
 
   try {
     // 1️⃣ Get the basic list of models
@@ -159,14 +159,13 @@ export const streamOllamaPrompt = async (
 
 export const handleOllamaPrompt = async (
   event,
-  token,
   model,
   prompt,
   jsonMode = false,
 ) => {
-  // const userId = getUserIdFromToken(token);
+  // const userId = currentUserId();
   // if (!userId) {
-  //     return { error: "Invalid token" };
+  //     return { error: "Not signed in" };
   // }
   console.log(model, prompt, "model", "prompt");
   if (!model || !prompt) {
@@ -206,14 +205,13 @@ export const handleOllamaPrompt = async (
 
 export const handleOllamaImagePrompt = async (
   event,
-  token,
   model,
   prompt,
   imagePath,
 ) => {
-  const userId = getUserIdFromToken(token);
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   if (!model || !prompt || !imagePath) {
     return { error: "Model name, prompt, and image path are required." };
@@ -537,10 +535,10 @@ export async function generateSuggestion(prompt, maxTokens = 20) {
   }
 }
 
-export const handleDownloadOllamaModel = (event, token, modelName) => {
-  const userId = getUserIdFromToken(token);
+export const handleDownloadOllamaModel = (event, modelName) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   if (!modelName) {
     return { error: "Model name is required" };
@@ -572,10 +570,10 @@ export const handleDownloadOllamaModel = (event, token, modelName) => {
   });
 };
 
-export const handleDeleteOllamaModel = (event, token, modelName) => {
-  const userId = getUserIdFromToken(token);
+export const handleDeleteOllamaModel = (event, modelName) => {
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
   if (!modelName) {
     return { error: "Model name is required" };

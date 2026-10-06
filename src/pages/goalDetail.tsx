@@ -9,19 +9,19 @@ export default function GoalDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [data, setData] = useState<GoalDetailData | null>(null);
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const goal = await goalService.getGoalById(accessToken!, Number(id));
+        const goal = await goalService.getGoalById(Number(id));
         setData(goal);
       } catch (error) {
         console.error(error, "Error fetching goal details");
       }
     };
     fetchData();
-  }, [id, accessToken]);
+  }, [id, sessionUser]);
 
   if (!data)
     return (

@@ -2,13 +2,11 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, Save, AlertTriangle, ArrowLeft } from "lucide-react";
 import { userService } from "../../api/userService";
-import { useAuth } from "../../hooks/useAuth";
 import clsx from "clsx";
 import { useToast } from "../../hooks/useToast";
 
 const ChangePassword = () => {
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
   const { showToast } = useToast();
 
   const [form, setForm] = useState({
@@ -56,7 +54,7 @@ const ChangePassword = () => {
         old_password: form.oldPassword,
         new_password: form.newPassword,
       };
-      await userService.changePassword(accessToken!, payload);
+      await userService.changePassword(payload);
 
       showToast("Password updated successfully.", "success");
       navigate("/settings#security");

@@ -196,7 +196,7 @@ export default function LocalAIPanel() {
   const [retrying, setRetrying] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
   const { showToast } = useToast();
 
   // Engine state. `check-status` re-runs the whole probe in the main process,
@@ -442,9 +442,8 @@ export default function LocalAIPanel() {
         if (job === "index") {
           await qdrantService.syncJournal(entry.entryId);
         } else {
-          if (!accessToken) throw new Error("Not signed in");
+          if (!sessionUser) throw new Error("Not signed in");
           const result = await journalService.retryAIMetadata(
-            accessToken,
             entry.entryId,
             job === "metadata" ? "metadata" : "summary",
           );
@@ -475,7 +474,7 @@ export default function LocalAIPanel() {
         setRetrying(null);
       }
     },
-    [accessToken, showToast],
+    [sessionUser, showToast],
   );
 
   const go = (path: string) => {

@@ -7,12 +7,12 @@ const checkElectron = () => {
 };
 
 export const ollamaService = {
-  getModels: async (token: string): Promise<OllamaModel[]> => {
+  getModels: async (): Promise<OllamaModel[]> => {
     checkElectron();
     const result = await window.electron.ipcRenderer.invoke<
       OllamaModel[] | { error: string }
-    >("ollama:models", token);
-    // The handler answers `{ error }` rather than throwing on a bad token.
+    >("ollama:models");
+    // The handler answers `{ error }` rather than throwing when signed out.
     return Array.isArray(result) ? result : [];
   },
 
@@ -21,7 +21,6 @@ export const ollamaService = {
    * with `{ error }` instead of a completion.
    */
   getResponse: async (
-    token: string,
     model: string,
     prompt: string,
     jsonMode: boolean = false,
@@ -29,25 +28,23 @@ export const ollamaService = {
     checkElectron();
     const result = await window.electron.ipcRenderer.invoke<
       string | { error: string }
-    >("ollama:get-response", token, model, prompt, jsonMode);
+    >("ollama:get-response", model, prompt, jsonMode);
     if (typeof result === "string") return result;
     console.error("[ollamaService] getResponse failed:", result?.error);
     return "";
   },
-  downloadModel: async (token: string, modelName: string) => {
+  downloadModel: async (modelName: string) => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "ollama:download-model",
-      token,
       modelName,
     );
   },
 
-  deleteModel: async (token: string, modelName: string) => {
+  deleteModel: async (modelName: string) => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "ollama:delete-model",
-      token,
       modelName,
     );
   },

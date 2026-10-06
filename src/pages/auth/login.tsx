@@ -28,8 +28,9 @@ export default function Login() {
       const res = await authService.login({
         identifier: form.identifier,
         password: form.password,
+        rememberMe: form.rememberMe,
       });
-      login(res.accessToken, res.userInfo);
+      login(res.userInfo);
       navigate("/");
     } catch (err) {
       setError(errorMessage(err, "Invalid username or password"));
@@ -110,7 +111,7 @@ export default function Login() {
                 htmlFor="remember-me"
                 className="ml-2 block text-sm text-text-light-sub dark:text-text-dark-sub"
               >
-                Remember me
+                Keep me signed in
               </label>
             </div>
             <div className="text-sm">
@@ -131,6 +132,10 @@ export default function Login() {
               {isLoading ? "Signing in..." : "Sign in"}
             </button>
           </div>
+          <p className="text-xs text-center text-text-light-sub dark:text-text-dark-sub">
+            Your password keeps other people out of MindSage on this computer.
+            It does not encrypt your journal file.
+          </p>
         </form>
 
         <div className="mt-6 text-center text-sm">

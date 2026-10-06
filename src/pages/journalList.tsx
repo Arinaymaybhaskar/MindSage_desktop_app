@@ -144,7 +144,7 @@ export default function JournalList() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const location = useLocation();
   const searchTerm = new URLSearchParams(location.search).get("search") || "";
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
   const [, setShowDoubleClickNote] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -179,7 +179,7 @@ export default function JournalList() {
 
     setLoading(true);
     journalService
-      .getAll(accessToken!, page, PAGE_LIMIT)
+      .getAll(page, PAGE_LIMIT)
       .then((newEntries) => {
         setEntries((prev) =>
           page === 0 ? newEntries : [...prev, ...newEntries],
@@ -191,7 +191,7 @@ export default function JournalList() {
         console.error("Failed to load journal entries:", error);
         setLoading(false);
       });
-  }, [page, accessToken]);
+  }, [page, sessionUser]);
 
   const observer = useRef<IntersectionObserver | null>(null);
   const lastEntryRef = useCallback(
@@ -211,7 +211,7 @@ export default function JournalList() {
   );
 
   const handleDelete = async (id: number) => {
-    await journalService.remove(accessToken!, id);
+    await journalService.remove(id);
     setEntries((prev) => prev.filter((e) => e.id !== id));
     setDeleteModalInfo({ isOpen: false, entryId: null });
   };

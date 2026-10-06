@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { Download, Check, Loader2 } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
 
 const DataExportPage = () => {
   const [requestSent, setRequestSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { accessToken } = useAuth();
 
   const handleExport = async () => {
     setIsLoading(true);
@@ -24,7 +22,6 @@ const DataExportPage = () => {
           error?: string;
         }>(
           "user:export-data",
-          accessToken!,
           saveDialogResult.filePath, // Pass the destination path
         );
 

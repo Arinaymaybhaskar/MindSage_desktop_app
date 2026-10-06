@@ -58,7 +58,7 @@ export const ChatPage: React.FC = () => {
    */
   const activeStreamId = useRef<string | null>(null);
   const [prompt, setPrompt] = useState("");
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [pdfLightbox, setPdfLightbox] = useState<{
     path: string;
@@ -106,14 +106,14 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     const fetchChats = async () => {
       try {
-        const recentChats = await chatService.getChats(accessToken!, 1, 10);
+        const recentChats = await chatService.getChats(1, 10);
         setChats(recentChats);
       } catch (err) {
         console.error("Failed to load chats:", err as Error);
       }
     };
     fetchChats();
-  }, [accessToken]);
+  }, [sessionUser]);
 
   /** Removes the in-progress reply, if any, and forgets it. */
   const discardStreamingMessage = useCallback(() => {
@@ -218,7 +218,6 @@ export const ChatPage: React.FC = () => {
 
     try {
       const result = await chatService.sendMessage(
-        accessToken!,
         activeChatId,
         inputValue,
         model,
@@ -264,7 +263,6 @@ export const ChatPage: React.FC = () => {
         if (!uploadResult?.success)
           throw new Error(uploadResult.message || "Failed to upload image.");
         await chatService.linkMediaToMessage(
-          accessToken!,
           newMessageId,
           newChatId,
           uploadResult.key!,
@@ -302,7 +300,6 @@ export const ChatPage: React.FC = () => {
         if (!uploadResult?.success)
           throw new Error(uploadResult.message || "Failed to upload PDF.");
         await chatService.linkMediaToMessage(
-          accessToken!,
           newMessageId,
           newChatId,
           uploadResult.key!,
@@ -390,7 +387,7 @@ export const ChatPage: React.FC = () => {
     setIsLoading(true);
     setIsSwitchingChats(true);
     try {
-      const chatData = await chatService.getChatById(accessToken!, chatId);
+      const chatData = await chatService.getChatById(chatId);
       if (chatData?.messages) {
         const formattedMessages: Message[] = await Promise.all(
           chatData.messages.map(async (m: StoredMessage) => {
@@ -469,7 +466,7 @@ export const ChatPage: React.FC = () => {
 
   const handleDeleteChat = async (chatId: number) => {
     try {
-      await chatService.deleteChat(accessToken!, chatId);
+      await chatService.deleteChat(chatId);
       setChats((prev) => prev.filter((chat) => chat.id !== chatId));
       if (chatId === activeChatId) handleClearChat();
     } catch (error) {
@@ -479,7 +476,7 @@ export const ChatPage: React.FC = () => {
 
   const handleRenameChat = async (chatId: number, newTitle: string) => {
     try {
-      await chatService.changeTitle(accessToken!, chatId, newTitle);
+      await chatService.changeTitle(chatId, newTitle);
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === chatId ? { ...chat, title: newTitle } : chat,

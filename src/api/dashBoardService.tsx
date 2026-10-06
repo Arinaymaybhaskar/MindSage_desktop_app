@@ -8,32 +8,24 @@ const checkElectron = () => {
 };
 
 export const dashboardService = {
-  getData: async (token: string): Promise<DashboardData> => {
+  getData: async (): Promise<DashboardData> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "dashboard:get-data",
-      token,
-    );
+    return await window.electron.ipcRenderer.invoke("dashboard:get-data");
   },
-  getMonthlyScore: async (token: string): Promise<DayScore[]> => {
+  getMonthlyScore: async (): Promise<DayScore[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-monthly-scores",
-      token,
     );
   },
-  getAllTimeScore: async (token: string): Promise<DayScore[]> => {
+  getAllTimeScore: async (): Promise<DayScore[]> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "dashboard:get-all-time-scores",
-      token,
     );
   },
-  getStats: async (token: string): Promise<DashboardStats> => {
+  getStats: async (): Promise<DashboardStats> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "dashboard:get-stats",
-      token,
-    );
+    return await window.electron.ipcRenderer.invoke("dashboard:get-stats");
   },
 };

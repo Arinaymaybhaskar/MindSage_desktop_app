@@ -20,12 +20,12 @@ type ImageEntry = JournalImageEntry;
  * instead of the ten the dashboard query was capped at.
  */
 export default function Memories() {
-  const { accessToken } = useAuth();
+  const { user: sessionUser } = useAuth();
   const [entries, setEntries] = useState<ImageEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!sessionUser) {
       setIsLoading(false);
       return;
     }
@@ -33,10 +33,7 @@ export default function Memories() {
 
     const load = async () => {
       try {
-        const keys: ImageEntry[] = await journalService.getImages(
-          accessToken,
-          "all",
-        );
+        const keys: ImageEntry[] = await journalService.getImages("all");
         if (cancelled || !Array.isArray(keys)) return;
 
         // Thumbnails, not originals. The masonry preloads every image before
@@ -65,7 +62,7 @@ export default function Memories() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken]);
+  }, [sessionUser]);
 
   const items = useMemo(
     () =>

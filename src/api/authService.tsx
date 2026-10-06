@@ -15,7 +15,6 @@ interface UserInfo {
  * Describes the successful response from a login or registration call.
  */
 interface AuthResponse {
-  accessToken: string;
   userInfo: UserInfo;
 }
 
@@ -25,6 +24,8 @@ interface AuthResponse {
 interface LoginCredentials {
   identifier: string;
   password?: string; // Password might be optional for some auth modes in the future
+  /** Stay signed in across launches; otherwise the next launch asks again. */
+  rememberMe?: boolean;
 }
 
 /**

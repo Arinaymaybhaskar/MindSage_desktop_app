@@ -3,7 +3,6 @@ import Modal from "../../Modal";
 import ColorPalette from "../ColorPalette";
 import type { Category, Goal } from "../../../types/Goals";
 import { categoryService } from "../../../api/categoryService";
-import { useAuth } from "../../../hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
@@ -44,8 +43,6 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#4ade80");
-
-  const { accessToken } = useAuth();
 
   const themeColor =
     categories.find((c) => c.id === categoryId)?.color || "var(--color-info)";
@@ -90,7 +87,6 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
       }
       try {
         createdCategory = await categoryService.addCategory(
-          accessToken!,
           newCategoryName,
           newCategoryColor,
         );

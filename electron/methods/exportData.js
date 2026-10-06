@@ -1,26 +1,11 @@
 import localDB from "../db/index.js";
-import jwt from "jsonwebtoken";
+import { currentUserId } from "../session.js";
 
-function getUserIdFromToken(token) {
-  try {
-    // 1. Guard against null or undefined tokens
-    if (!token) {
-      return null;
-    }
-    const decoded = jwt.decode(token);
-    // 2. Ensure the token was successfully decoded and has an id
-    return decoded.id;
-  } catch (e) {
-    console.error("Error decoding token:", e);
-    return null;
-  }
-}
-
-export const handleExportUserData = async (event, token, filePath) => {
+export const handleExportUserData = async (event, filePath) => {
   console.log("Starting data export process...", filePath);
-  const userId = getUserIdFromToken(token);
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
 
   // -- 1. Fetch all user data from the local database --

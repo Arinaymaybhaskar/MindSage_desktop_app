@@ -1,67 +1,54 @@
 import localDB from "../db/index.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import { currentUserId, signOut } from "../session.js";
 
-function getUserIdFromToken(token) {
-  try {
-    // 1. Guard against null or undefined tokens
-    if (!token) {
-      return null;
-    }
-    const decoded = jwt.decode(token);
-    return decoded;
-  } catch (e) {
-    console.error("Error decoding token:", e);
-    return null;
-  }
-}
-
-export const userGetMe = async (event, token) => {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token for offline mode");
+export const userGetMe = async (event) => {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
   return localDB.getUserById(userId);
 };
 
-export const userUpdateProfile = async (event, token, payload) => {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export const userUpdateProfile = async (event, payload) => {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
   const user = localDB.updateUserProfile(userId, payload);
   return { user };
 };
 
-export const userGetSettings = async (event, token) => {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export const userGetSettings = async (event) => {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
   return localDB.getUserSettings(userId);
 };
 
-export const userUpdateSettings = async (event, token, payload) => {
-  const userId = getUserIdFromToken(token).id;
-  if (!userId) throw new Error("Invalid token");
+export const userUpdateSettings = async (event, payload) => {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
   localDB.updateUserSettings(userId, payload);
   return localDB.getUserSettings(userId);
 };
 
-export const userChangePassword = async (event, token, payload) => {
+export const userChangePassword = async (event, payload) => {
   const { old_password, new_password } = payload;
-  const userToken = getUserIdFromToken(token);
-  if (!userToken) throw new Error("Invalid token");
-  const user = localDB.findUserByIdentifier(userToken.username); // Assuming findUser can take ID
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
+  const user = localDB.findUserById(userId);
   if (!user) throw new Error("User not found");
   const match = await bcrypt.compare(old_password, user.password_hash);
   if (!match) throw new Error("Incorrect current password");
-  localDB.changePassword(userToken.id, new_password);
+  localDB.changePassword(userId, new_password);
   return { message: "Password updated successfully" };
 };
 
-export const userDeleteAccount = async (event, token, payload) => {
+export const userDeleteAccount = async (event, payload) => {
   const { password } = payload;
-  const userToken = getUserIdFromToken(token);
-  if (!userToken) throw new Error("Invalid token");
-  const user = localDB.findUserByIdentifier(userToken.username);
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
+  const user = localDB.findUserById(userId);
   if (!user) throw new Error("User not found");
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) throw new Error("Incorrect password");
-  localDB.deleteUser(userToken.id);
+  localDB.deleteUser(userId);
+  signOut();
   return { message: "User account deleted successfully" };
 };

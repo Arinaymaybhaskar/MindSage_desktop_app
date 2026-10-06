@@ -3,7 +3,8 @@ import journalService from "./journalService.tsx";
 
 // journalService delegates every call to
 // window.electron.ipcRenderer.invoke(channel, ...args). These tests assert the
-// channel names and argument order the main process depends on.
+// channel names and argument order the main process depends on, and that no
+// credential travels with them: the session lives in the main process.
 const invoke = vi.fn();
 
 beforeEach(() => {
@@ -14,22 +15,21 @@ beforeEach(() => {
 });
 
 describe("journalService", () => {
-  it("getOne routes to journal:get-by-id with token and id", async () => {
-    await journalService.getOne("tok", 42);
-    expect(invoke).toHaveBeenCalledWith("journal:get-by-id", "tok", 42);
+  it("getOne routes to journal:get-by-id with the id alone", async () => {
+    await journalService.getOne(42);
+    expect(invoke).toHaveBeenCalledWith("journal:get-by-id", 42);
   });
 
   it("update routes to journal:update with the payload", async () => {
     const payload = { title: "t", content: "c" };
-    await journalService.update("tok", 7, payload);
-    expect(invoke).toHaveBeenCalledWith("journal:update", "tok", 7, payload);
+    await journalService.update(7, payload);
+    expect(invoke).toHaveBeenCalledWith("journal:update", 7, payload);
   });
 
   it("retryAIMetadata routes to journal:retry-ai-metadata", async () => {
-    await journalService.retryAIMetadata("tok", 5, "summary");
+    await journalService.retryAIMetadata(5, "summary");
     expect(invoke).toHaveBeenCalledWith(
       "journal:retry-ai-metadata",
-      "tok",
       5,
       "summary",
     );
@@ -38,6 +38,6 @@ describe("journalService", () => {
   it("throws when not running in an Electron environment", async () => {
     // @ts-expect-error intentionally clear the bridge
     globalThis.window = {};
-    await expect(journalService.getOne("tok", 1)).rejects.toThrow(/Electron/);
+    await expect(journalService.getOne(1)).rejects.toThrow(/Electron/);
   });
 });

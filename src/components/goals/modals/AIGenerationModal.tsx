@@ -2,7 +2,6 @@ import React, { useMemo, useState, useEffect } from "react";
 import Modal from "../../Modal";
 import { AmbitionNamePrompt, getGoalPrompt } from "../../../utils/prompts/goal";
 import { ollamaService } from "../../../api/ollamaService";
-import { useAuth } from "../../../hooks/useAuth";
 import type { Category, Goal } from "../../../types/Goals";
 import type { SelectedModels } from "../../../types/Ollama";
 import type { DropdownOption } from "../../ui/Dropdown";
@@ -47,7 +46,6 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [goals, setGoals] = useState<GeneratedGoal[]>([]);
   const [error, setError] = useState("");
-  const { accessToken } = useAuth();
   const [selectedModel, setSelectedModel] = useState<string>("");
 
   useEffect(() => {
@@ -122,14 +120,9 @@ const GoalGeneratorModal: React.FC<GoalGeneratorModalProps> = ({
 
     try {
       const prompt = getGoalPrompt(ambition, categories);
-      const res = await ollamaService.getResponse(
-        accessToken!,
-        selectedModel,
-        prompt,
-      );
+      const res = await ollamaService.getResponse(selectedModel, prompt);
       const ambitionPrompt = AmbitionNamePrompt(ambition);
       const ambitionRes = await ollamaService.getResponse(
-        accessToken!,
         selectedModel,
         ambitionPrompt,
       );

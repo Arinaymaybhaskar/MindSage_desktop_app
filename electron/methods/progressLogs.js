@@ -1,28 +1,13 @@
 import localDB from "../db/index.js";
-import jwt from "jsonwebtoken";
 import { eventBus } from "../eventBus.js";
 import { db } from "../db/connection.js";
+import { currentUserId } from "../session.js";
 
-function getUserIdFromToken(token) {
-  try {
-    // 1. Guard against null or undefined tokens
-    if (!token) {
-      return null;
-    }
-    const decoded = jwt.decode(token);
-    // 2. Ensure the token was successfully decoded and has an id
-    return decoded.id;
-  } catch (e) {
-    console.error("Error decoding token:", e);
-    return null;
-  }
-}
-
-export const handleGetProgressLogs = async (event, token, goalId) => {
-  const userId = getUserIdFromToken(token);
+export const handleGetProgressLogs = async (event, goalId) => {
+  const userId = currentUserId();
 
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
 
   return localDB.getProgressLogs(goalId);
@@ -30,14 +15,13 @@ export const handleGetProgressLogs = async (event, token, goalId) => {
 
 export const handleAddProgressLog = async (
   event,
-  token,
   goalId,
   value,
   description,
 ) => {
-  const userId = getUserIdFromToken(token);
+  const userId = currentUserId();
   if (!userId) {
-    return { error: "Invalid token" };
+    return { error: "Not signed in" };
   }
 
   const addedLog = localDB.logProgress(goalId, value, description);

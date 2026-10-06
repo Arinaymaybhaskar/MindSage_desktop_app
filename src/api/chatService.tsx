@@ -37,7 +37,6 @@ export type ChatStreamEvent =
 
 export const chatService = {
   sendMessage: async (
-    token: string,
     chatId: number | null,
     message: string,
     model: string,
@@ -59,7 +58,6 @@ export const chatService = {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "chat:send-message",
-      token,
       chatId,
       message,
       model,
@@ -81,52 +79,32 @@ export const chatService = {
       callback as (...args: unknown[]) => void,
     );
   },
-  getChats: async (
-    token: string,
-    page: number = 0,
-    limit: number = 10,
-  ): Promise<Chat[]> => {
+  getChats: async (page: number = 0, limit: number = 10): Promise<Chat[]> => {
     checkElectron();
-    return window.electron.ipcRenderer.invoke(
-      "chat:get-chats",
-      token,
-      page,
-      limit,
-    );
+    return window.electron.ipcRenderer.invoke("chat:get-chats", page, limit);
   },
   deleteChat: async (
-    token: string,
     chatId: number,
   ): Promise<{ success: boolean; message: string }> => {
     checkElectron();
-    return window.electron.ipcRenderer.invoke(
-      "chat:delete-chat",
-      token,
-      chatId,
-    );
+    return window.electron.ipcRenderer.invoke("chat:delete-chat", chatId);
   },
   changeTitle: async (
-    token: string,
     chatId: number,
     newTitle: string,
   ): Promise<{ success: boolean; message: string }> => {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "chat:change-title",
-      token,
       chatId,
       newTitle,
     );
   },
-  getChatById: async (
-    token: string,
-    chatId: number,
-  ): Promise<ChatDetail | null> => {
+  getChatById: async (chatId: number): Promise<ChatDetail | null> => {
     checkElectron();
-    return window.electron.ipcRenderer.invoke("chat:get-by-id", token, chatId);
+    return window.electron.ipcRenderer.invoke("chat:get-by-id", chatId);
   },
   linkMediaToMessage: async (
-    token: string,
     messageId: number,
     chatId: number,
     mediaKey: string,
@@ -134,7 +112,6 @@ export const chatService = {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "media:link-message",
-      token,
       messageId,
       chatId,
       mediaKey,

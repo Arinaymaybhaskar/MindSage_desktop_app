@@ -7,102 +7,58 @@ const checkElectron = () => {
 };
 
 export const goalService = {
-  getActiveGoals: async (token: string): Promise<Goal[]> => {
+  getActiveGoals: async (): Promise<Goal[]> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "goal:get-active-goals",
-      token,
-    );
+    return await window.electron.ipcRenderer.invoke("goal:get-active-goals");
   },
-  getCompletedGoals: async (token: string): Promise<Goal[]> => {
+  getCompletedGoals: async (): Promise<Goal[]> => {
     checkElectron();
 
-    return await window.electron.ipcRenderer.invoke(
-      "goal:get-completed-goals",
-      token,
-    );
+    return await window.electron.ipcRenderer.invoke("goal:get-completed-goals");
   },
-  addGoal: async (
-    token: string,
-    goal: Partial<Goal>,
-  ): Promise<SqliteRunResult> => {
+  addGoal: async (goal: Partial<Goal>): Promise<SqliteRunResult> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke("goal:add", token, goal);
+    return await window.electron.ipcRenderer.invoke("goal:add", goal);
   },
   updateGoal: async (
-    token: string,
     goalId: number,
     goal: Partial<Goal>,
   ): Promise<SqliteRunResult> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:update",
-      token,
       goalId,
       goal,
     );
   },
-  deleteGoal: async (
-    token: string,
-    goalId: number,
-  ): Promise<SqliteRunResult> => {
+  deleteGoal: async (goalId: number): Promise<SqliteRunResult> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "goal:delete",
-      token,
-      goalId,
-    );
+    return await window.electron.ipcRenderer.invoke("goal:delete", goalId);
   },
-  togglePin: async (
-    token: string,
-    goalId: string,
-  ): Promise<SqliteRunResult> => {
+  togglePin: async (goalId: string): Promise<SqliteRunResult> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "goal:toggle-pin",
-      token,
-      goalId,
-    );
+    return await window.electron.ipcRenderer.invoke("goal:toggle-pin", goalId);
   },
-  completeGoal: async (
-    token: string,
-    goalId: number,
-  ): Promise<SqliteRunResult> => {
+  completeGoal: async (goalId: number): Promise<SqliteRunResult> => {
     checkElectron();
-    return await window.electron.ipcRenderer.invoke(
-      "goal:complete",
-      token,
-      goalId,
-    );
+    return await window.electron.ipcRenderer.invoke("goal:complete", goalId);
   },
-  updateProgress: async (
-    token: string,
-    goalId: number,
-    value: number,
-  ): Promise<Goal> => {
+  updateProgress: async (goalId: number, value: number): Promise<Goal> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "goal:update-progress",
-      token,
       goalId,
       value,
     );
   },
-  getPinned: async (token: string): Promise<Goal[]> => {
+  getPinned: async (): Promise<Goal[]> => {
     checkElectron();
 
-    return await window.electron.ipcRenderer.invoke("goal:get-pinned", token);
+    return await window.electron.ipcRenderer.invoke("goal:get-pinned");
   },
-  getGoalById: async (
-    token: string,
-    goalId: number,
-  ): Promise<GoalDetail | null> => {
+  getGoalById: async (goalId: number): Promise<GoalDetail | null> => {
     checkElectron();
 
-    return await window.electron.ipcRenderer.invoke(
-      "goal:get-by-id",
-      token,
-      goalId,
-    );
+    return await window.electron.ipcRenderer.invoke("goal:get-by-id", goalId);
   },
 };

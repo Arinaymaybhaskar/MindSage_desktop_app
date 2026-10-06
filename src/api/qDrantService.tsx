@@ -39,7 +39,6 @@ export const qdrantService = {
     );
   },
   search: (
-    token: string,
     collection: string,
     query: string,
     limit = 5,
@@ -48,7 +47,6 @@ export const qdrantService = {
     checkElectron();
     return window.electron.ipcRenderer.invoke(
       "qdrant:search",
-      token,
       collection,
       query,
       limit,
