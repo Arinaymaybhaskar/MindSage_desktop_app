@@ -3,8 +3,11 @@ import path from "node:path";
 import fs from "node:fs";
 import { MIGRATIONS, runMigrations } from "./migrations.js";
 
-// Define the path for the database in the user's app data folder
-const dbPath = path.join(
+// Where the database used to be resolved: next to Electron's userData on
+// Windows, but ~/Library/Preferences on macOS and ~/.local/share on Linux,
+// apart from the app's own logs and media. Still the fallback for processes
+// with no Electron app object (the benchmark harness sets APPDATA).
+const legacyDbPath = path.join(
   process.env.APPDATA ||
     (process.platform == "darwin"
       ? process.env.HOME + "/Library/Preferences"
@@ -12,6 +15,32 @@ const dbPath = path.join(
   "MindSage",
   "mind-sage.db",
 );
+
+/**
+ * The database lives in Electron's userData (MS_DB_DIR, set by
+ * userDataOverride.js before this module loads; the Qdrant worker inherits
+ * it). On Windows that is the same file as before. Elsewhere, an existing
+ * journal at the legacy path wins over an empty new location, so moving the
+ * default can never present a user with a blank journal.
+ */
+function resolveDbPath() {
+  if (!process.env.MS_DB_DIR) return legacyDbPath;
+  const preferred = path.join(process.env.MS_DB_DIR, "mind-sage.db");
+  // A scratch profile asked for by name gets its own database, never the
+  // user's journal through the fallback below.
+  if (process.env.MS_USER_DATA_DIR) return preferred;
+  if (
+    path.resolve(preferred) !== path.resolve(legacyDbPath) &&
+    !fs.existsSync(preferred) &&
+    fs.existsSync(legacyDbPath)
+  ) {
+    console.log(`Using the existing database at ${legacyDbPath}`);
+    return legacyDbPath;
+  }
+  return preferred;
+}
+
+const dbPath = resolveDbPath();
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 // Create and export the database instance

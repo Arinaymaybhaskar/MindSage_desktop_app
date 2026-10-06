@@ -43,6 +43,7 @@ Claims still open in older docs that are actually resolved. Checked against the 
 | **Item 36 — the benchmark harness** | Phase 6 | **Committed**, with runs mirrored to mindsage-web |
 | **Item 12 measured** | Phase 1 | `after-extraresources` (2026-10-06): installer 248.3 → 217.7 MB. PKG-1 is improved, not closed: its 180 MB target needs item 13 too |
 | **Items 7, 8, 9: indexes, WAL, sargable dates** | Phase 1 | **Done 2026-10-06.** WAL + `synchronous = NORMAL` in `connection.js` (both handles); migration 4 adds `journal_entries(user_id, is_deleted, created_at)`; `getAllEntries` and `getRecentEntries` use a tag subquery instead of `GROUP BY`, and compare `created_at` without `DATE()`. Full scans 41 to 12; at 50k `list.page1` 246ms to 0.30ms and reads under worker writes 436ms to 0.41ms (`after-wal-and-indexes`). The `journal_entry_tags(journal_entry_id)` index was not added: the primary key already serves it. Old and new queries matched on 494 comparisons against a copy of a real journal. DB-3 and DB-5 remain |
+| **Items 10, 11, 13, 14: the rest of Phase 1** | Phase 1 | **Done 2026-10-06.** **10:** `LICENSE` (proprietary, all rights reserved, source public for reading) and `"license": "UNLICENSED"`. **11:** `electron-updater` is CommonJS, so its exports arrive on `default` from ESM; the destructured `autoUpdater` was undefined and every packaged launch threw on `autoDownload`. Fixed, and the launch check now runs only when Settings > Appearance > "Check for Updates Automatically" is on (default off); "Check now" reports the result. Verified in a packaged build: the check reaches GitHub and reports that no production release exists, which is true while every release is a pre-release. **13:** `public/**` dropped from `files` (Vite already copies it into `dist/`), `dist/screenshots` and `better-sqlite3/{deps,src}` excluded, `electronLanguages: ["en-US"]`, `compression: "maximum"`. Packaged output 791.8 to 717.5 MB, installer 217.6 to 198.4 MiB (`after-packaging-trims`); the packaged app opens, migrates and uses its database without the SQLite source. **14:** `userDataOverride.js` publishes userData as `MS_DB_DIR`, which `connection.js` and the worker use. Same file on Windows; an existing journal at the old macOS/Linux path wins over an empty new location, and an explicit `MS_USER_DATA_DIR` always gets its own database |
 | **Packaged Qdrant worker never started** | (not previously listed) | **Fixed 2026-08-28.** `createQdrantWorker` resolved a packaged path outside `app.asar`, so background AI enrichment was dead in every install. → [CODEBASE_STRUCTURE_AUDIT §3](CODEBASE_STRUCTURE_AUDIT.md) |
 
 ---
@@ -67,11 +68,11 @@ Config and two-line changes with measured or obvious payoff. The whole phase is 
 7. ✅ **Done 2026-10-06:** `journal_entries(user_id, is_deleted, created_at)` index, as migration 4. The `journal_entry_tags(journal_entry_id)` half was not needed: that lookup already uses the table's primary key. See §0.
 8. ✅ **Done 2026-10-06:** WAL + `synchronous = NORMAL`. See §0.
 9. ✅ **Done 2026-10-06:** together with item 7, which made the list queries slower on its own. See §0.
-10. 🔴 S — **Add a LICENSE file.** Verified absent. The repo is legally unshippable without one. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
-11. 🔴 S — **Gate the auto-updater** behind an explicit setting (default off) or a manual button. It is written to fire on every packaged launch with `autoDownload = true`, the one thing that contradicts the offline-first claim. **Observed 2026-10-06: in a packaged build it currently crashes before checking** (`Cannot set properties of undefined (setting 'autoDownload')`), most likely because `await import("electron-updater")` from ESM does not expose `autoUpdater` as a named export. So today it makes no request at all, and updates do not work. Fix the import and add the gate in the same change, or the fix switches unprompted network calls on. → [NETWORK_AUDIT §1.1](NETWORK_AUDIT.md)
+10. ✅ **Done 2026-10-06:** proprietary, all rights reserved; `package.json` says `UNLICENSED`. See §0.
+11. ✅ **Done 2026-10-06:** import crash fixed, launch check gated behind a Settings toggle (default off), plus a "Check now" button. See §0.
 12. ✅ **Done 2026-08-28** — per-platform `extraResources`. See §0.
-13. 🟢 S — **Four packaging one-liners: −72 MB.** `electronLanguages: ["en-US"]` (−42), drop `public/**` from `files` (−20), exclude `better-sqlite3/{deps,src}` (−9.6), `compression: "maximum"` (installer only). → [BUNDLE_SIZE_PLAN §2.5–2.8](BUNDLE_SIZE_PLAN.md)
-14. 🔴 S — **Write the DB to `app.getPath("userData")`.** On macOS it currently lands in `~/Library/Preferences`, where its own logs do not. Two lines now; a migration once anyone has shipped. → [MAC_RELEASE_PLAN §1.3](MAC_RELEASE_PLAN.md)
+13. ✅ **Done 2026-10-06:** packaged output 791.8 to 717.5 MB, installer 217.6 to 198.4 MiB. See §0.
+14. ✅ **Done 2026-10-06:** with a fallback that keeps an existing journal at the old path. See §0.
 
 ## Phase 2 — The privacy promise
 
@@ -104,7 +105,7 @@ Independently shippable, and it shrinks everything downstream — fewer files to
 
 ## Phase 5 — Production operations
 
-30. 🟠 S — **Wire up the update UI.** `autoUpdater` emits `update:available` / `:progress` / `:downloaded` and **nothing in the renderer listens** (verified). Updates install silently. Blocked on item 11: the updater never gets as far as emitting. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
+30. 🟠 S — **Wire up the update UI.** `autoUpdater` emits `update:available` / `:progress` / `:downloaded` and **nothing in the renderer listens** (verified). Updates install silently. Item 11 unblocked this (2026-10-06): the updater now runs, on opt-in or from Settings' "Check now", which reports the check's result but not download progress or a ready-to-install prompt. Testing it end to end needs a production (non-pre-release) GitHub release. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
 31. 🟠 M — **Crash reporting.** Zero visibility into production failures; anything network-bound needs explicit opt-in here. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
 32. 🟠 M — **A real logger** with levels, rotation, and redaction, replacing 106 `console.log` calls. → [TECHNICAL_DEBT §4.3](TECHNICAL_DEBT.md)
 33. 🟠 S — **Add a Content-Security-Policy.** Verified absent. Cheap, and it turns "we make no external requests" into an enforced invariant. → [NETWORK_AUDIT §4.1](NETWORK_AUDIT.md)
@@ -187,6 +188,6 @@ Every item in every doc is accounted for here. Nothing was dropped silently.
 | [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) | 34 | Throughout; §0 verified table folded into §0 here |
 | [CODEBASE_STRUCTURE_AUDIT.md](CODEBASE_STRUCTURE_AUDIT.md) | 8 (P1–P8) | 20–24, 52, 64 · P4 declined · rest in §0 |
 
-**Totals by severity:** 46 items still open, 15 🔴 · 15 🟠 · 9 🟡 · 7 🟢. Since the 56 counted on 2026-08-28: Phase 0 closed six (2026-08-30), items 26, 27 and 36 were found done but still listed (2026-10-06), 35b and 35c were added, and Phase 1 closed items 7, 8 and 9 (2026-10-06). Everything closed is recorded in §0.
+**Totals by severity:** 42 items still open, 12 🔴 · 15 🟠 · 9 🟡 · 6 🟢. Since the 56 counted on 2026-08-28: Phase 0 closed six (2026-08-30), items 26, 27 and 36 were found done but still listed (2026-10-06), 35b and 35c were added, and Phase 1 closed items 7, 8, 9, 10, 11, 13 and 14 (2026-10-06). Everything closed is recorded in §0.
 
 **The short version.** Phases 0 and 1 are about twenty items, nearly all `S`, and they remove every known data-loss path, the worst latency cliff, and ~145 MB — before a single architectural decision is required. Phase 2 is the product's actual promise. Everything after that is a real roadmap rather than a sprint.

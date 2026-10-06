@@ -81,6 +81,7 @@ Add a row here before touching anything else.
 | 2026-10-06 | `after-extraresources` | MASTER_TODO item 12: per-platform `extraResources`, so the Windows build no longer ships `resources/mac`. Size stage only | — | Installer 248.3 → **217.7 MB** (−30.6 MB). PKG-1's target needs item 13 too | [results/after-extraresources.json](results/after-extraresources.json) → [AFTER-EXTRARESOURCES.md](AFTER-EXTRARESOURCES.md) |
 | 2026-10-06 | `phase-0-2026-10-06` | **Full run closing Phase 0** (`npm run bench:phase -- 0`, kind `full`). Phase 0 as merged in #18 and #19: versioned migrations with a `VACUUM INTO` backup, the renderer data-loss fixes, Quick Capture auth sync, per-platform `extraResources`, and `MS_USER_DATA_DIR`. Startup now launches on a copy of the real profile instead of the real one | `llama3.2:latest` / `nomic-embed-text:v1.5` | **No change attributable to Phase 0**, as expected: it touched no query. 50k DB scenarios flat except `dashboard.allTimeScores` (214 to 362ms, noise-sized; no query changed). Total to visible window 1.58 to **1.35s**; the slower "Qdrant started" step (434 to 847ms) is the first launch reading a freshly copied `qdrant-data` from a cold cache. All 3 startup runs complete. Retrieval quality identical (recall@5 0.767, MRR 0.644, P@1 0.467). Installer **217.6 MB**. This is the "before" for Phase 1 | [results/phase-0-2026-10-06.json](results/phase-0-2026-10-06.json) → [PHASE-0-2026-10-06.md](PHASE-0-2026-10-06.md) · [vs main-2026-10-06](COMPARISON-main-2026-10-06-vs-phase-0-2026-10-06.md) |
 | 2026-10-06 | `after-wal-and-indexes` | Phase 1 items 7, 8 and 9 (DB-1, DB-2, DB-4): WAL with `synchronous = NORMAL`; migration 4 adds `journal_entries(user_id, is_deleted, created_at)`; the list queries take tags from a correlated subquery and compare `created_at` bare. DB stage only | — | Full table scans **41 to 12**. At 50k: `list.page1` 246ms to **0.30ms**, `list.dateFiltered` 153ms to **0.30ms**, `dashboard.recent` 258ms to **0.13ms**, reads under worker writes 436ms to **0.41ms** (0.41ms at 150 too), `write.create` 6.8ms to **0.38ms**. `dashboard.stats` 1.63s to 899ms and `dashboard.data` 603 to 170ms, still above target: they aggregate every row. `gallery.random` unchanged (DB-5). The index alone made the list queries **slower** (5k `list.page1` 9 to 98ms, caught by the commit's quick run), because the old `GROUP BY` plan then sorted every entry twice; items 7 and 9 only work together | [results/after-wal-and-indexes.json](results/after-wal-and-indexes.json) → [AFTER-WAL-AND-INDEXES.md](AFTER-WAL-AND-INDEXES.md) |
+| 2026-10-06 | `after-packaging-trims` | MASTER_TODO 13 (PKG-1): `public/**` out of `files`, `dist/screenshots` and `better-sqlite3/{deps,src}` excluded, one locale, maximum NSIS compression. Size and bundle stages only | — | Packaged output **791.8 to 717.5 MB** (the plan predicted −72 MB). Installer **217.6 to 198.4 MiB**; PKG-1's 180 MiB target still needs one of the structural cuts (BUNDLE_SIZE_PLAN §3). JS bundle unchanged, so PKG-2 is unchanged too | [results/after-packaging-trims.json](results/after-packaging-trims.json) → [AFTER-PACKAGING-TRIMS.md](AFTER-PACKAGING-TRIMS.md) |
 
 All runs are on the same hardware: i5-9300H / 16 GB / Windows 11. **The OS build
 changed on the way:** everything up to 2026-08-30 ran on 10.0.26200, and the
@@ -114,7 +115,7 @@ so the status board never shows them as an "after".
 _Generated from `results/` by `npm run bench:board` — every figure below is
 read out of a stored run, so none of them can go stale. Before = `baseline`
 (2026-08-25).
-After = the most recent run that measured each metric. 15 runs on record._
+After = the most recent run that measured each metric. 16 runs on record._
 
 | ID | Issue | Key metric | Before | Target | After | Change | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -129,11 +130,11 @@ After = the most recent run that measured each metric. 15 runs on record._
 | **AI-4** | Ghost text slower than its budget | `ghostText` p95 | **670ms** | < 300ms | **565ms** _(phase-0-2026-10-06)_ | 1.2× faster | 🟠 improved, target not met |
 | **STT-1** | Whisper respawns per transcription | fixed overhead per call | **1.40s** | < 200ms | **1.26s** _(phase-0-2026-10-06)_ | 1.1× faster | 🟠 improved, target not met |
 | **STT-2** | ffmpeg conversion on the critical path | per voice note | **92ms** | eliminate | **86ms** _(phase-0-2026-10-06)_ | 1.1× faster | 🟡 improved, target not met |
-| **PKG-1** | mac binaries inside the Windows build | installer size | **248.3 MB** | < 180.0 MB | **217.6 MB** _(phase-0-2026-10-06)_ | 1.1× faster | 🟠 improved, target not met |
+| **PKG-1** | mac binaries inside the Windows build | installer size | **248.3 MB** | < 180.0 MB | **198.4 MB** _(after-packaging-trims)_ | 1.3× faster | 🟠 improved, target not met |
 | **CHAT-1** | RAG runs two serial generations | chat reply p50 | **14.00s** | < 6.00s | **10.65s** _(phase-0-2026-10-06)_ | 1.3× faster | 🔴 improved, target not met |
 | **SEARCH-1** | Retrieval ranks the wrong entry first | precision@1 | **0.467** | > 0.750 | **0.467** _(phase-0-2026-10-06)_ | unchanged | 🔴 re-measured, no change |
 | **UI-1** | Journal list drops frames while scrolling | frames over 16.7ms | **2.4%** | < 2.0% | **1.9%** _(phase-0-2026-10-06)_ | −21% | ✅ fixed and verified |
-| **PKG-2** | zxcvbn dominates the JS bundle | share of JS | **42.2%** | < 5.0% | **43.2%** _(phase-0-2026-10-06)_ | +2% worse | 🟠 regressed |
+| **PKG-2** | zxcvbn dominates the JS bundle | share of JS | **42.2%** | < 5.0% | **43.2%** _(after-packaging-trims)_ | +2% worse | 🟠 regressed |
 | **MEDIA-1** | base64 media over IPC | `media.getImage` round-trip | **1.30ms** | — | **0.90ms** _(phase-0-2026-10-06)_ | 1.4× faster | ✅ closed, no action |
 
 Legend: 🔴 high · 🟠 moderate · 🟡 low · ✅ done and verified

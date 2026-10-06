@@ -1,6 +1,7 @@
 {
   "name": "mindsage-desktop-app",
   "private": true,
+  "license": "UNLICENSED",
   "productName": "MindSage",
   "description": "AI-powered journaling app",
   "author": "Arinaymay arinaymay.bhaskar.7500@gmail.com",
@@ -59,9 +60,14 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "public/**/*",
-      "package.json"
+      "package.json",
+      "!dist/screenshots/**",
+      "!**/node_modules/better-sqlite3/{deps,src}/**"
     ],
+    "electronLanguages": [
+      "en-US"
+    ],
+    "compression": "maximum",
     "directories": {
       "buildResources": "assets",
       "output": "release"

@@ -12,6 +12,9 @@ export const appSettings = new Store({
   name: "app-settings",
   defaults: {
     launchAtStartup: false,
+    // Off by default for the same reason: an update check is a network
+    // request, and this app promises not to make one the user did not ask for.
+    checkForUpdates: false,
   },
 });
 
@@ -29,11 +32,17 @@ export function applyLaunchAtStartup() {
 export function registerAppSettingsIPC() {
   ipcMain.handle("settings:get-app", () => ({
     launchAtStartup: appSettings.get("launchAtStartup"),
+    checkForUpdates: appSettings.get("checkForUpdates"),
   }));
 
   ipcMain.handle("settings:set-launch-at-startup", (_e, enabled) => {
     appSettings.set("launchAtStartup", !!enabled);
     applyLaunchAtStartup();
     return { launchAtStartup: !!enabled };
+  });
+
+  ipcMain.handle("settings:set-check-for-updates", (_e, enabled) => {
+    appSettings.set("checkForUpdates", !!enabled);
+    return { checkForUpdates: !!enabled };
   });
 }
