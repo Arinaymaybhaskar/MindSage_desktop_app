@@ -1,6 +1,14 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path, { dirname, join } from "node:path";
 import {
+  handleCommitImport,
+  handleExportJournal,
+  handlePickExportPath,
+  handlePickImport,
+  handleReadImport,
+  handleUndoImport,
+} from "./methods/portability.js";
+import {
   handleCheckUsername,
   handleLogin,
   handleRegister,
@@ -243,6 +251,14 @@ export function registerIPCHandlers(runtime) {
 
   // export data
   ipcMain.handle("user:export-data", handleExportUserData);
+
+  // Export in other apps' formats, and import what other apps export.
+  ipcMain.handle("data:pick-export-path", handlePickExportPath);
+  ipcMain.handle("data:export", handleExportJournal);
+  ipcMain.handle("data:import-pick", handlePickImport);
+  ipcMain.handle("data:import-read", handleReadImport);
+  ipcMain.handle("data:import-commit", handleCommitImport);
+  ipcMain.handle("data:import-undo", handleUndoImport);
 
   ipcMain.handle("dialog:show-save-export", async (event) => {
     const browserWindow = BrowserWindow.fromWebContents(event.sender);

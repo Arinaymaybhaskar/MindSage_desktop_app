@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 contextBridge.exposeInMainWorld("electron", {
   minimize: () => ipcRenderer.send("minimize-window"),
@@ -39,6 +39,12 @@ contextBridge.exposeInMainWorld("electron", {
     invoke: (channel, ...args) => {
       const validChannels = [
         "auth:check-username",
+        "data:pick-export-path",
+        "data:export",
+        "data:import-pick",
+        "data:import-read",
+        "data:import-commit",
+        "data:import-undo",
         "auth:get-session",
         "auth:list-profiles",
         "auth:logout",
@@ -178,6 +184,8 @@ contextBridge.exposeInMainWorld("electron", {
   },
 
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
+  // The filesystem path of a dropped File, for importing a dropped journal.
+  getPathForFile: (file) => webUtils.getPathForFile(file),
 
   onAIStarted: (callback) =>
     ipcRenderer.on("journal:aiStarted", (_event, data) => callback(data)),
