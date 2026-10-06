@@ -1,0 +1,344 @@
+{
+  "label": "after-main-process-session",
+  "kind": "partial",
+  "timestamp": "2026-10-06T15:44:45.980Z",
+  "commit": "d96dd25797181df817684a282c2e486bf179e1d6",
+  "branch": "feat/main-process-session",
+  "dirty": true,
+  "machine": {
+    "platform": "win32 10.0.26300",
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "cores": 8,
+    "totalMemBytes": 17013284864,
+    "node": "24.19.0",
+    "electron": null,
+    "v8": "13.6.233.17-node.51"
+  },
+  "stages": [
+    "app",
+    "startup"
+  ],
+  "dbRuns": [],
+  "media": null,
+  "size": null,
+  "ai": null,
+  "vector": null,
+  "whisper": null,
+  "startup": {
+    "target": "release\\win-unpacked\\MindSage.exe",
+    "runs": 3,
+    "perRun": [
+      {
+        "kind": "first-of-session",
+        "spawnToAppReadyMs": 7595,
+        "steps": {
+          "Splash window shown": 104,
+          "Main window created": 17,
+          "Initializing localDB": 1,
+          "Running OllamaEmbeddingModelSetup": 26,
+          "Starting Qdrant": 44,
+          "Renderer signaled visually ready": 510
+        },
+        "totalMs": 702
+      },
+      {
+        "kind": "warm-filesystem-cache",
+        "spawnToAppReadyMs": 633,
+        "steps": {
+          "Splash window shown": 84,
+          "Main window created": 18,
+          "Initializing localDB": 1,
+          "Running OllamaEmbeddingModelSetup": 3,
+          "Starting Qdrant": 44,
+          "Renderer signaled visually ready": 484
+        },
+        "totalMs": 634
+      },
+      {
+        "kind": "warm-filesystem-cache",
+        "spawnToAppReadyMs": 646,
+        "steps": {
+          "Splash window shown": 83,
+          "Main window created": 19,
+          "Initializing localDB": 1,
+          "Running OllamaEmbeddingModelSetup": 3,
+          "Starting Qdrant": 42,
+          "Renderer signaled visually ready": 421
+        },
+        "totalMs": 569
+      }
+    ],
+    "stepStats": {
+      "Splash window shown": {
+        "n": 3,
+        "min": 83,
+        "p50": 84,
+        "p95": 104,
+        "max": 104,
+        "mean": 90.333
+      },
+      "Main window created": {
+        "n": 3,
+        "min": 17,
+        "p50": 18,
+        "p95": 19,
+        "max": 19,
+        "mean": 18
+      },
+      "Initializing localDB": {
+        "n": 3,
+        "min": 1,
+        "p50": 1,
+        "p95": 1,
+        "max": 1,
+        "mean": 1
+      },
+      "Running OllamaEmbeddingModelSetup": {
+        "n": 3,
+        "min": 3,
+        "p50": 3,
+        "p95": 26,
+        "max": 26,
+        "mean": 10.667
+      },
+      "Starting Qdrant": {
+        "n": 3,
+        "min": 42,
+        "p50": 44,
+        "p95": 44,
+        "max": 44,
+        "mean": 43.333
+      },
+      "Renderer signaled visually ready": {
+        "n": 3,
+        "min": 421,
+        "p50": 484,
+        "p95": 510,
+        "max": 510,
+        "mean": 471.667
+      }
+    },
+    "totals": {
+      "n": 3,
+      "min": 569,
+      "p50": 634,
+      "p95": 702,
+      "max": 702,
+      "mean": 635
+    },
+    "profile": "copy of the real profile: mind-sage.db, qdrant-data, Local Storage",
+    "note": "Measured against the packaged build and a copy of the real user profile. The first run of a session is the closest to cold; later runs benefit from the OS file cache. A launch after a reboot would be colder than anything measured here."
+  },
+  "app": {
+    "entries": 5000,
+    "runs": 20,
+    "results": {
+      "ipc.journal:get-all (10)": {
+        "n": 20,
+        "min": 0.7,
+        "p50": 0.8,
+        "p95": 0.9,
+        "max": 2.2,
+        "mean": 0.865,
+        "payloadBytes": 22057
+      },
+      "ipc.journal:get-all (50)": {
+        "n": 20,
+        "min": 1.8,
+        "p50": 1.9,
+        "p95": 2.5,
+        "max": 2.6,
+        "mean": 1.99,
+        "payloadBytes": 114385
+      },
+      "ipc.journal:get-recent": {
+        "n": 20,
+        "min": 0.4,
+        "p50": 0.5,
+        "p95": 0.6,
+        "max": 1.4,
+        "mean": 0.51,
+        "payloadBytes": 7104
+      },
+      "ipc.journal:get-images (top)": {
+        "n": 20,
+        "min": 0.3,
+        "p50": 0.3,
+        "p95": 0.4,
+        "max": 0.4,
+        "mean": 0.325,
+        "payloadBytes": 667
+      },
+      "ipc.dashboard:get-data": {
+        "n": 20,
+        "min": 2.4,
+        "p50": 2.6,
+        "p95": 2.8,
+        "max": 3,
+        "mean": 2.63,
+        "payloadBytes": 7696
+      },
+      "ipc.dashboard:get-stats": {
+        "n": 20,
+        "min": 57.4,
+        "p50": 58.5,
+        "p95": 60.3,
+        "max": 62.4,
+        "mean": 58.675,
+        "payloadBytes": 477
+      },
+      "ipc.goal:get-active-goals": {
+        "n": 20,
+        "min": 0.2,
+        "p50": 0.4,
+        "p95": 0.4,
+        "max": 0.5,
+        "mean": 0.35,
+        "payloadBytes": 2
+      },
+      "media.getImage": {
+        "n": 6,
+        "min": 0.9,
+        "p50": 1,
+        "p95": 1.4,
+        "max": 1.4,
+        "mean": 1.067,
+        "payloadBytes": 125483
+      },
+      "media.getThumbnail": {
+        "n": 6,
+        "min": 0.6,
+        "p50": 0.7,
+        "p95": 4.3,
+        "max": 4.3,
+        "mean": 1.417,
+        "payloadBytes": 4823
+      },
+      "render.dashboardSettle": {
+        "n": 5,
+        "min": 329.6,
+        "p50": 343.1,
+        "p95": 425.2,
+        "max": 425.2,
+        "mean": 356.96,
+        "note": "Time until rendered text stops changing, minus a 200ms stability window."
+      },
+      "render.journalListScroll": {
+        "n": 796,
+        "min": 2.1,
+        "p50": 7,
+        "p95": 10.1,
+        "max": 42.2,
+        "mean": 7.884,
+        "framesSampled": 796,
+        "droppedFrames": 18,
+        "droppedPercent": 2.3,
+        "domNodes": 4149,
+        "cardsRendered": 0
+      },
+      "memory.overSession": {
+        "samples": [
+          {
+            "cycle": 0,
+            "route": "#/dashboard",
+            "rssBytes": 732880896,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 0,
+            "route": "#/journals",
+            "rssBytes": 739233792,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 0,
+            "route": "#/goals",
+            "rssBytes": 740413440,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 0,
+            "route": "#/memories",
+            "rssBytes": 741642240,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 0,
+            "route": "#/chat",
+            "rssBytes": 750809088,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 1,
+            "route": "#/dashboard",
+            "rssBytes": 767750144,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 1,
+            "route": "#/journals",
+            "rssBytes": 787476480,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 1,
+            "route": "#/goals",
+            "rssBytes": 789049344,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 1,
+            "route": "#/memories",
+            "rssBytes": 790839296,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 1,
+            "route": "#/chat",
+            "rssBytes": 795389952,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 2,
+            "route": "#/dashboard",
+            "rssBytes": 805785600,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 2,
+            "route": "#/journals",
+            "rssBytes": 804257792,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 2,
+            "route": "#/goals",
+            "rssBytes": 799088640,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 2,
+            "route": "#/memories",
+            "rssBytes": 798068736,
+            "heapBytes": 26000000
+          },
+          {
+            "cycle": 2,
+            "route": "#/chat",
+            "rssBytes": 797794304,
+            "heapBytes": 26000000
+          }
+        ],
+        "startRssBytes": 732880896,
+        "endRssBytes": 797794304,
+        "growthBytes": 64913408,
+        "startHeapBytes": 26000000,
+        "endHeapBytes": 26000000,
+        "note": "Three passes over five routes. Growth here is not proof of a leak - caches warm too."
+      }
+    }
+  },
+  "bundle": null,
+  "rag": null,
+  "quality": null
+}
