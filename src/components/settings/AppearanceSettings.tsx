@@ -302,7 +302,7 @@ export const UpdatesSetting = () => {
           type="button"
           onClick={checkNow}
           disabled={checking}
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border border-border-light dark:border-border-dark text-text-light dark:text-text-dark hover:bg-secondary-light dark:hover:bg-secondary-dark disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-1.5 text-sm rounded-md border border-border-light dark:border-border-dark text-text-light dark:text-text-dark hover:bg-secondary-light dark:hover:bg-secondary-dark disabled:opacity-60"
         >
           {checking && <Loader2 size={14} className="animate-spin" />}
           {checking ? "Checking for updates" : "Check now"}
