@@ -48,7 +48,7 @@ The walkthrough is the running app: the real interface, a seeded demo journal in
   <img src="./assets/showcase/walkthrough-loop.webp" alt="Looping motion piece built from MindSage's UI states: an entry being written, a voice note recording, the mood slider, semantic search, a cited chat answer, goals, the streak ring and the journal list" width="800" />
 </div>
 
-The loop above is a motion piece built from the app's own states rather than a screen recording. [Full version with sound](https://github.com/Arinaymaybhaskar/MindSage_desktop_app/releases/download/media-showcase/MindSage-motion-loop-1080p60.mp4) (MP4, 9 MB).
+The loop above is a motion piece built from the app's own states rather than a screen recording. [Full version with sound](https://github.com/Arinaymaybhaskar/MindSage_desktop_app/releases/download/media-showcase/MindSage-walkthrough-v2-brand-1080p60.mp4) (MP4, 9 MB).
 
 <div align="center">
   <img src="./public/screenshots/v2/journals.png" alt="MindSage journal list showing dated entries with AI-generated titles, mood tags, and a colour-coded mood calendar" width="880" />
