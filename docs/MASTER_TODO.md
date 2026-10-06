@@ -42,6 +42,7 @@ Claims still open in older docs that are actually resolved. Checked against the 
 | **Items 26, 27 — IPC types and the quality gates** | Phase 4 | **Done 2026-08-28.** Typecheck, lint and format at zero; CI blocks on all four gates |
 | **Item 36 — the benchmark harness** | Phase 6 | **Committed**, with runs mirrored to mindsage-web |
 | **Item 12 measured** | Phase 1 | `after-extraresources` (2026-10-06): installer 248.3 → 217.7 MB. PKG-1 is improved, not closed: its 180 MB target needs item 13 too |
+| **Items 7, 8, 9: indexes, WAL, sargable dates** | Phase 1 | **Done 2026-10-06.** WAL + `synchronous = NORMAL` in `connection.js` (both handles); migration 4 adds `journal_entries(user_id, is_deleted, created_at)`; `getAllEntries` and `getRecentEntries` use a tag subquery instead of `GROUP BY`, and compare `created_at` without `DATE()`. Full scans 41 to 12; at 50k `list.page1` 246ms to 0.30ms and reads under worker writes 436ms to 0.41ms (`after-wal-and-indexes`). The `journal_entry_tags(journal_entry_id)` index was not added: the primary key already serves it. Old and new queries matched on 494 comparisons against a copy of a real journal. DB-3 and DB-5 remain |
 | **Packaged Qdrant worker never started** | (not previously listed) | **Fixed 2026-08-28.** `createQdrantWorker` resolved a packaged path outside `app.asar`, so background AI enrichment was dead in every install. → [CODEBASE_STRUCTURE_AUDIT §3](CODEBASE_STRUCTURE_AUDIT.md) |
 
 ---
@@ -63,9 +64,9 @@ Nothing else matters if the app eats entries. Every item is small and none needs
 
 Config and two-line changes with measured or obvious payoff. The whole phase is roughly one day and ships ~145 MB and the app's worst latency cliff.
 
-7. 🟠 S — **Add the `journal_entries` indexes** (`user_id, is_deleted, created_at`) **and `journal_entry_tags(journal_entry_id)`.** Measured: 41 full scans per run; `dashboard.stats` p95 goes 3ms → 1.69s as entries grow. Largest effect, smallest change. → [benchmarks/FINDINGS §1](benchmarks/FINDINGS.md), [PERFORMANCE §1.2](PERFORMANCE.md)
-8. 🔴 S — **Enable WAL + `synchronous = NORMAL`.** Measured: a read that takes 0.92ms alone takes 200ms while the worker writes — a 217× stall at only 150 entries, in the app's normal operating condition. Skip `busy_timeout`; it is already 5000. → [benchmarks/FINDINGS §2](benchmarks/FINDINGS.md)
-9. 🟠 S — **Remove the `DATE()` / `DATETIME()` wrappers in `getAllEntries`** so the new index is usable at all. → [PERFORMANCE §1.3](PERFORMANCE.md)
+7. ✅ **Done 2026-10-06:** `journal_entries(user_id, is_deleted, created_at)` index, as migration 4. The `journal_entry_tags(journal_entry_id)` half was not needed: that lookup already uses the table's primary key. See §0.
+8. ✅ **Done 2026-10-06:** WAL + `synchronous = NORMAL`. See §0.
+9. ✅ **Done 2026-10-06:** together with item 7, which made the list queries slower on its own. See §0.
 10. 🔴 S — **Add a LICENSE file.** Verified absent. The repo is legally unshippable without one. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
 11. 🔴 S — **Gate the auto-updater** behind an explicit setting (default off) or a manual button. It is written to fire on every packaged launch with `autoDownload = true`, the one thing that contradicts the offline-first claim. **Observed 2026-10-06: in a packaged build it currently crashes before checking** (`Cannot set properties of undefined (setting 'autoDownload')`), most likely because `await import("electron-updater")` from ESM does not expose `autoUpdater` as a named export. So today it makes no request at all, and updates do not work. Fix the import and add the gate in the same change, or the fix switches unprompted network calls on. → [NETWORK_AUDIT §1.1](NETWORK_AUDIT.md)
 12. ✅ **Done 2026-08-28** — per-platform `extraResources`. See §0.
@@ -185,6 +186,6 @@ Every item in every doc is accounted for here. Nothing was dropped silently.
 | [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) | 34 | Throughout; §0 verified table folded into §0 here |
 | [CODEBASE_STRUCTURE_AUDIT.md](CODEBASE_STRUCTURE_AUDIT.md) | 8 (P1–P8) | 20–24, 52, 64 · P4 declined · rest in §0 |
 
-**Totals by severity:** 48 items still open, 15 🔴 · 17 🟠 · 9 🟡 · 7 🟢. Since the 56 counted on 2026-08-28: Phase 0 closed six (2026-08-30), items 26, 27 and 36 were found done but still listed (2026-10-06), and 35b was added. Everything closed is recorded in §0.
+**Totals by severity:** 45 items still open, 14 🔴 · 15 🟠 · 9 🟡 · 7 🟢. Since the 56 counted on 2026-08-28: Phase 0 closed six (2026-08-30), items 26, 27 and 36 were found done but still listed (2026-10-06), 35b was added, and Phase 1 closed items 7, 8 and 9 (2026-10-06). Everything closed is recorded in §0.
 
 **The short version.** Phases 0 and 1 are about twenty items, nearly all `S`, and they remove every known data-loss path, the worst latency cliff, and ~145 MB — before a single architectural decision is required. Phase 2 is the product's actual promise. Everything after that is a real roadmap rather than a sprint.
