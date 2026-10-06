@@ -2,7 +2,7 @@ import React from "react";
 import { Mic, StopCircle, Pause, Play, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import LiveWaveformVisualizer from "./liveWaveformVisualizer";
-import PlaybackWaveformVisualizer from "./PlaybackWaveformVisualizer";
+import PlaybackWaveformVisualizer from "./playbackWaveformVisualizer";
 
 type VoiceRecorderProps = {
   isRecording: boolean;

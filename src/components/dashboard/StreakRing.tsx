@@ -27,7 +27,10 @@ export const StreakRing: React.FC<StreakRingProps> = ({ current, longest }) => {
 
   return (
     <div className="flex items-center gap-4">
-      <div className="relative flex-shrink-0" style={{ width: SIZE, height: SIZE }}>
+      <div
+        className="relative flex-shrink-0"
+        style={{ width: SIZE, height: SIZE }}
+      >
         <svg width={SIZE} height={SIZE} className="-rotate-90">
           <circle
             cx={SIZE / 2}

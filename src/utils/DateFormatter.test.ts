@@ -32,7 +32,9 @@ describe("formatTimeAgo", () => {
   });
 
   it("reports 'yesterday' for the previous day", () => {
-    const yesterday = new Date(now.getTime() - 25 * 60 * 60 * 1000).toISOString();
+    const yesterday = new Date(
+      now.getTime() - 25 * 60 * 60 * 1000,
+    ).toISOString();
     expect(formatTimeAgo(yesterday)).toMatch(/^yesterday at /);
   });
 });

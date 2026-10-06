@@ -60,7 +60,7 @@ export function bench(fn, { runs = 50, warmup = 3, budgetMs = 20000 } = {}) {
 /** Async variant, for anything that awaits I/O. */
 export async function benchAsync(
   fn,
-  { runs = 30, warmup = 2, budgetMs = 20000 } = {}
+  { runs = 30, warmup = 2, budgetMs = 20000 } = {},
 ) {
   for (let i = 0; i < warmup; i++) await fn();
 

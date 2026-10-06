@@ -1,9 +1,11 @@
-import { toast } from "react-hot-toast";
 import { Loader2, Download, CheckCircle, Info, X, Trash2 } from "lucide-react";
 import { ollamaService } from "../../api/ollamaService";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { useToast } from "../../hooks/useToast";
 import { Dropdown } from "../ui/Dropdown";
+import type { OllamaModel, OllamaModelInfo } from "../../types/Ollama";
+import type { SettingsPanelProps } from "../../types/User";
 
 // ✨ STEP 1: Define a structured type for our parsed model data
 export type ParsedModel = {
@@ -17,11 +19,11 @@ export type ParsedModel = {
     format: string;
   };
   capabilities: string[];
-  rawInfo: any; // Keep the raw data for the modal
+  rawInfo: OllamaModelInfo; // Keep the raw data for the modal
 };
 
 // ✨ STEP 2: Helper function to parse the complex JSON
-const parseModelData = (model: any): ParsedModel => {
+const parseModelData = (model: OllamaModel): ParsedModel => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return "Invalid Date";
@@ -32,13 +34,13 @@ const parseModelData = (model: any): ParsedModel => {
     });
   };
 
-  const info = model.info || {};
+  const info: OllamaModelInfo = model.info || {};
   const details = info.details || {};
 
   return {
     name: model.name,
     size: model.modified,
-    modified: formatDate(info.modified_at),
+    modified: formatDate(info.modified_at ?? ""),
     details: {
       family: details.family || "unknown",
       parameterSize: details.parameter_size || "N/A",
@@ -217,12 +219,12 @@ const FRIENDLY_LABELS: Record<string, string> = {
   vision: "Looks at images you share and explains what's in them.",
 };
 
-export default function ModelSettings({
-  settings,
-}: {
-  settings: any;
-  onSettingsSave: (s: any) => void;
-}) {
+type ModelSettingsProps = Pick<
+  SettingsPanelProps,
+  "settings" | "onSettingsSave"
+>;
+
+export default function ModelSettings({ settings }: ModelSettingsProps) {
   const [installedModels, setInstalledModels] = useState<ParsedModel[]>([]);
 
   // Initialize state from localStorage, falling back to props or an empty object.
@@ -243,6 +245,7 @@ export default function ModelSettings({
   const [capabilityFilter, setCapabilityFilter] = useState<string>("all");
   const [selectedTier, setSelectedTier] = useState<string>("high");
   const { accessToken } = useAuth();
+  const { showToast } = useToast();
   const [modelToDelete, setModelToDelete] = useState<ParsedModel | null>(null);
 
   // MODIFIED: Added a new state to handle the initial loading of the component.
@@ -250,15 +253,15 @@ export default function ModelSettings({
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
 
   const handleDelete = async (modelName: string) => {
-    const toastId = toast.loading(`Deleting ${modelName}...`);
+    showToast(`Deleting ${modelName}...`);
     try {
       await ollamaService.deleteModel(accessToken!, modelName);
       const rawModels = await ollamaService.getModels(accessToken!);
       setInstalledModels(rawModels.map(parseModelData));
-      toast.success(`${modelName} deleted!`, { id: toastId });
+      showToast(`${modelName} deleted.`, "success");
     } catch (err) {
       console.error(err);
-      toast.error(`Failed to delete ${modelName}`, { id: toastId });
+      showToast(`Could not delete ${modelName}.`, "danger");
     } finally {
       setModelToDelete(null);
     }
@@ -272,31 +275,32 @@ export default function ModelSettings({
         setInstalledModels(rawModels.map(parseModelData));
       } catch (err) {
         console.error(err);
-        toast.error("Failed to fetch models");
+        showToast("Could not fetch the installed models.", "danger");
       } finally {
         setIsInitializing(false); // Set loading to false after fetch completes
       }
     };
     fetchModels();
-  }, [accessToken]);
+    // showToast is stable (useCallback with no deps in ToastContext).
+  }, [accessToken, showToast]);
 
   // Modified: Initialize from electron-store
   useEffect(() => {
     const loadSelectedModels = async () => {
       try {
         const saved = await window.electron.ipcRenderer.invoke(
-          "models:get-selected"
+          "models:get-selected",
         );
         if (saved) {
           setSelectedModels(saved);
         }
       } catch (error) {
         console.error("Failed to load model settings", error);
-        toast.error("Failed to load saved model settings");
+        showToast("Could not load the saved model settings.", "danger");
       }
     };
     loadSelectedModels();
-  }, []);
+  }, [showToast]);
 
   // Modified: Save to electron-store
   const handleChange = async (task: string, model: string) => {
@@ -305,24 +309,24 @@ export default function ModelSettings({
 
     try {
       await window.electron.ipcRenderer.invoke("models:save-selected", updated);
-      toast.success("Model selection saved!");
+      showToast("Model selection saved.", "success");
     } catch (error) {
       console.error("Failed to save model selections", error);
-      toast.error("Could not save model selection");
+      showToast("Could not save the model selection.", "danger");
     }
   };
 
   const handleDownload = async (modelName: string) => {
     setLoadingModel(modelName);
-    const toastId = toast.loading(`Downloading ${modelName}...`);
+    showToast(`Downloading ${modelName}...`);
     try {
       await ollamaService.downloadModel(accessToken!, modelName);
       const rawModels = await ollamaService.getModels(accessToken!);
       setInstalledModels(rawModels.map(parseModelData));
-      toast.success(`${modelName} downloaded!`, { id: toastId });
+      showToast(`${modelName} downloaded.`, "success");
     } catch (err) {
       console.error(err);
-      toast.error(`Download failed for ${modelName}`, { id: toastId });
+      showToast(`Download failed for ${modelName}.`, "danger");
     } finally {
       setLoadingModel(null);
     }
@@ -333,13 +337,13 @@ export default function ModelSettings({
       installedModels
         .filter((model) => model.capabilities.includes(capability))
         .map((model) => ({ value: model.name, label: model.name })),
-    [installedModels]
+    [installedModels],
   );
 
   const filteredModels = useMemo(() => {
     if (capabilityFilter === "all") return installedModels;
     return installedModels.filter((model) =>
-      model.capabilities.includes(capabilityFilter)
+      model.capabilities.includes(capabilityFilter),
     );
   }, [installedModels, capabilityFilter]);
 
@@ -471,7 +475,7 @@ export default function ModelSettings({
             <div className="grid gap-4 md:grid-cols-2">
               {filteredRecommendedModels.map((m) => {
                 const isInstalled = installedModels.some((im) =>
-                  im.name.includes(m.model)
+                  im.name.includes(m.model),
                 );
                 return (
                   <div

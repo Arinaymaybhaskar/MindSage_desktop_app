@@ -124,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div
           className={clsx(
             "flex items-center p-3 ",
-            isOpen ? "justify-between" : "justify-center"
+            isOpen ? "justify-between" : "justify-center",
           )}
         >
           <AnimatePresence>
@@ -158,7 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
             className={clsx(
               "flex items-center gap-3 p-2 rounded-md text-sm text-text-light dark:text-text-dark bg-tertiary-light dark:bg-tertiary-dark hover:bg-tertiary-light/80 dark:hover:bg-tertiary-dark/80 transition-colors",
-              !isOpen && "justify-center"
+              !isOpen && "justify-center",
             )}
           >
             <Plus size={18} />
@@ -196,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   !isOpen && "justify-center",
                   activeChatId === chat.id
                     ? "bg-tertiary-light dark:bg-tertiary-dark text-dark1 dark:text-light1"
-                    : "text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark"
+                    : "text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark",
                 )}
               >
                 <MessageSquare size={18} />

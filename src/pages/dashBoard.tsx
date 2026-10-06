@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useAuth } from "../hooks/useAuth";
@@ -30,26 +30,11 @@ import {
 } from "../utils/dashboardInsights";
 import DashboardSkeleton from "../components/Skeletons/DashboardSkeleton";
 import { dashboardService } from "../api/dashBoardService";
-import journalService from "../api/journalService";
+import journalService, { type JournalEntry } from "../api/journalService";
+import type { DashboardStats, JournalImageEntry } from "../types/Dashboard";
+import type { UserInfo } from "../types/User";
 
 dayjs.extend(relativeTime);
-
-interface User {
-  username: string;
-  email: string;
-  created_at: string;
-  full_name: string;
-}
-
-interface JournalEntry {
-  id: number;
-  title: string;
-  content: string;
-  created_at: string;
-  mood_score: number;
-  mood_tags: string | string[];
-  image_key?: string;
-}
 
 interface PinnedGoal {
   id: number;
@@ -59,91 +44,87 @@ interface PinnedGoal {
   unit: string;
 }
 
-interface ImageKeyEntry {
-  id: number;
-  title: string;
-  image_key: string;
+/**
+ * A settled read, or null.
+ *
+ * A fulfilled promise is not the same as a successful read here: the main
+ * process resolves with `{ error: "Invalid token" }` rather than rejecting
+ * (electron/methods/dashboard.js), so an error envelope arrives looking
+ * exactly like data. Storing one of those as `stats` is what crashed the
+ * page, since every field the summary reads was undefined.
+ */
+function read<T>(result: PromiseSettledResult<T>, label: string): T | null {
+  if (result.status === "rejected") {
+    console.error(`Failed to load ${label}:`, result.reason);
+    return null;
+  }
+  const envelope = result.value as { error?: unknown } | null;
+  if (envelope && typeof envelope === "object" && envelope.error) {
+    console.error(`Failed to load ${label}:`, envelope.error);
+    return null;
+  }
+  return result.value;
 }
-
-interface DashboardStats {
-  totalEntries: number;
-  totalWords: number;
-  firstEntry: string | null;
-  lastEntry: string | null;
-  longestStreak: number;
-  averageMood: number;
-  totalGoals: number;
-  completedGoals: number;
-  activeGoals: number;
-  mostUsedTag: string;
-  averageEntriesPerDayOfWeek?: { day: string; average: number }[];
-}
-
 
 export default function Dashboard() {
-  const { accessToken, logout } = useAuth();
-  const [user, setUser] = useState<User | null>(null);
+  const { accessToken } = useAuth();
+  const [user, setUser] = useState<UserInfo | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentEntries, setRecentEntries] = useState<JournalEntry[]>([]);
   const [pinnedGoals, setPinnedGoals] = useState<PinnedGoal[]>([]);
-  const [imageKeys, setImageKeys] = useState<ImageKeyEntry[]>([]);
+  const [imageKeys, setImageKeys] = useState<JournalImageEntry[]>([]);
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [isMasonryLoading, setIsMasonryLoading] = useState(true);
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
   /** Every day the user has ever written, for the heatmap and the streak. */
   const [allTimeScores, setAllTimeScores] = useState<DayScore[]>([]);
 
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
+  /**
+   * These five reads are independent, so they are settled together rather than
+   * awaited in sequence. Each failure degrades its own tile and nothing else:
+   * a failed read must never end the session, which is what a shared catch
+   * calling logout() used to do on any slow or unhappy IPC call.
+   */
+  const fetchCoreData = useCallback(async () => {
+    if (!accessToken) {
+      setIsDashboardLoading(false);
+      return;
+    }
+    setIsDashboardLoading(true);
 
-  useEffect(() => {
-    const fetchCoreData = async () => {
-      if (!accessToken) {
-        setIsDashboardLoading(false);
-        return;
-      }
-      try {
-        const dashboardData = await dashboardService.getData(
-          authMode,
-          accessToken
-        );
-        const imageData = await journalService.getImages(
-          authMode,
-          accessToken,
-          "random"
-        );
-        const userData = await userService.getMe(authMode, accessToken);
-        const statsData = await dashboardService.getStats(
-          authMode,
-          accessToken
-        );
+    const [dashboardData, imageData, userData, statsData, allTime] =
+      await Promise.allSettled([
+        dashboardService.getData(accessToken),
+        journalService.getImages(accessToken, "random"),
+        userService.getMe(accessToken),
+        dashboardService.getStats(accessToken),
         // Already exposed for the chart's "All Time" range; reused here so the
         // heatmap and streak need no new query.
-        const allTime = await dashboardService.getAllTimeScore(
-          authMode,
-          accessToken
-        );
+        dashboardService.getAllTimeScore(accessToken),
+      ]);
 
-        console.log(statsData, "Stats Data");
-        console.log(dashboardData, "dashBoard data");
-        setUser(userData);
-        setStats(statsData);
-        setRecentEntries(dashboardData.recentJournals);
-        setPinnedGoals(dashboardData.pinnedGoals);
-        setImageKeys(imageData);
-        setIsMasonryLoading(false);
-        setAllTimeScores(Array.isArray(allTime) ? allTime : []);
-      } catch (err) {
-        console.error("Failed to fetch core dashboard data:", err);
-        logout();
-      } finally {
-        setIsDashboardLoading(false);
-      }
-    };
+    setRecentEntries(
+      read(dashboardData, "dashboard data")?.recentJournals ?? [],
+    );
+    setPinnedGoals(read(dashboardData, "pinned goals")?.pinnedGoals ?? []);
 
-    fetchCoreData();
-  }, [accessToken, authMode, logout]);
+    setImageKeys(read(imageData, "dashboard images") ?? []);
+    setIsMasonryLoading(false);
+
+    const me = read(userData, "the user");
+    if (me) setUser(me);
+
+    setStats(read(statsData, "dashboard stats"));
+
+    const scores = read(allTime, "all-time scores");
+    setAllTimeScores(Array.isArray(scores) ? scores : []);
+
+    setIsDashboardLoading(false);
+  }, [accessToken]);
+
+  useEffect(() => {
+    void fetchCoreData();
+  }, [fetchCoreData]);
 
   const loadProfileImage = async (imagePath?: string | null) => {
     if (!imagePath) {
@@ -151,9 +132,9 @@ export default function Dashboard() {
       return;
     }
     try {
-      const dataUrl = await window.electron.ipcRenderer.invoke(
-        "media:getImage",
-        imagePath
+      const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
+        "media:get-image",
+        imagePath,
       );
       setProfileImageSrc(dataUrl ?? null);
     } catch (err) {
@@ -165,7 +146,7 @@ export default function Dashboard() {
   useEffect(() => {
     const userInfo = localStorage.getItem("userInfo");
     if (userInfo) {
-      const parsed = JSON.parse(userInfo);
+      const parsed = JSON.parse(userInfo) as UserInfo;
       setUser(parsed);
       void loadProfileImage(parsed?.profile_picture ?? null);
     }
@@ -182,7 +163,7 @@ export default function Dashboard() {
         img: String(entry.image_key),
         url: `/journal/view/${entry.id}`,
       })),
-    [imageKeys]
+    [imageKeys],
   );
 
   // Derived from data already fetched - no extra query needed. These sit above
@@ -191,7 +172,7 @@ export default function Dashboard() {
   const streak = useMemo(() => currentStreak(allTimeScores), [allTimeScores]);
   const daysWritten30 = useMemo(
     () => daysWrittenIn(allTimeScores, 30),
-    [allTimeScores]
+    [allTimeScores],
   );
   const summary = useMemo(
     () =>
@@ -204,7 +185,7 @@ export default function Dashboard() {
             daysWritten30,
           })
         : "",
-    [stats, streak, daysWritten30]
+    [stats, streak, daysWritten30],
   );
 
   if (isDashboardLoading) {
@@ -213,10 +194,25 @@ export default function Dashboard() {
 
   if (!user || !stats) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center text-gray-500 text-xl">
-        <p>Could not load user data.</p>
-        <Link to="/login" className="mt-4 text-indigo-600 hover:underline">
-          Go to Login
+      <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="font-display text-xl text-text-light dark:text-text-dark">
+          Could not load your dashboard.
+        </p>
+        <p className="max-w-sm text-sm text-text-light-sub dark:text-text-dark-sub">
+          Your entries are safe. This is usually a background service still
+          starting up.
+        </p>
+        <button
+          onClick={() => void fetchCoreData()}
+          className="rounded-xl bg-light1 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 dark:bg-dark1"
+        >
+          Try again
+        </button>
+        <Link
+          to="/login"
+          className="text-sm text-text-light-sub underline-offset-4 hover:underline dark:text-text-dark-sub"
+        >
+          Go to login
         </Link>
       </div>
     );
@@ -224,8 +220,10 @@ export default function Dashboard() {
 
   /** Progress bar colour by completion, shared by the pinned-goal rows. */
   const getProgressColor = (percentage: number) => {
-    if (percentage >= 100) return { bar: "bg-emerald-500", text: "text-emerald-500" };
-    if (percentage >= 70) return { bar: "bg-green-500", text: "text-green-500" };
+    if (percentage >= 100)
+      return { bar: "bg-emerald-500", text: "text-emerald-500" };
+    if (percentage >= 70)
+      return { bar: "bg-green-500", text: "text-green-500" };
     if (percentage >= 40) return { bar: "bg-blue-500", text: "text-blue-500" };
     return { bar: "bg-indigo-500", text: "text-indigo-500" };
   };
@@ -239,7 +237,7 @@ export default function Dashboard() {
 
   const avgMoodLevel = Math.max(
     1,
-    Math.min(5, Math.round(stats.averageMood || 3))
+    Math.min(5, Math.round(stats.averageMood || 3)),
   );
   const wordsPerEntry = stats.totalEntries
     ? Math.round(stats.totalWords / stats.totalEntries)
@@ -343,7 +341,11 @@ export default function Dashboard() {
             </div>
           </BentoCard>
 
-          <BentoCard index={3} className="lg:col-span-3" testId="stat-card-entries">
+          <BentoCard
+            index={3}
+            className="lg:col-span-3"
+            testId="stat-card-entries"
+          >
             <TileLabel icon={BookOpen}>Entries</TileLabel>
             <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-text-light dark:text-text-dark">
               {stats.totalEntries.toLocaleString()}
@@ -353,7 +355,11 @@ export default function Dashboard() {
             </p>
           </BentoCard>
 
-          <BentoCard index={4} className="lg:col-span-3" testId="stat-card-words">
+          <BentoCard
+            index={4}
+            className="lg:col-span-3"
+            testId="stat-card-words"
+          >
             <TileLabel icon={FileText}>Words</TileLabel>
             <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-text-light dark:text-text-dark">
               {stats.totalWords.toLocaleString()}
@@ -364,7 +370,11 @@ export default function Dashboard() {
           </BentoCard>
 
           {/* The donut lives here now instead of in a panel of its own. */}
-          <BentoCard index={5} className="lg:col-span-3" testId="stat-card-goals">
+          <BentoCard
+            index={5}
+            className="lg:col-span-3"
+            testId="stat-card-goals"
+          >
             <TileLabel icon={Target}>Goals</TileLabel>
             <div className="mt-1 flex items-center gap-3">
               <MiniDonut
@@ -429,8 +439,9 @@ export default function Dashboard() {
                   const pct = Math.min(
                     100,
                     Math.round(
-                      ((goal.current_value || 0) / (goal.target_value || 1)) * 100
-                    )
+                      ((goal.current_value || 0) / (goal.target_value || 1)) *
+                        100,
+                    ),
                   );
                   const { bar, text } = getProgressColor(pct);
                   return (
@@ -463,7 +474,11 @@ export default function Dashboard() {
           </BentoCard>
 
           {/* Memories, as a strip. The masonry was 600px tall on its own. */}
-          <BentoCard index={8} className="lg:col-span-12" testId="memories-grid">
+          <BentoCard
+            index={8}
+            className="lg:col-span-12"
+            testId="memories-grid"
+          >
             <div className="flex items-baseline justify-between">
               <TileLabel icon={ImageIcon}>Memories</TileLabel>
               <Link

@@ -32,13 +32,17 @@ export default function AIReadinessBanner() {
 
   // Only nag when the engine is up but the writing model is missing. If Ollama
   // isn't installed at all, the first-run /setup gate already handled it.
-  if (dismissed || !status?.ollamaRunning || status.generationReady) return null;
+  if (dismissed || !status?.ollamaRunning || status.generationReady)
+    return null;
 
   const rec = status.recommended;
 
   return (
     <div className="flex items-center gap-3 border-b border-border-light bg-dark1/5 px-4 py-2 text-sm dark:border-border-dark dark:bg-light1/5">
-      <MindSageMark size={16} className="shrink-0 text-dark1 dark:text-light1" />
+      <MindSageMark
+        size={16}
+        className="shrink-0 text-dark1 dark:text-light1"
+      />
       <span className="flex-1 text-text-light dark:text-text-dark">
         AI writing features need a model.{" "}
         {rec && (

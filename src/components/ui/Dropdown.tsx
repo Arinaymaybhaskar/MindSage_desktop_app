@@ -1,8 +1,29 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
-export const Dropdown = ({ options, selectedValue, onSelect, placeholder }) => {
+export interface DropdownOption<V extends string | number = string> {
+  value: V;
+  label: string;
+}
+
+export interface DropdownProps<V extends string | number = string> {
+  options: DropdownOption<V>[];
+  selectedValue?: V | null;
+  onSelect: (value: V) => void;
+  placeholder?: string;
+  /** Forwarded to the wrapper, e.g. to stop a click collapsing a parent panel. */
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
+}
+
+export const Dropdown = <V extends string | number = string>({
+  options,
+  selectedValue,
+  onSelect,
+  placeholder,
+  onClick,
+}: DropdownProps<V>) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -20,10 +41,10 @@ export const Dropdown = ({ options, selectedValue, onSelect, placeholder }) => {
   }, []);
 
   const selectedLabel =
-    options.find((opt) => opt.value == selectedValue)?.label || placeholder;
+    options.find((opt) => opt.value === selectedValue)?.label || placeholder;
 
   return (
-    <div className="px-4 relative" ref={dropdownRef}>
+    <div className="px-4 relative" ref={dropdownRef} onClick={onClick}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}

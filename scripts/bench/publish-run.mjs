@@ -24,16 +24,24 @@ const all = argv.includes("--all");
 const labels = argv.filter((a) => !a.startsWith("--"));
 
 if (!all && labels.length === 0) {
-  console.error("Usage: node scripts/bench/publish-run.mjs <label> [...]  |  --all");
+  console.error(
+    "Usage: node scripts/bench/publish-run.mjs <label> [...]  |  --all",
+  );
   const available = fs.existsSync(resultsDir)
-    ? fs.readdirSync(resultsDir).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""))
+    ? fs
+        .readdirSync(resultsDir)
+        .filter((f) => f.endsWith(".json"))
+        .map((f) => f.replace(/\.json$/, ""))
     : [];
   console.error(`Stored runs: ${available.join(", ") || "none"}`);
   process.exit(1);
 }
 
 const targets = all
-  ? fs.readdirSync(resultsDir).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""))
+  ? fs
+      .readdirSync(resultsDir)
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => f.replace(/\.json$/, ""))
   : labels;
 
 // Oldest first, so the baseline exists before anything that is compared to it.
@@ -55,7 +63,10 @@ for (const { label, record } of records) {
   if (!result.ok && !result.skipped) failures += 1;
 }
 
-reportPublish(await publishIssues(path.join(benchDir, "issues.json")), "issue list");
+reportPublish(
+  await publishIssues(path.join(benchDir, "issues.json")),
+  "issue list",
+);
 
 // A non-zero exit is appropriate here, unlike inside the suite: this command's
 // only job is to publish, so a failure to publish is a failure.

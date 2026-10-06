@@ -16,12 +16,12 @@ export async function attach(port = "9222") {
     targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
   } catch {
     throw new Error(
-      `No CDP endpoint on 127.0.0.1:${port}. Start the app with: npm run dev:capture`
+      `No CDP endpoint on 127.0.0.1:${port}. Start the app with: npm run dev:capture`,
     );
   }
 
   const page = targets.find(
-    (t) => t.type === "page" && !t.url.startsWith("devtools://")
+    (t) => t.type === "page" && !t.url.startsWith("devtools://"),
   );
   if (!page) throw new Error("No app page target found on the CDP endpoint.");
 
@@ -40,7 +40,7 @@ export async function attach(port = "9222") {
   await new Promise((resolve, reject) => {
     ws.addEventListener("open", resolve);
     ws.addEventListener("error", () =>
-      reject(new Error("Failed to open CDP WebSocket"))
+      reject(new Error("Failed to open CDP WebSocket")),
     );
   });
 
@@ -74,7 +74,7 @@ export async function attach(port = "9222") {
       throw new Error(
         `evaluate failed: ${res.exceptionDetails.text} ${
           res.exceptionDetails.exception?.description ?? ""
-        }`
+        }`,
       );
     }
     return res.result?.value;
@@ -158,7 +158,7 @@ export async function attach(port = "9222") {
       while (Date.now() < deadline) {
         try {
           const ready = await evaluate(
-            "!!document.body && document.body.dataset.appReady === 'true' && !!window.electron"
+            "!!document.body && document.body.dataset.appReady === 'true' && !!window.electron",
           );
           if (ready) {
             await sleep(600);
@@ -204,7 +204,11 @@ export async function attach(port = "9222") {
      * reliably, so nudge to a corner well away from interactive content first.
      */
     async resetPointer() {
-      await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 2, y: 2 });
+      await send("Input.dispatchMouseEvent", {
+        type: "mouseMoved",
+        x: 2,
+        y: 2,
+      });
       await sleep(120);
     },
 
@@ -259,7 +263,7 @@ export async function attach(port = "9222") {
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
         const found = await evaluate(
-          `!!document.querySelector(${JSON.stringify(selector)})`
+          `!!document.querySelector(${JSON.stringify(selector)})`,
         );
         if (found) return true;
         await sleep(200);

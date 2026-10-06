@@ -67,15 +67,16 @@ const PlaybackWaveformVisualizer: React.FC<PlaybackWaveformVisualizerProps> = ({
     };
 
     const resizeObserver = new ResizeObserver(() => draw());
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
+    const container = containerRef.current;
+    if (container) {
+      resizeObserver.observe(container);
     }
 
     draw();
 
     return () => {
-      if (containerRef.current) {
-        resizeObserver.unobserve(containerRef.current);
+      if (container) {
+        resizeObserver.unobserve(container);
       }
     };
   }, [waveform]);

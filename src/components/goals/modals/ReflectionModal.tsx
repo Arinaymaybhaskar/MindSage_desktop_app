@@ -37,7 +37,7 @@ const ReflectionModal: React.FC<{
         labels: [
           startDate.toLocaleDateString(),
           ...goal.progressLogs.map((log) =>
-            new Date(log.logged_at).toLocaleDateString()
+            new Date(log.logged_at).toLocaleDateString(),
           ),
         ],
         datasets: [
@@ -94,7 +94,7 @@ const ReflectionModal: React.FC<{
     ? new Date(goal.completed_date)
     : new Date();
   const duration = Math.round(
-    (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
   );
 
   return (

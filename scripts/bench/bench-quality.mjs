@@ -76,7 +76,9 @@ if (!fs.existsSync(binary)) {
   process.exit(1);
 }
 
-const storageDir = fs.mkdtempSync(path.join(os.tmpdir(), "mindsage-bench-quality-"));
+const storageDir = fs.mkdtempSync(
+  path.join(os.tmpdir(), "mindsage-bench-quality-"),
+);
 const results = {};
 let proc = null;
 
@@ -107,7 +109,10 @@ try {
   let ready = false;
   while (Date.now() < deadline) {
     try {
-      if ((await fetch(`${BASE}/readyz`, { signal: AbortSignal.timeout(1000) })).ok) {
+      if (
+        (await fetch(`${BASE}/readyz`, { signal: AbortSignal.timeout(1000) }))
+          .ok
+      ) {
         ready = true;
         break;
       }
@@ -121,7 +126,9 @@ try {
   await fetch(`${BASE}/collections/${COLLECTION}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vectors: { [VECTOR_NAME]: { size: 768, distance: "Cosine" } } }),
+    body: JSON.stringify({
+      vectors: { [VECTOR_NAME]: { size: 768, distance: "Cosine" } },
+    }),
   });
 
   // -------------------------------------------------------------- index ---
@@ -136,7 +143,11 @@ try {
       payload: { entry_id: entry.id, topic: entry.topic },
     });
   }
-  await send(`${BASE}/collections/${COLLECTION}/points?wait=true`, { points }, "PUT");
+  await send(
+    `${BASE}/collections/${COLLECTION}/points?wait=true`,
+    { points },
+    "PUT",
+  );
 
   // --------------------------------------------------------- evaluate ---
 
@@ -149,11 +160,14 @@ try {
 
   for (const { query, relevant } of QUERIES) {
     const { vector } = await ollama.embed(queryPrefix + query, EMBED_MODEL);
-    const found = await send(`${BASE}/collections/${COLLECTION}/points/search`, {
-      vector: { name: VECTOR_NAME, vector },
-      limit: K,
-      with_payload: true,
-    });
+    const found = await send(
+      `${BASE}/collections/${COLLECTION}/points/search`,
+      {
+        vector: { name: VECTOR_NAME, vector },
+        limit: K,
+        with_payload: true,
+      },
+    );
 
     const returned = (found.result ?? []).map((hit) => hit.id);
     const hits = returned.filter((id) => relevant.includes(id));
@@ -165,7 +179,8 @@ try {
 
     recallSum += recall;
     reciprocalSum += reciprocal;
-    if (returned[0] !== undefined && relevant.includes(returned[0])) topHitRelevant++;
+    if (returned[0] !== undefined && relevant.includes(returned[0]))
+      topHitRelevant++;
 
     perQuery.push({
       query,
@@ -198,9 +213,13 @@ try {
   // nothing, "these four queries returned the wrong entry" says where to look.
   const misses = perQuery.filter((q) => !q.topHitRelevant);
   if (misses.length) {
-    console.log(`    --- ${misses.length} queries with an irrelevant top hit ---`);
+    console.log(
+      `    --- ${misses.length} queries with an irrelevant top hit ---`,
+    );
     for (const m of misses) {
-      console.log(`    "${m.query}" -> got ${m.returned[0]}, wanted one of ${m.relevant.join(", ")}`);
+      console.log(
+        `    "${m.query}" -> got ${m.returned[0]}, wanted one of ${m.relevant.join(", ")}`,
+      );
     }
   }
 } catch (err) {

@@ -37,14 +37,14 @@ function TextShimmerComponent({
 }: TextShimmerProps) {
   const MotionComponent = useMemo(
     () => motion.create(Component as React.ElementType),
-    [Component]
+    [Component],
   );
 
   // Scaling the highlight to the text length keeps the sweep looking the same
   // on a short caption and a long one.
   const dynamicSpread = useMemo(
     () => children.length * spread,
-    [children, spread]
+    [children, spread],
   );
 
   return (
@@ -55,7 +55,7 @@ function TextShimmerComponent({
         "[--base-color:var(--color-text-light-sub)] [--base-gradient-color:var(--color-text-light)]",
         "dark:[--base-color:var(--color-text-dark-sub)] dark:[--base-gradient-color:var(--color-text-dark)]",
         "[--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--base-gradient-color),#0000_calc(50%+var(--spread)))]",
-        className
+        className,
       )}
       initial={{ backgroundPosition: "100% center" }}
       animate={{ backgroundPosition: "0% center" }}

@@ -11,7 +11,7 @@ interface LogProgressModalProps {
   onSubmit: (
     goalId: number,
     newCurrentValue: number,
-    description: string
+    description: string,
   ) => void;
 }
 
@@ -29,7 +29,7 @@ const LogProgressModal: React.FC<LogProgressModalProps> = ({
   const themeColor = category?.color || "var(--color-info)";
   const progressPercentage = Math.max(
     0,
-    Math.min(100, (currentValue / goal.target_value) * 100)
+    Math.min(100, (currentValue / goal.target_value) * 100),
   );
 
   useEffect(() => {

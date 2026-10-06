@@ -4,15 +4,12 @@ import { Eye, EyeOff, Save, AlertTriangle, ArrowLeft } from "lucide-react";
 import { userService } from "../../api/userService";
 import { useAuth } from "../../hooks/useAuth";
 import clsx from "clsx";
-import { useToast } from "../../context/ToastContext";
+import { useToast } from "../../hooks/useToast";
 
 const ChangePassword = () => {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
   const { showToast } = useToast();
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
 
   const [form, setForm] = useState({
     oldPassword: "",
@@ -59,7 +56,7 @@ const ChangePassword = () => {
         old_password: form.oldPassword,
         new_password: form.newPassword,
       };
-      await userService.changePassword(authMode, accessToken!, payload);
+      await userService.changePassword(accessToken!, payload);
 
       showToast("Password updated successfully.", "success");
       navigate("/settings#security");
@@ -67,7 +64,7 @@ const ChangePassword = () => {
       console.error(err);
       showToast(
         "Failed to change password. Please check your old password.",
-        "danger"
+        "danger",
       );
       setInvalidOldPassword(true);
     } finally {

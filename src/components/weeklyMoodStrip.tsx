@@ -80,7 +80,7 @@ const WeeklyMoodStrip: React.FC<Props> = ({ moodData, selectedDate }) => {
                   {
                     "ring-2 ring-offset-2 ring-info ring-offset-secondary-light dark:ring-offset-secondary-dark":
                       isSelected,
-                  }
+                  },
                 )}
                 style={{ height: barHeight }}
                 initial={{ height: "5%" }}

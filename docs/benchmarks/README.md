@@ -10,6 +10,33 @@ of them is only visible under a condition a single-threaded test never creates.
 This directory exists so that optimisation work is judged against measurements
 taken the same way before and after.
 
+## Two kinds of run
+
+| | Quick | Full |
+| --- | --- | --- |
+| When | Every commit that stages runtime code (`electron/`, `src/` outside tests, `package.json`, `vite.config.ts`), from the pre-commit hook | Once at the end of each phase of [MASTER_TODO](../MASTER_TODO.md) |
+| Command | automatic, or `npm run bench:quick` | `npm run bench:phase -- <phase number>` |
+| What | `db` stage at 150 and 5,000 entries, 20 samples, about 25 seconds | Every stage, on a fresh packaged build, with Ollama required, about half an hour |
+| Label | `quick-<time>-<staged tree hash>` | `phase-<n>-<date>` |
+| Stored | `results/quick/`, **not committed**, newest 50 kept | `results/`, **committed**: the system of record |
+| Website | published with `kind: "quick"`, a trend line only | published with `kind: "full"`; the only runs the board reads as an "after" |
+| Blocks? | Never. It warns when a scenario is 2x slower than the previous quick run (contention and `write.create` excluded as too noisy) | Refuses to run without Ollama, because it would not be full |
+
+Skip the quick run for one commit with `MS_SKIP_BENCH=1 git commit ...`. It also
+skips itself during merges, rebases and cherry-picks, which replay commits that
+were already measured. Every other run, a few stages by hand to measure one
+change, is `kind: "partial"`.
+
+Publishing reads `BENCH_API_URL` and `BENCH_INGEST_TOKEN` from `.env.bench`
+(gitignored; copy `.env.bench.example`). Without it, runs are still recorded
+locally.
+
+**No stage touches the real profile.** `app` seeds a generated one; `startup`
+copies the real database, `qdrant-data` and Local Storage into a scratch
+directory. Both point the app there with `APPDATA` (which moves the database)
+and `MS_USER_DATA_DIR` (which moves everything else under `userData`; Electron
+ignores `APPDATA` for that on Windows).
+
 ## Running
 
 ```bash

@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, type Transition } from "framer-motion";
 import clsx from "clsx";
 
 interface SwitchProps {
@@ -8,10 +8,11 @@ interface SwitchProps {
 
 export const Switch = ({ checked, onCheckedChange }: SwitchProps) => {
   // Define the spring animation for turning the switch ON
-  const springTransition = { type: "spring", stiffness: 700, damping: 30 };
-
-  // Define an instant transition for turning the switch OFF
-  const instantTransition = { duration: 0 };
+  const springTransition: Transition = {
+    type: "spring",
+    stiffness: 700,
+    damping: 30,
+  };
 
   return (
     <button
@@ -26,7 +27,7 @@ export const Switch = ({ checked, onCheckedChange }: SwitchProps) => {
         {
           "bg-light1 dark:bg-dark1": checked,
           "bg-tertiary-light dark:bg-tertiary-dark": !checked,
-        }
+        },
       )}
     >
       <motion.span

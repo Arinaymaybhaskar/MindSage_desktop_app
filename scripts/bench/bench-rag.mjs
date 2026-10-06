@@ -36,7 +36,11 @@ import {
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
 } from "../../electron/methods/AIPrompts.js";
-import { JOURNAL_ENTRIES, CHAT_QUERIES, JOURNAL_MEDIUM } from "./fixtures/corpus.mjs";
+import {
+  JOURNAL_ENTRIES,
+  CHAT_QUERIES,
+  JOURNAL_MEDIUM,
+} from "./fixtures/corpus.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
@@ -72,7 +76,9 @@ if (!fs.existsSync(binary)) {
   process.exit(1);
 }
 
-const storageDir = fs.mkdtempSync(path.join(os.tmpdir(), "mindsage-bench-rag-"));
+const storageDir = fs.mkdtempSync(
+  path.join(os.tmpdir(), "mindsage-bench-rag-"),
+);
 const results = {};
 let proc = null;
 
@@ -105,7 +111,10 @@ try {
   let ready = false;
   while (Date.now() < deadline) {
     try {
-      if ((await fetch(`${BASE}/readyz`, { signal: AbortSignal.timeout(1000) })).ok) {
+      if (
+        (await fetch(`${BASE}/readyz`, { signal: AbortSignal.timeout(1000) }))
+          .ok
+      ) {
         ready = true;
         break;
       }
@@ -119,7 +128,9 @@ try {
   await fetch(`${BASE}/collections/${COLLECTION}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vectors: { [VECTOR_NAME]: { size: 768, distance: "Cosine" } } }),
+    body: JSON.stringify({
+      vectors: { [VECTOR_NAME]: { size: 768, distance: "Cosine" } },
+    }),
   });
 
   // ------------------------------------------------------- seed the store ---
@@ -129,7 +140,9 @@ try {
    * At roughly 100ms each this is the slowest part of setup, which is itself a
    * restatement of the backfill finding in FINDINGS.md 5.2.
    */
-  console.log(`  embedding ${CORPUS_SIZE} entries into a throwaway collection...`);
+  console.log(
+    `  embedding ${CORPUS_SIZE} entries into a throwaway collection...`,
+  );
   const points = [];
   for (let i = 0; i < CORPUS_SIZE; i++) {
     const entry = JOURNAL_ENTRIES[i % JOURNAL_ENTRIES.length];
@@ -140,7 +153,11 @@ try {
       payload: { user_id: 1, entry_id: i + 1, content: entry.text },
     });
   }
-  await send(`${BASE}/collections/${COLLECTION}/points?wait=true`, { points }, "PUT");
+  await send(
+    `${BASE}/collections/${COLLECTION}/points?wait=true`,
+    { points },
+    "PUT",
+  );
 
   // ------------------------------------------------------- the four stages ---
 
@@ -162,7 +179,10 @@ try {
       const t1 = performance.now();
       const planned = await ollama.generate({
         model: CHAT_MODEL,
-        prompt: generateContextTimeAndBaseQueryPrompt(query, new Date().toISOString()),
+        prompt: generateContextTimeAndBaseQueryPrompt(
+          query,
+          new Date().toISOString(),
+        ),
         jsonMode: true,
         numPredict: 300,
       });
@@ -187,11 +207,14 @@ try {
 
       // 3. Vector search, same shape as SemanticSearch (qdrant.js:33).
       const t3 = performance.now();
-      const found = await send(`${BASE}/collections/${COLLECTION}/points/search`, {
-        vector: { name: VECTOR_NAME, vector },
-        limit: 5,
-        with_payload: true,
-      });
+      const found = await send(
+        `${BASE}/collections/${COLLECTION}/points/search`,
+        {
+          vector: { name: VECTOR_NAME, vector },
+          limit: 5,
+          with_payload: true,
+        },
+      );
       stage3.push(performance.now() - t3);
 
       const context = (found.result ?? []).map((hit) => ({
@@ -218,7 +241,7 @@ try {
   const record = (name, samples, extra = {}) => {
     results[name] = { ...summarise(samples), ...extra };
     console.log(
-      `    ${name.padEnd(28)} p50 ${fmt(results[name].p50).padStart(9)}  p95 ${fmt(results[name].p95).padStart(9)}`
+      `    ${name.padEnd(28)} p50 ${fmt(results[name].p50).padStart(9)}  p95 ${fmt(results[name].p95).padStart(9)}`,
     );
   };
 
@@ -233,9 +256,15 @@ try {
   // Share of total per stage - the number that says where to spend effort.
   const totalP50 = results["rag.total"].p50 || 1;
   results["rag.shareOfTotal"] = Object.fromEntries(
-    ["rag.1.queryPlanning", "rag.2.embedding", "rag.3.vectorSearch", "rag.4.answerGeneration"].map(
-      (k) => [k, `${Math.round((results[k].p50 / totalP50) * 1000) / 10}%`]
-    )
+    [
+      "rag.1.queryPlanning",
+      "rag.2.embedding",
+      "rag.3.vectorSearch",
+      "rag.4.answerGeneration",
+    ].map((k) => [
+      k,
+      `${Math.round((results[k].p50 / totalP50) * 1000) / 10}%`,
+    ]),
   );
   console.log("    --- share of total ---");
   for (const [k, v] of Object.entries(results["rag.shareOfTotal"])) {

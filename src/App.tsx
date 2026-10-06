@@ -19,7 +19,7 @@ import { DeleteAccount } from "./pages/auth/deleteAccount";
 import ForgotPassword from "./pages/auth/forgotPassword";
 import DataExport from "./pages/dataExport";
 import { ChatPage } from "./pages/chat";
-import TitleBar from "./TitleBar";
+import TitleBar from "./components/TitleBar";
 import {
   BookOpenIcon,
   HomeIcon,
@@ -42,6 +42,8 @@ import NotFoundPage from "./pages/NotFoundPage";
 import Onboarding, { SETUP_COMPLETE_KEY } from "./pages/Onboarding";
 import AIReadinessBanner from "./components/AIReadinessBanner";
 import { ToastProvider } from "./context/ToastContext";
+import ErrorBoundary from "./components/ErrorBoundary";
+import ErrorFallback from "./components/ErrorFallback";
 
 function AppLayout() {
   const location = useLocation();
@@ -139,7 +141,7 @@ function AppLayout() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [navigate]);
   const isAuthPage =
     location.pathname === "/login" ||
     location.pathname === "/register" ||
@@ -197,125 +199,157 @@ function AppLayout() {
               isQuickCapturePage ? "" : "pt-10"
             }`}
           >
-            <Routes>
-              <Route
-                path="/journals"
-                element={
-                  <PrivateRoute>
-                    <JournalList />
-                  </PrivateRoute>
-                }
-              />
-              {/* REMOVED: The old "/journal/new" route is no longer needed as "/" now handles it. */}
-              <Route
-                path="/journal/edit/:id"
-                element={
-                  <PrivateRoute>
-                    <JournalForm />
-                  </PrivateRoute>
-                }
-              />
-              <Route path="/memories" element={<Memories />} />
-              <Route path="/qdrant" element={<QdrantViewer />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              {/* CHANGED: The root path "/" now renders JournalForm. */}
-              <Route
-                path="/"
-                element={
-                  <PrivateRoute>
-                    <JournalForm />
-                  </PrivateRoute>
-                }
-              />
-              <Route path="/quick-capture" element={<QuickCapture />} />
+            {/* Wraps the routes only, so a page crash leaves the title bar,
+                the dock and AppLayout's mount effects intact, the splash
+                handshake among them. Keyed on the path so navigating away
+                clears the error instead of latching on it. */}
+            <ErrorBoundary
+              key={location.pathname}
+              fallback={(state) => <ErrorFallback {...state} variant="route" />}
+            >
+              <Routes>
+                <Route
+                  path="/journals"
+                  element={
+                    <PrivateRoute>
+                      <JournalList />
+                    </PrivateRoute>
+                  }
+                />
+                {/* REMOVED: The old "/journal/new" route is no longer needed as "/" now handles it. */}
+                <Route
+                  path="/journal/edit/:id"
+                  element={
+                    <PrivateRoute>
+                      <JournalForm />
+                    </PrivateRoute>
+                  }
+                />
+                {/* Linked from the dashboard, so a real signed-in feature. */}
+                <Route
+                  path="/memories"
+                  element={
+                    <PrivateRoute>
+                      <Memories />
+                    </PrivateRoute>
+                  }
+                />
+                {/* A vector-database inspector for debugging. Nothing links
+                  to it, and it should not reach users, so it exists only in
+                  a dev build. */}
+                {import.meta.env.DEV && (
+                  <Route
+                    path="/qdrant"
+                    element={
+                      <PrivateRoute>
+                        <QdrantViewer />
+                      </PrivateRoute>
+                    }
+                  />
+                )}
+                <Route path="/register" element={<Register />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                {/* CHANGED: The root path "/" now renders JournalForm. */}
+                <Route
+                  path="/"
+                  element={
+                    <PrivateRoute>
+                      <JournalForm />
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="/quick-capture" element={<QuickCapture />} />
 
-              <Route
-                path="/journal/new"
-                element={
-                  <PrivateRoute>
-                    <JournalForm />
-                  </PrivateRoute>
-                }
-              />
-              {/* ADDED: A new route for the Dashboard. */}
-              <Route
-                path="/dashboard"
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/journal/view/:id"
-                element={
-                  <PrivateRoute>
-                    <JournalDetail />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/settings/*"
-                element={
-                  <PrivateRoute>
-                    <Settings />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/change-password"
-                element={
-                  <PrivateRoute>
-                    <ChangePassword />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/delete-account"
-                element={
-                  <PrivateRoute>
-                    <DeleteAccount />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/data-export"
-                element={
-                  <PrivateRoute>
-                    <DataExport />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/chat"
-                element={
-                  <PrivateRoute>
-                    <ChatPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route path="/ollama-tutorial" element={<OllamaTutorialPage />} />
-              <Route path="/setup" element={<Onboarding />} />
-              <Route
-                path="/goals/view/:id"
-                element={
-                  <PrivateRoute>
-                    <GoalDetail />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/goals/*"
-                element={
-                  <PrivateRoute>
-                    <GoalsPage />
-                  </PrivateRoute>
-                }
-              />
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
+                <Route
+                  path="/journal/new"
+                  element={
+                    <PrivateRoute>
+                      <JournalForm />
+                    </PrivateRoute>
+                  }
+                />
+                {/* ADDED: A new route for the Dashboard. */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <PrivateRoute>
+                      <Dashboard />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/journal/view/:id"
+                  element={
+                    <PrivateRoute>
+                      <JournalDetail />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/settings/*"
+                  element={
+                    <PrivateRoute>
+                      <Settings />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/change-password"
+                  element={
+                    <PrivateRoute>
+                      <ChangePassword />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/delete-account"
+                  element={
+                    <PrivateRoute>
+                      <DeleteAccount />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/data-export"
+                  element={
+                    <PrivateRoute>
+                      <DataExport />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/chat"
+                  element={
+                    <PrivateRoute>
+                      <ChatPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/ollama-tutorial"
+                  element={<OllamaTutorialPage />}
+                />
+                <Route path="/setup" element={<Onboarding />} />
+                <Route
+                  path="/goals/view/:id"
+                  element={
+                    <PrivateRoute>
+                      <GoalDetail />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/goals/*"
+                  element={
+                    <PrivateRoute>
+                      <GoalsPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </ErrorBoundary>
           </main>
         </div>
       </div>

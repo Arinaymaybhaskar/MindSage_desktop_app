@@ -24,7 +24,18 @@ const GoalCompletedModal: React.FC<GoalCompletedModalProps> = ({
     if (!context) return;
 
     let animationFrameId: number;
-    const confetti: any[] = [];
+
+    interface ConfettiParticle {
+      x: number;
+      y: number;
+      radius: number;
+      color: string;
+      vx: number;
+      vy: number;
+      alpha: number;
+    }
+
+    const confetti: ConfettiParticle[] = [];
     const confettiCount = 100;
     // --- CHANGE: Themed colors for confetti ---
     const colors = [

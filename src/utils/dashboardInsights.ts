@@ -41,7 +41,9 @@ export function currentStreak(scores: DayScore[]): number {
 
 /** Number of distinct days written in the last `days` days. */
 export function daysWrittenIn(scores: DayScore[], days: number): number {
-  const cutoff = dayjs().subtract(days - 1, "day").startOf("day");
+  const cutoff = dayjs()
+    .subtract(days - 1, "day")
+    .startOf("day");
   return scores.filter((s) => s?.day && !dayjs(s.day).isBefore(cutoff)).length;
 }
 
@@ -80,13 +82,13 @@ export function buildSummary({
     parts.push(
       `${totalEntries.toLocaleString()} ${
         totalEntries === 1 ? "entry" : "entries"
-      } and ${totalWords.toLocaleString()} words since ${since.format("MMMM YYYY")}`
+      } and ${totalWords.toLocaleString()} words since ${since.format("MMMM YYYY")}`,
     );
   } else {
     parts.push(
       `${totalEntries.toLocaleString()} ${
         totalEntries === 1 ? "entry" : "entries"
-      } and ${totalWords.toLocaleString()} words so far`
+      } and ${totalWords.toLocaleString()} words so far`,
     );
   }
 

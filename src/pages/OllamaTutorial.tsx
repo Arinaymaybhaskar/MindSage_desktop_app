@@ -96,7 +96,7 @@ const DownloadCard = ({
       href={url}
       onClick={(e) => {
         e.preventDefault();
-        (window as any).electron.openExternal(url);
+        window.electron.openExternal(url);
       }}
       className="inline-flex items-center gap-2 bg-light1 dark:bg-dark1 text-white font-semibold px-6 py-2 rounded-lg hover:bg-light1 dark:bg-dark1/90 transition-colors"
     >
@@ -205,29 +205,31 @@ const TerminalGuide = () => {
 const OllamaTutorialPage = () => {
   const navigate = useNavigate();
   const [showBackToTop, setShowBackToTop] = useState(false);
+  // The app shell's <main> is `overflow-hidden`, so each page owns its own
+  // scroll container. This page had none, which is why the guide was cut off
+  // at the window height with no way to reach the later steps. The scroll
+  // listener used to hang off document.querySelector("main"), which resolves
+  // to that non-scrolling shell element rather than anything on this page.
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const mainScrollableElement = document.querySelector("main"); // Or your specific scrollable element
-    const handleScroll = () => {
-      if (mainScrollableElement && mainScrollableElement.scrollTop > 300) {
-        setShowBackToTop(true);
-      } else {
-        setShowBackToTop(false);
-      }
-    };
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const handleScroll = () => setShowBackToTop(scroller.scrollTop > 300);
 
-    mainScrollableElement?.addEventListener("scroll", handleScroll);
-    return () =>
-      mainScrollableElement?.removeEventListener("scroll", handleScroll);
+    scroller.addEventListener("scroll", handleScroll);
+    return () => scroller.removeEventListener("scroll", handleScroll);
   }, []);
 
   const scrollToTop = () => {
-    const mainScrollableElement = document.querySelector("main");
-    mainScrollableElement?.scrollTo({ top: 0, behavior: "smooth" });
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
-    <div className="bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark font-sans">
+    <div
+      ref={scrollRef}
+      className="h-full overflow-y-auto bg-base-light dark:bg-base-dark text-text-light dark:text-text-dark font-sans"
+    >
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         <div className="mb-8">
           <button
@@ -381,9 +383,7 @@ const OllamaTutorialPage = () => {
                 href="https://ollama.com/library"
                 onClick={(e) => {
                   e.preventDefault();
-                  (window as any).electron?.shell.openExternal(
-                    "https://ollama.com/library"
-                  );
+                  window.electron?.openExternal("https://ollama.com/library");
                 }}
                 className="text-dark1 dark:text-light1 hover:text-dark1 dark:text-light1/90 font-semibold"
               >

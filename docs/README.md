@@ -15,9 +15,9 @@ Reference documents for the MindSage desktop app. Orientation docs stay at the r
 | Document | Reviewed | What it covers |
 | --- | --- | --- |
 | [AUTH_REVIEW.md](AUTH_REVIEW.md) | 2026-08-24 | The full auth path — unverified tokens, broken `logout()`, the inert biometric toggle, unencrypted data at rest. |
-| [CODEBASE_STRUCTURE_AUDIT.md](CODEBASE_STRUCTURE_AUDIT.md) | 2026-08-25 | Folder layout, file placement, naming, dead code, packaging hygiene. Priority list P1–P8: `src/server/` deletion, 22 unreferenced files, 240 MB of binaries tracked in plain git. |
+| [CODEBASE_STRUCTURE_AUDIT.md](CODEBASE_STRUCTURE_AUDIT.md) | 2026-08-25 | **Closed 2026-08-28.** Folder layout, file placement, dead code, packaging hygiene. Six of its eight priorities shipped, naming was declined, and binaries in git history remain. Kept for its record of which findings did not survive verification. |
 | [NETWORK_AUDIT.md](NETWORK_AUDIT.md) | 2026-08-24 | Every outbound network path. Verdict: not fully offline — the auto-updater fires unprompted. |
-| [ONLINE_MODE_REMOVAL.md](ONLINE_MODE_REMOVAL.md) | 2026-08-24 | Feasibility of deleting `src/server/` and online mode. Verdict: safe — it is already unreachable. |
+| [ONLINE_MODE_REMOVAL.md](ONLINE_MODE_REMOVAL.md) | 2026-08-24 | **Executed 2026-08-28.** Judged deleting `src/server/` and online mode safe, and it was. Kept for the reasoning; the one departure is that forgot-password was rewritten rather than removed. |
 | [PERFORMANCE.md](PERFORMANCE.md) | 2026-08-11 | What actually slows the app down: missing WAL mode, missing `journal_entries` indexes, media re-encoding. |
 | [TECHNICAL_DEBT.md](TECHNICAL_DEBT.md) | 2026-07-15 | The original debt catalog. **Partly stale** — check against PRODUCTION_READINESS §0. |
 

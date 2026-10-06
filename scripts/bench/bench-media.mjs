@@ -40,7 +40,13 @@ const results = {};
 
 // ------------------------------------------- the real demo image corpus ----
 
-const memoriesDir = path.join(repoRoot, "scripts", "demo-data", "generated", "memories");
+const memoriesDir = path.join(
+  repoRoot,
+  "scripts",
+  "demo-data",
+  "generated",
+  "memories",
+);
 const demoImages = fs.existsSync(memoriesDir)
   ? fs.readdirSync(memoriesDir).map((f) => path.join(memoriesDir, f))
   : [];
@@ -59,9 +65,14 @@ if (demoImages.length > 0) {
   // The dashboard's actual pattern: ten images requested together. They are
   // awaited concurrently in the renderer but served serially by the one main
   // thread, so the wall-clock cost is the sum.
-  const ten = Array.from({ length: 10 }, (_, i) => demoImages[i % demoImages.length]);
+  const ten = Array.from(
+    { length: 10 },
+    (_, i) => demoImages[i % demoImages.length],
+  );
   results["image.dashboardTen.demo"] = {
-    ...bench(() => ten.map((f) => readAsDataUrl(f, "image/jpeg")), { runs: 25 }),
+    ...bench(() => ten.map((f) => readAsDataUrl(f, "image/jpeg")), {
+      runs: 25,
+    }),
     fileBytes: ten.reduce((sum, f) => sum + fs.statSync(f).size, 0),
     avgFileBytes: avgBytes,
   };
@@ -79,7 +90,10 @@ try {
   const photoPath = path.join(tmpDir, "photo.jpg");
   // Incompressible bytes: base64 cost is independent of content, and random
   // data avoids any filesystem-level compression flattering the read.
-  fs.writeFileSync(photoPath, Buffer.alloc(3 * 1024 * 1024).map(() => Math.random() * 256));
+  fs.writeFileSync(
+    photoPath,
+    Buffer.alloc(3 * 1024 * 1024).map(() => Math.random() * 256),
+  );
 
   const encoded = readAsDataUrl(photoPath, "image/jpeg");
   results["image.single.3mb"] = {
@@ -91,7 +105,9 @@ try {
 
   const tenPhotos = Array.from({ length: 10 }, () => photoPath);
   results["image.dashboardTen.3mb"] = {
-    ...bench(() => tenPhotos.map((f) => readAsDataUrl(f, "image/jpeg")), { runs: 10 }),
+    ...bench(() => tenPhotos.map((f) => readAsDataUrl(f, "image/jpeg")), {
+      runs: 10,
+    }),
     fileBytes: 10 * 3 * 1024 * 1024,
   };
 
@@ -120,6 +136,6 @@ if (OUT) {
 for (const [name, r] of Object.entries(results)) {
   console.log(
     `  ${name.padEnd(30)} p50 ${String(r.p50).padStart(8)}ms  p95 ${String(r.p95).padStart(8)}ms` +
-      (r.fileBytes ? `  (${fmtBytes(r.fileBytes)})` : "")
+      (r.fileBytes ? `  (${fmtBytes(r.fileBytes)})` : ""),
   );
 }

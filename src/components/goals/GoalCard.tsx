@@ -38,7 +38,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const textColor = getContrastingTextColor(bgColor);
   const progressPercentage = Math.min(
     100,
-    Math.round((goal.current_value / goal.target_value) * 100)
+    Math.round((goal.current_value / goal.target_value) * 100),
   );
   const navigate = useNavigate();
 
@@ -60,7 +60,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
   return (
     <div
       data-testid="goal-card"
-      className="goal-card bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark p-4 rounded-xl shadow-md flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 border border-border-light dark:border-border-dark w-80 min-h-72">
+      className="goal-card bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark p-4 rounded-xl shadow-md flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 border border-border-light dark:border-border-dark w-80 min-h-72"
+    >
       {/* Sizes to content rather than a fixed h-96: goal descriptions are a
           line or two, so the fixed height left a large empty band above the
           progress bar in every single card. */}

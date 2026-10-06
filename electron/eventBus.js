@@ -1,4 +1,4 @@
 import { EventEmitter } from "events";
 
-class EventBus extends EventEmitter { }
+class EventBus extends EventEmitter {}
 export const eventBus = new EventBus();

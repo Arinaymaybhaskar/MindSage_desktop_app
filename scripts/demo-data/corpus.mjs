@@ -29,10 +29,25 @@
 /** Tag pools keyed by mood band, drawn from moodHierarchy leaves. */
 export const TAGS_BY_MOOD = {
   1: ["Overwhelmed", "Worried", "Powerless", "Empty", "Isolated"],
-  2: ["Worried", "Disappointed", "Annoyed", "Sleepy", "Inadequate", "Withdrawn"],
+  2: [
+    "Worried",
+    "Disappointed",
+    "Annoyed",
+    "Sleepy",
+    "Inadequate",
+    "Withdrawn",
+  ],
   3: ["Sleepy", "Curious", "Perplexed", "Indifferent", "Pressured", "Hesitant"],
   4: ["Hopeful", "Curious", "Thankful", "Confident", "Creative", "Eager"],
-  5: ["Joyful", "Inspired", "Thankful", "Energetic", "Valued", "Free", "Successful"],
+  5: [
+    "Joyful",
+    "Inspired",
+    "Thankful",
+    "Energetic",
+    "Valued",
+    "Free",
+    "Successful",
+  ],
 };
 
 /**
@@ -755,16 +770,37 @@ export const GOALS = [
     pinned: true,
     targetDate: "+90",
     logs: [
-      { value: 4, description: "Week one done. Gentle on purpose.", dayOffset: 62 },
-      { value: 6, description: "Six miles before work, felt strong.", dayOffset: 45 },
-      { value: 8, description: "Eight along the river. Walked once on the hill.", dayOffset: 24 },
-      { value: 9, description: "Nine miles, hot day, harder than it should have been.", dayOffset: 13 },
-      { value: 10, description: "Ten miles. Longest ever. Legs destroyed.", dayOffset: 2 },
+      {
+        value: 4,
+        description: "Week one done. Gentle on purpose.",
+        dayOffset: 62,
+      },
+      {
+        value: 6,
+        description: "Six miles before work, felt strong.",
+        dayOffset: 45,
+      },
+      {
+        value: 8,
+        description: "Eight along the river. Walked once on the hill.",
+        dayOffset: 24,
+      },
+      {
+        value: 9,
+        description: "Nine miles, hot day, harder than it should have been.",
+        dayOffset: 13,
+      },
+      {
+        value: 10,
+        description: "Ten miles. Longest ever. Legs destroyed.",
+        dayOffset: 2,
+      },
     ],
   },
   {
     title: "Sleep seven hours",
-    description: "Averaged across the week, not per night. Phone out of the bedroom.",
+    description:
+      "Averaged across the week, not per night. Phone out of the bedroom.",
     category: "Health",
     parent: "Get properly fit",
     current: 42,
@@ -775,7 +811,8 @@ export const GOALS = [
   },
   {
     title: "Ship the onboarding redesign",
-    description: "Four months of work. Target was a four point lift in first-session completion.",
+    description:
+      "Four months of work. Target was a four point lift in first-session completion.",
     category: "Work",
     current: 1,
     target: 1,
@@ -785,7 +822,8 @@ export const GOALS = [
   },
   {
     title: "Speak at the team review",
-    description: "The quarterly design review. The actual goal is doing it without three weeks of dread.",
+    description:
+      "The quarterly design review. The actual goal is doing it without three weeks of dread.",
     category: "Work",
     current: 1,
     target: 1,
@@ -795,7 +833,8 @@ export const GOALS = [
   },
   {
     title: "Write the settings spec",
-    description: "Sitting at eighty percent since June, which is where documents go to die.",
+    description:
+      "Sitting at eighty percent since June, which is where documents go to die.",
     category: "Work",
     current: 8,
     target: 12,
@@ -843,7 +882,8 @@ export const GOALS = [
   },
   {
     title: "Cancel unused subscriptions",
-    description: "Found two I had been paying since 2024 and used exactly zero times.",
+    description:
+      "Found two I had been paying since 2024 and used exactly zero times.",
     category: "Finance",
     current: 1,
     target: 1,
@@ -853,7 +893,8 @@ export const GOALS = [
   },
   {
     title: "Read twenty books",
-    description: "The rule that actually made this work: phone stays in the other room.",
+    description:
+      "The rule that actually made this work: phone stays in the other room.",
     category: "Leisure",
     current: 13,
     target: 20,
@@ -862,7 +903,8 @@ export const GOALS = [
   },
   {
     title: "Finish the pottery course",
-    description: "Ten weeks. Centred the clay in week four, which felt like the hard part.",
+    description:
+      "Ten weeks. Centred the clay in week four, which felt like the hard part.",
     category: "Leisure",
     current: 4,
     target: 10,
@@ -871,7 +913,8 @@ export const GOALS = [
   },
   {
     title: "Host dinner at the flat",
-    description: "Put off for a year because the flat is small. It was small and it was fine.",
+    description:
+      "Put off for a year because the flat is small. It was small and it was fine.",
     category: "Leisure",
     current: 1,
     target: 1,
@@ -898,7 +941,8 @@ export const CHATS = [
     messages: [
       {
         sender: "user",
-        content: "Looking back over the last few months, what was I actually anxious about?",
+        content:
+          "Looking back over the last few months, what was I actually anxious about?",
       },
       {
         sender: "ai",
@@ -945,21 +989,54 @@ One thing hasn't shifted: the pattern where you say yes before you've decided. T
  */
 export const FILLER_TITLES = {
   high: [
-    "A good one", "Easy day", "Everything worked", "Light week so far",
-    "Bright and early", "Momentum", "Quietly pleased", "Clear head",
-    "Nothing to fix", "Good Tuesday", "Ran well", "Slept, and it showed",
-    "Warm evening", "Full but good", "This is the level",
+    "A good one",
+    "Easy day",
+    "Everything worked",
+    "Light week so far",
+    "Bright and early",
+    "Momentum",
+    "Quietly pleased",
+    "Clear head",
+    "Nothing to fix",
+    "Good Tuesday",
+    "Ran well",
+    "Slept, and it showed",
+    "Warm evening",
+    "Full but good",
+    "This is the level",
   ],
   mid: [
-    "Ordinary", "Nothing much", "Middling", "A Wednesday",
-    "Steady", "Fine, mostly", "Ticking along", "No news",
-    "Slow start", "Flat but fine", "Keeping the habit", "Long meeting day",
-    "Half a day of focus", "Uneventful", "In between things",
+    "Ordinary",
+    "Nothing much",
+    "Middling",
+    "A Wednesday",
+    "Steady",
+    "Fine, mostly",
+    "Ticking along",
+    "No news",
+    "Slow start",
+    "Flat but fine",
+    "Keeping the habit",
+    "Long meeting day",
+    "Half a day of focus",
+    "Uneventful",
+    "In between things",
   ],
   low: [
-    "Heavy", "Low tank", "Grinding", "Off today",
-    "Not much left", "A hard one", "Tired through", "Flat",
-    "Rough edges", "Depleted", "Bad Thursday", "Wearing thin",
-    "Under it", "Slow and sore", "Not my day",
+    "Heavy",
+    "Low tank",
+    "Grinding",
+    "Off today",
+    "Not much left",
+    "A hard one",
+    "Tired through",
+    "Flat",
+    "Rough edges",
+    "Depleted",
+    "Bad Thursday",
+    "Wearing thin",
+    "Under it",
+    "Slow and sore",
+    "Not my day",
   ],
 };

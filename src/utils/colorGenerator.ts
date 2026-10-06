@@ -3,7 +3,7 @@
  * based on a user's selected primary accent colors.
  */
 
-interface AccentColors {
+export interface AccentColors {
   light1: string;
   light2: string;
   light3: string;
@@ -12,7 +12,6 @@ interface AccentColors {
   dark2: string;
   dark3: string;
   dark4: string;
-  [key: string]: string;
 }
 
 /**
@@ -21,7 +20,7 @@ interface AccentColors {
  * @returns An object {h, s, l} or null if parsing fails.
  */
 const parseHsl = (
-  hslStr: string
+  hslStr: string,
 ): { h: number; s: number; l: number } | null => {
   if (!hslStr) return null;
   const regex = /hsl\((\d+),\s*([\d.]+)%,\s*([\d.]+)%\)/;

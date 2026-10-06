@@ -6,7 +6,7 @@ This is the **single ordered queue** — what to do first, second, third. It del
 
 **Legend:** severity `🔴 blocker` `🟠 high` `🟡 medium` `🟢 low` · effort `S` < 1d · `M` 1–3d · `L` > 3d
 
-**How the order was chosen.** Irreversible harm first (data loss, then anything that gets harder after launch), then changes whose payoff exceeds their cost by an order of magnitude, then the privacy promise, then everything gated behind a decision or a measurement. Two hard gates are marked inline: **caching is blocked on the indexes** and **five auth items are blocked on one decision.**
+**How the order was chosen.** Irreversible harm first (data loss, then anything that gets harder after launch), then changes whose payoff exceeds their cost by an order of magnitude, then the privacy promise, then everything gated behind a decision or a measurement. Two hard gates are marked inline: **caching is blocked on the indexes** and **six auth items are blocked on one decision.**
 
 ---
 
@@ -31,6 +31,18 @@ Claims still open in older docs that are actually resolved. Checked against the 
 | `ffmpeg-static` broken by asar | (retracted in MAC §3.1, BUNDLE §2.2) | Never broken; it is only large |
 | `feat/ai-metadata-status` review findings | TODO | All five fixed |
 | iOS port items | TECHNICAL_DEBT §7, TODO, BUNDLE §3.2 | **`ios/` no longer exists** — these items and their links are obsolete |
+| **Items 20, 21, 23, 24 — the online backend** | Phase 3 | **Done 2026-08-28.** `src/server/` and `src/api/axios.ts` deleted with the 7 server-only dependencies; Google sign-in and the `login:google` channel removed; all 44 `mode === "online"` branches collapsed; `authMode` retired from every service, handler, call site and `localStorage`. `journalService.chat` was kept, since `chat:send` has a live handler |
+| **Item 22 — forgot password** | Phase 3 | **Resolved differently.** Route and page kept, page rewritten to state there is no account server and no reset. Not a deletion |
+| **Item 12 — per-platform `extraResources`** | Phase 1 | **Done 2026-08-28.** Verified against a real `electron-builder` run: `resources/mac` is absent from `win-unpacked` |
+| **Item 55 — `electronUtils.js` to TypeScript** | Phase 9 | **Moot.** It was main-process code misfiled under `src/`, and two `electron/methods` modules imported it. Now `electron/methods/authToken.js` |
+| **Item 56 — import-extension policy** | Phase 9 | **Done 2026-08-28.** CLAUDE.md now documents the majority style (extensionless in the renderer, explicit `.js` in `electron/`), and AGENTS.md was rewritten against the current tree |
+| Half of item 53 | Phase 9 | 0-byte `electron/services/chat.js` and root `test-color-db.js` are gone. The duplicate `.gitignore` entries remain |
+| **Items 1, 2 — pre-migration backup and `PRAGMA user_version`** | Phase 0 | **Done 2026-08-30.** `electron/db/migrations.js` holds an ordered `MIGRATIONS` list applied against `user_version`, one transaction per migration; `initDatabase()` takes a `VACUUM INTO` snapshot into `<userData>/backups/` (5 kept) before the first one runs. The two unconditional `DROP TABLE` statements are now migration 3 rather than a per-boot instruction, and `PRAGMA foreign_keys` moved to connection scope, where the worker's own handle finally reaches it |
+| **Items 3, 4, 5, 6 — the renderer data-loss paths** | Phase 0 | **Done 2026-08-30.** Quick Capture persists a draft and shows no writing surface when signed out; a route-level and a root-level `ErrorBoundary` replace the white screen (and the root one fires the splash handshake, which used to be stranded in `AppLayout`); `logout()` resets context state and removes three keys instead of `localStorage.clear()`; the dashboard settles its five reads independently and never calls `logout()` on a failed fetch. The dead `react-hot-toast` imports in `quickCapture.tsx` and `ModelSettings.tsx` went with them, since no `<Toaster/>` was ever mounted and every one of those messages rendered nothing |
+| **Items 26, 27 — IPC types and the quality gates** | Phase 4 | **Done 2026-08-28.** Typecheck, lint and format at zero; CI blocks on all four gates |
+| **Item 36 — the benchmark harness** | Phase 6 | **Committed**, with runs mirrored to mindsage-web |
+| **Item 12 measured** | Phase 1 | `after-extraresources` (2026-10-06): installer 248.3 → 217.7 MB. PKG-1 is improved, not closed: its 180 MB target needs item 13 too |
+| **Packaged Qdrant worker never started** | (not previously listed) | **Fixed 2026-08-28.** `createQdrantWorker` resolved a packaged path outside `app.asar`, so background AI enrichment was dead in every install. → [CODEBASE_STRUCTURE_AUDIT §3](CODEBASE_STRUCTURE_AUDIT.md) |
 
 ---
 
@@ -38,12 +50,14 @@ Claims still open in older docs that are actually resolved. Checked against the 
 
 Nothing else matters if the app eats entries. Every item is small and none needs a design decision.
 
-1. 🔴 S — **Back up the DB file before any schema change.** Nothing copies `mind-sage.db` before `initDatabase()` runs its `ALTER` blocks. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
-2. 🔴 M — **Add `PRAGMA user_version` and an ordered migration list.** Follows directly from 1; today there is no migration framework at all. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
-3. 🔴 S — **Quick Capture destroys entries when logged out.** Global shortcut opens it unconditionally, `accessToken` is `null`, the handler throws, the user sees "Failed to save entry" and their text is gone. → [AUTH_REVIEW §2.7](AUTH_REVIEW.md)
-4. 🔴 S — **Add a React ErrorBoundary.** Verified absent. One render exception white-screens the app with no recovery and no draft preservation. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
-5. 🔴 S — **Fix `logout()`** — reset `accessToken`/`user` state, and delete the three auth keys instead of `localStorage.clear()`, which also wipes the user's theme and zoom. → [AUTH_REVIEW §2.2–2.3](AUTH_REVIEW.md)
-6. 🟠 S — **Stop the dashboard calling `logout()` on any fetch error.** One slow Qdrant call currently destroys the session. → [AUTH_REVIEW §2.4](AUTH_REVIEW.md)
+1. ✅ **Done 2026-08-30** — pre-migration backup. See §0.
+2. ✅ **Done 2026-08-30** — `PRAGMA user_version` and an ordered migration list. See §0.
+3. ✅ **Done 2026-08-30** — Quick Capture keeps a draft and refuses to offer a writing surface when signed out. See §0.
+4. ✅ **Done 2026-08-30** — a route-level and a root-level React ErrorBoundary. See §0.
+5. ✅ **Done 2026-08-30** — `logout()` resets state and removes only the auth keys. See §0.
+6. ✅ **Done 2026-08-30** — the dashboard degrades instead of ending the session. See §0.
+
+**Phase 0 is closed.** Every known data-loss path in the app is now either fixed or recorded as recoverable.
 
 ## Phase 1 — The free wins
 
@@ -53,8 +67,8 @@ Config and two-line changes with measured or obvious payoff. The whole phase is 
 8. 🔴 S — **Enable WAL + `synchronous = NORMAL`.** Measured: a read that takes 0.92ms alone takes 200ms while the worker writes — a 217× stall at only 150 entries, in the app's normal operating condition. Skip `busy_timeout`; it is already 5000. → [benchmarks/FINDINGS §2](benchmarks/FINDINGS.md)
 9. 🟠 S — **Remove the `DATE()` / `DATETIME()` wrappers in `getAllEntries`** so the new index is usable at all. → [PERFORMANCE §1.3](PERFORMANCE.md)
 10. 🔴 S — **Add a LICENSE file.** Verified absent. The repo is legally unshippable without one. → [PRODUCTION_READINESS §1](PRODUCTION_READINESS.md)
-11. 🔴 S — **Gate the auto-updater** behind an explicit setting (default off) or a manual button. It fires on every packaged launch with `autoDownload = true` — the one thing that contradicts the offline-first claim. → [NETWORK_AUDIT §1.1](NETWORK_AUDIT.md)
-12. 🟢 S — **Per-platform `extraResources`** — the Windows installer ships 73.5 MB of macOS binaries. **−74 MB**, and a prerequisite for any mac build. → [BUNDLE_SIZE_PLAN §2.1](BUNDLE_SIZE_PLAN.md)
+11. 🔴 S — **Gate the auto-updater** behind an explicit setting (default off) or a manual button. It is written to fire on every packaged launch with `autoDownload = true`, the one thing that contradicts the offline-first claim. **Observed 2026-10-06: in a packaged build it currently crashes before checking** (`Cannot set properties of undefined (setting 'autoDownload')`), most likely because `await import("electron-updater")` from ESM does not expose `autoUpdater` as a named export. So today it makes no request at all, and updates do not work. Fix the import and add the gate in the same change, or the fix switches unprompted network calls on. → [NETWORK_AUDIT §1.1](NETWORK_AUDIT.md)
+12. ✅ **Done 2026-08-28** — per-platform `extraResources`. See §0.
 13. 🟢 S — **Four packaging one-liners: −72 MB.** `electronLanguages: ["en-US"]` (−42), drop `public/**` from `files` (−20), exclude `better-sqlite3/{deps,src}` (−9.6), `compression: "maximum"` (installer only). → [BUNDLE_SIZE_PLAN §2.5–2.8](BUNDLE_SIZE_PLAN.md)
 14. 🔴 S — **Write the DB to `app.getPath("userData")`.** On macOS it currently lands in `~/Library/Preferences`, where its own logs do not. Two lines now; a migration once anyone has shipped. → [MAC_RELEASE_PLAN §1.3](MAC_RELEASE_PLAN.md)
 
@@ -63,7 +77,8 @@ Config and two-line changes with measured or obvious payoff. The whole phase is 
 > **Gate:** item 15 is a decision, and items 17–19 are meaningless until it is made. Fixing any one of them in isolation either logs every user out or leaves the guarantee hollow.
 
 15. 🔴 — **DECIDE: Option A (encrypted vault) or Option B (profile picker, no security claim).** The current code pays A's complexity and delivers B's protection. → [AUTH_REVIEW §1](AUTH_REVIEW.md), [OFFLINE_AUTH_DESIGN](OFFLINE_AUTH_DESIGN.md)
-16. 🔴 S — **Rotate the hardcoded JWT secret and scrub it from git history.** Needed under either option — it currently ships *inside the packaged app*. → [TECHNICAL_DEBT §2.1](TECHNICAL_DEBT.md)
+16. 🟡 S — **Scrub the old JWT secret from git history.** The constant no longer ships: `electron/services/tokenSecret.js` now generates a 64-byte secret per install on first run and persists it outside the bundle, so installs no longer share a signing key. What remains is the history rewrite, which needs a `backup/` branch first and coordination with anyone holding a clone. Downgraded from 🔴 because the live code no longer carries the value. → [TECHNICAL_DEBT §2.1](TECHNICAL_DEBT.md)
+16b. 🔴 M — **Verify tokens instead of decoding them.** All eight modules under `electron/methods/` call `jwt.decode`, so neither the signature nor `exp` is ever checked and a hand-written `{"id": N}` payload is accepted as user N. **Blocked on item 17, not merely sequenced after it:** switching to `jwt.verify` on its own logs every user out mid-session with no way back, because there is no refresh path: the old interceptor posted to a `localhost:4000` server that never started, and it was deleted with the online backend on 2026-08-28, so an expired token has nowhere to go. Item 17 deletes the tokens outright, which dissolves this item rather than fixing it — prefer that over patching eight call sites. Also deduplicate `getUserIdFromToken`, currently copy-pasted into all eight. → [AUTH_REVIEW §2.1](AUTH_REVIEW.md)
 17. 🔴 M — **Session refactor, without encryption.** Move the session into the main process, delete the tokens, drop the `token` parameter from ~68 IPC channels. Behaviour-neutral and independently testable — do it before any encryption work. → [OFFLINE_AUTH_DESIGN §9.2](OFFLINE_AUTH_DESIGN.md)
 18. 🔴 L — **Encrypt the database at rest.** SQLCipher, DEK wrapped by password + recovery code, mandatory recovery-code confirmation at setup, and the §7 migration for existing installs. The single highest-value change in the repo. → [OFFLINE_AUTH_DESIGN §3–7](OFFLINE_AUTH_DESIGN.md), [AUTH_REVIEW §2.6](AUTH_REVIEW.md)
 19. 🟠 M — **Lock states** (idle, sleep, quit) **and `biometric_lock` implemented for real or removed.** Shipping an inert security toggle is worse than shipping none. → [AUTH_REVIEW §2.5, §2.8](AUTH_REVIEW.md)
@@ -72,34 +87,35 @@ Config and two-line changes with measured or obvious payoff. The whole phase is 
 
 Independently shippable, and it shrinks everything downstream — fewer files to type, test, sign, and package.
 
-20. 🟡 M — **Delete `src/server/`** — 1,877 orphaned LOC, 10 removable dependencies (**−15 MB**), and `db.pdf` (684 KB, still tracked) goes with it. → [ONLINE_MODE_REMOVAL §2](ONLINE_MODE_REMOVAL.md)
-21. 🟢 S — **Delete the zero-caller code:** `src/api/axios.ts`, `googleLoginElectron.tsx`, the `login:google` handler and channel, and `journalService.chat` / `getUploadUrl` / `getMediaUrl`. → [ONLINE_MODE_REMOVAL §5](ONLINE_MODE_REMOVAL.md), [NETWORK_AUDIT §1.3–1.4](NETWORK_AUDIT.md)
-22. 🟡 S — **Remove the forgot-password link, route, and page.** Verified still linked from the login screen; it always fails. The only user-visible casualty of the current state. → [ONLINE_MODE_REMOVAL §6.1](ONLINE_MODE_REMOVAL.md)
-23. 🟢 S — **Collapse the 44 `mode === 'online'` branches**, adding the stale-`localStorage` coercion in the *same* commit or a legacy install routes into deleted code. → [ONLINE_MODE_REMOVAL §3, §7](ONLINE_MODE_REMOVAL.md)
-24. 🟡 M — **Retire the `authMode` parameter** — 151 references across 25 files. Mechanical but positional: remove it from a service and its handler in lockstep, one service at a time. Safe to defer. → [ONLINE_MODE_REMOVAL §4](ONLINE_MODE_REMOVAL.md)
+20. ✅ **Done 2026-08-28** — `src/server/` deleted. See §0.
+21. ✅ **Done 2026-08-28**, with one exception: `journalService.chat` stays, because `chat:send` has a live handler. See §0.
+22. ⚠️ **Resolved differently 2026-08-28.** The route and page were kept rather than removed, and the page rewritten to say plainly that there is no account server and therefore no password reset. A dead-end that explains itself beats a missing link. See §0.
+23. ✅ **Done 2026-08-28** — all 44 branches collapsed. The count was exact. See §0.
+24. ✅ **Done 2026-08-28** — `authMode` retired everywhere, in one pass rather than service by service. See §0.
 25. 🟢 S — **Move renderer-only libraries to `devDependencies`.** They ship twice today — once minified in the 2.6 MB bundle, once as raw source in `app.asar`. **−80 MB**, one line per package. → [BUNDLE_SIZE_PLAN §2.3](BUNDLE_SIZE_PLAN.md)
 
 ## Phase 4 — Make the quality gates real
 
-26. 🟠 M — **Type the IPC bridge.** `electron.d.ts` omits `minimize`/`maximize`/`close` that `preload.js` does expose; that single gap accounts for a large share of the 131 typecheck errors. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
-27. 🟠 S — **Clear the rest, then remove `continue-on-error` from CI.** 131 typecheck errors and 106 lint problems today; until this lands CI cannot block a regression. → [.github/workflows/ci.yml](../.github/workflows/ci.yml)
+26. ✅ **Done 2026-08-28** — `electron.d.ts` describes the whole preload surface and `invoke` is generic. See §0.
+27. ✅ **Done 2026-08-28** — typecheck, lint and format are at zero and CI blocks on all four gates. See §0.
 28. 🟠 S — **Extend ESLint to `electron/**/*.js`.** All main-process JS is currently neither linted nor type-checked. → [TECHNICAL_DEBT §1.3](TECHNICAL_DEBT.md)
 29. 🔴 L — **Deepen test coverage** to journal CRUD, the AI worker, and migrations, plus a Playwright e2e for launch → write → search. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
 
 ## Phase 5 — Production operations
 
-30. 🟠 S — **Wire up the update UI.** `autoUpdater` emits `update:available` / `:progress` / `:downloaded` and **nothing in the renderer listens** (verified). Updates install silently. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
+30. 🟠 S — **Wire up the update UI.** `autoUpdater` emits `update:available` / `:progress` / `:downloaded` and **nothing in the renderer listens** (verified). Updates install silently. Blocked on item 11: the updater never gets as far as emitting. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
 31. 🟠 M — **Crash reporting.** Zero visibility into production failures; anything network-bound needs explicit opt-in here. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
 32. 🟠 M — **A real logger** with levels, rotation, and redaction, replacing 106 `console.log` calls. → [TECHNICAL_DEBT §4.3](TECHNICAL_DEBT.md)
 33. 🟠 S — **Add a Content-Security-Policy.** Verified absent. Cheap, and it turns "we make no external requests" into an enforced invariant. → [NETWORK_AUDIT §4.1](NETWORK_AUDIT.md)
 34. 🟠 S — **Handle the offline first run.** A 274 MB model pull is required to finish setup; document it and fail gracefully instead of stalling. → [NETWORK_AUDIT §1.2](NETWORK_AUDIT.md)
 35. 🟢 S — **`sandbox: true` on both BrowserWindows.** `contextIsolation` and `nodeIntegration` are already correct. → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
+35b. 🟡 S — **Startup race on `models:get-selected`.** The renderer invokes it before `registerIPCHandlers()` has run, so the packaged log shows `No handler registered for 'models:get-selected'` on launch. Seen 2026-10-06. Related: in two of three `startup` benchmark runs on 2026-10-06 the log stops before "Qdrant started" while the renderer still signals ready. → [benchmarks/OPTIMIZATION_LOG](benchmarks/OPTIMIZATION_LOG.md)
 
 ## Phase 6 — Act on what the benchmarks found
 
 > Measurement is done: eleven stages cover the database, the AI pipeline, vector search, retrieval quality, Whisper, startup, the renderer and packaging. The old items 37–39 are complete and moved to §0. What remains here is the work those measurements produced.
 
-36. 🟡 S — **Commit the benchmark harness.** `scripts/bench/` (11 stages), `scripts/run-bench.mjs`, and `docs/benchmarks/` are all still untracked. Until this lands, every "before" number exists on one machine only and no after/before comparison can be anchored. → [benchmarks/README](benchmarks/README.md)
+36. ✅ **Done** — `scripts/bench/` (11 stages), `scripts/run-bench.mjs` and `docs/benchmarks/` are tracked, and runs publish to mindsage-web. See §0.
 37. 🟠 M — **Swap the embedding model to `embeddinggemma`, together with a full re-embed.** Measured on the labelled corpus: precision@1 **0.467 → 0.733**, recall@5 0.767 → 0.933, MRR 0.644 → 0.867. It is a drop-in — also 768-dimensional, so the Qdrant collection config is unchanged. Costs **+347 MB** on the user's disk and **−20% embedding throughput** (backfill at 5k goes 8.8 → 11.1 min). Three call sites pin the current tag: [ollama.js:542](../electron/methods/ollama.js#L542), [qdrantWorker.js:31](../electron/qdrantWorker.js#L31), [OllamaSetup.js:118](../electron/services/OllamaSetup.js#L118). **Sequence with item 38** — changing models invalidates every stored vector, so the re-embed and the throttling work are the same job. → [benchmarks/OPTIMIZATION_LOG SEARCH-1](benchmarks/OPTIMIZATION_LOG.md)
 38. 🔴 M — **Bound and throttle the backfill sweep.** `qdrantWorker.js:546` re-embeds every entry not marked `success` with no batch limit, no attempt counter and no backoff — 8.5 minutes of continuous background work at 5,000 entries, during which item 8's contention stalls every foreground read. A permanently-failing entry is retried on every sweep forever. → [benchmarks/OPTIMIZATION_LOG AI-2](benchmarks/OPTIMIZATION_LOG.md)
 39. 🟢 S — **Widen the retrieval corpus before quoting item 37's margin.** 18 entries and 15 queries means precision@1 0.467 → 0.733 is four queries changing answer. The direction is consistent across all three metrics, but the percentages are soft. → [fixtures/retrieval.mjs](../scripts/bench/fixtures/retrieval.mjs)
@@ -129,10 +145,10 @@ Independently shippable, and it shrinks everything downstream — fewer files to
 ## Phase 9 — Code health
 
 52. 🟠 L — **Split the monoliths** — `journalForm.tsx` (29 KB), `ModelSettings.tsx`, `journalList.tsx`, `dashBoard.tsx`, `qdrantWorker.js`, `db/connection.js`. → [TECHNICAL_DEBT §4.1](TECHNICAL_DEBT.md)
-53. 🟡 S — **Repo hygiene** — the 0-byte `electron/services/chat.js`, the duplicate `dist` / `dist-electron` entries in `.gitignore`, and the root `test-color-db.js`. All three verified still present. → [TECHNICAL_DEBT §3](TECHNICAL_DEBT.md)
+53. 🟡 S — **Repo hygiene.** The 0-byte `electron/services/chat.js` and the root `test-color-db.js` are gone as of 2026-08-28. Still open: the duplicate `dist` / `dist-electron` entries in `.gitignore`, and README's claim that every new file under `electron/db`, `electron/methods` or `electron/services` needs a `viteStaticCopy` target. Only `qdrantWorker.js` and its imports do. → [TECHNICAL_DEBT §3](TECHNICAL_DEBT.md)
 54. 🟡 S — **Tighten catch blocks** — `unknown` plus narrowing, routed to a central error handler, instead of ~95 catch-alls. → [TECHNICAL_DEBT §4.4](TECHNICAL_DEBT.md)
-55. 🟡 S — **Convert `src/utils/electronUtils.js` to TypeScript** — the only JS file in an otherwise-TS directory. → [TECHNICAL_DEBT §4.6](TECHNICAL_DEBT.md)
-56. 🟡 M — **Settle the import-extension policy** and align AGENTS.md with TECHNICAL_DEBT §4.5, which currently contradict each other. → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
+55. ✅ **Moot 2026-08-28** — the file was main-process code misfiled under `src/`. It moved to `electron/methods/authToken.js` and stays JavaScript, like the rest of `electron/`. See §0.
+56. ✅ **Done 2026-08-28** — the policy is documented as it is actually practised, and AGENTS.md was rewritten. See §0.
 57. 🟡 S — **Finish the dependency trim** — `chart.js` vs `recharts`, `date-fns` vs `dayjs`, and `react-hot-toast` vs the in-house `ToastContext` (still imported in 3 files). → [TODO §High](TODO.md)
 58. 🟢 M — **Accessibility** — 72 aria attributes across 166 buttons, and exactly one `prefers-reduced-motion` rule in a heavily animated app. No focus-trap or skip-link pattern. → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
 59. 🟢 S — **`CONTRIBUTING.md` and `CHANGELOG.md`.** → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
@@ -145,6 +161,7 @@ Each is a real architecture decision, not a cleanup. Schedule deliberately.
 61. 🟡 M — **Drop or shrink FFmpeg** — 81 MB for one job (audio → 16 kHz mono WAV). Check whether `MediaRecorder` can produce that directly before building custom binaries. **−65 to −81 MB.** → [BUNDLE_SIZE_PLAN §2.2](BUNDLE_SIZE_PLAN.md)
 62. 🔴 M — **Fetch the Whisper model on first use** instead of bundling 77 MB. Decide together with item 34 — it adds a network dependency to an otherwise-offline feature. → [BUNDLE_SIZE_PLAN §3.1](BUNDLE_SIZE_PLAN.md)
 63. 🔴 L — **Replace Qdrant with `sqlite-vec`** — deletes a 77 MB binary, a spawned process, the port-allocation dance, the `synced_to_qdrant` state machine, and the debug viewer. → [BUNDLE_SIZE_PLAN §3.2](BUNDLE_SIZE_PLAN.md)
+64. 🟡 M — **Move `resources/` out of plain git.** About 230 MB across 11 tracked binaries, no Git LFS configured. Every clone pays it and every binary update adds another full copy to history permanently. Deleting the unused Whisper executables shrank the installer, not the history. Gets harder the longer it waits. → [CODEBASE_STRUCTURE_AUDIT §4](CODEBASE_STRUCTURE_AUDIT.md)
 
 ---
 
@@ -166,7 +183,8 @@ Every item in every doc is accounted for here. Nothing was dropped silently.
 | [TECHNICAL_DEBT.md](TECHNICAL_DEBT.md) | 20 | 16, 28, 32, 52–57 · rest in §0 |
 | [TODO.md](TODO.md) | 30 | 40, 44, 46, 57 · rest in §0 or duplicated above |
 | [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) | 34 | Throughout; §0 verified table folded into §0 here |
+| [CODEBASE_STRUCTURE_AUDIT.md](CODEBASE_STRUCTURE_AUDIT.md) | 8 (P1–P8) | 20–24, 52, 64 · P4 declined · rest in §0 |
 
-**Totals by severity:** 16 🔴 · 22 🟠 · 16 🟡 · 9 🟢.
+**Totals by severity:** 48 items still open, 15 🔴 · 17 🟠 · 9 🟡 · 7 🟢. Since the 56 counted on 2026-08-28: Phase 0 closed six (2026-08-30), items 26, 27 and 36 were found done but still listed (2026-10-06), and 35b was added. Everything closed is recorded in §0.
 
 **The short version.** Phases 0 and 1 are about twenty items, nearly all `S`, and they remove every known data-loss path, the worst latency cliff, and ~145 MB — before a single architectural decision is required. Phase 2 is the product's actual promise. Everything after that is a real roadmap rather than a sprint.

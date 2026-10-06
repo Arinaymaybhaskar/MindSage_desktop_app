@@ -58,7 +58,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       onRemoveImage,
       onRemovePdf,
     },
-    ref
+    ref,
   ) => {
     const [inputValue, setInputValue] = useState("");
     const [isDragging, setIsDragging] = useState(false);
@@ -294,5 +294,5 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         </div>
       </form>
     );
-  }
+  },
 );

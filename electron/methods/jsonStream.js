@@ -14,14 +14,14 @@
 
 /** JSON's single-character escapes, minus \u which needs its own handling. */
 const SIMPLE_ESCAPES = {
-    n: "\n",
-    t: "\t",
-    r: "\r",
-    b: "\b",
-    f: "\f",
-    '"': '"',
-    "\\": "\\",
-    "/": "/",
+  n: "\n",
+  t: "\t",
+  r: "\r",
+  b: "\b",
+  f: "\f",
+  '"': '"',
+  "\\": "\\",
+  "/": "/",
 };
 
 /**
@@ -37,48 +37,48 @@ const SIMPLE_ESCAPES = {
  * backslash or half a code unit that would then have to be un-rendered.
  */
 export function partialJsonString(raw, key) {
-    const keyToken = `"${key}"`;
-    const keyAt = raw.indexOf(keyToken);
-    if (keyAt === -1) return null;
+  const keyToken = `"${key}"`;
+  const keyAt = raw.indexOf(keyToken);
+  if (keyAt === -1) return null;
 
-    let i = keyAt + keyToken.length;
-    while (i < raw.length && /\s/.test(raw[i])) i++;
-    if (raw[i] !== ":") return null;
-    i++;
-    while (i < raw.length && /\s/.test(raw[i])) i++;
+  let i = keyAt + keyToken.length;
+  while (i < raw.length && /\s/.test(raw[i])) i++;
+  if (raw[i] !== ":") return null;
+  i++;
+  while (i < raw.length && /\s/.test(raw[i])) i++;
 
-    // Nothing yet, or a non-string value (null, a number) - nothing to show.
-    if (i >= raw.length || raw[i] !== '"') return null;
-    i++;
+  // Nothing yet, or a non-string value (null, a number) - nothing to show.
+  if (i >= raw.length || raw[i] !== '"') return null;
+  i++;
 
-    let out = "";
-    while (i < raw.length) {
-        const ch = raw[i];
-        if (ch === '"') return out; // value closed
-        if (ch !== "\\") {
-            out += ch;
-            i++;
-            continue;
-        }
-
-        const esc = raw[i + 1];
-        if (esc === undefined) return out; // truncated immediately after the backslash
-
-        if (esc === "u") {
-            const hex = raw.slice(i + 2, i + 6);
-            if (hex.length < 4) return out; // truncated mid-codepoint
-            const code = parseInt(hex, 16);
-            if (Number.isNaN(code)) return out;
-            out += String.fromCharCode(code);
-            i += 6;
-            continue;
-        }
-
-        out += SIMPLE_ESCAPES[esc] ?? esc;
-        i += 2;
+  let out = "";
+  while (i < raw.length) {
+    const ch = raw[i];
+    if (ch === '"') return out; // value closed
+    if (ch !== "\\") {
+      out += ch;
+      i++;
+      continue;
     }
 
-    return out; // still open - a partial value
+    const esc = raw[i + 1];
+    if (esc === undefined) return out; // truncated immediately after the backslash
+
+    if (esc === "u") {
+      const hex = raw.slice(i + 2, i + 6);
+      if (hex.length < 4) return out; // truncated mid-codepoint
+      const code = parseInt(hex, 16);
+      if (Number.isNaN(code)) return out;
+      out += String.fromCharCode(code);
+      i += 6;
+      continue;
+    }
+
+    out += SIMPLE_ESCAPES[esc] ?? esc;
+    i += 2;
+  }
+
+  return out; // still open - a partial value
 }
 
 export default partialJsonString;

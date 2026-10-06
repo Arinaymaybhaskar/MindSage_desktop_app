@@ -71,11 +71,38 @@ Add a row here before touching anything else.
 | 2026-08-27 | `baseline-extra` | Nothing — ran the four stages the baseline predated (`app`, `bundle`, `rag`, `quality`) and merged them into the `baseline` record, so one file now covers all eleven | `llama3.2:latest` / `nomic-embed-text:v1.5` | Reproduced the ad-hoc figures the log already quoted: chat 14.00s p50, precision@1 0.467, 1.9 MB of JavaScript | [results/baseline-extra.json](results/baseline-extra.json) |
 | 2026-08-27 | `embeddinggemma` | Embedding model swapped, retrieval-quality stage only. **Measured, not shipped** | — / `embeddinggemma` | precision@1 0.467 → **0.733**, recall@5 → 0.933, MRR → 0.867. Costs −20% embedding throughput and +347 MB on disk. See [SEARCH-1](#candidate-measured-embeddinggemma) | [results/embeddinggemma.json](results/embeddinggemma.json) → [comparison](COMPARISON-baseline-vs-embeddinggemma.md) |
 
-All runs so far are on the same machine: i5-9300H / 16 GB / Windows 11.
+| 2026-08-30 | `phase0-before` | Nothing — all eleven stages on `main` at `1c21eb0`, as the before for Phase 0. The app stage measured error envelopes: the harness still passed the retired `"offline"` argument to `auth:login` | `llama3.2:latest` / `nomic-embed-text:v1.5` | The DB, AI and size figures stand. Use `phase0-app-before` for the app stage | [results/phase0-before.json](results/phase0-before.json) → [PHASE0-BEFORE.md](PHASE0-BEFORE.md) |
+| 2026-08-30 | `phase0-app-before` | Nothing — app stage only, re-run once the harness passed credentials correctly | `llama3.2:latest` / `nomic-embed-text:v1.5` | `dashboard:get-stats` 67ms p95 over IPC at 5k, journal list 1.8% dropped frames, RSS stable across three route passes | [results/phase0-app-before.json](results/phase0-app-before.json) → [PHASE0-APP-BEFORE.md](PHASE0-APP-BEFORE.md) |
+| 2026-08-30 | `phase0-after` | Phase 0 database work: the schema moved behind an ordered migration list applied against `PRAGMA user_version`, a `VACUUM INTO` snapshot is taken before the first migration, and `PRAGMA foreign_keys` moved to connection scope so the Qdrant worker's own handle finally enforces it | — | **No effect detectable.** Every delta against `phase0-before` was smaller than this machine's noise on the day. See [PHASE0](#phase0--schema-migrations-and-worker-foreign-keys-measured-no-detectable-effect) | [results/phase0-after.json](results/phase0-after.json) → [comparison](COMPARISON-phase0-before-vs-phase0-after.md) |
+| 2026-08-30 | `phase0-ai` | Same Phase 0 database work, measured on the AI write path — enrichment goes through the Qdrant worker, whose connection now enforces foreign keys | `llama3.2:latest` / `nomic-embed-text:v1.5` | Unchanged against the baseline: enrichment end-to-end **6.63s** (was 6.85s), TTFT **374ms** (was 410ms), ghost text **349ms** (was 448ms), vector search 1.9–4.1ms | [results/phase0-ai.json](results/phase0-ai.json) |
+| 2026-08-30 | `phase0-rag` | Nothing — ran the RAG and retrieval-quality stages to confirm the pipeline still behaves | `llama3.2:latest` / `nomic-embed-text:v1.5` | RAG total **11.66s** p50 / 14.13s p95 (baseline 14.06s). Retrieval quality reproduced the baseline **exactly**: recall@5 0.767, MRR 0.644, precision@1 0.467 | [results/phase0-rag.json](results/phase0-rag.json) |
+| 2026-08-30 | `phase0-app-after`, `phase0-app-after-2` | Phase 0 renderer work: the dashboard settles its five reads independently and never logs out on a failed fetch | `llama3.2:latest` / `nomic-embed-text:v1.5` | Time to interactive 367ms before, 391ms and 336ms for two runs of the same after code. No measurable effect at 5,000 entries | [phase0-app-after.json](results/phase0-app-after.json), [phase0-app-after-2.json](results/phase0-app-after-2.json) |
+| 2026-10-06 | `main-2026-10-06` | Nothing in `electron/` or `src/` since `phase0-before` (the diff is empty). All eleven stages on a fresh packaged build of `main` plus the harness fix, after a Windows update from 10.0.26200 to 10.0.26300 | `llama3.2:latest` / `nomic-embed-text:v1.5` | The same code across the OS update: the 50k dashboard and gallery scenarios are flat; the list scenarios moved 1.2–2.1× faster, within this suite's run-to-run noise. Two AI outliers, see below | [results/main-2026-10-06.json](results/main-2026-10-06.json) → [MAIN-2026-10-06.md](MAIN-2026-10-06.md) · [vs phase0-before](COMPARISON-phase0-before-vs-main-2026-10-06.md) |
+| 2026-10-06 | `after-extraresources` | MASTER_TODO item 12: per-platform `extraResources`, so the Windows build no longer ships `resources/mac`. Size stage only | — | Installer 248.3 → **217.7 MB** (−30.6 MB). PKG-1's target needs item 13 too | [results/after-extraresources.json](results/after-extraresources.json) → [AFTER-EXTRARESOURCES.md](AFTER-EXTRARESOURCES.md) |
+| 2026-10-06 | `phase-0-2026-10-06` | **Full run closing Phase 0** (`npm run bench:phase -- 0`, kind `full`). Phase 0 as merged in #18 and #19: versioned migrations with a `VACUUM INTO` backup, the renderer data-loss fixes, Quick Capture auth sync, per-platform `extraResources`, and `MS_USER_DATA_DIR`. Startup now launches on a copy of the real profile instead of the real one | `llama3.2:latest` / `nomic-embed-text:v1.5` | **No change attributable to Phase 0**, as expected: it touched no query. 50k DB scenarios flat except `dashboard.allTimeScores` (214 to 362ms, noise-sized; no query changed). Total to visible window 1.58 to **1.35s**; the slower "Qdrant started" step (434 to 847ms) is the first launch reading a freshly copied `qdrant-data` from a cold cache. All 3 startup runs complete. Retrieval quality identical (recall@5 0.767, MRR 0.644, P@1 0.467). Installer **217.6 MB**. This is the "before" for Phase 1 | [results/phase-0-2026-10-06.json](results/phase-0-2026-10-06.json) → [PHASE-0-2026-10-06.md](PHASE-0-2026-10-06.md) · [vs main-2026-10-06](COMPARISON-main-2026-10-06-vs-phase-0-2026-10-06.md) |
 
-**No code change has landed yet.** Every row above is a measurement, so every
-After cell on the status board is still empty by design — the ledger is loaded
-and waiting for the first fix.
+All runs are on the same hardware: i5-9300H / 16 GB / Windows 11. **The OS build
+changed on the way:** everything up to 2026-08-30 ran on 10.0.26200, and the
+2026-10-06 runs on 10.0.26300, so the comparison report opens with a "different
+machines" warning. `main-2026-10-06` measured the same code as `phase0-before`
+across that update, and the large DB scenarios came out flat, so the update is
+not a confound worth correcting for. Run-to-run noise is: single scenarios move
+up to about 2× between identical runs.
+
+**Two AI outliers in `main-2026-10-06`.** `generate.coldStart` read 64.89s: a
+single sample, the first load of a 2 GB model from disk straight after `ollama
+serve` started on a cold file cache (Ollama 0.20.5). `ghostText` p95 read 9.42s,
+but that is one sample in 15 (p95 = max at n=15), most likely a model reload; the
+p50 improved, 448 to 335ms. The `rag.2.embedding` and `rag.3.vectorSearch` p95s
+are the same kind of outlier.
+
+**One to investigate:** in two of the three `startup` runs on 2026-10-06 the log
+has no "Qdrant started" step or anything after it, yet the renderer still
+signalled ready. Tracked as MASTER_TODO 35b.
+
+Runs of unchanged code (`phase0-before`, `phase0-app-before`,
+`main-2026-10-06`) are listed in `baselineLabels` in [issues.json](issues.json),
+so the status board never shows them as an "after".
 
 ---
 
@@ -86,27 +113,27 @@ and waiting for the first fix.
 _Generated from `results/` by `npm run bench:board` — every figure below is
 read out of a stored run, so none of them can go stale. Before = `baseline`
 (2026-08-25).
-After = the most recent run that measured each metric. 3 runs on record._
+After = the most recent run that measured each metric. 14 runs on record._
 
 | ID | Issue | Key metric | Before | Target | After | Change | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **DB-1** | No indexes on `journal_entries` | `list.page1` p95 @ 50k | **586ms** | < 20ms | — | — | 🔴 open |
-| **DB-2** | No WAL — writers block readers | read p95 under worker writes @ 150 | **174ms** | < 10ms | — | — | 🔴 open |
-| **DB-3** | `getUserStats` does 18 table scans | `dashboard.stats` p95 @ 50k | **2.02s** | < 100ms | — | — | 🔴 open |
-| **DB-4** | `DATE()`/`DATETIME()` defeat the index | `list.dateFiltered` p95 @ 50k | **186ms** | < 20ms | — | — | 🔴 open |
-| **DB-5** | `ORDER BY RANDOM()` in the gallery | `gallery.random` p95 @ 50k | **1.07s** | < 50ms | — | — | 🔴 open |
-| **AI-1** | Metadata + summary are two serial calls | `enrich.endToEnd` p50 | **6.85s** | < 5.00s | — | — | 🔴 open |
-| **AI-2** | Unbounded backfill sweep | projected backfill @ 5k entries | **8.5 min** | — | — | — | 🔴 open |
-| **AI-3** | No model pre-warm | first generation after launch | **6.40s** | < 1.00s | — | — | 🟠 open |
-| **AI-4** | Ghost text slower than its budget | `ghostText` p95 | **670ms** | < 300ms | — | — | 🟠 open |
-| **STT-1** | Whisper respawns per transcription | fixed overhead per call | **1.40s** | < 200ms | — | — | 🟠 open |
-| **STT-2** | ffmpeg conversion on the critical path | per voice note | **92ms** | eliminate | — | — | 🟡 open |
-| **PKG-1** | mac binaries inside the Windows build | installer size | **248.3 MB** | < 180.0 MB | — | — | 🟠 open |
-| **CHAT-1** | RAG runs two serial generations | chat reply p50 | **14.00s** | < 6.00s | — | — | 🔴 open |
-| **SEARCH-1** | Retrieval ranks the wrong entry first | precision@1 | **0.467** | > 0.750 | **0.733** _(embeddinggemma)_ | +57% | 🔴 improved, target not met |
-| **UI-1** | Journal list drops frames while scrolling | frames over 16.7ms | **2.4%** | < 2.0% | — | — | 🟠 open |
-| **PKG-2** | zxcvbn dominates the JS bundle | share of JS | **42.2%** | < 5.0% | — | — | 🟠 open |
-| **MEDIA-1** | base64 media over IPC | `media.getImage` round-trip | **1.30ms** | — | — | — | ✅ closed, no action |
+| **DB-1** | No indexes on `journal_entries` | `list.page1` p95 @ 50k | **586ms** | < 20ms | **246ms** _(phase-0-2026-10-06)_ | 2.4× faster | 🔴 improved, target not met |
+| **DB-2** | No WAL — writers block readers | read p95 under worker writes @ 150 | **174ms** | < 10ms | **311ms** _(phase-0-2026-10-06)_ | 1.8× slower | 🔴 regressed |
+| **DB-3** | `getUserStats` does 18 table scans | `dashboard.stats` p95 @ 50k | **2.02s** | < 100ms | **1.63s** _(phase-0-2026-10-06)_ | 1.2× faster | 🔴 improved, target not met |
+| **DB-4** | `DATE()`/`DATETIME()` defeat the index | `list.dateFiltered` p95 @ 50k | **186ms** | < 20ms | **153ms** _(phase-0-2026-10-06)_ | 1.2× faster | 🔴 improved, target not met |
+| **DB-5** | `ORDER BY RANDOM()` in the gallery | `gallery.random` p95 @ 50k | **1.07s** | < 50ms | **953ms** _(phase-0-2026-10-06)_ | 1.1× faster | 🔴 improved, target not met |
+| **AI-1** | Metadata + summary are two serial calls | `enrich.endToEnd` p50 | **6.85s** | < 5.00s | **6.48s** _(phase-0-2026-10-06)_ | 1.1× faster | 🔴 improved, target not met |
+| **AI-2** | Unbounded backfill sweep | projected backfill @ 5k entries | **8.5 min** | — | **7.9 min** _(phase-0-2026-10-06)_ | — | 🔴 re-measured, no change |
+| **AI-3** | No model pre-warm | first generation after launch | **6.40s** | < 1.00s | **5.88s** _(phase-0-2026-10-06)_ | 1.1× faster | 🟠 improved, target not met |
+| **AI-4** | Ghost text slower than its budget | `ghostText` p95 | **670ms** | < 300ms | **565ms** _(phase-0-2026-10-06)_ | 1.2× faster | 🟠 improved, target not met |
+| **STT-1** | Whisper respawns per transcription | fixed overhead per call | **1.40s** | < 200ms | **1.26s** _(phase-0-2026-10-06)_ | 1.1× faster | 🟠 improved, target not met |
+| **STT-2** | ffmpeg conversion on the critical path | per voice note | **92ms** | eliminate | **86ms** _(phase-0-2026-10-06)_ | 1.1× faster | 🟡 improved, target not met |
+| **PKG-1** | mac binaries inside the Windows build | installer size | **248.3 MB** | < 180.0 MB | **217.6 MB** _(phase-0-2026-10-06)_ | 1.1× faster | 🟠 improved, target not met |
+| **CHAT-1** | RAG runs two serial generations | chat reply p50 | **14.00s** | < 6.00s | **10.65s** _(phase-0-2026-10-06)_ | 1.3× faster | 🔴 improved, target not met |
+| **SEARCH-1** | Retrieval ranks the wrong entry first | precision@1 | **0.467** | > 0.750 | **0.467** _(phase-0-2026-10-06)_ | unchanged | 🔴 re-measured, no change |
+| **UI-1** | Journal list drops frames while scrolling | frames over 16.7ms | **2.4%** | < 2.0% | **1.9%** _(phase-0-2026-10-06)_ | −21% | ✅ fixed and verified |
+| **PKG-2** | zxcvbn dominates the JS bundle | share of JS | **42.2%** | < 5.0% | **43.2%** _(phase-0-2026-10-06)_ | +2% worse | 🟠 regressed |
+| **MEDIA-1** | base64 media over IPC | `media.getImage` round-trip | **1.30ms** | — | **0.90ms** _(phase-0-2026-10-06)_ | 1.4× faster | ✅ closed, no action |
 
 Legend: 🔴 high · 🟠 moderate · 🟡 low · ✅ done and verified
 
@@ -655,3 +682,85 @@ Three items remain deliberately manual, with the reasoning recorded in
 | Live transcription lag | Needs audio played into the mic through a virtual audio device. Already bounded by RTF 0.11 and the 1.40s spawn cost. |
 | First-run model download | 274 MB, bandwidth-bound. Measures the network, not the code. |
 | Installer run time | Would install and uninstall the app on every run; dominated by antivirus and disk state. |
+
+---
+
+## PHASE0 — schema migrations and worker foreign keys (measured: no detectable effect)
+
+**Not an optimisation.** Phase 0 exists to stop data loss, and this entry is
+here because the house rule is that anything which could move a number gets
+measured. Two changes could plausibly have:
+
+- `initDatabase()` no longer re-executes the whole schema on every launch. It
+  now runs only the migrations newer than `PRAGMA user_version`, which on an
+  up-to-date install is none.
+- `PRAGMA foreign_keys = ON` moved from inside the DDL to connection scope.
+  The main connection always had it; the **Qdrant worker's connection never
+  did**, so the worker has been writing with foreign keys off and now pays for
+  enforcement on every insert. That was the change most likely to cost
+  something, and the reason for measuring rather than assuming.
+
+**Result: nothing measurable, and the run cannot resolve anything smaller than
+roughly an order of magnitude.**
+
+The first comparison looked alarming — `write.create` 2.1× slower and
+`contention.listWhileWorkerWrites` 2.0× slower at 50,000 entries, which fits
+the foreign-key hypothesis neatly. It also showed contention **2.5× faster** at
+5,000 entries from the same code, which does not fit anything.
+
+So the same branch was measured against itself
+([comparison](COMPARISON-phase0-after-vs-phase0-after-2.md)). With **no code
+change at all**, that run reports `write.create` **13.2× slower** and
+`contention.listWhileWorkerWrites` **5.2× slower**, and twelve measurements
+"got worse". The noise floor is larger than every delta in the real
+before/after, so the real before/after establishes nothing in either direction.
+
+### The AI and app stages, added 2026-08-30
+
+The database stage was only ever half the question, so the rest was measured
+too, with Ollama running.
+
+**AI write path — unchanged.** Enrichment is the code that writes through the
+Qdrant worker's connection, so it is where enabling foreign keys there would
+show up. End-to-end enrichment came in at **6.63s** against a 6.85s baseline,
+time to first token at **374ms** against 410ms, ghost text at **349ms**
+against 448ms. Nothing regressed; the foreign-key cost is invisible next to
+model inference.
+
+**Retrieval quality reproduced the baseline exactly** — recall@5 0.767, MRR
+0.644, precision@1 0.467, the same three figures to three decimals. That is
+worth recording for its own sake: it shows the harness is deterministic where
+it should be, which is what makes the timing noise below credible as noise
+rather than as an unexplained regression.
+
+**Dashboard IPC — no measurable effect either.** Collapsing five sequential
+reads into one `Promise.allSettled` batch moved `dashboard settle` from 367ms
+to 391ms, and a second run of the same code gave 336ms. The before sits
+between the two afters. Per-channel round trips, which the change does not
+touch at all, moved as much as 43% between identical runs.
+
+There is a reason not to expect much here, worth writing down so nobody tries
+this again expecting a win: the five calls are handled by a single main
+process running synchronous SQLite. Issuing them together removes the
+round-trip latency from stacking, but the queries still execute one after
+another. `dashboard:get-stats` alone is 66–74ms of the total and is
+unaffected. The change was made so a failed read stops ending the session;
+treat any speed effect as incidental.
+
+Two caveats on the record, so nobody quotes these numbers later:
+
+- The machine was busy. Electron, a Vite dev server and Qdrant had been
+  starting and stopping across the session. A trustworthy figure needs a quiet
+  machine and repeated runs.
+- Two harness bugs had to be fixed before the app stage could measure
+  anything at all. Both were leftovers from MASTER_TODO item 24 retiring
+  `authMode`: `auth:login` was being called with a stale `"offline"` first
+  argument, so every login failed, and every IPC scenario passed the same
+  stale argument ahead of the token, so the channels that do not throw were
+  timing their `{ error: "Invalid token" }` envelope. `dashboard:get-data`
+  read as 0.30ms and 25 bytes. Anyone who ran the app stage between item 24
+  landing and this fix got numbers that measured nothing.
+- `ollamaList.execSyncBlock` still cannot be measured: the stage skips with
+  "ollama CLI not on PATH". The app shells out to `ollama` by name for that
+  call, so the same absence would affect the product, which is worth folding
+  into MASTER_TODO item 40.

@@ -15,12 +15,12 @@ import {
   Save,
   X,
 } from "lucide-react";
-import { Dropdown } from "../../ui/Dropdown"; // Import your custom Dropdown
+import { Dropdown, type DropdownOption } from "../../ui/Dropdown";
 
 interface ManualGoalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (goalData: any, newCategory?: Category) => void;
+  onSubmit: (goalData: Partial<Goal>) => void;
   initialData: Goal | null;
   categories: Category[];
   mode: "create" | "edit";
@@ -46,9 +46,6 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
   const [newCategoryColor, setNewCategoryColor] = useState("#4ade80");
 
   const { accessToken } = useAuth();
-  const authMode = (localStorage.getItem("authMode") || "offline") as
-    | "offline"
-    | "online";
 
   const themeColor =
     categories.find((c) => c.id === categoryId)?.color || "var(--color-info)";
@@ -93,10 +90,9 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
       }
       try {
         createdCategory = await categoryService.addCategory(
-          authMode,
           accessToken!,
           newCategoryName,
-          newCategoryColor
+          newCategoryColor,
         );
         finalCategoryId = createdCategory.lastInsertRowid;
       } catch (error) {
@@ -119,7 +115,7 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
       is_pinned: initialData?.is_pinned ? 1 : 0,
     };
 
-    onSubmit(goalData, createdCategory);
+    onSubmit(goalData);
     onClose();
   };
 
@@ -130,11 +126,10 @@ const ManualGoalModal: React.FC<ManualGoalModalProps> = ({
     "flex items-center gap-2 mb-2 text-sm font-medium text-text-light dark:text-text-dark";
 
   // Prepare options for the custom dropdown
-  const categoryOptions = useMemo(() => {
-    const options = categories.map((cat) => ({
-      value: cat.id,
-      label: cat.name,
-    }));
+  const categoryOptions = useMemo<DropdownOption<string | number>[]>(() => {
+    const options: DropdownOption<string | number>[] = categories.map(
+      (cat) => ({ value: cat.id, label: cat.name }),
+    );
     options.push({ value: "add_new", label: "✨ Add New Category..." });
     return options;
   }, [categories]);

@@ -113,7 +113,7 @@ export const MoodCalendar: React.FC<Props> = ({
                 "ring-2 ring-info/50": isTodaysDate && !isSelectedDate,
                 "text-white font-bold":
                   (isSelectedDate || isTodaysDate) && bgColorClass,
-              }
+              },
             )}
           >
             {day.date()}
@@ -123,7 +123,7 @@ export const MoodCalendar: React.FC<Props> = ({
               Mood: {moodScore.toFixed(1)} / 5
             </div>
           )}
-        </div>
+        </div>,
       );
       day = day.add(1, "day");
     }

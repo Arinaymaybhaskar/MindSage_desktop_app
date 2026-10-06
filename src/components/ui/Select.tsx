@@ -1,15 +1,15 @@
-import { ChevronDownIcon } from 'lucide-react'
+import { ChevronDownIcon } from "lucide-react";
 interface SelectProps {
-  id: string
-  label?: string
-  value: string
-  onChange: (value: string) => void
+  id: string;
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
   options: {
-    value: string
-    label: string
-  }[]
-  className?: string
-  size?: 'sm' | 'md' | 'lg'
+    value: string;
+    label: string;
+  }[];
+  className?: string;
+  size?: "sm" | "md" | "lg";
 }
 const Select = ({
   id,
@@ -17,14 +17,14 @@ const Select = ({
   value,
   onChange,
   options,
-  className = '',
-  size = 'md',
+  className = "",
+  size = "md",
 }: SelectProps) => {
   const sizeClasses = {
-    sm: 'w-24',
-    md: 'w-32',
-    lg: 'w-40',
-  }
+    sm: "w-24",
+    md: "w-32",
+    lg: "w-40",
+  };
   return (
     <div className="relative">
       {label && (
@@ -53,6 +53,6 @@ const Select = ({
         </div>
       </div>
     </div>
-  )
-}
-export default Select
+  );
+};
+export default Select;

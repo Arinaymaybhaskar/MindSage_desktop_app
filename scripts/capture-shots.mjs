@@ -52,7 +52,7 @@ const DEMO_LOGIN = { identifier: "maya@mindsage.local", password: "demo1234" };
  *
  * Without this the run photographs whichever account happens to be logged in -
  * which silently produces a technically perfect screenshot of the wrong data.
- * Goes through the real auth:login IPC and then writes the same three
+ * Goes through the real auth:login IPC and then writes the same two
  * localStorage keys AuthContext does (AuthContext.tsx:38-48), so the app is in
  * exactly the state a normal login leaves it in.
  */
@@ -65,7 +65,7 @@ async function ensureDemoUser(cdp) {
   const alreadyDemo = current?.email === DEMO_LOGIN.identifier;
   if (!alreadyDemo) {
     console.log(
-      `  Logged in as ${current?.username ?? "nobody"} - switching to the demo account`
+      `  Logged in as ${current?.username ?? "nobody"} - switching to the demo account`,
     );
   }
 
@@ -77,10 +77,9 @@ async function ensureDemoUser(cdp) {
   const result = await cdp.evaluate(`(async () => {
     try {
       const res = await window.electron.ipcRenderer.invoke(
-        "auth:login", "offline", ${JSON.stringify(DEMO_LOGIN)}
+        "auth:login", ${JSON.stringify(DEMO_LOGIN)}
       );
       if (!res?.accessToken) return { ok: false, error: "no token returned" };
-      localStorage.setItem("authMode", "offline");
       localStorage.setItem("accessToken", res.accessToken);
       localStorage.setItem("userInfo", JSON.stringify(res.userInfo));
       return { ok: true, name: res.userInfo.full_name || res.userInfo.username };
@@ -92,7 +91,7 @@ async function ensureDemoUser(cdp) {
   if (!result?.ok) {
     throw new Error(
       `demo login failed: ${result?.error ?? "unknown"}. ` +
-        `Run: npm run seed:demo -- --reset`
+        `Run: npm run seed:demo -- --reset`,
     );
   }
 
@@ -111,7 +110,9 @@ async function ensureDemoUser(cdp) {
 async function ensureTheme(cdp, name) {
   const colors = PRESETS[name];
   if (!colors) {
-    throw new Error(`Unknown theme "${name}". Available: ${PRESET_NAMES.join(", ")}`);
+    throw new Error(
+      `Unknown theme "${name}". Available: ${PRESET_NAMES.join(", ")}`,
+    );
   }
 
   const current = await cdp.evaluate(`(() => {
@@ -121,9 +122,15 @@ async function ensureTheme(cdp, name) {
 
   if (current === name) return name;
 
-  await cdp.evaluate(`localStorage.setItem('colorTheme', ${JSON.stringify(
-    JSON.stringify({ selectedTheme: name, useCustomColors: false, customColors: colors })
-  )})`);
+  await cdp.evaluate(
+    `localStorage.setItem('colorTheme', ${JSON.stringify(
+      JSON.stringify({
+        selectedTheme: name,
+        useCustomColors: false,
+        customColors: colors,
+      }),
+    )})`,
+  );
   if (!(await cdp.reload())) {
     throw new Error("app did not come back up after applying the theme");
   }
@@ -277,7 +284,7 @@ const shots = {
       // a fresh install. Expand it and open the seeded conversation.
       const expanded = await cdp.evaluate(
         `document.querySelectorAll('[data-testid="chat-list-item"]').length > 0
-         && !!document.querySelector('[data-testid="chat-list-item"]').innerText.trim()`
+         && !!document.querySelector('[data-testid="chat-list-item"]').innerText.trim()`,
       );
       if (!expanded) {
         await cdp.click('[data-testid="chat-sidebar-toggle"]');
@@ -298,7 +305,10 @@ const shots = {
       await cdp.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', {
         key: 'f', ctrlKey: true, bubbles: true
       }))`);
-      const opened = await cdp.waitFor('[data-testid="global-search-input"]', 5000);
+      const opened = await cdp.waitFor(
+        '[data-testid="global-search-input"]',
+        5000,
+      );
       if (!opened) throw new Error("global search did not open");
       await cdp.evaluate(`(() => {
         const el = document.querySelector('[data-testid="global-search-input"]');
@@ -327,7 +337,7 @@ async function run() {
   // into a full-set run.
   const themeValueIdx = themeIdx === -1 ? -1 : themeIdx + 1;
   const requested = argv.filter(
-    (a, i) => !a.startsWith("-") && i !== themeValueIdx
+    (a, i) => !a.startsWith("-") && i !== themeValueIdx,
   );
   const names = requested.length ? requested : Object.keys(shots);
 
@@ -351,7 +361,7 @@ async function run() {
   while (Date.now() < readyDeadline) {
     try {
       ready = await cdp.evaluate(
-        "!!document.body && document.body.dataset.appReady === 'true' && !!window.electron"
+        "!!document.body && document.body.dataset.appReady === 'true' && !!window.electron",
       );
     } catch {
       ready = false;
@@ -362,7 +372,7 @@ async function run() {
   if (!ready) {
     console.error(
       "\nApp is not ready, or this is not the Electron renderer.\n" +
-        "Start it with `npm run dev:capture` and wait for the window to appear."
+        "Start it with `npm run dev:capture` and wait for the window to appear.",
     );
     cdp.close();
     process.exit(1);
@@ -376,7 +386,7 @@ async function run() {
   await cdp.forceRelayout();
   console.log(
     `Viewport ${VIEWPORT.width}x${VIEWPORT.height} @${VIEWPORT.deviceScaleFactor}x ` +
-      `-> ${VIEWPORT.width * VIEWPORT.deviceScaleFactor}x${VIEWPORT.height * VIEWPORT.deviceScaleFactor}px\n`
+      `-> ${VIEWPORT.width * VIEWPORT.deviceScaleFactor}x${VIEWPORT.height * VIEWPORT.deviceScaleFactor}px\n`,
   );
 
   const results = [];
@@ -490,7 +500,7 @@ async function run() {
 
   const failed = results.filter((r) => !r.ok);
   console.log(
-    `\n${results.length - failed.length}/${results.length} captured -> ${OUT_DIR}`
+    `\n${results.length - failed.length}/${results.length} captured -> ${OUT_DIR}`,
   );
   if (failed.length) {
     console.log("Failed:");

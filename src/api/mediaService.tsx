@@ -19,7 +19,7 @@ export const mediaService = {
     journalId: number,
     mediaType: "image" | "audio",
     arrayBuffer: ArrayBuffer,
-    filename: string
+    filename: string,
   ): Promise<{ success: boolean; key?: string; message?: string }> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke("media:save", {

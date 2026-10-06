@@ -1,11 +1,5 @@
 export type MoodCore =
-  | "Happy"
-  | "Sad"
-  | "Angry"
-  | "Fearful"
-  | "Bad"
-  | "Surprised"
-  | "Disgusted";
+  "Happy" | "Sad" | "Angry" | "Fearful" | "Bad" | "Surprised" | "Disgusted";
 
 export type MoodHierarchy = {
   [core in MoodCore]: {

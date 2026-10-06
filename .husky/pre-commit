@@ -15,3 +15,30 @@ else
   echo "⚠ gitleaks not found — skipping secret scan."
   echo "  Install it for pre-commit secret protection: https://github.com/gitleaks/gitleaks#installing"
 fi
+
+# Formatting and lint on staged files. lint-staged re-stages whatever it
+# fixes, so a commit cannot land unformatted or with new lint errors.
+# Typecheck and lint are both at zero, and CI runs them with
+# continue-on-error, so this hook is what actually holds that line.
+if [ -x node_modules/.bin/lint-staged ]; then
+  npx --no-install lint-staged
+  status=$?
+  if [ $status -ne 0 ]; then
+    echo ""
+    echo "✖ lint-staged failed (see above). Fix the reported problems, or run"
+    echo "  'npm run format' and 'npm run lint' to see them in full."
+    exit $status
+  fi
+else
+  echo "⚠ lint-staged not found — skipping format/lint check."
+  echo "  Run 'npm install' to enable it."
+fi
+
+# Quick benchmark: the db stage at small volumes, about 25 seconds, compared
+# with the previous quick run. Runs only when runtime code is staged, never
+# blocks the commit, and publishes as kind "quick" when .env.bench is set up.
+# Skip a single commit with MS_SKIP_BENCH=1. The full suite is per phase:
+# npm run bench:phase -- <n>. See docs/benchmarks/README.md.
+if [ -f scripts/bench/quick-commit.mjs ]; then
+  node scripts/bench/quick-commit.mjs --hook
+fi

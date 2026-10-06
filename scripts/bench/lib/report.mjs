@@ -36,7 +36,10 @@ export function machineInfo() {
  */
 export function gitInfo() {
   const run = (args) =>
-    execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    execFileSync("git", args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
   try {
     return {
       commit: run(["rev-parse", "HEAD"]),
@@ -66,12 +69,16 @@ function timingTable(runs, metric = "p95") {
   // different sampling rule and its timings include deliberate interference
   // from a second thread, so listing it beside single-threaded numbers invites
   // a comparison that is not valid.
-  const names = [...new Set(runs.flatMap((r) => Object.keys(r.results)))].filter(
-    (n) => !n.startsWith("contention.")
-  );
+  const names = [
+    ...new Set(runs.flatMap((r) => Object.keys(r.results))),
+  ].filter((n) => !n.startsWith("contention."));
 
   const lines = [
-    row(["Scenario", ...volumes.map((v) => `${v.toLocaleString()} entries`), "Slope"]),
+    row([
+      "Scenario",
+      ...volumes.map((v) => `${v.toLocaleString()} entries`),
+      "Slope",
+    ]),
     divider(volumes.length + 2),
   ];
 
@@ -90,7 +97,8 @@ function timingTable(runs, metric = "p95") {
     let slope = "-";
     if (first?.[metric] > 0 && last?.[metric] > 0) {
       const ratio = last[metric] / first[metric];
-      slope = ratio >= 1.5 ? `**${ratio.toFixed(1)}×**` : `${ratio.toFixed(1)}×`;
+      slope =
+        ratio >= 1.5 ? `**${ratio.toFixed(1)}×**` : `${ratio.toFixed(1)}×`;
     }
 
     lines.push(row([`\`${name}\``, ...cells, slope]));
@@ -127,7 +135,9 @@ function contentionSection(runs) {
   for (const run of runs) {
     const c = run.results["contention.listWhileWorkerWrites"];
     if (!c || c.error) {
-      lines.push(row([run.entries.toLocaleString(), "error", "-", "-", "-", "-", "-"]));
+      lines.push(
+        row([run.entries.toLocaleString(), "error", "-", "-", "-", "-", "-"]),
+      );
       continue;
     }
     // Sample count is shown because p95 over a handful of reads is just the
@@ -142,7 +152,7 @@ function contentionSection(runs) {
         fmt(c.max),
         String(c.busyErrors),
         String(c.writesCompleted ?? "-"),
-      ])
+      ]),
     );
   }
   return lines.join("\n");
@@ -163,7 +173,7 @@ function mediaSection(media) {
         r.fileBytes ? fmtBytes(r.fileBytes) : "-",
         r.encodedBytes ? fmtBytes(r.encodedBytes) : "-",
         r.inflation ? `${r.inflation}×` : "-",
-      ])
+      ]),
     );
   }
   return lines.join("\n");
@@ -174,27 +184,38 @@ function sizeSection(size) {
   const lines = [row(["Target", "Size", "Files"]), divider(3)];
   for (const [label, r] of Object.entries(size.results)) {
     lines.push(
-      row([label, r.missing ? `_${r.hint}_` : fmtBytes(r.bytes), r.missing ? "-" : String(r.files)])
+      row([
+        label,
+        r.missing ? `_${r.hint}_` : fmtBytes(r.bytes),
+        r.missing ? "-" : String(r.files),
+      ]),
     );
   }
 
   const breakdown = Object.entries(size.resourceBreakdown ?? {}).sort(
-    (a, b) => (b[1].bytes ?? 0) - (a[1].bytes ?? 0)
+    (a, b) => (b[1].bytes ?? 0) - (a[1].bytes ?? 0),
   );
   if (breakdown.length > 0) {
-    lines.push("", "**`resources/` breakdown**", "", row(["Item", "Size"]), divider(2));
-    for (const [name, r] of breakdown) lines.push(row([`\`${name}\``, fmtBytes(r.bytes)]));
+    lines.push(
+      "",
+      "**`resources/` breakdown**",
+      "",
+      row(["Item", "Size"]),
+      divider(2),
+    );
+    for (const [name, r] of breakdown)
+      lines.push(row([`\`${name}\``, fmtBytes(r.bytes)]));
   }
 
   const installers = Object.entries(size.installers ?? {});
   if (installers.length > 0) {
     lines.push("", "**Installers**", "", row(["Artefact", "Size"]), divider(2));
-    for (const [name, bytes] of installers) lines.push(row([`\`${name}\``, fmtBytes(bytes)]));
+    for (const [name, bytes] of installers)
+      lines.push(row([`\`${name}\``, fmtBytes(bytes)]));
   }
 
   return lines.join("\n");
 }
-
 
 /**
  * AI pipeline. Model identity is printed above the numbers because a latency
@@ -202,7 +223,8 @@ function sizeSection(size) {
  * embedding models can be changed from the settings page.
  */
 function aiSection(ai) {
-  if (!ai?.results) return "_Not measured. Run `npm run bench -- --stages ai` with Ollama running._";
+  if (!ai?.results)
+    return "_Not measured. Run `npm run bench -- --stages ai` with Ollama running._";
 
   const r = ai.results;
   const lines = [
@@ -213,7 +235,11 @@ function aiSection(ai) {
   ];
 
   for (const [name, v] of Object.entries(r)) {
-    if (name === "embed.projectedBacklog" || name === "embed.sustainedThroughput") continue;
+    if (
+      name === "embed.projectedBacklog" ||
+      name === "embed.sustainedThroughput"
+    )
+      continue;
     if (v.skipped) {
       lines.push(row([`\`${name}\``, "-", "-", `_${v.reason}_`]));
       continue;
@@ -224,7 +250,14 @@ function aiSection(ai) {
     if (v.usableRate) notes.push(`usable ${v.usableRate}`);
     if (v.dimensions) notes.push(`${v.dimensions}d`);
     if (v.wallMs !== undefined && v.p50 === undefined) {
-      lines.push(row([`\`${name}\``, fmt(v.wallMs), "-", notes.join(", ") || "single sample"]));
+      lines.push(
+        row([
+          `\`${name}\``,
+          fmt(v.wallMs),
+          "-",
+          notes.join(", ") || "single sample",
+        ]),
+      );
       continue;
     }
     lines.push(row([`\`${name}\``, fmt(v.p50), fmt(v.p95), notes.join(", ")]));
@@ -235,7 +268,7 @@ function aiSection(ai) {
   if (thr) {
     lines.push(
       "",
-      `**Sustained embedding throughput:** ${thr.embeddingsPerSec}/sec (${thr.msPerEmbedding}ms each)`
+      `**Sustained embedding throughput:** ${thr.embeddingsPerSec}/sec (${thr.msPerEmbedding}ms each)`,
     );
   }
   if (backlog) {
@@ -245,7 +278,7 @@ function aiSection(ai) {
       "the SQLite write per entry, both of which contend with foreground reads):",
       "",
       row(["Journal size", "Backfill time"]),
-      divider(2)
+      divider(2),
     );
     for (const [k, v] of Object.entries(backlog)) lines.push(row([k, v]));
   }
@@ -254,7 +287,8 @@ function aiSection(ai) {
 
 /** Vector search. Latency only - says nothing about result quality. */
 function vectorSection(vector) {
-  if (!vector?.results) return "_Not measured. Run `npm run bench -- --stages vector`._";
+  if (!vector?.results)
+    return "_Not measured. Run `npm run bench -- --stages vector`._";
   const r = vector.results;
   const lines = [row(["Measurement", "Value"]), divider(2)];
 
@@ -270,13 +304,24 @@ function vectorSection(vector) {
         row([
           `Search at ${size.toLocaleString()} vectors (p50 / p95)`,
           `${fmt(s.p50)} / ${fmt(s.p95)}`,
-        ])
+        ]),
       );
     }
     if (up?.vectorsPerSec) {
-      lines.push(row([`Upsert rate to ${size.toLocaleString()}`, `${up.vectorsPerSec}/sec`]));
+      lines.push(
+        row([
+          `Upsert rate to ${size.toLocaleString()}`,
+          `${up.vectorsPerSec}/sec`,
+        ]),
+      );
     }
-    if (rss?.bytes) lines.push(row([`Resident memory at ${size.toLocaleString()}`, fmtBytes(rss.bytes)]));
+    if (rss?.bytes)
+      lines.push(
+        row([
+          `Resident memory at ${size.toLocaleString()}`,
+          fmtBytes(rss.bytes),
+        ]),
+      );
   }
 
   const disk = r["qdrant.storageOnDisk"];
@@ -285,7 +330,7 @@ function vectorSection(vector) {
       row([
         `Storage on disk (${disk.vectors?.toLocaleString()} vectors)`,
         `${fmtBytes(disk.bytes)} — includes mmap preallocation`,
-      ])
+      ]),
     );
   }
   return lines.join(BR);
@@ -293,7 +338,8 @@ function vectorSection(vector) {
 
 /** Speech-to-text. RTF is the portable number; raw seconds are machine-bound. */
 function whisperSection(whisper) {
-  if (!whisper?.results) return "_Not measured. Run `npm run bench -- --stages whisper`._";
+  if (!whisper?.results)
+    return "_Not measured. Run `npm run bench -- --stages whisper`._";
   const lines = [
     `**Model:** \`${whisper.model}\` (${fmtBytes(whisper.modelBytes ?? 0)})`,
     "",
@@ -308,28 +354,31 @@ function whisperSection(whisper) {
         fmt(v.p50),
         v.realTimeFactor !== undefined ? String(v.realTimeFactor) : "-",
         v.speedVsRealtime ?? "-",
-      ])
+      ]),
     );
   }
-  lines.push("", "_RTF = processing time ÷ audio duration. Below 1.0 is faster than real time._");
+  lines.push(
+    "",
+    "_RTF = processing time ÷ audio duration. Below 1.0 is faster than real time._",
+  );
   return lines.join(BR);
 }
 
 /** Cold start, per step. */
 function startupSection(startup) {
-  if (!startup?.stepStats) return "_Not measured. Requires a packaged build; run `npm run build` first._";
-  const lines = [
-    row(["Step", "p50", "p95"]),
-    divider(3),
-  ];
+  if (!startup?.stepStats)
+    return "_Not measured. Requires a packaged build; run `npm run build` first._";
+  const lines = [row(["Step", "p50", "p95"]), divider(3)];
   for (const [marker, s] of Object.entries(startup.stepStats)) {
     lines.push(row([marker, fmt(s.p50), fmt(s.p95)]));
   }
-  lines.push("", `**Total (p50):** ${fmt(startup.totals?.p50)} across ${startup.runs} run(s)`);
+  lines.push(
+    "",
+    `**Total (p50):** ${fmt(startup.totals?.p50)} across ${startup.runs} run(s)`,
+  );
   if (startup.note) lines.push("", `_${startup.note}_`);
   return lines.join(BR);
 }
-
 
 /** App-level measurements taken through CDP against a seeded profile. */
 function appSection(app) {
@@ -343,7 +392,8 @@ function appSection(app) {
     divider(4),
   ];
   for (const [name, v] of Object.entries(app.results)) {
-    if (name === "memory.overSession" || name === "render.journalListScroll") continue;
+    if (name === "memory.overSession" || name === "render.journalListScroll")
+      continue;
     if (v.error) {
       lines.push(row([`\`${name}\``, "error", "-", v.error]));
       continue;
@@ -354,7 +404,7 @@ function appSection(app) {
         fmt(v.p50),
         fmt(v.p95),
         v.payloadBytes ? fmtBytes(v.payloadBytes) : "-",
-      ])
+      ]),
     );
   }
 
@@ -371,7 +421,7 @@ function appSection(app) {
         fmt(scroll.p95),
         `${scroll.droppedFrames}/${scroll.framesSampled} (${scroll.droppedPercent}%)`,
         String(scroll.domNodes ?? "-"),
-      ])
+      ]),
     );
   }
 
@@ -386,8 +436,10 @@ function appSection(app) {
       row([
         fmtBytes(mem.startRssBytes ?? 0),
         fmtBytes(mem.endRssBytes ?? 0),
-        mem.growthBytes === null ? "-" : `${mem.growthBytes >= 0 ? "+" : ""}${fmtBytes(Math.abs(mem.growthBytes))}`,
-      ])
+        mem.growthBytes === null
+          ? "-"
+          : `${mem.growthBytes >= 0 ? "+" : ""}${fmtBytes(Math.abs(mem.growthBytes))}`,
+      ]),
     );
     if (mem.note) lines.push("", `_${mem.note}_`);
   }
@@ -412,13 +464,14 @@ function bundleSection(bundle) {
     divider(3),
   ];
   for (const [owner, bytes] of Object.entries(bundle.byOwner ?? {})) {
-    const share = t.javascriptBytes ? `${((bytes / t.javascriptBytes) * 100).toFixed(1)}%` : "-";
+    const share = t.javascriptBytes
+      ? `${((bytes / t.javascriptBytes) * 100).toFixed(1)}%`
+      : "-";
     lines.push(row([`\`${owner}\``, fmtBytes(bytes), share]));
   }
   if (bundle.note) lines.push("", `_${bundle.note}_`);
   return lines.join(BR);
 }
-
 
 /** Chat RAG, split into its four serialized stages. */
 function ragSection(rag) {
@@ -475,20 +528,37 @@ function qualitySection(quality) {
       `**${misses.length} of ${s.queries} queries returned an irrelevant top hit**`,
       "",
       row(["Query", "Top hit", "Expected"]),
-      divider(3)
+      divider(3),
     );
     for (const m of misses) {
-      lines.push(row([m.query, String(m.returned[0] ?? "-"), m.relevant.join(", ")]));
+      lines.push(
+        row([m.query, String(m.returned[0] ?? "-"), m.relevant.join(", ")]),
+      );
     }
   }
   lines.push(
     "",
-    "_Scores are corpus-relative. An absolute value means little; a drop between runs means something broke._"
+    "_Scores are corpus-relative. An absolute value means little; a drop between runs means something broke._",
   );
   return lines.join(BR);
 }
 
-export function renderMarkdown({ label, timestamp, machine, dbRuns, media, size, ai, vector, whisper, startup, app, bundle, rag, quality }) {
+export function renderMarkdown({
+  label,
+  timestamp,
+  machine,
+  dbRuns,
+  media,
+  size,
+  ai,
+  vector,
+  whisper,
+  startup,
+  app,
+  bundle,
+  rag,
+  quality,
+}) {
   const largest = dbRuns[dbRuns.length - 1];
   const pragmas = largest?.pragmas ?? {};
 
@@ -573,7 +643,7 @@ ${sizeSection(size)}
 ${dbRuns
   .map(
     (r) =>
-      `| ${r.entries.toLocaleString()} | ${fmt(r.seedMs)} | ${fmtBytes(r.dbSizeBytes)} |`
+      `| ${r.entries.toLocaleString()} | ${fmt(r.seedMs)} | ${fmtBytes(r.dbSizeBytes)} |`,
   )
   .join("\n")}
 `;
@@ -684,8 +754,16 @@ function regressionBlock(blocks) {
     for (const line of block.split(BR)) {
       const m = line.match(/^\|\s*(.+?)\s*\|.*\|\s*([\d.]+)× slower\s*\|/);
       if (m) regressions.push({ section, name: m[1], factor: Number(m[2]) });
-      const worse = line.match(/^\|\s*(.+?)\s*\|.*\|\s*[−+]([\d.]+)% worse\s*\|/);
-      if (worse) regressions.push({ section, name: worse[1], factor: null, pct: Number(worse[2]) });
+      const worse = line.match(
+        /^\|\s*(.+?)\s*\|.*\|\s*[−+]([\d.]+)% worse\s*\|/,
+      );
+      if (worse)
+        regressions.push({
+          section,
+          name: worse[1],
+          factor: null,
+          pct: Number(worse[2]),
+        });
     }
   }
   if (!regressions.length) {
@@ -700,7 +778,7 @@ function regressionBlock(blocks) {
     `> | --- | --- | --- |`,
     ...regressions.map(
       (r) =>
-        `> | ${r.section} | ${r.name} | ${r.factor ? `**${r.factor}× slower**` : `**${r.pct}% worse**`} |`
+        `> | ${r.section} | ${r.name} | ${r.factor ? `**${r.factor}× slower**` : `**${r.pct}% worse**`} |`,
     ),
     ">",
     "> A win elsewhere does not cancel these. Decide deliberately whether each is",
@@ -768,7 +846,7 @@ function modelTable(before, after) {
     lines.push(
       "",
       "_A model changed between these runs. Every AI, RAG and retrieval-quality" +
-        " figure below reflects that swap as well as any code change._"
+        " figure below reflects that swap as well as any code change._",
     );
   }
   return `${lines.join(BR)}${BR}`;
@@ -802,7 +880,8 @@ function timingCompare(title, before, after, metric) {
 
 /** Cold start: the total is the number a user feels; the steps say why. */
 function startupCompare(before, after, metric) {
-  if (!before?.totals || !after?.totals || before?.skipped || after?.skipped) return "";
+  if (!before?.totals || !after?.totals || before?.skipped || after?.skipped)
+    return "";
   const lines = [
     "## Cold start",
     "",
@@ -856,7 +935,7 @@ function qualityCompare(before, after) {
   if (b.embedModel !== a.embedModel) {
     lines.push(
       "",
-      `_Embedding model differs: \`${b.embedModel}\` → \`${a.embedModel}\`._`
+      `_Embedding model differs: \`${b.embedModel}\` → \`${a.embedModel}\`._`,
     );
   }
   return lines.join(BR);
@@ -880,7 +959,10 @@ function bundleCompare(before, after) {
       "JavaScript (gzipped)",
       fmtBytes(before.totals.javascriptGzipBytes),
       fmtBytes(after.totals.javascriptGzipBytes),
-      sizeChange(before.totals.javascriptGzipBytes, after.totals.javascriptGzipBytes),
+      sizeChange(
+        before.totals.javascriptGzipBytes,
+        after.totals.javascriptGzipBytes,
+      ),
     ]),
   ];
   const owners = new Set([
@@ -892,7 +974,9 @@ function bundleCompare(before, after) {
     const av = after.byOwner?.[owner] ?? 0;
     // Only the movers: an unchanged dependency list is noise in a delta report.
     if (Math.abs(av - bv) < 10_000) continue;
-    lines.push(row([`\`${owner}\``, fmtBytes(bv), fmtBytes(av), sizeChange(bv, av)]));
+    lines.push(
+      row([`\`${owner}\``, fmtBytes(bv), fmtBytes(av), sizeChange(bv, av)]),
+    );
   }
   return lines.join(BR);
 }
@@ -909,9 +993,7 @@ function sizeChange(bv, av) {
   if (!bv || !av) return "-";
   const delta = av - bv;
   if (Math.abs(delta / bv) < 0.02) return "unchanged";
-  return delta < 0
-    ? `**−${fmtBytes(-delta)}**`
-    : `+${fmtBytes(delta)}`;
+  return delta < 0 ? `**−${fmtBytes(-delta)}**` : `+${fmtBytes(delta)}`;
 }
 
 /**
@@ -921,7 +1003,17 @@ function sizeChange(bv, av) {
  * reads as "nothing moved" when the truth is "nobody looked".
  */
 function notCompared(before, after) {
-  const stages = ["db", "ai", "vector", "rag", "app", "whisper", "startup", "quality", "bundle"];
+  const stages = [
+    "db",
+    "ai",
+    "vector",
+    "rag",
+    "app",
+    "whisper",
+    "startup",
+    "quality",
+    "bundle",
+  ];
   const has = (r, s) => {
     if (s === "db") return (r.dbRuns ?? []).length > 0;
     const v = r[s];

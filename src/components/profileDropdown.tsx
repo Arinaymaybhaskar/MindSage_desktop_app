@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
-import AuthContext from "../context/AuthContext";
+import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Settings,
@@ -26,7 +26,7 @@ export const ProfileDropdown: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
-  const { logout } = useContext(AuthContext);
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [showKeyboardModal, setShowKeyboardModal] = useState(false);
 
@@ -52,9 +52,9 @@ export const ProfileDropdown: React.FC = () => {
       return;
     }
     try {
-      const dataUrl = await window.electron.ipcRenderer.invoke(
-        "media:getImage",
-        imagePath
+      const dataUrl = await window.electron.ipcRenderer.invoke<string | null>(
+        "media:get-image",
+        imagePath,
       );
       setProfileImageSrc(dataUrl ?? null);
     } catch (err) {
@@ -95,15 +95,17 @@ export const ProfileDropdown: React.FC = () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(
         "user:updated",
-        onUserUpdated as EventListener
+        onUserUpdated as EventListener,
       );
     };
   }, []);
 
   const handleLogout = () => {
+    // No reload: it was only ever here to force the app to notice a logout
+    // that did not reset any state. Reloading also throws away the colour
+    // theme and zoom that logout now deliberately leaves alone.
     if (logout) logout();
     navigate("/login");
-    window.location.reload();
   };
 
   const displayName = user?.full_name || user?.username;
@@ -270,7 +272,7 @@ export const ProfileDropdown: React.FC = () => {
               </motion.div>
             </motion.div>
           </AnimatePresence>,
-          document.body
+          document.body,
         )}
     </>
   );
