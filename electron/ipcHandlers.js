@@ -97,6 +97,26 @@ import {
   linkMediaToMessage as handleLinkMediaToMessage,
 } from "./methods/chat.js";
 import { handleExportUserData } from "./methods/exportData.js";
+import {
+  handleAddAlias,
+  handleConfirmPerson,
+  handleDeletePerson,
+  handleFixMention,
+  handleGetEntryMentions,
+  handleGetInbox,
+  handleGetPerson,
+  handleGetStatus as handleGetPeopleStatus,
+  handleIgnorePerson,
+  handleListPeople,
+  handleMergePeople,
+  handleRemoveAlias,
+  handleRetryFailed,
+  handleSetEnabled as handleSetPeopleEnabled,
+  handleSetPaused as handleSetPeoplePaused,
+  handleSummarize,
+  handleUndoMerge,
+  handleUpdatePerson,
+} from "./methods/people.js";
 import { eventBus } from "./eventBus.js";
 import { db } from "./db/connection.js";
 
@@ -248,6 +268,26 @@ export function registerIPCHandlers(runtime) {
   ipcMain.handle("chat:get-chats", handleGetChats);
   ipcMain.handle("chat:delete-chat", handleDeleteChat);
   ipcMain.handle("chat:change-title", handleChangeChatTitle);
+
+  // People
+  ipcMain.handle("people:get-status", handleGetPeopleStatus);
+  ipcMain.handle("people:set-enabled", handleSetPeopleEnabled);
+  ipcMain.handle("people:set-paused", handleSetPeoplePaused);
+  ipcMain.handle("people:retry-failed", handleRetryFailed);
+  ipcMain.handle("people:list", handleListPeople);
+  ipcMain.handle("people:get", handleGetPerson);
+  ipcMain.handle("people:summarize", handleSummarize);
+  ipcMain.handle("people:get-inbox", handleGetInbox);
+  ipcMain.handle("people:confirm", handleConfirmPerson);
+  ipcMain.handle("people:ignore", handleIgnorePerson);
+  ipcMain.handle("people:delete", handleDeletePerson);
+  ipcMain.handle("people:update", handleUpdatePerson);
+  ipcMain.handle("people:add-alias", handleAddAlias);
+  ipcMain.handle("people:remove-alias", handleRemoveAlias);
+  ipcMain.handle("people:merge", handleMergePeople);
+  ipcMain.handle("people:undo-merge", handleUndoMerge);
+  ipcMain.handle("people:entry-mentions", handleGetEntryMentions);
+  ipcMain.handle("people:fix-mention", handleFixMention);
 
   // export data
   ipcMain.handle("user:export-data", handleExportUserData);

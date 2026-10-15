@@ -28,6 +28,7 @@ Reference documents for the MindSage desktop app. Orientation docs stay at the r
 | [OFFLINE_AUTH_DESIGN.md](OFFLINE_AUTH_DESIGN.md) | Proposal | An encrypted-vault login flow for a fully offline app, and how password recovery works without a server. |
 | [MAC_RELEASE_PLAN.md](MAC_RELEASE_PLAN.md) | Plan | What it takes to ship on macOS: mac Whisper binaries, arm64 Qdrant, signing and notarisation, CI matrix. |
 | [BUNDLE_SIZE_PLAN.md](BUNDLE_SIZE_PLAN.md) | Plan | Why the installer is 236 MB and the app 777 MB, and how to get to ~80 MB / ~320 MB. |
+| [PEOPLE.md](PEOPLE.md) | Built, not shippable | The People section: how entries become people, the lifecycle of every row, and what is still missing before it can ship (encryption at rest, Discreet mode, the accuracy test set). |
 
 ## Working docs
 

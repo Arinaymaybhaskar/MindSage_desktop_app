@@ -27,9 +27,12 @@ import {
   MessageSquareDot,
   PenIcon,
   Target,
+  Users,
 } from "lucide-react";
 import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
+import PeoplePage from "./pages/people";
+import PersonDetail from "./pages/personDetail";
 import OllamaTutorialPage from "./pages/OllamaTutorial";
 import QdrantViewer from "./pages/qdrantViewer";
 import { ColorThemeProvider } from "./context/ColorThemeContext";
@@ -165,6 +168,7 @@ function AppLayout() {
 
     { path: "/chat", icon: <MessageSquareDot size={18} />, label: "Chat" },
     { path: "/goals", icon: <Target size={18} />, label: "Goals" },
+    { path: "/people", icon: <Users size={18} />, label: "People" },
   ].map((item) => ({
     ...item,
     onClick: () => navigate(item.path),
@@ -318,6 +322,22 @@ function AppLayout() {
                   element={
                     <PrivateRoute>
                       <DataExport />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/people"
+                  element={
+                    <PrivateRoute>
+                      <PeoplePage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/people/:id"
+                  element={
+                    <PrivateRoute>
+                      <PersonDetail />
                     </PrivateRoute>
                   }
                 />

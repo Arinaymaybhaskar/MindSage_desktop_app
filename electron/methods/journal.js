@@ -59,6 +59,9 @@ export async function handleUpdateJournal(event, journalId, payload) {
   if (!userId) throw new Error("Not signed in");
   let updatedJournal;
   updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
+  // People re-reads the entry only if its text actually changed.
+  if (updatedJournal)
+    eventBus.emit("journal:edited", { userId, entry: updatedJournal });
   if (updatedJournal.audio_key) {
     eventBus.emit("journal:audio-saved", { entry: updatedJournal, event });
   }
