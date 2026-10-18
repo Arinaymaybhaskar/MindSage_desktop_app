@@ -41,8 +41,24 @@ export default defineConfig({
         },
       },
 
+      // Sandboxed preloads cannot be ES modules, so both are emitted as
+      // CommonJS. The package is "type": "module", hence the .cjs extension.
       preload: {
-        input: path.join(__dirname, "electron/preload.js"),
+        input: {
+          preload: path.join(__dirname, "electron/preload.js"),
+          splashPreload: path.join(__dirname, "electron/splashPreload.js"),
+        },
+        vite: {
+          build: {
+            rollupOptions: {
+              output: {
+                format: "cjs",
+                entryFileNames: "[name].cjs",
+                inlineDynamicImports: false,
+              },
+            },
+          },
+        },
       },
     }),
   ],

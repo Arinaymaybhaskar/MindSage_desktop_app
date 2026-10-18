@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils } from "electron";
+import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 
 contextBridge.exposeInMainWorld("electron", {
   minimize: () => ipcRenderer.send("minimize-window"),
@@ -6,14 +6,8 @@ contextBridge.exposeInMainWorld("electron", {
   close: () => ipcRenderer.send("close-window"),
 
   zoom: {
-    set: (factor) => {
-      const { webFrame } = require("electron");
-      webFrame.setZoomFactor(factor);
-    },
-    get: () => {
-      const { webFrame } = require("electron");
-      return webFrame.getZoomFactor();
-    },
+    set: (factor) => webFrame.setZoomFactor(factor),
+    get: () => webFrame.getZoomFactor(),
   },
 
   send: (channel, ...args) => ipcRenderer.send(channel, ...args),
