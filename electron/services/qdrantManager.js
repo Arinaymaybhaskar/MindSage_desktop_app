@@ -7,6 +7,33 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 
 let qdrantProc = null;
 
+// A Qdrant that accepts a connection and never answers must not hold startup
+// forever (KAN-335): every request is bounded, and so is the whole start, so
+// startServices always gets a result and the window can open without search.
+const REQUEST_TIMEOUT_MS = 3000;
+const START_DEADLINE_MS = 18000;
+
+/** fetch that gives up after `ms`, using timers a test can fake. */
+async function fetchWithTimeout(url, ms = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Rejects if `promise` has not settled within `ms`; the work is left to finish. */
+function withDeadline(promise, ms, message) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  promise.catch(() => {}); // a late failure after the deadline is not unhandled
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
 // Retain logs for 7 days
 const LOG_RETENTION_DAYS = 7;
 
@@ -94,7 +121,7 @@ async function waitForReady(url, timeoutMs = 15000, failure = () => null) {
     const failed = failure();
     if (failed) throw failed;
     try {
-      const res = await fetch(`${url}/collections`);
+      const res = await fetchWithTimeout(`${url}/collections`);
       if (res.ok) return;
     } catch {}
     if (Date.now() - start > timeoutMs)
@@ -104,7 +131,7 @@ async function waitForReady(url, timeoutMs = 15000, failure = () => null) {
 }
 
 async function ensureCollection(baseUrl) {
-  const client = new QdrantClient({ url: baseUrl });
+  const client = new QdrantClient({ url: baseUrl, timeout: 5000 });
   const collectionName = "mind_entries";
 
   try {
@@ -245,7 +272,15 @@ async function ensureCollection(baseUrl) {
   }
 }
 
-export async function startQdrant() {
+export function startQdrant() {
+  return withDeadline(
+    startQdrantUnbounded(),
+    START_DEADLINE_MS,
+    "Qdrant did not finish starting in time",
+  );
+}
+
+async function startQdrantUnbounded() {
   if (qdrantProc) {
     // Also the path a retry takes when the first start timed out on a slow
     // Qdrant that is still coming up, so wait for it rather than assume it.

@@ -130,6 +130,27 @@ describe("startQdrant", () => {
     expect(runtime.httpPort).toBe(port);
     expect(fetch).toHaveBeenLastCalledWith(
       `http://127.0.0.1:${port}/collections`,
+      expect.objectContaining({ signal: expect.anything() }),
     );
+  });
+
+  it("gives up on a Qdrant that accepts connections and never answers", async () => {
+    // A fetch that never settles used to hold startup, and so the splash, forever.
+    fetch.mockImplementation(() => new Promise(() => {}));
+    const starting = startQdrant();
+    const result = expect(starting).rejects.toThrow(
+      /did not (become ready|finish starting)/,
+    );
+    await vi.advanceTimersByTimeAsync(20_000);
+    await result;
+  });
+
+  it("gives up when the collection check hangs after Qdrant answered", async () => {
+    fetch.mockImplementation(ready);
+    client.getCollection.mockImplementationOnce(() => new Promise(() => {}));
+    const starting = startQdrant();
+    const result = expect(starting).rejects.toThrow(/did not finish starting/);
+    await vi.advanceTimersByTimeAsync(20_000);
+    await result;
   });
 });
