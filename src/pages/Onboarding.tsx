@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ASK_DISCLAIMER } from "../constants/askDisclaimer";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -233,6 +234,9 @@ export default function Onboarding() {
               gets the local engine ready. You can skip and do it later.
             </p>
             <p>Journaling works without it.</p>
+            <p className="mt-2" data-testid="onboarding-disclaimer">
+              {ASK_DISCLAIMER}
+            </p>
           </div>
         </div>
 
