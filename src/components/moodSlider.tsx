@@ -7,12 +7,16 @@ type Props = {
   onChange: (val: number) => void;
 };
 
+// The packaged app loads index.html from disk, so a leading-slash path
+// would point at the drive root; BASE_URL is "./" in a build.
+const face = (n: number) => `${import.meta.env.BASE_URL}emojis/${n}.png`;
+
 const moods = [
-  { value: 1, emoji: "/emojis/1.png", label: "Bad", color: "#ef4444" },
-  { value: 2, emoji: "/emojis/2.png", label: "Neutral", color: "#f97316" },
-  { value: 3, emoji: "/emojis/3.png", label: "Good", color: "#eab308" },
-  { value: 4, emoji: "/emojis/4.png", label: "Great", color: "#84cc16" },
-  { value: 5, emoji: "/emojis/5.png", label: "Excellent", color: "#22c55e" },
+  { value: 1, emoji: face(1), label: "Bad", color: "#ef4444" },
+  { value: 2, emoji: face(2), label: "Neutral", color: "#f97316" },
+  { value: 3, emoji: face(3), label: "Good", color: "#eab308" },
+  { value: 4, emoji: face(4), label: "Great", color: "#84cc16" },
+  { value: 5, emoji: face(5), label: "Excellent", color: "#22c55e" },
 ];
 
 export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
