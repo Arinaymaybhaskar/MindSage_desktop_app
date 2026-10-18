@@ -61,6 +61,9 @@ db.pragma("foreign_keys = ON");
 // commits on a power cut, which FULL would cost an fsync per write to prevent.
 db.pragma("journal_mode = WAL");
 db.pragma("synchronous = NORMAL");
+// Deleted rows are overwritten, not left readable in the file's free pages:
+// deleting something for good has to remove its text from the database file.
+db.pragma("secure_delete = ON");
 
 // A pre-migration snapshot is the user's only insurance: the database is the
 // single copy of their journal and there is no undo for a bad ALTER.

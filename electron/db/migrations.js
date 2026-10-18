@@ -467,6 +467,18 @@ export const MIGRATIONS = [
         );
       `),
   },
+  {
+    // Deleting an entry or goal for good looks up the saved answers that cite
+    // it by (source_type, source_id); without this index every lookup walks
+    // all of the user's messages.
+    version: 6,
+    name: "message-sources-lookup",
+    up: (d) =>
+      d.exec(`
+      CREATE INDEX IF NOT EXISTS idx_message_sources_source
+        ON message_sources(source_type, source_id);
+    `),
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
