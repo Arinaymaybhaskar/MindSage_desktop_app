@@ -30,6 +30,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:db": "node scripts/run-db-tests.mjs",
     "test:watch": "vitest",
     "prepare": "husky",
     "bench:board": "node scripts/bench/render-board.mjs",
