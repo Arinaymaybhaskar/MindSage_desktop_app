@@ -29,8 +29,15 @@ export function isAppUrl(url, { devUrl, distDir }) {
   }
   if (devUrl) return target.origin === new URL(devUrl).origin;
   if (target.protocol !== "file:" || !distDir) return false;
-  const base = pathToFileURL(distDir).href.replace(/\/?$/, "/");
-  return decodeURI(target.href).startsWith(decodeURI(base));
+  if (target.host !== "" && target.host !== "localhost") return false;
+  // An escaped separator is how a path would climb out once decoded.
+  if (/%2f|%5c/i.test(target.pathname)) return false;
+  // Both pathnames are the canonical, still percent-encoded form, so no
+  // decoding is needed (and a malformed escape cannot throw).
+  const base = pathToFileURL(distDir).pathname.replace(/\/?$/, "/");
+  return process.platform === "win32"
+    ? target.pathname.toLowerCase().startsWith(base.toLowerCase())
+    : target.pathname.startsWith(base);
 }
 
 /**
@@ -39,14 +46,20 @@ export function isAppUrl(url, { devUrl, distDir }) {
  */
 export function guardContents(contents, { isApp, openExternal }) {
   contents.setWindowOpenHandler(({ url }) => {
-    if (isSafeExternalUrl(url) && !isApp(url)) openExternal(url);
+    if (isSafeExternalUrl(url) && !isApp(url)) openExternal(new URL(url).href);
     return { action: "deny" };
   });
-  contents.on("will-navigate", (event, url) => {
-    if (!isApp(url)) event.preventDefault();
-  });
-  contents.on("will-redirect", (event, url) => {
-    if (!isApp(url)) event.preventDefault();
-  });
+  // Fail closed: a URL the check cannot judge is not the app's.
+  const refuseOutsideApp = (event, url) => {
+    let inside = false;
+    try {
+      inside = isApp(url);
+    } catch {
+      // stays false
+    }
+    if (!inside) event.preventDefault();
+  };
+  contents.on("will-navigate", refuseOutsideApp);
+  contents.on("will-redirect", refuseOutsideApp);
   contents.on("will-attach-webview", (event) => event.preventDefault());
 }

@@ -55,6 +55,25 @@ describe("isAppUrl", () => {
     expect(isAppUrl("http://localhost:5173/", packaged)).toBe(false);
   });
 
+  it("never throws on a malformed escape, and does not match a path-separator trick", () => {
+    const base = "file:///opt/MindSage/resources/app/dist";
+    expect(isAppUrl("file:///etc/passwd?%FF", packaged)).toBe(false);
+    expect(isAppUrl(`${base}/index.html?x=%FF`, packaged)).toBe(true);
+    expect(isAppUrl(`${base}/..%2F..%2Fx.html`, packaged)).toBe(false);
+    expect(
+      isAppUrl(
+        "file://evilhost/opt/MindSage/resources/app/dist/index.html",
+        packaged,
+      ),
+    ).toBe(false);
+    expect(
+      isAppUrl(
+        `file://localhost/opt/MindSage/resources/app/dist/index.html`,
+        packaged,
+      ),
+    ).toBe(true);
+  });
+
   it("refuses everything it cannot parse or place", () => {
     expect(isAppUrl("not a url", packaged)).toBe(false);
     expect(isAppUrl(undefined, packaged)).toBe(false);
@@ -102,6 +121,29 @@ describe("guardContents", () => {
     },
   );
 
+  it("cancels navigation when the check itself throws", () => {
+    const g = setup(() => {
+      throw new Error("boom");
+    });
+    const e = { preventDefault: vi.fn() };
+    g.handlers["will-navigate"](e, "file:///x?%FF");
+    expect(e.preventDefault).toHaveBeenCalled();
+  });
+
+  it("hands the browser the canonical URL it validated", () => {
+    const g = setup();
+    g.open("HTTPS://Example.com/a b");
+    expect(g.openExternal).toHaveBeenCalledWith("https://example.com/a%20b");
+  });
+
+  it("does not forward a link to the app's own http pages (dev server)", () => {
+    const g = setup((u) => u.startsWith("http://localhost:5173/"));
+    g.open("http://localhost:5173/#/x");
+    expect(g.openExternal).not.toHaveBeenCalled();
+    g.open("http://localhost:5174/");
+    expect(g.openExternal).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses <webview>", () => {
     const g = setup();
     const e = { preventDefault: vi.fn() };
@@ -143,6 +185,20 @@ describe("window configuration", () => {
     const vite = fs.readFileSync(path.join(here, "../vite.config.ts"), "utf8");
     expect(vite).toMatch(/format:\s*"cjs"/);
     expect(vite).toMatch(/entryFileNames:\s*"\[name\]\.cjs"/);
+  });
+
+  it("emits preloads that require nothing but electron", () => {
+    const dist = path.join(here, "../dist-electron");
+    const built = ["preload.cjs", "splashPreload.cjs"].map((f) =>
+      path.join(dist, f),
+    );
+    // Needs `vite build`; CI builds before it tests only when asked, so
+    // skip rather than fail on a tree that has not been built.
+    if (!built.every((f) => fs.existsSync(f))) return;
+    for (const f of built) {
+      const requires = fs.readFileSync(f, "utf8").match(/require\([^)]*\)/g);
+      expect(requires, f).toEqual(['require("electron")']);
+    }
   });
 
   it("keeps Node out of the preloads and the splash page", () => {

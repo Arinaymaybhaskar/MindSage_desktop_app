@@ -78,7 +78,7 @@ export async function createWindow() {
           error: "Only web and mail links can be opened",
         };
       }
-      await shell.openExternal(url);
+      await shell.openExternal(new URL(url).href);
       return { success: true };
     } catch (err) {
       return { success: false, error: String(err) };

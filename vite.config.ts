@@ -43,6 +43,9 @@ export default defineConfig({
 
       // Sandboxed preloads cannot be ES modules, so both are emitted as
       // CommonJS. The package is "type": "module", hence the .cjs extension.
+      // A sandboxed preload can require only "electron", so the two entries
+      // must not share an import: Rollup would emit a shared chunk that
+      // neither can load (windowGuard.test.js checks the built output).
       preload: {
         input: {
           preload: path.join(__dirname, "electron/preload.js"),
