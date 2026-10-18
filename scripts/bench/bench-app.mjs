@@ -146,10 +146,10 @@ try {
    * Wait for IPC handlers, not just for the bridge.
    *
    * `window.electron` is exposed by the preload script the moment the renderer
-   * loads, but `ipcHandlers.js` does not run until the startup sequence reaches
-   * services-ready - Qdrant spawn alone is most of a second. Invoking in that
-   * gap fails with "No handler registered", which looks like a missing channel
-   * rather than a race.
+   * loads. Handlers are now registered before the window is created (KAN-59),
+   * so this resolves on the first probe; it stays as a guard against that
+   * ordering regressing, where invoking early fails with "No handler
+   * registered", which looks like a missing channel rather than a race.
    */
   const handlersReady = await cdp.waitUntil(
     `(async () => {

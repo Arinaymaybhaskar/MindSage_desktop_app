@@ -4,6 +4,7 @@ import { generateEmbedding } from "./ollama.js";
 import { currentUserId } from "../session.js";
 import {
   IndexUnavailableError,
+  indexSettled,
   indexUnavailableResult,
 } from "../services/searchIndex.js";
 
@@ -18,6 +19,13 @@ export function setQdrantRuntime(runtime) {
 
 export const isIndexReady = () => client !== null;
 
+// The client, once there is one. A call that arrives while the first start is
+// still in flight waits for its outcome; null means the index is unavailable.
+async function readyClient() {
+  if (!client) await indexSettled();
+  return client;
+}
+
 export async function SemanticSearch(
   vector,
   userId,
@@ -25,7 +33,8 @@ export async function SemanticSearch(
   collection,
   threshold = 0.5,
 ) {
-  if (!client) throw new IndexUnavailableError();
+  const qdrant = await readyClient();
+  if (!qdrant) throw new IndexUnavailableError();
   const userFilter = {
     must: [
       {
@@ -35,7 +44,7 @@ export async function SemanticSearch(
     ],
   };
 
-  const results = await client.search(collection, {
+  const results = await qdrant.search(collection, {
     vector: { name: "text_embedding", vector },
     limit,
     filter: userFilter,
@@ -48,28 +57,32 @@ export async function SemanticSearch(
 
 export function registerQdrantIPC() {
   ipcMain.handle("qdrant:get-collections", async () => {
-    if (!client) return indexUnavailableResult();
-    return client.getCollections();
+    const qdrant = await readyClient();
+    if (!qdrant) return indexUnavailableResult();
+    return qdrant.getCollections();
   });
 
   ipcMain.handle(
     "qdrant:create-collection",
     async (_e, name, size, distance = "Cosine") => {
-      if (!client) return indexUnavailableResult();
-      return client.createCollection(name, {
+      const qdrant = await readyClient();
+      if (!qdrant) return indexUnavailableResult();
+      return qdrant.createCollection(name, {
         vectors: { size, distance },
       });
     },
   );
 
   ipcMain.handle("qdrant:upsert", async (_e, collection, points) => {
-    if (!client) return indexUnavailableResult();
-    return client.upsert(collection, { points });
+    const qdrant = await readyClient();
+    if (!qdrant) return indexUnavailableResult();
+    return qdrant.upsert(collection, { points });
   });
   ipcMain.handle(
     "qdrant:search",
     async (_e, collection, queryInput, limit = 5, filter) => {
-      if (!client) return indexUnavailableResult();
+      const qdrant = await readyClient();
+      if (!qdrant) return indexUnavailableResult();
       try {
         const query = await generateEmbedding(queryInput); // flat number[]
         const userId = currentUserId();
@@ -82,16 +95,18 @@ export function registerQdrantIPC() {
   );
 
   ipcMain.handle("qdrant:delete-collection", async (_e, name) => {
-    if (!client) return indexUnavailableResult();
-    return client.deleteCollection(name);
+    const qdrant = await readyClient();
+    if (!qdrant) return indexUnavailableResult();
+    return qdrant.deleteCollection(name);
   });
 
   ipcMain.handle(
     "qdrant:update-point",
     async (_e, collection, pointId, vector, payload = {}) => {
-      if (!client) return indexUnavailableResult();
+      const qdrant = await readyClient();
+      if (!qdrant) return indexUnavailableResult();
       try {
-        const result = await client.upsert(collection, {
+        const result = await qdrant.upsert(collection, {
           points: [
             {
               id: pointId,
@@ -112,9 +127,10 @@ export function registerQdrantIPC() {
   ipcMain.handle(
     "qdrant:update-payload",
     async (_e, collection, pointId, payload) => {
-      if (!client) return indexUnavailableResult();
+      const qdrant = await readyClient();
+      if (!qdrant) return indexUnavailableResult();
       try {
-        const result = await client.setPayload(collection, {
+        const result = await qdrant.setPayload(collection, {
           payload,
           points: [pointId],
         });
@@ -130,9 +146,10 @@ export function registerQdrantIPC() {
   ipcMain.handle(
     "qdrant:update-vector",
     async (_e, collection, pointId, vector) => {
-      if (!client) return indexUnavailableResult();
+      const qdrant = await readyClient();
+      if (!qdrant) return indexUnavailableResult();
       try {
-        const result = await client.updateVectors(collection, {
+        const result = await qdrant.updateVectors(collection, {
           points: [
             {
               id: pointId,
@@ -151,6 +168,8 @@ export function registerQdrantIPC() {
   // Updated bulk sync handler to support journals, goals, and progress logs
   ipcMain.handle("qdrant:bulk-sync", async () => {
     try {
+      // The worker only exists once the first index start has succeeded.
+      await indexSettled();
       if (global.qdrantWorker) {
         // Trigger bulk sync for all types
         global.qdrantWorker.postMessage({
@@ -177,6 +196,8 @@ export function registerQdrantIPC() {
   // Add single journal sync handler
   ipcMain.handle("qdrant:sync-journal", async (_e, journalId) => {
     try {
+      // The worker only exists once the first index start has succeeded.
+      await indexSettled();
       console.log(
         `IPC Handler: Received request to sync journal ID ${journalId}`,
       );
@@ -202,6 +223,8 @@ export function registerQdrantIPC() {
   // **NEW**: Add single goal sync handler
   ipcMain.handle("qdrant:sync-goal", async (_e, goalId) => {
     try {
+      // The worker only exists once the first index start has succeeded.
+      await indexSettled();
       console.log(`IPC Handler: Received request to sync goal ID ${goalId}`);
       if (global.qdrantWorker) {
         global.qdrantWorker.postMessage({
@@ -225,6 +248,8 @@ export function registerQdrantIPC() {
   // **NEW**: Add single progress log sync handler
   ipcMain.handle("qdrant:sync-progress-log", async (_e, progressLogId) => {
     try {
+      // The worker only exists once the first index start has succeeded.
+      await indexSettled();
       console.log(
         `IPC Handler: Received request to sync progress log ID ${progressLogId}`,
       );
