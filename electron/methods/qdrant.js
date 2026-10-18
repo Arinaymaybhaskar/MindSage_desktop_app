@@ -2,8 +2,21 @@ import { ipcMain } from "electron";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { generateEmbedding } from "./ollama.js";
 import { currentUserId } from "../session.js";
+import {
+  IndexUnavailableError,
+  indexUnavailableResult,
+} from "../services/searchIndex.js";
 
+// Set once the vector index is running. Handlers register before that, and
+// may have to keep working without it for the whole session, so every use
+// goes through a null check rather than assuming startup succeeded.
 let client = null;
+
+export function setQdrantRuntime(runtime) {
+  client = new QdrantClient({ url: runtime.baseUrl });
+}
+
+export const isIndexReady = () => client !== null;
 
 export async function SemanticSearch(
   vector,
@@ -12,6 +25,7 @@ export async function SemanticSearch(
   collection,
   threshold = 0.5,
 ) {
+  if (!client) throw new IndexUnavailableError();
   const userFilter = {
     must: [
       {
@@ -32,16 +46,16 @@ export async function SemanticSearch(
   return filtered;
 }
 
-export function registerQdrantIPC(runtime) {
-  client = new QdrantClient({ url: runtime.baseUrl });
-
+export function registerQdrantIPC() {
   ipcMain.handle("qdrant:get-collections", async () => {
+    if (!client) return indexUnavailableResult();
     return client.getCollections();
   });
 
   ipcMain.handle(
     "qdrant:create-collection",
     async (_e, name, size, distance = "Cosine") => {
+      if (!client) return indexUnavailableResult();
       return client.createCollection(name, {
         vectors: { size, distance },
       });
@@ -49,11 +63,13 @@ export function registerQdrantIPC(runtime) {
   );
 
   ipcMain.handle("qdrant:upsert", async (_e, collection, points) => {
+    if (!client) return indexUnavailableResult();
     return client.upsert(collection, { points });
   });
   ipcMain.handle(
     "qdrant:search",
     async (_e, collection, queryInput, limit = 5, filter) => {
+      if (!client) return indexUnavailableResult();
       try {
         const query = await generateEmbedding(queryInput); // flat number[]
         const userId = currentUserId();
@@ -66,12 +82,14 @@ export function registerQdrantIPC(runtime) {
   );
 
   ipcMain.handle("qdrant:delete-collection", async (_e, name) => {
+    if (!client) return indexUnavailableResult();
     return client.deleteCollection(name);
   });
 
   ipcMain.handle(
     "qdrant:update-point",
     async (_e, collection, pointId, vector, payload = {}) => {
+      if (!client) return indexUnavailableResult();
       try {
         const result = await client.upsert(collection, {
           points: [
@@ -94,6 +112,7 @@ export function registerQdrantIPC(runtime) {
   ipcMain.handle(
     "qdrant:update-payload",
     async (_e, collection, pointId, payload) => {
+      if (!client) return indexUnavailableResult();
       try {
         const result = await client.setPayload(collection, {
           payload,
@@ -111,6 +130,7 @@ export function registerQdrantIPC(runtime) {
   ipcMain.handle(
     "qdrant:update-vector",
     async (_e, collection, pointId, vector) => {
+      if (!client) return indexUnavailableResult();
       try {
         const result = await client.updateVectors(collection, {
           points: [

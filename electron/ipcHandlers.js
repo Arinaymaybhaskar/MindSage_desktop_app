@@ -113,9 +113,12 @@ export function createQdrantWorker() {
   return worker;
 }
 
-export function registerIPCHandlers(runtime) {
+// Nothing registered here may wait on the vector index: see
+// services/startServices.js for why, and setQdrantRuntime for how the index
+// is wired in once it is up.
+export function registerIPCHandlers() {
   // Qdrant
-  registerQdrantIPC(runtime);
+  registerQdrantIPC();
 
   // Media
   ipcMain.handle("media:save", handleSaveMedia);
@@ -329,8 +332,7 @@ export function registerIPCHandlers(runtime) {
 
   aiEvents.forEach((eventName) => {
     eventBus.on(eventName, (data) => {
-      // `runtime` (from startQdrant) has no mainWindow, so resolve the live
-      // window the same way events.js does.
+      // Resolve the live window the same way events.js does.
       const win = BrowserWindow.getAllWindows()[0];
       if (win && !win.isDestroyed()) {
         win.webContents.send("ai-status-event", {

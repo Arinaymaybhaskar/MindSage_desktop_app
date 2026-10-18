@@ -86,9 +86,13 @@ function resolveDataDir() {
   return path.join(app.getPath("userData"), "qdrant-data");
 }
 
-async function waitForReady(url, timeoutMs = 15000) {
+// `failure` returns the error that ended the process, if it has ended, so a
+// Qdrant that cannot start fails here at once instead of after the timeout.
+async function waitForReady(url, timeoutMs = 15000, failure = () => null) {
   const start = Date.now();
   while (true) {
+    const failed = failure();
+    if (failed) throw failed;
     try {
       const res = await fetch(`${url}/collections`);
       if (res.ok) return;
@@ -243,9 +247,12 @@ async function ensureCollection(baseUrl) {
 
 export async function startQdrant() {
   if (qdrantProc) {
+    // Also the path a retry takes when the first start timed out on a slow
+    // Qdrant that is still coming up, so wait for it rather than assume it.
     const httpPort = Number(process.env.QDRANT_HTTP_PORT);
     const dataDir = resolveDataDir();
     const baseUrl = `http://127.0.0.1:${httpPort}`;
+    await waitForReady(baseUrl);
     await ensureCollection(baseUrl);
     console.log(`[QDRANT] Already running at ${baseUrl}`);
     return { httpPort, grpcPort: httpPort + 1, baseUrl, dataDir };
@@ -265,24 +272,41 @@ export async function startQdrant() {
   };
 
   const bin = resolveBinaryPath();
-  qdrantProc = spawn(bin, [], {
+  const proc = spawn(bin, [], {
     env,
     cwd: path.dirname(bin),
     stdio: ["ignore", "pipe", "pipe"],
   });
+  qdrantProc = proc;
+  // Set as soon as the port is chosen so a later retry can find this process.
+  process.env.QDRANT_HTTP_PORT = String(httpPort);
 
-  qdrantProc.stdout.on("data", (d) => writeLog(d.toString().trim()));
-  qdrantProc.stderr.on("data", (d) => writeLog(d.toString().trim()));
-  qdrantProc.on("close", (code) => {
+  // Without an 'error' listener a binary that cannot be spawned (missing,
+  // quarantined by antivirus, not executable) is an uncaught exception in the
+  // main process. Record it so startup can fail cleanly and fall back to
+  // running without search.
+  let spawnError = null;
+  let exitError = null;
+  proc.on("error", (err) => {
+    spawnError = err;
+    writeLog(`Qdrant could not be started: ${err.message}`);
+    if (qdrantProc === proc) qdrantProc = null;
+  });
+
+  proc.stdout.on("data", (d) => writeLog(d.toString().trim()));
+  proc.stderr.on("data", (d) => writeLog(d.toString().trim()));
+  proc.on("close", (code) => {
     writeLog(`Qdrant exited with code ${code}`);
-    qdrantProc = null;
+    exitError ??= new Error(
+      `Qdrant exited with code ${code} before it was ready`,
+    );
+    if (qdrantProc === proc) qdrantProc = null;
   });
 
   const baseUrl = `http://127.0.0.1:${httpPort}`;
-  await waitForReady(baseUrl);
+  await waitForReady(baseUrl, undefined, () => spawnError || exitError);
   await ensureCollection(baseUrl);
 
-  process.env.QDRANT_HTTP_PORT = String(httpPort);
   writeLog(`Qdrant running at ${baseUrl}, data dir: ${dataDir}`);
   console.log(`[QDRANT] Ready and running at ${baseUrl}`);
   return { httpPort, grpcPort, baseUrl, dataDir };
