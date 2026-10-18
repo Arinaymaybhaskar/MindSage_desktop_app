@@ -6,6 +6,10 @@ import getPort from "get-port";
 import { QdrantClient } from "@qdrant/js-client-rest";
 
 let qdrantProc = null;
+// What the current process has done so far, kept on the module so a retry that
+// finds it still running sees its failure at once and reports the ports it
+// really got (KAN-338).
+let procState = { spawnError: null, exitError: null, grpcPort: null };
 
 // A Qdrant that accepts a connection and never answers must not hold startup
 // forever (KAN-335): every request is bounded, and so is the whole start, so
@@ -287,10 +291,19 @@ async function startQdrantUnbounded() {
     const httpPort = Number(process.env.QDRANT_HTTP_PORT);
     const dataDir = resolveDataDir();
     const baseUrl = `http://127.0.0.1:${httpPort}`;
-    await waitForReady(baseUrl);
+    await waitForReady(
+      baseUrl,
+      undefined,
+      () => procState.spawnError || procState.exitError,
+    );
     await ensureCollection(baseUrl);
     console.log(`[QDRANT] Already running at ${baseUrl}`);
-    return { httpPort, grpcPort: httpPort + 1, baseUrl, dataDir };
+    return {
+      httpPort,
+      grpcPort: procState.grpcPort ?? httpPort + 1,
+      baseUrl,
+      dataDir,
+    };
   }
 
   const httpPort = await getPort({ port: 6333 });
@@ -313,6 +326,7 @@ async function startQdrantUnbounded() {
     stdio: ["ignore", "pipe", "pipe"],
   });
   qdrantProc = proc;
+  procState = { spawnError: null, exitError: null, grpcPort };
   // Set as soon as the port is chosen so a later retry can find this process.
   process.env.QDRANT_HTTP_PORT = String(httpPort);
 
@@ -320,10 +334,9 @@ async function startQdrantUnbounded() {
   // quarantined by antivirus, not executable) is an uncaught exception in the
   // main process. Record it so startup can fail cleanly and fall back to
   // running without search.
-  let spawnError = null;
-  let exitError = null;
+  const state = procState;
   proc.on("error", (err) => {
-    spawnError = err;
+    state.spawnError = err;
     writeLog(`Qdrant could not be started: ${err.message}`);
     if (qdrantProc === proc) qdrantProc = null;
   });
@@ -332,14 +345,18 @@ async function startQdrantUnbounded() {
   proc.stderr.on("data", (d) => writeLog(d.toString().trim()));
   proc.on("close", (code) => {
     writeLog(`Qdrant exited with code ${code}`);
-    exitError ??= new Error(
+    state.exitError ??= new Error(
       `Qdrant exited with code ${code} before it was ready`,
     );
     if (qdrantProc === proc) qdrantProc = null;
   });
 
   const baseUrl = `http://127.0.0.1:${httpPort}`;
-  await waitForReady(baseUrl, undefined, () => spawnError || exitError);
+  await waitForReady(
+    baseUrl,
+    undefined,
+    () => state.spawnError || state.exitError,
+  );
   await ensureCollection(baseUrl);
 
   writeLog(`Qdrant running at ${baseUrl}, data dir: ${dataDir}`);

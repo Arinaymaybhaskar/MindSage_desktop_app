@@ -44,6 +44,7 @@ vi.mock("@qdrant/js-client-rest", () => ({
   }),
 }));
 
+const getPort = (await import("get-port")).default;
 const { startQdrant, stopQdrant } = await import("./qdrantManager.js");
 
 // startQdrant picks a free port before it spawns, so let it get that far
@@ -152,5 +153,33 @@ describe("startQdrant", () => {
     const result = expect(starting).rejects.toThrow(/did not finish starting/);
     await vi.advanceTimersByTimeAsync(20_000);
     await result;
+  });
+
+  it("a process that dies during a retry fails the retry at once", async () => {
+    const first = startQdrant();
+    const timedOut = expect(first).rejects.toThrow(/did not become ready/);
+    await vi.advanceTimersByTimeAsync(16_000);
+    await timedOut;
+
+    const retry = startQdrant();
+    const result = expect(retry).rejects.toThrow(
+      /exited with code 9 before it was ready/,
+    );
+    lastProc.emit("close", 9);
+    await vi.advanceTimersByTimeAsync(300); // not the 15 s a dead port would cost
+    await result;
+  });
+
+  it("a retry reports the gRPC port that was actually picked", async () => {
+    getPort.mockResolvedValueOnce(7000).mockResolvedValueOnce(7005);
+    const first = startQdrant();
+    const timedOut = expect(first).rejects.toThrow(/did not become ready/);
+    await vi.advanceTimersByTimeAsync(16_000);
+    await timedOut;
+
+    fetch.mockImplementation(ready);
+    const runtime = await startQdrant();
+    expect(runtime.httpPort).toBe(7000);
+    expect(runtime.grpcPort).toBe(7005);
   });
 });
