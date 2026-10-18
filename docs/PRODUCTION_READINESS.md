@@ -86,7 +86,7 @@ Run before trusting any older doc in this folder.
 
 - [ ] 🟢 M — **Accessibility is thin** — 72 aria attributes across 166 buttons, and exactly **one** `prefers-reduced-motion` rule in a heavily animated app. No focus-trap or skip-link pattern.
 - [ ] 🟢 S — **Add `CONTRIBUTING.md` and `CHANGELOG.md`.**
-- [ ] 🟢 S — **No user-facing data deletion or uninstall cleanup.** NSIS leaves `%APPDATA%/MindSage` behind. For a journaling app, "delete everything" should be explicit and honest.
+- [~] 🟢 S — **No user-facing data deletion or uninstall cleanup.** NSIS leaves `%APPDATA%/MindSage` behind. For a journaling app, "delete everything" should be explicit and honest. Half done (KAN-63): the uninstaller now asks, default No; the in-app Delete profile flow is separate.
 - [x] 🟢 S — **Add `sandbox: true`** to both BrowserWindows. `contextIsolation` and `nodeIntegration` are already set correctly.
 - [ ] 🟢 S — **Resolve the import-extension contradiction** between [AGENTS.md](../AGENTS.md) and [TECHNICAL_DEBT.md](TECHNICAL_DEBT.md) §4.5.
 - [ ] 🟢 S — **Refresh [CLAUDE.md](../CLAUDE.md) and [AGENTS.md](../AGENTS.md)** against §0 of this document.
