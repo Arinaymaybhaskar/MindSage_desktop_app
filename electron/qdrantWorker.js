@@ -349,6 +349,21 @@ async function updateQdrantPayload(entry, sourceType = "journal") {
       throw checkError;
     }
 
+    // The item may have been deleted for good while the embedding was made;
+    // the point just written is then queued for removal again (KAN-343).
+    const purged =
+      sourceType === "journal"
+        ? cleanupIfPurged("journal_entries", "journal", entry.user_id, entry.id)
+        : sourceType === "goal"
+          ? cleanupIfPurged("goals", "goal", entry.user_id, entry.id)
+          : cleanupIfPurged(
+              "progress_logs",
+              "progress_log",
+              payload.user_id,
+              entry.id,
+            );
+    if (purged) return false;
+
     parentPort?.postMessage(
       `Successfully updated payload for ${sourceType} ${entry.id} in Qdrant`,
     );
