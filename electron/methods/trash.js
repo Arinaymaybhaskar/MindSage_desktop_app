@@ -28,7 +28,7 @@ const mediaDir = () => path.join(app.getPath("userData"), "media");
  * file their rows point at, and every cached thumbnail of those photos. All of
  * it confined to the app's media folder.
  */
-function removeFiles({ keys, entryIds }) {
+export function removeFiles({ keys, entryIds }) {
   const base = mediaDir();
   const { remove, refused } = planFileRemoval(base, keys);
   let removed = 0;
