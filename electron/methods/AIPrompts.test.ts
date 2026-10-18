@@ -117,3 +117,13 @@ describe("sanitizeSummary", () => {
     expect(sanitizeSummary(null)).toBeNull();
   });
 });
+
+describe("Ask prompts carry the no-advice rule", () => {
+  it("both prompts include it", async () => {
+    // @ts-expect-error plain JS module without type declarations
+    const m = await import("./AIPrompts.js");
+    expect(m.NO_ADVICE_RULE).toMatch(/not a therapist/i);
+    expect(m.respondWithContext("q", [])).toContain(m.NO_ADVICE_RULE);
+    expect(m.respondWithoutContext("q")).toContain(m.NO_ADVICE_RULE);
+  });
+});
