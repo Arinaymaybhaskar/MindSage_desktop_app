@@ -1,7 +1,7 @@
 // main.js
 // Must stay first: it redirects userData before any module reads it.
 import "./userDataOverride.js";
-import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, shell } from "electron";
 import fs from "node:fs";
 import path, { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import localDB from "./db/index.js";
 // import { startServer } from "../src/server/app.js";
 import { createWindow } from "./windowManager.js";
+import { guardContents, isAppUrl } from "./windowGuard.js";
 import { registerIPCHandlers } from "./ipcHandlers.js";
 import { setupEventBusListeners } from "./events.js";
 import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
@@ -66,9 +67,10 @@ function openQuickCaptureWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
@@ -139,6 +141,21 @@ function createQdrantWorker() {
 
   return worker;
 }
+
+// ------------------- Navigation guard -------------------
+// Every window, including the ones created later, may only show the app's own
+// pages. A link that asks for a new window is refused, and goes to the
+// default browser instead when it is a web or mail address.
+app.on("web-contents-created", (_event, contents) => {
+  guardContents(contents, {
+    isApp: (url) =>
+      isAppUrl(url, {
+        devUrl: process.env.VITE_DEV_SERVER_URL,
+        distDir: process.env.DIST,
+      }),
+    openExternal: (url) => shell.openExternal(url).catch(() => {}),
+  });
+});
 
 // ------------------- Optional GPU Fallback -------------------
 // Enable this by setting environment variable MS_DISABLE_GPU=1 on affected machines
@@ -241,8 +258,10 @@ app.whenReady().then(async () => {
       roundedCorners: false,
       show: true,
       webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
+        preload: path.join(__dirname, "splashPreload.cjs"),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
       },
     });
     const splashUrl = process.env.VITE_DEV_SERVER_URL

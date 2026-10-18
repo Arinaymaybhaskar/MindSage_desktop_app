@@ -68,7 +68,7 @@ whisper: "whisper.cpp + FFmpeg\nbundled binaries" {
   style.stroke-width: 2
 }
 
-renderer -> main: "ipcRenderer.invoke(channel)\ncontextBridge · preload.mjs"
+renderer -> main: "ipcRenderer.invoke(channel)\ncontextBridge · preload.cjs"
 main -> sqlite: "read / write"
 main -> whisper: "transcribe"
 main -> ollama: "titles · moods · tags\nsummaries · chat · autocomplete"

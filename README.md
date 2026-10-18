@@ -400,7 +400,7 @@ Before adding a pattern, read [docs/MASTER_TODO.md](docs/MASTER_TODO.md) and [do
 MindSage_desktop_app/
 ├── electron/              Main process (Node ESM)
 │   ├── main.js            Lifecycle, windows, startup ordering, global shortcut
-│   ├── preload.js         contextBridge, emitted as preload.mjs
+│   ├── preload.js         contextBridge, emitted as preload.cjs
 │   ├── ipcHandlers.js     Channel routing
 │   ├── eventBus.js        Internal event bus
 │   ├── qdrantWorker.js    Enrichment and embedding worker thread

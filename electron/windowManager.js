@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isSafeExternalUrl } from "./windowGuard.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,9 +30,10 @@ export async function createWindow() {
     frame: false,
     titleBarStyle: "hidden",
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
@@ -70,7 +72,13 @@ export async function createWindow() {
 
   ipcMain.handle("open-external", async (_event, url) => {
     try {
-      await shell.openExternal(url);
+      if (!isSafeExternalUrl(url)) {
+        return {
+          success: false,
+          error: "Only web and mail links can be opened",
+        };
+      }
+      await shell.openExternal(new URL(url).href);
       return { success: true };
     } catch (err) {
       return { success: false, error: String(err) };
