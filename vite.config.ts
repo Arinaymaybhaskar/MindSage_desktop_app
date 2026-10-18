@@ -5,9 +5,11 @@ import tailwindcss from "@tailwindcss/vite";
 import electron from "vite-plugin-electron/simple";
 import pkg from "./package.json";
 import { viteStaticCopy } from "vite-plugin-static-copy";
+import { cspPlugin } from "./electron/csp.js";
 
 export default defineConfig({
   plugins: [
+    cspPlugin(),
     react(),
     tailwindcss(),
     electron({

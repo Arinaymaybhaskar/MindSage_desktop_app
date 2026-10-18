@@ -61,7 +61,7 @@ Run before trusting any older doc in this folder.
 - [ ] 🟠 M — **Make CI quality gates blocking.** Requires clearing 131 typecheck + 92 lint errors. The highest-leverage fix: `electron.d.ts` doesn't declare `minimize` / `maximize` / `close` / `onWindowStateChange`, which [preload.js:4-32](../electron/preload.js#L4) *does* expose — a pure typing gap that accounts for the `TitleBar.tsx` failures.
 - [ ] 🟠 M — **Cut the installer down from 236 MB.** The unpacked app is **777 MB** — over half of it avoidable: mac binaries shipped inside the Windows build, an 81 MB ffmpeg, renderer libraries shipped twice, and 43 MB of unused Electron locales. Full breakdown and plan in [BUNDLE_SIZE_PLAN.md](BUNDLE_SIZE_PLAN.md).
 - [ ] 🟠 M — **Deepen test coverage** to journal CRUD, the Qdrant/AI worker, and migrations. Add a Playwright e2e for launch → write → search.
-- [ ] 🟠 S — **Add a Content-Security-Policy.** None exists and `webSecurity` is default ([NETWORK_AUDIT.md](NETWORK_AUDIT.md) §4.1). Cheap, and it turns "we make no external requests" into an enforced invariant.
+- [x] 🟠 S — **Add a Content-Security-Policy.** Done (KAN-61, electron/csp.js). None exists and `webSecurity` is default ([NETWORK_AUDIT.md](NETWORK_AUDIT.md) §4.1). Cheap, and it turns "we make no external requests" into an enforced invariant.
 - [ ] 🟠 S — **Release pipeline is Windows-only** while `build` declares `mac: dmg` and `linux: AppImage`. See [MAC_RELEASE_PLAN.md](MAC_RELEASE_PLAN.md).
 - [ ] 🟠 M — **Introduce a logger** (`electron-log`) with levels, rotation, and redaction — replaces 106 `console.log` calls.
 - [ ] 🟠 S — **First run requires the network** (274 MB model pull). Document it and fail gracefully offline instead of stalling at setup.
