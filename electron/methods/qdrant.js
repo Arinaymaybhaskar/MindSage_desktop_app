@@ -168,6 +168,8 @@ export function registerQdrantIPC() {
   // Updated bulk sync handler to support journals, goals, and progress logs
   ipcMain.handle("qdrant:bulk-sync", async () => {
     try {
+      // The worker only exists once the first index start has succeeded.
+      await indexSettled();
       if (global.qdrantWorker) {
         // Trigger bulk sync for all types
         global.qdrantWorker.postMessage({
@@ -194,6 +196,8 @@ export function registerQdrantIPC() {
   // Add single journal sync handler
   ipcMain.handle("qdrant:sync-journal", async (_e, journalId) => {
     try {
+      // The worker only exists once the first index start has succeeded.
+      await indexSettled();
       console.log(
         `IPC Handler: Received request to sync journal ID ${journalId}`,
       );
@@ -219,6 +223,8 @@ export function registerQdrantIPC() {
   // **NEW**: Add single goal sync handler
   ipcMain.handle("qdrant:sync-goal", async (_e, goalId) => {
     try {
+      // The worker only exists once the first index start has succeeded.
+      await indexSettled();
       console.log(`IPC Handler: Received request to sync goal ID ${goalId}`);
       if (global.qdrantWorker) {
         global.qdrantWorker.postMessage({
@@ -242,6 +248,8 @@ export function registerQdrantIPC() {
   // **NEW**: Add single progress log sync handler
   ipcMain.handle("qdrant:sync-progress-log", async (_e, progressLogId) => {
     try {
+      // The worker only exists once the first index start has succeeded.
+      await indexSettled();
       console.log(
         `IPC Handler: Received request to sync progress log ID ${progressLogId}`,
       );

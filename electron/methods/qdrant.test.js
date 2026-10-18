@@ -153,6 +153,65 @@ describe("qdrant IPC while the first start is still in flight", () => {
   });
 });
 
+describe("worker-backed sync handlers while the first start is in flight", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    global.qdrantWorker = { postMessage: vi.fn() };
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    delete global.qdrantWorker;
+  });
+
+  // Quick Capture can save an entry in the gap before Qdrant is up and asks
+  // for it to be indexed; the worker only exists once the start succeeds.
+  it("queues the sync once the start has ended instead of refusing", async () => {
+    const m = await fresh();
+    delete global.qdrantWorker; // not created yet
+
+    let answer;
+    call("qdrant:sync-journal", 42).then((r) => (answer = r));
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(answer).toBeUndefined();
+
+    // The start succeeds: the worker is created, then the start is marked over.
+    global.qdrantWorker = { postMessage: vi.fn() };
+    m.markIndexSettled();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(answer).toMatchObject({ success: true });
+    expect(global.qdrantWorker.postMessage).toHaveBeenCalledWith({
+      type: "journal:sync-requested",
+      data: { journalId: 42 },
+    });
+  });
+
+  it.each([
+    ["qdrant:sync-journal", 1],
+    ["qdrant:sync-goal", 1],
+    ["qdrant:sync-progress-log", 1],
+    ["qdrant:bulk-sync"],
+  ])(
+    "%s answers 'Worker not available' once the start failed",
+    async (channel, ...args) => {
+      const m = await fresh();
+      delete global.qdrantWorker;
+
+      let answer;
+      call(channel, ...args).then((r) => (answer = r));
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(answer).toBeUndefined();
+
+      m.markIndexSettled();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(answer).toMatchObject({
+        success: false,
+        error: "Worker not available",
+      });
+    },
+  );
+});
+
 describe("qdrant IPC once the index is running", () => {
   async function running() {
     const m = await fresh();

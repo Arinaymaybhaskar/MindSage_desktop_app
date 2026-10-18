@@ -27,10 +27,11 @@ export function createServiceAnnouncer({ getWindow, onSent = () => {} }) {
     },
     // Call once the window exists, in case the status arrived before it.
     flush,
-    // A renderer that loads later, or reloads, still needs to hear it.
+    // A renderer that loads later, or reloads, still needs to hear the
+    // current status, even one that arrived while no window could take it.
     replay(win) {
-      if (sent && win && !win.isDestroyed())
-        win.webContents.send("services-ready", sent);
+      if (status && win && !win.isDestroyed())
+        win.webContents.send("services-ready", status);
     },
   };
 }

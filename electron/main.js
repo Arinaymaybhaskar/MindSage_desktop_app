@@ -339,10 +339,11 @@ app.whenReady().then(async () => {
     log,
   }).catch((e) => log(`Service startup error: ${e?.stack || e}`));
 
-  // Create main window in background; it will be shown after services are ready
+  // Create the main window hidden; it is revealed once services have
+  // reported (ready or degraded) and the renderer has painted.
   try {
     win = await createWindow();
-    // Replay services-ready for reloads. The event below is sent once, so a
+    // Replay services-ready for reloads. It is sent once per status, so a
     // renderer that mounts afterwards - or any in-session reload, which is
     // routine while capturing screenshots - would otherwise never see it.
     win.webContents.on("did-finish-load", () => {

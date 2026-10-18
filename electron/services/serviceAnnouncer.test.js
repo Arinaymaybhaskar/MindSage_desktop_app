@@ -89,6 +89,22 @@ describe("createServiceAnnouncer", () => {
     expect(win.webContents.send).toHaveBeenCalledWith("services-ready", READY);
   });
 
+  it("replays the newest status to a new window, even one nothing could receive yet", () => {
+    const first = fakeWindow();
+    let current = first;
+    const a = createServiceAnnouncer({ getWindow: () => current });
+    a.update(DEGRADED);
+    first.destroyed = true;
+    a.update(READY); // no live window: held, not sent
+
+    const second = fakeWindow();
+    a.replay(second);
+    expect(second.webContents.send).toHaveBeenCalledWith(
+      "services-ready",
+      READY,
+    );
+  });
+
   it("does not replay to a destroyed window", () => {
     const win = fakeWindow();
     const a = createServiceAnnouncer({ getWindow: () => win });
