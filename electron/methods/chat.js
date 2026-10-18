@@ -12,6 +12,7 @@ import {
 } from "./ollama.js";
 import { partialJsonString } from "./jsonStream.js";
 import { SemanticSearch } from "./qdrant.js";
+import { isIndexUnavailable } from "../services/searchIndex.js";
 import z from "zod";
 import { currentUserId } from "../session.js";
 
@@ -168,6 +169,9 @@ async function aiResponse(
     console.log(chatResponse, "ai chat res");
     return { chatResponse, chatId, messageId, semanticResult };
   } catch (error) {
+    // The caller tells the renderer this one in plain words; every other
+    // failure keeps the old swallow-and-report behaviour.
+    if (isIndexUnavailable(error)) throw error;
     console.log(error, "error occcured");
     eventBus.emit("chat:error", error);
   }
@@ -287,6 +291,8 @@ export const handleUserMessage = async (
     });
   } catch (err) {
     emit("error", { message: err?.message || "Generation failed." });
+    if (isIndexUnavailable(err))
+      return { error: err.message, code: err.code, chatId, messageId };
     throw err;
   }
 

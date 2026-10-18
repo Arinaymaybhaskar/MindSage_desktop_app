@@ -12,6 +12,8 @@ import { createWindow } from "./windowManager.js";
 import { registerIPCHandlers } from "./ipcHandlers.js";
 import { setupEventBusListeners } from "./events.js";
 import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
+import { startServices } from "./services/startServices.js";
+import { setQdrantRuntime } from "./methods/qdrant.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
 import { registerSetupIPC } from "./services/appSetup.js";
 import { applyLaunchAtStartup, registerAppSettingsIPC } from "./appSettings.js";
@@ -174,6 +176,8 @@ app.whenReady().then(async () => {
 
   // Sticky so it can be replayed to renderers that load later.
   let servicesReady = false;
+  // { degraded, search } from the last services-ready, replayed with it.
+  let serviceStatus = null;
   // The backend (DB/Ollama/Qdrant) finishing doesn't mean the renderer has
   // painted anything yet - on a cold start the JS bundle can still be
   // mounting React well after services-ready fires, which showed as a plain
@@ -258,7 +262,7 @@ app.whenReady().then(async () => {
     // routine while capturing screenshots - would otherwise never see it.
     win.webContents.on("did-finish-load", () => {
       if (servicesReady && !win.isDestroyed()) {
-        win.webContents.send("services-ready");
+        win.webContents.send("services-ready", serviceStatus);
       }
     });
     log("Main window created");
@@ -310,27 +314,48 @@ app.whenReady().then(async () => {
       log(`Ollama setup error: ${e?.stack || e}`);
     }
 
-    try {
-      log("Starting Qdrant");
+    // IPC handlers register whatever the vector index does: sign-in,
+    // writing and settings never need it. See services/startServices.js.
+    const splashStatus = (text) => {
       if (splash && !splash.isDestroyed())
-        splash.webContents.send("splash-status", "Starting vector database…");
-      const runtime = await startQdrant();
-      log("Qdrant started");
-      if (splash && !splash.isDestroyed())
-        splash.webContents.send("splash-status", "Wiring up services…");
-      registerIPCHandlers(runtime);
-      setupEventBusListeners();
-      createQdrantWorker();
-      log("IPC handlers, event bus, and worker initialized");
-      if (win && !win.isDestroyed()) {
-        servicesReady = true;
-        win.webContents.send("services-ready");
-        log("Sent services-ready to renderer");
-        revealMainWindowIfReady();
-      }
-    } catch (e) {
-      log(`Qdrant/IPC init error: ${e?.stack || e}`);
-    }
+        splash.webContents.send("splash-status", text);
+    };
+    await startServices({
+      registerHandlers: () => {
+        splashStatus("Wiring up services…");
+        registerIPCHandlers();
+        setupEventBusListeners();
+        log("IPC handlers and event bus registered");
+      },
+      startIndex: async () => {
+        log("Starting Qdrant");
+        splashStatus("Starting vector database…");
+        const runtime = await startQdrant();
+        log("Qdrant started");
+        return runtime;
+      },
+      onIndexReady: (runtime) => {
+        setQdrantRuntime(runtime);
+        // startQdrant has set QDRANT_HTTP_PORT by now, which the worker
+        // reads; it is never started without one.
+        if (!global.qdrantWorker) createQdrantWorker();
+        log("Search index and worker initialized");
+      },
+      onStatus: (status) => {
+        serviceStatus = status;
+        if (win && !win.isDestroyed()) {
+          servicesReady = true;
+          win.webContents.send("services-ready", status);
+          log(
+            status.degraded
+              ? "Sent services-ready to renderer (degraded: search unavailable)"
+              : "Sent services-ready to renderer",
+          );
+          revealMainWindowIfReady();
+        }
+      },
+      log,
+    });
   })();
 
   // ------------------- Global Shortcut -------------------
