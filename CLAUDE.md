@@ -69,6 +69,8 @@ Work is tracked in Jira, project **KAN** (MindSage) at arinaymaybhaskar7500.atla
 - `archive/<slug>` — work deliberately abandoned but kept for reference (e.g. `archive/redesign-preview`, a scrapped redesign). Not meant to merge.
 - `claude/<slug>` — branches Claude Code creates on its own in cloud sessions. Rename to the pattern above before opening a PR for ticket work.
 
+**Bugs found along the way:** when ticket work, a review or a benchmark turns up a bug that is not the ticket's own, do not widen the ticket. File a Jira **Bug** in project KAN under the closest epic, labelled `found-in-phase-<n>` and `phase-<n>-closeout`, with the phase's release as its fix version, a description saying where it was found and whether it was reproduced or only read from the code, and acceptance criteria. Say so in the PR. Closing a phase includes fixing everything labelled `phase-<n>-closeout` (or deliberately moving it to a later release) before the phase branch goes to `main`.
+
 **Commits:** [Conventional Commits](https://www.conventionalcommits.org/), as the history already uses: `type(scope): summary`.
 
 - `scope` is the area touched, matching the existing history: `startup`, `db`, `auth`, `journal`, `goals`, `search`, `ai`, `chat`, `people`, `media`, `portability`, `settings`, `updater`, `ui`, `bench`. Leave it out when a change spans the app.
