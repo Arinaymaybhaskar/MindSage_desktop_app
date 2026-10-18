@@ -37,6 +37,21 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = () => {
           </p>
         </div>
 
+        {/* What deleting removes, and what it cannot reach. */}
+        <div className="py-4">
+          <label className="font-medium text-text-light dark:text-text-dark">
+            When you delete something
+          </label>
+          <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">
+            Deleted entries and goals stay in the Trash for 30 days. Deleting
+            them for good removes their text, photos and recordings from this
+            computer and from search, and removes what saved Ask answers quoted
+            of them. Backups MindSage made before you deleted something still
+            contain it, and so does any copy of your journal you exported or
+            copied yourself.
+          </p>
+        </div>
+
         {/* Change Password Setting */}
         <div className="py-4 flex justify-between items-center">
           <div>

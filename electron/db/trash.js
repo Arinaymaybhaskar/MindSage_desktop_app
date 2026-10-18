@@ -1,4 +1,5 @@
 import { db } from "./connection.js";
+import { redactQuotes } from "../redactQuotes.js";
 
 // The trash (KAN-52). Deleting an entry or a goal only marks it; this module
 // lists, restores and finally removes what is marked. Every function takes the
@@ -100,6 +101,29 @@ export function restoreItems(userId, { entryIds, goalIds }) {
 }
 
 /**
+ * Saved Ask answers that cited this entry keep their sentences but lose what
+ * they quoted of it: the quoted runs become "[entry removed]". Only answers
+ * that cite the entry (message_sources) in this user's chats are touched.
+ */
+function scrubSavedAnswers(userId, entry) {
+  const answers = db
+    .prepare(
+      `SELECT DISTINCT m.id, m.content
+         FROM message_sources s
+         JOIN messages m ON m.id = s.message_id
+         JOIN chats c ON c.id = m.chat_id
+        WHERE s.source_type = 'journal' AND s.source_id = ?
+          AND c.user_id = ? AND m.sender = 'ai'`,
+    )
+    .all(String(entry.id), userId);
+  const update = db.prepare(`UPDATE messages SET content = ? WHERE id = ?`);
+  for (const answer of answers) {
+    const redacted = redactQuotes(answer.content, entry);
+    if (redacted !== answer.content) update.run(redacted, answer.id);
+  }
+}
+
+/**
  * Removes trashed items for good, in one transaction: the rows (tag links and
  * progress logs go with them by cascade), and queues their search-index points
  * for removal. Returns the media files the caller has to delete from disk.
@@ -124,7 +148,7 @@ export function deleteForever(userId, { entryIds, goalIds }) {
     if (entries.length) {
       const rows = db
         .prepare(
-          `SELECT id, image_key, audio_key FROM journal_entries
+          `SELECT id, title, content, image_key, audio_key FROM journal_entries
             WHERE user_id = ? AND is_deleted = 1 AND id IN (${placeholders(entries)})`,
         )
         .all(userId, ...entries);
@@ -135,6 +159,7 @@ export function deleteForever(userId, { entryIds, goalIds }) {
       }
       const ids = rows.map((r) => r.id);
       removedEntryIds = ids;
+      for (const row of rows) scrubSavedAnswers(userId, row);
       if (ids.length) {
         db.prepare(
           `UPDATE message_sources SET source_title = 'Removed entry'

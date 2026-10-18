@@ -503,6 +503,119 @@ describe("the queue of index points", () => {
   });
 });
 
+describe("what a saved Ask answer keeps", () => {
+  const chatFor = (userId) =>
+    Number(
+      db
+        .prepare("INSERT INTO chats (user_id, title) VALUES (?, 'c')")
+        .run(userId).lastInsertRowid,
+    );
+  const answer = (chat, content, cites = []) => {
+    const id = Number(
+      db
+        .prepare(
+          "INSERT INTO messages (chat_id, sender, content) VALUES (?, 'ai', ?)",
+        )
+        .run(chat, content).lastInsertRowid,
+    );
+    for (const e of cites) {
+      db.prepare(
+        "INSERT INTO message_sources (message_id, source_type, source_id, source_title) VALUES (?, 'journal', ?, ?)",
+      ).run(id, String(e.id), e.title);
+    }
+    return id;
+  };
+  const text = (id) =>
+    db.prepare("SELECT content FROM messages WHERE id = ?").get(id).content;
+
+  it("loses the quotes of a purged entry, and nothing else", () => {
+    const e = entry(alice, {
+      title: "Harbour notes",
+      content:
+        "The lighthouse keeper told me the storm would pass before midnight and it did.",
+    });
+    const other = entry(alice, {
+      title: "Other",
+      content: "A completely different thought about gardening in spring.",
+    });
+    const chat = chatFor(alice);
+    const citing = answer(
+      chat,
+      'You wrote "the lighthouse keeper told me the storm would pass before midnight". Also you like gardening in spring.',
+      [e, other],
+    );
+    const unrelated = answer(
+      chat,
+      "The lighthouse keeper told me the storm would pass, said someone.",
+      [],
+    );
+    const userMessage = Number(
+      db
+        .prepare(
+          "INSERT INTO messages (chat_id, sender, content) VALUES (?, 'user', ?)",
+        )
+        .run(
+          chat,
+          "the lighthouse keeper told me the storm would pass before midnight",
+        ).lastInsertRowid,
+    );
+
+    localDB.deleteJournalEntry(alice, e.id);
+    localDB.deleteForever(alice, { entryIds: [e.id], goalIds: [] });
+
+    expect(text(citing)).toContain("[entry removed]");
+    expect(text(citing)).not.toMatch(/lighthouse|midnight/i);
+    expect(text(citing)).toContain("gardening in spring"); // quoted from the other, live entry
+    expect(text(unrelated)).toContain("lighthouse keeper"); // never cited it
+    expect(
+      db.prepare("SELECT content FROM messages WHERE id = ?").get(userMessage)
+        .content,
+    ).toContain("lighthouse");
+  });
+
+  it("does not reach into another user's chats", () => {
+    const mine = entry(alice, {
+      content: "my secret plan involves a very long walk home tonight",
+    });
+    const theirs = chatFor(bob);
+    const msg = answer(
+      theirs,
+      "my secret plan involves a very long walk home tonight",
+      [mine],
+    );
+    localDB.deleteJournalEntry(alice, mine.id);
+    localDB.deleteForever(alice, { entryIds: [mine.id], goalIds: [] });
+    expect(text(msg)).toContain("secret plan"); // bob's chat is bob's
+  });
+
+  it("after Delete forever no table holds a trace of the entry's text", () => {
+    const phrase = "zanzibar-quetzal-obsidian-lantern";
+    const e = entry(alice, {
+      title: "Trace test",
+      content: `I dreamed of ${phrase} all night long again`,
+    });
+    db.prepare(
+      "UPDATE journal_entries SET transcription = ?, content_summary = ? WHERE id = ?",
+    ).run(`spoken ${phrase}`, `summary of ${phrase}`, e.id);
+    answer(chatFor(alice), `You mentioned ${phrase} all night long again`, [e]);
+    const dump = () =>
+      db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+        )
+        .all()
+        .flatMap(({ name }) => db.prepare(`SELECT * FROM ${name}`).all())
+        .map((row) => JSON.stringify(row))
+        .filter((json) => json.includes(phrase));
+
+    expect(dump().length).toBeGreaterThan(0); // the probe works while it exists
+    localDB.deleteJournalEntry(alice, e.id);
+    expect(dump().length).toBeGreaterThan(0); // still in the trash
+    localDB.deleteForever(alice, { entryIds: [e.id], goalIds: [] });
+    expect(dump()).toEqual([]);
+  });
+});
+
 describe("search results", () => {
   it("keeps only live items that belong to the user, and drops what it does not know", async () => {
     const live = entry(alice);
