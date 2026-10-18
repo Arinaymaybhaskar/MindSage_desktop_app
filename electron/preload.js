@@ -137,6 +137,8 @@ contextBridge.exposeInMainWorld("electron", {
         "settings:set-launch-at-startup",
         "settings:set-check-for-updates",
         "update:check",
+        "update:get-state",
+        "update:install",
       ];
 
       if (validChannels.includes(channel)) {
@@ -159,6 +161,7 @@ contextBridge.exposeInMainWorld("electron", {
         "update:available",
         "update:progress",
         "update:downloaded",
+        "update:error",
         "auth:changed",
       ];
       if (!validChannels.includes(channel)) {

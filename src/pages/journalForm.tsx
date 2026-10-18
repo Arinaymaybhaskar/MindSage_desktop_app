@@ -28,6 +28,7 @@ import { ollamaService } from "../api/ollamaService";
 import { getFollowUpQuestionsPrompt } from "../utils/prompts/Journal";
 import { SidebarPanel } from "../components/journal/SidebarPanel";
 import type { SelectedModels } from "../types/Ollama";
+import { registerUnsavedWork } from "../utils/unsavedWork";
 
 const emptyJournal: JournalEntry = {
   title: "",
@@ -127,6 +128,7 @@ export default function JournalForm() {
           mood_tags: fetchedEntry.mood_tags || [],
         };
         setEntry(entryToSet);
+        baselineRef.current = JSON.stringify(entryToSet);
 
         // Set the edited date to the entry's created_at date
         if (fetchedEntry.created_at) {
@@ -196,6 +198,29 @@ export default function JournalForm() {
 
     loadEntry();
   }, [id, isEdit, sessionUser, DRAFT_KEY]);
+
+  // Tell the update bar what a restart would lose. A new entry's text can be
+  // written to its draft on the spot; an entry being edited has no draft, and
+  // neither kind can keep a picked photo or a fresh recording.
+  const entryRef = useRef(entry);
+  entryRef.current = entry;
+  const baselineRef = useRef<string | null>(null);
+  const hasMediaRef = useRef(false);
+  hasMediaRef.current = Boolean(imageFile || recordingBlob);
+  useEffect(() => {
+    return registerUnsavedWork({
+      flush: () => {
+        if (!isEdit) {
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(entryRef.current));
+        }
+      },
+      isDirty: () =>
+        hasMediaRef.current ||
+        (isEdit &&
+          baselineRef.current !== null &&
+          JSON.stringify(entryRef.current) !== baselineRef.current),
+    });
+  }, [isEdit, DRAFT_KEY]);
 
   // Auto-save draft
   useEffect(() => {

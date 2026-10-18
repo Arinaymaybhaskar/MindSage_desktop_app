@@ -42,6 +42,7 @@ import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
 import Onboarding, { SETUP_COMPLETE_KEY } from "./pages/Onboarding";
 import AIReadinessBanner from "./components/AIReadinessBanner";
+import UpdateBar from "./components/UpdateBar";
 import { ToastProvider } from "./context/ToastContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ErrorFallback from "./components/ErrorFallback";
@@ -195,10 +196,16 @@ function AppLayout() {
           />
         )}
         <div className="flex flex-col h-full w-full overflow-hidden">
-          {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
+          {/* The title bar is fixed over the top 40px, so notices start below
+              it, and <main> only needs its own top padding while there are
+              none (the wrapper is :empty then, and hidden). */}
+          <div className="peer pt-10 empty:hidden">
+            {!isQuickCapturePage && !isAuthPage && <UpdateBar />}
+            {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
+          </div>
           <main
             className={`flex-1 overflow-hidden no-scrollbar ${
-              isQuickCapturePage ? "" : "pt-10"
+              isQuickCapturePage ? "" : "peer-empty:pt-10"
             }`}
           >
             {/* Wraps the routes only, so a page crash leaves the title bar,

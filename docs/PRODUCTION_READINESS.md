@@ -57,7 +57,7 @@ Run before trusting any older doc in this folder.
 ## 2. 🟠 High — production operations
 
 - [ ] 🟠 M — **No crash reporting.** Zero visibility into production failures. Electron's `crashReporter` at minimum. Anything network-bound needs explicit opt-in given the offline positioning.
-- [ ] 🟠 S — **Update UI is missing.** `autoUpdater` emits `update:available`, `update:progress`, and `update:downloaded` to the renderer ([autoUpdater.js:28-36](../electron/services/autoUpdater.js#L28-L36)) and **nothing listens**. Updates download and install silently.
+- [~] 🟠 S — **Update UI is missing.** Wired in KAN-60 (UpdateBar); not yet run against a real release. `autoUpdater` emits `update:available`, `update:progress`, and `update:downloaded` to the renderer ([autoUpdater.js:28-36](../electron/services/autoUpdater.js#L28-L36)) and **nothing listens**. Updates download and install silently.
 - [ ] 🟠 M — **Make CI quality gates blocking.** Requires clearing 131 typecheck + 92 lint errors. The highest-leverage fix: `electron.d.ts` doesn't declare `minimize` / `maximize` / `close` / `onWindowStateChange`, which [preload.js:4-32](../electron/preload.js#L4) *does* expose — a pure typing gap that accounts for the `TitleBar.tsx` failures.
 - [ ] 🟠 M — **Cut the installer down from 236 MB.** The unpacked app is **777 MB** — over half of it avoidable: mac binaries shipped inside the Windows build, an 81 MB ffmpeg, renderer libraries shipped twice, and 43 MB of unused Electron locales. Full breakdown and plan in [BUNDLE_SIZE_PLAN.md](BUNDLE_SIZE_PLAN.md).
 - [ ] 🟠 M — **Deepen test coverage** to journal CRUD, the Qdrant/AI worker, and migrations. Add a Playwright e2e for launch → write → search.
