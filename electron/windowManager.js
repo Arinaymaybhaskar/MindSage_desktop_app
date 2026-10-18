@@ -62,13 +62,31 @@ export async function createWindow() {
     win.loadFile(path.join(process.env.DIST, "index.html"));
   }
 
+  return win;
+}
+
+let ipcRegistered = false;
+
+/**
+ * Window-control and open-external channels. Registered once for the life of
+ * the app, not per window: a second `handle` for the same channel throws, and
+ * a second `on` would stack listeners each time the window is recreated
+ * (macOS reopen, KAN-337). They act on whichever window is current.
+ */
+export function registerWindowIpc() {
+  if (ipcRegistered) return;
+  ipcRegistered = true;
+
   // Window control IPC
-  ipcMain.on("minimize-window", () => !win.isDestroyed() && win.minimize());
+  ipcMain.on(
+    "minimize-window",
+    () => !!win && !win.isDestroyed() && win.minimize(),
+  );
   ipcMain.on("maximize-window", () => {
     if (!win || win.isDestroyed()) return;
     win.isMaximized() ? win.unmaximize() : win.maximize();
   });
-  ipcMain.on("close-window", () => !win.isDestroyed() && win.close());
+  ipcMain.on("close-window", () => !!win && !win.isDestroyed() && win.close());
 
   ipcMain.handle("open-external", async (_event, url) => {
     try {
@@ -84,6 +102,4 @@ export async function createWindow() {
       return { success: false, error: String(err) };
     }
   });
-
-  return win;
 }

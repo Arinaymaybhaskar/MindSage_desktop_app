@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 
 import localDB from "./db/index.js";
 // import { startServer } from "../src/server/app.js";
-import { createWindow } from "./windowManager.js";
+import { createWindow, registerWindowIpc } from "./windowManager.js";
+import { createReopener } from "./windowReopen.js";
 import { guardContents, isAppUrl } from "./windowGuard.js";
 import { registerIPCHandlers } from "./ipcHandlers.js";
 import { setupEventBusListeners } from "./events.js";
@@ -370,14 +371,15 @@ app.whenReady().then(async () => {
 
   // Create the main window hidden; it is revealed once services have
   // reported (ready or degraded) and the renderer has painted.
+  registerWindowIpc();
+  // Replay services-ready for reloads. It is sent once per status, so a
+  // renderer that mounts afterwards - or any in-session reload, which is
+  // routine while capturing screenshots - would otherwise never see it.
+  const replayOnLoad = (w) =>
+    w.webContents.on("did-finish-load", () => announcer.replay(w));
   try {
     win = await createWindow();
-    // Replay services-ready for reloads. It is sent once per status, so a
-    // renderer that mounts afterwards - or any in-session reload, which is
-    // routine while capturing screenshots - would otherwise never see it.
-    win.webContents.on("did-finish-load", () => {
-      announcer.replay(win);
-    });
+    replayOnLoad(win);
     log("Main window created");
     // The index may have settled before the window existed.
     announcer.flush();
@@ -416,8 +418,17 @@ app.whenReady().then(async () => {
   if (!registered)
     console.log("Failed to register QuickCapture global shortcut");
 
+  const reopen = createReopener({
+    getWindow: () => win,
+    create: createWindow,
+    adopt: (w) => {
+      win = w;
+    },
+    onCreated: replayOnLoad,
+  });
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0)
+      reopen().catch((e) => log(`Reopen failed: ${e?.stack || e}`));
   });
 });
 
