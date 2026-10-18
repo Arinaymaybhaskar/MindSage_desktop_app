@@ -44,11 +44,12 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = () => {
           </label>
           <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">
             Deleted entries and goals stay in the Trash for 30 days. Deleting
-            them for good removes their text, photos and recordings from this
-            computer and from search, and removes what saved Ask answers quoted
-            of them. Backups MindSage made before you deleted something still
-            contain it, and so does any copy of your journal you exported or
-            copied yourself.
+            them for good removes their text, photos and recordings from
+            MindSage and from search, and removes what saved Ask answers quoted
+            of them (in languages written without spaces, such as Japanese, only
+            whole clauses are caught). Backups MindSage made before you deleted
+            something still contain it, and so does any copy of your journal you
+            exported or copied yourself.
           </p>
         </div>
 

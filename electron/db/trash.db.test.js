@@ -588,11 +588,54 @@ describe("what a saved Ask answer keeps", () => {
     expect(text(msg)).toContain("secret plan"); // bob's chat is bob's
   });
 
+  it("a purged goal loses its title and notes from saved answers too", async () => {
+    const g = Number(
+      (
+        await localDB.AddGoal(alice, {
+          title: "Run the marathon in Lisbon",
+          description: "train every morning before work starts",
+          target_value: 5,
+          unit: "km",
+        })
+      ).lastInsertRowid,
+    );
+    const chat = chatFor(alice);
+    const id = Number(
+      db
+        .prepare(
+          "INSERT INTO messages (chat_id, sender, content) VALUES (?, 'ai', ?)",
+        )
+        .run(
+          chat,
+          "Your goal is to train every morning before work starts, nice.",
+        ).lastInsertRowid,
+    );
+    db.prepare(
+      "INSERT INTO message_sources (message_id, source_type, source_id, source_title) VALUES (?, 'goal', ?, 'Run the marathon in Lisbon')",
+    ).run(id, String(g));
+    await localDB.deleteGoal(alice, g);
+    localDB.deleteForever(alice, { entryIds: [], goalIds: [g] });
+    expect(text(id)).not.toContain("every morning");
+    expect(text(id)).toContain("[entry removed]");
+    expect(
+      db
+        .prepare(
+          "SELECT source_title FROM message_sources WHERE message_id = ?",
+        )
+        .get(id).source_title,
+    ).toBe("Removed goal");
+  });
+
+  it("overwrites deleted rows instead of leaving them in free pages", () => {
+    expect(db.pragma("secure_delete", { simple: true })).toBe(1);
+  });
+
   it("after Delete forever no table holds a trace of the entry's text", () => {
     const phrase = "zanzibar-quetzal-obsidian-lantern";
     const e = entry(alice, {
-      title: "Trace test",
+      title: `Trace ${phrase}`,
       content: `I dreamed of ${phrase} all night long again`,
+      mood_tags: [phrase],
     });
     db.prepare(
       "UPDATE journal_entries SET transcription = ?, content_summary = ? WHERE id = ?",

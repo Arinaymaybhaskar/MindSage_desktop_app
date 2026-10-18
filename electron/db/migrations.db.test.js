@@ -223,7 +223,9 @@ describe("the trash migration", () => {
       "INSERT INTO goals (user_id, title, target_value, unit) VALUES (?, 'g', 1, 'x')",
     ).run(live.userId);
 
-    expect(runMigrations(db).applied).toEqual(["trash"]);
+    expect(runMigrations(db, MIGRATIONS.slice(0, 5)).applied).toEqual([
+      "trash",
+    ]);
 
     const row = (id) =>
       db
@@ -327,5 +329,28 @@ describe("a journal of 5,000 entries", () => {
     );
     integrityOk(db);
     console.log(`5,000-entry migration took ${seconds.toFixed(2)} s`);
+  });
+});
+
+describe("the message-sources lookup migration", () => {
+  it("adds the index the purge uses, and nothing else", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 5));
+    const names = () =>
+      db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'index'")
+        .all()
+        .map((r) => r.name);
+    expect(names()).not.toContain("idx_message_sources_source");
+    expect(runMigrations(db).applied).toEqual(["message-sources-lookup"]);
+    expect(names()).toContain("idx_message_sources_source");
+    const plan = db
+      .prepare(
+        "EXPLAIN QUERY PLAN SELECT 1 FROM message_sources WHERE source_type = 'journal' AND source_id = '1'",
+      )
+      .all()
+      .map((r) => r.detail)
+      .join(" ");
+    expect(plan).toContain("idx_message_sources_source");
   });
 });

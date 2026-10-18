@@ -97,4 +97,29 @@ describe("redactQuotes", () => {
     expect(out).toContain("Then:");
     expect(out).toContain("lovely");
   });
+
+  it("keeps combining marks inside words, so Hindi words are never cut", () => {
+    const hi = {
+      title: null,
+      content: "आज मैं अपनी माँ के साथ बाज़ार गया और फल खरीदे",
+    };
+    expect(redactQuotes("वह अपनी माँ के साथ बाज़ार बाहर", hi)).toBe(
+      `वह ${M} बाहर`,
+    );
+    expect(redactQuotes("तुम आज मैं अपनी माँ के खुश हो", hi)).toBe(
+      `तुम ${M} खुश हो`,
+    );
+  });
+
+  it("matches text typed with decomposed accents", () => {
+    const cafe = {
+      title: null,
+      content: "We sat in the Caf\u00e9 crème and talked for hours",
+    };
+    const out = redactQuotes(
+      "You sat in the Cafe\u0301 crème and talked for hours",
+      cafe,
+    );
+    expect(out).toBe(`You ${M}`);
+  });
 });

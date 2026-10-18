@@ -101,24 +101,25 @@ export function restoreItems(userId, { entryIds, goalIds }) {
 }
 
 /**
- * Saved Ask answers that cited this entry keep their sentences but lose what
- * they quoted of it: the quoted runs become "[entry removed]". Only answers
- * that cite the entry (message_sources) in this user's chats are touched.
+ * Saved Ask answers that cited a removed item keep their sentences but lose
+ * what they quoted of it: the quoted runs become "[entry removed]". Only AI
+ * answers that cite the item (message_sources) in this user's chats are
+ * touched. `types` are the source_type values the item is cited under.
  */
-function scrubSavedAnswers(userId, entry) {
+function scrubSavedAnswers(userId, types, id, item) {
   const answers = db
     .prepare(
       `SELECT DISTINCT m.id, m.content
          FROM message_sources s
          JOIN messages m ON m.id = s.message_id
          JOIN chats c ON c.id = m.chat_id
-        WHERE s.source_type = 'journal' AND s.source_id = ?
+        WHERE s.source_type IN (${placeholders(types)}) AND s.source_id = ?
           AND c.user_id = ? AND m.sender = 'ai'`,
     )
-    .all(String(entry.id), userId);
+    .all(...types, String(id), userId);
   const update = db.prepare(`UPDATE messages SET content = ? WHERE id = ?`);
   for (const answer of answers) {
-    const redacted = redactQuotes(answer.content, entry);
+    const redacted = redactQuotes(answer.content, item);
     if (redacted !== answer.content) update.run(redacted, answer.id);
   }
 }
@@ -159,7 +160,8 @@ export function deleteForever(userId, { entryIds, goalIds }) {
       }
       const ids = rows.map((r) => r.id);
       removedEntryIds = ids;
-      for (const row of rows) scrubSavedAnswers(userId, row);
+      for (const row of rows)
+        scrubSavedAnswers(userId, ["journal"], row.id, row);
       if (ids.length) {
         db.prepare(
           `UPDATE message_sources SET source_title = 'Removed entry'
@@ -170,26 +172,50 @@ export function deleteForever(userId, { entryIds, goalIds }) {
             `DELETE FROM journal_entries WHERE user_id = ? AND id IN (${placeholders(ids)})`,
           )
           .run(userId, ...ids).changes;
+        // Tags that no entry uses any more would keep the entry's words
+        // (a tag can be a phrase) and still be exported.
+        db.prepare(
+          `DELETE FROM tags WHERE user_id = ?
+             AND id NOT IN (SELECT tag_id FROM journal_entry_tags)`,
+        ).run(userId);
       }
     }
 
     if (goals.length) {
       const rows = db
         .prepare(
-          `SELECT id FROM goals
+          `SELECT id, title, description FROM goals
             WHERE user_id = ? AND is_deleted = 1 AND id IN (${placeholders(goals)})`,
         )
         .all(userId, ...goals);
       const ids = rows.map((r) => r.id);
-      for (const id of ids) {
-        queue.run(userId, "goal", id);
+      for (const goal of rows) {
+        queue.run(userId, "goal", goal.id);
+        scrubSavedAnswers(userId, ["goal"], goal.id, {
+          title: goal.title,
+          content: goal.description,
+        });
         for (const log of db
-          .prepare(`SELECT id FROM progress_logs WHERE goal_id = ?`)
-          .all(id)) {
+          .prepare(
+            `SELECT id, description FROM progress_logs WHERE goal_id = ?`,
+          )
+          .all(goal.id)) {
           queue.run(userId, "progress_log", log.id);
+          scrubSavedAnswers(userId, ["progress_log"], log.id, {
+            title: goal.title,
+            content: log.description,
+          });
+          db.prepare(
+            `UPDATE message_sources SET source_title = 'Removed goal'
+              WHERE source_type = 'progress_log' AND source_id = ?`,
+          ).run(String(log.id));
         }
       }
       if (ids.length) {
+        db.prepare(
+          `UPDATE message_sources SET source_title = 'Removed goal'
+            WHERE source_type = 'goal' AND source_id IN (${placeholders(ids)})`,
+        ).run(...ids.map(String));
         removedGoals = db
           .prepare(
             `DELETE FROM goals WHERE user_id = ? AND id IN (${placeholders(ids)})`,

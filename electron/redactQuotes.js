@@ -12,8 +12,12 @@ export const RUN = 5;
 
 // A word may contain apostrophes and hyphens, but not end on one, so a closing
 // quote mark is never part of the last word.
-const WORD = /[\p{L}\p{N}]+(?:['’_-][\p{L}\p{N}]+)*/gu;
-const norm = (w) => w.toLowerCase().replace(/[’]/g, "'");
+// Combining marks (\p{M}) belong to the word: Hindi vowel signs, accents.
+// Scripts written without spaces (Japanese, Chinese, Thai) come out as long
+// tokens, so a quote in them is only caught when it is a whole clause; that is
+// a known limit.
+const WORD = /[\p{L}\p{N}\p{M}]+(?:['’_-][\p{L}\p{N}\p{M}]+)*/gu;
+const norm = (w) => w.normalize("NFC").toLowerCase().replace(/[’]/g, "'");
 
 const tokens = (text) =>
   [...String(text ?? "").matchAll(WORD)].map((m) => ({

@@ -93,6 +93,12 @@ export async function purge(
   for (let i = 0; i < goalIds.length; i += CHUNK) {
     await step([], goalIds.slice(i, i + CHUNK));
   }
+  // Fold the write-ahead log back in so removed text is not left in it.
+  try {
+    localDB.db.pragma("wal_checkpoint(TRUNCATE)");
+  } catch {
+    // A busy checkpoint only delays the cleanup.
+  }
   const index = await processVectorDeletions();
   return { ...result, searchCleanupPending: index.pending };
 }
