@@ -439,6 +439,35 @@ describe("an entry deleted for good while it is being indexed", () => {
   );
 
   it.skipIf(!ollamaFree)(
+    "the same holds when the point is written by an update of the entry",
+    async () => {
+      const e = entry({ title: "doomed by update" });
+      const stale = { ...e, qdrant_id: "00000000-0000-4000-8000-000000000343" };
+      ollama.delayMs = 500;
+      worker.postMessage({
+        type: "journal:qdrant-update-needed",
+        data: { entry: stale },
+      });
+      await waitFor(() => ollama.requests.length === 1);
+      localDB.deleteJournalEntry(user.id, e.id);
+      localDB.deleteForever(user.id, { entryIds: [e.id], goalIds: [] });
+      localDB.db
+        .prepare("DELETE FROM vector_deletions WHERE source_id = ?")
+        .run(e.id);
+
+      await waitFor(() => events.some((m) => m?.type === "vector-cleanup"));
+      expect(qdrant.upserts).toHaveLength(1); // the orphan really was written
+      expect(
+        localDB.db
+          .prepare(
+            "SELECT user_id, source_type FROM vector_deletions WHERE source_id = ?",
+          )
+          .get(e.id),
+      ).toEqual({ user_id: user.id, source_type: "journal" });
+    },
+  );
+
+  it.skipIf(!ollamaFree)(
     "an entry that is only in the trash keeps its point and asks for nothing",
     async () => {
       const e = entry({ title: "just trashed" });
