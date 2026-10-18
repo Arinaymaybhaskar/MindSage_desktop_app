@@ -362,6 +362,18 @@ app.whenReady().then(async () => {
       processVectorDeletions();
       log("Search index and worker initialized");
     },
+    // Index came up late: embed whatever was saved while it was down. The
+    // bulk syncs only touch entries not yet synced, so this is not a re-index.
+    onCatchUp: () => {
+      for (const type of [
+        "journal:bulk-sync-requested",
+        "goal:bulk-sync-requested",
+        "progress_log:bulk-sync-requested",
+      ]) {
+        global.qdrantWorker?.postMessage({ type });
+      }
+      log("Queued a catch-up sync for items saved while search was down");
+    },
     onStatus: (status) => {
       markIndexSettled();
       announcer.update(status);

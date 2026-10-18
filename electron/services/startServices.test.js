@@ -124,6 +124,59 @@ describe("startServices", () => {
   });
 });
 
+describe("catching up after a late index", () => {
+  it("runs the catch-up once when a retry brings the index up", async () => {
+    const onCatchUp = vi.fn();
+    const d = deps({
+      startIndex: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("down"))
+        .mockResolvedValue({ baseUrl: "http://127.0.0.1:6333" }),
+      onCatchUp,
+    });
+    const result = await startServices({ ...d, retryDelaysMs: [1, 1] });
+    expect(onCatchUp).not.toHaveBeenCalled(); // not before it is up
+    await expect(result.retry).resolves.toBe(true);
+    expect(onCatchUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not run it on a normal start (no full re-index)", async () => {
+    const onCatchUp = vi.fn();
+    const result = await startServices(deps({ onCatchUp }));
+    await result.retry;
+    expect(onCatchUp).not.toHaveBeenCalled();
+  });
+
+  it("does not run it when every retry fails", async () => {
+    const onCatchUp = vi.fn();
+    const d = deps({
+      startIndex: vi.fn().mockRejectedValue(new Error("down")),
+      onCatchUp,
+    });
+    const result = await startServices({ ...d, retryDelaysMs: [1, 1] });
+    await expect(result.retry).resolves.toBe(false);
+    expect(onCatchUp).not.toHaveBeenCalled();
+  });
+
+  it("a catch-up that throws does not undo the recovery", async () => {
+    const d = deps({
+      startIndex: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("down"))
+        .mockResolvedValue({}),
+      onCatchUp: vi.fn(() => {
+        throw new Error("no worker");
+      }),
+    });
+    const result = await startServices({ ...d, retryDelaysMs: [1] });
+    await expect(result.retry).resolves.toBe(true);
+    expect(d.onStatus).toHaveBeenLastCalledWith({
+      degraded: false,
+      search: true,
+    });
+  });
+});
+
 describe("searchIndex", () => {
   it("marks the unavailable error and result with one code callers can check", () => {
     const err = new IndexUnavailableError();

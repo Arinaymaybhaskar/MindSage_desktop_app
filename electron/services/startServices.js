@@ -19,6 +19,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * @param {(runtime: object) => void} deps.onIndexReady  Wires the runtime in (client, worker).
  * @param {(status: {degraded: boolean, search: boolean}) => void} deps.onStatus  Tells the window.
  * @param {(message: string) => void} [deps.log]
+ * @param {() => void} [deps.onCatchUp]  Called once when the index comes up on a retry (never on a normal start), to index what was saved while it was down.
  * @param {number[]} [deps.retryDelaysMs]
  * @param {(ms: number) => Promise<void>} [deps.wait]
  * @returns {Promise<{degraded: boolean, search: boolean, retry: Promise<boolean>}>}
@@ -29,6 +30,7 @@ export async function startServices({
   startIndex,
   onIndexReady,
   onStatus,
+  onCatchUp = () => {},
   log = () => {},
   retryDelaysMs = INDEX_RETRY_DELAYS_MS,
   wait = sleep,
@@ -63,6 +65,12 @@ export async function startServices({
         await tryIndex();
         log("Vector index started on retry; search available");
         onStatus({ degraded: false, search: true });
+        // Entries written while it was down were never embedded (KAN-336).
+        try {
+          onCatchUp();
+        } catch (e) {
+          log(`Catch-up sync failed to start: ${e?.message || e}`);
+        }
         return true;
       } catch (e) {
         log(`Vector index retry failed: ${e?.message || e}`);
