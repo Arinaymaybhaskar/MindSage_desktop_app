@@ -10,7 +10,7 @@
 //   style-src + 'unsafe-inline'  React and Tailwind set style attributes
 //   img-src / media-src       entries' images and audio arrive over IPC as
 //                             data: URLs, and previews are blob: URLs
-//   font-src 'self' data:     fonts are bundled (src/index.css), never fetched
+//   font-src 'self'          fonts are bundled (src/index.css), never fetched
 //   frame-src data:           the chat PDF viewer shows a data: URL in an iframe
 //   connect-src 'self'        the renderer talks to the main process over IPC,
 //                             never over the network
@@ -28,7 +28,7 @@ export function buildCsp({ dev = false } = {}) {
     "style-src": ["'self'", "'unsafe-inline'"],
     "img-src": ["'self'", "data:", "blob:"],
     "media-src": ["'self'", "data:", "blob:"],
-    "font-src": ["'self'", "data:"],
+    "font-src": ["'self'"],
     "frame-src": ["data:"],
     "connect-src": ["'self'"],
     "object-src": ["'none'"],

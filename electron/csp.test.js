@@ -43,7 +43,7 @@ describe("production policy", () => {
     expect(csp["img-src"]).toEqual(["'self'", "data:", "blob:"]);
     expect(csp["media-src"]).toEqual(["'self'", "data:", "blob:"]);
     expect(csp["frame-src"]).toEqual(["data:"]);
-    expect(csp["font-src"]).toEqual(["'self'", "data:"]);
+    expect(csp["font-src"]).toEqual(["'self'"]);
   });
 
   it("only uses unsafe-inline for styles", () => {
@@ -54,7 +54,10 @@ describe("production policy", () => {
   });
 
   it("stays short enough that <meta charset> still falls inside the first 1024 bytes", () => {
-    expect(buildCsp().length).toBeLessThan(600);
+    // Vite escapes each ' as &#39; (4 extra bytes) when it writes the tag.
+    const text = buildCsp();
+    const served = text.length + 4 * (text.match(/'/g) ?? []).length;
+    expect(served).toBeLessThan(600);
   });
 });
 
