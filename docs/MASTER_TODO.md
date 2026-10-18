@@ -102,7 +102,7 @@ Independently shippable, and it shrinks everything downstream — fewer files to
 26. ✅ **Done 2026-08-28** — `electron.d.ts` describes the whole preload surface and `invoke` is generic. See §0.
 27. ✅ **Done 2026-08-28** — typecheck, lint and format are at zero and CI blocks on all four gates. See §0.
 28. 🟠 S — **Extend ESLint to `electron/**/*.js`.** All main-process JS is currently neither linted nor type-checked. → [TECHNICAL_DEBT §1.3](TECHNICAL_DEBT.md)
-29. 🔴 L — **Deepen test coverage** to journal CRUD, the AI worker, and migrations, plus a Playwright e2e for launch → write → search. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
+29. 🟠 L — **Mostly done 2026-10-18 (KAN-57): coverage deepened; the e2e has not run in CI.** `npm run test:db` (real SQLite under Electron-as-Node): every migration, an honest pre-versioning upgrade, 5,000 entries in about a second, journal CRUD, the pre-migration backup, and the real AI worker thread against fake Ollama and Qdrant (28 + 9 tests, each guarded by mutation checks). `npm run test:e2e` (Playwright Electron: launch, sign up, sign in, write, wait on aiCompleted and index-completed events, search) passes locally against fake Ollama and Qdrant servers and fails fast with Ollama down; the real-model run is the new Windows CI job, not yet seen green. **Deepen test coverage** to journal CRUD, the AI worker, and migrations, plus a Playwright e2e for launch → write → search. → [PRODUCTION_READINESS §2](PRODUCTION_READINESS.md)
 
 ## Phase 5 — Production operations
 

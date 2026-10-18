@@ -60,3 +60,4 @@ resources/win/snapshots/
 docs/benchmarks/results/quick/
 # Benchmark publishing credentials (see .env.bench.example)
 .env.bench
+e2e-artifacts/
