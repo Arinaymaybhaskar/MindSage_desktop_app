@@ -222,7 +222,7 @@ app.whenReady().then(async () => {
     } catch {}
     // Check for app updates once the UI is visible: packaged builds only,
     // and only if the user turned automatic checks on in Settings.
-    initAutoUpdater(win).catch((e) =>
+    initAutoUpdater(() => win).catch((e) =>
       log(`Auto-updater init error: ${e?.stack || e}`),
     );
   };
