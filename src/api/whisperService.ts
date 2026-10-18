@@ -8,19 +8,6 @@ type TranscriptionResult = {
 
 const whisperService = {
   /**
-   * Transcribe a full audio blob (file upload style).
-   */
-  async transcribeBlob(blob: Blob): Promise<TranscriptionResult> {
-    const arrayBuffer = await blob.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    return await window.electron.ipcRenderer.invoke(
-      "whisper:transcribe-audio",
-      buffer,
-    );
-  },
-
-  /**
    * Start live transcription (streaming).
    */
   async startLive(): Promise<void> {

@@ -128,10 +128,17 @@ async function aiResponse(
       onPhase("searching");
       // Use base_query and time filter
       const vector = await generateEmbedding(propsRes.base_query);
-      semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries", {
-        from: propsRes.time_filter_from,
-        to: propsRes.time_filter_to,
-      });
+      semanticResult = await SemanticSearch(
+        vector,
+        userId,
+        5,
+        "mind_entries",
+        undefined,
+        {
+          from: propsRes.time_filter_from,
+          to: propsRes.time_filter_to,
+        },
+      );
     }
     console.log(semanticResult, "Semantic Result");
     let mainPrompt;

@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import { filterByTimeRange, hasTimeRange } from "../timeFilter.js";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { generateEmbedding } from "./ollama.js";
 import { currentUserId } from "../session.js";
@@ -33,6 +34,7 @@ export async function SemanticSearch(
   limit,
   collection,
   threshold = 0.5,
+  range = null,
 ) {
   const qdrant = await readyClient();
   if (!qdrant) throw new IndexUnavailableError();
@@ -50,11 +52,15 @@ export async function SemanticSearch(
     vector: { name: "text_embedding", vector },
     // Asks for more than needed: trashed items are dropped below and should
     // not leave the caller short.
-    limit: limit * 2,
+    // A time range drops most candidates, so look further down the list.
+    limit: hasTimeRange(range) ? limit * 10 : limit * 2,
     filter: userFilter,
   });
 
-  const filtered = results.filter((r) => r.score >= threshold);
+  const filtered = filterByTimeRange(
+    results.filter((r) => r.score >= threshold),
+    range,
+  );
 
   // The vector store does not know about the trash. Only live items, the
   // signed-in user's, may come back from search, Ask and related entries.
