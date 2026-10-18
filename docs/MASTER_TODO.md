@@ -156,7 +156,7 @@ Independently shippable, and it shrinks everything downstream — fewer files to
 57. 🟡 S — **Finish the dependency trim** — `chart.js` vs `recharts`, `date-fns` vs `dayjs`, and `react-hot-toast` vs the in-house `ToastContext` (still imported in 3 files). → [TODO §High](TODO.md)
 58. 🟢 M — **Accessibility** — 72 aria attributes across 166 buttons, and exactly one `prefers-reduced-motion` rule in a heavily animated app. No focus-trap or skip-link pattern. → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
 59. 🟢 S — **`CONTRIBUTING.md` and `CHANGELOG.md`.** → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
-60. 🟡 **Half done 2026-10-18 (KAN-63)** — the uninstaller now asks "Also delete your journal and settings?" (default No, names the folder; never on update or silent uninstall) via [assets/installer.nsh](../assets/installer.nsh); compiles under makensis but **has not been run on Windows**. The in-app Delete profile flow is its own ticket. — → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
+60. 🟡 S — **Half done 2026-10-18 (KAN-63)** — the uninstaller now asks "Also delete your journal and settings?" (default No, names the folder; never on update or silent uninstall) via [assets/installer.nsh](../assets/installer.nsh); compiles under makensis but **has not been run on Windows**. The in-app Delete profile flow is its own ticket. → [PRODUCTION_READINESS §4](PRODUCTION_READINESS.md)
 
 ## Phase 10 — Structural bets
 

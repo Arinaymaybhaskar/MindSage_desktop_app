@@ -27,29 +27,56 @@ describe("NSIS uninstall cleanup (assets/installer.nsh)", () => {
     expect(body).toContain("Also delete your journal and settings?");
     expect(body).toContain("$APPDATA\\${APP_FILENAME}");
     expect(body).toMatch(/MB_YESNO[^\n]*MB_DEFBUTTON2/);
-    expect(body).toMatch(/IDNO mindsageKeepData/);
   });
 
-  it("never deletes during an update or a silent uninstall", () => {
-    const guard = body.indexOf("${ifNot} ${isUpdated}");
-    const silent = body.indexOf("${ifNot} ${Silent}");
-    const rmdir = body.indexOf("RMDir /r");
-    expect(guard).toBeGreaterThan(-1);
-    expect(silent).toBeGreaterThan(guard);
-    expect(rmdir).toBeGreaterThan(silent);
+  // Which constructs enclose a line: the one test that matters for a path
+  // that deletes the user's only copy of their journal.
+  function enclosing(text, marker) {
+    const stack = [];
+    for (const line of text.split("\n")) {
+      const l = line.trim();
+      if (l.includes(marker)) return stack.slice();
+      if (/^\$\{(if|ifNot)\}/i.test(l)) stack.push(l);
+      else if (/^\$\{endIf\}/i.test(l)) stack.pop();
+    }
+    return null;
+  }
+
+  it("deletes only when not updating, not silent, and no --delete-app-data flag", () => {
+    expect(enclosing(body, 'RMDir /r "$APPDATA')).toEqual([
+      "${ifNot} ${isUpdated}",
+      "${ifNot} ${Silent}",
+      "${if} ${Errors}", // GetOptions sets Errors when the flag is absent
+    ]);
+  });
+
+  it("deletes only on an explicit Yes, and every other answer keeps the data", () => {
+    expect(body).toMatch(
+      /IDYES mindsageDeleteData\s+Goto mindsageKeepData\s+mindsageDeleteData:\s+RMDir/,
+    );
+    expect(body).not.toMatch(/IDNO mindsage/);
+  });
+
+  it("names and removes the same folder, in the current user's shell context", () => {
+    const sw = body.indexOf("SetShellVarContext current");
+    expect(sw).toBeGreaterThan(-1);
+    expect(sw).toBeLessThan(body.indexOf("MessageBox"));
+    expect(sw).toBeLessThan(body.indexOf("RMDir /r"));
+    expect(body.indexOf("SetShellVarContext all")).toBeGreaterThan(
+      body.indexOf("mindsageKeepData:"),
+    );
+    const names = body.match(/\$APPDATA\\\$\{APP_FILENAME\}/g);
+    expect(names).toHaveLength(2); // once in the text, once in RMDir
   });
 
   it("leaves --delete-app-data to electron-builder", () => {
     expect(body).toContain("--delete-app-data");
   });
 
-  it("deletes only the current user's app folder, never a path outside %APPDATA%", () => {
-    const removals = body.match(/RMDir \/r "[^"]*"/g);
-    expect(removals).toEqual([
+  it("removes exactly one folder", () => {
+    expect(body.match(/RMDir \/r "[^"]*"/g)).toEqual([
       'RMDir /r "$APPDATA\\${APP_FILENAME}"',
-      'RMDir /r "$APPDATA\\${APP_PACKAGE_NAME}"',
     ]);
-    expect(body).toContain("SetShellVarContext current");
   });
 
   it("matches the folder Electron actually uses for userData", () => {
@@ -68,7 +95,7 @@ describe("NSIS uninstall cleanup (assets/installer.nsh)", () => {
         '!include "LogicLib.nsh"',
         '!include "FileFunc.nsh"',
         '!define APP_FILENAME "MindSage"',
-        '!define APP_PACKAGE_NAME "mindsage-desktop-app"',
+        "Var installMode",
         "Unicode true",
         `OutFile "${path.join(dir, "stub.exe")}"`,
         "!macro _isUpdated _a _b _t _f",
@@ -77,6 +104,7 @@ describe("NSIS uninstall cleanup (assets/installer.nsh)", () => {
         '!define isUpdated `"" isUpdated ""`',
         `!include "${path.join(root, "assets/installer.nsh")}"`,
         "Section",
+        "  StrCpy $installMode all",
         "  !insertmacro customUnInstall",
         "SectionEnd",
       ].join("\n"),
