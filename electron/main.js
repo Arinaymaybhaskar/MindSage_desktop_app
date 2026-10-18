@@ -16,7 +16,8 @@ import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
 import { startServices } from "./services/startServices.js";
 import { markIndexSettled } from "./services/searchIndex.js";
 import { createServiceAnnouncer } from "./services/serviceAnnouncer.js";
-import { setQdrantRuntime } from "./methods/qdrant.js";
+import { processVectorDeletions, setQdrantRuntime } from "./methods/qdrant.js";
+import { registerTrashIPC, startTrashJob } from "./methods/trash.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
 import { registerSetupIPC } from "./services/appSetup.js";
 import { applyLaunchAtStartup, registerAppSettingsIPC } from "./appSettings.js";
@@ -117,6 +118,11 @@ function createQdrantWorker() {
   worker.on("message", (message) => {
     // Structured progress goes to the renderer's AI activity panel; everything
     // else the worker posts is debug logging.
+    // The worker found an item purged while it was being indexed.
+    if (message?.type === "vector-cleanup") {
+      processVectorDeletions();
+      return;
+    }
     if (message?.type === "ai-activity") {
       const win = BrowserWindow.getAllWindows()[0];
       if (win && !win.isDestroyed()) {
@@ -234,6 +240,8 @@ app.whenReady().then(async () => {
     registerAppSettingsIPC();
     registerUpdaterIPC(() => win);
     registerSessionIPC();
+    registerTrashIPC(() => win);
+    startTrashJob();
     applyLaunchAtStartup();
   } catch (e) {
     log(`Setup/settings IPC init error: ${e?.stack || e}`);
@@ -349,6 +357,8 @@ app.whenReady().then(async () => {
       // startQdrant has set QDRANT_HTTP_PORT by now, which the worker
       // reads; it is never started without one.
       if (!global.qdrantWorker) createQdrantWorker();
+      // Finish removing anything deleted for good while the index was down.
+      processVectorDeletions();
       log("Search index and worker initialized");
     },
     onStatus: (status) => {

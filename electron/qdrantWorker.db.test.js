@@ -20,7 +20,7 @@ const workerFile = path.join(
 );
 
 const EMBEDDING = [0.25, -0.5, 0.75];
-const ollama = { requests: [], mode: "ok" };
+const ollama = { requests: [], mode: "ok", delayMs: 0 };
 const qdrant = {
   requests: [],
   mode: "ok",
@@ -89,6 +89,8 @@ beforeAll(async () => {
     ollamaServer = await listen(async (req, res) => {
       const body = JSON.parse(await readBody(req));
       ollama.requests.push({ method: req.method, url: req.url, body });
+      if (ollama.delayMs)
+        await new Promise((r) => setTimeout(r, ollama.delayMs));
       if (ollama.mode === "down") {
         res.writeHead(500);
         return res.end("model not loaded");
@@ -130,6 +132,7 @@ afterAll(async () => {
 beforeEach(() => {
   ollama.requests.length = 0;
   ollama.mode = "ok";
+  ollama.delayMs = 0;
   qdrant.requests.length = 0;
   qdrant.mode = "ok";
   events.length = 0;
@@ -361,6 +364,96 @@ describe("bulk sync", () => {
       expect(
         events.filter((m) => m?.event === "qdrant:bulkProgress"),
       ).toHaveLength(3);
+    },
+  );
+});
+
+describe("items in the trash", () => {
+  it.skipIf(!ollamaFree)(
+    "a manual sync of a trashed entry does nothing",
+    async () => {
+      const e = entry();
+      localDB.deleteJournalEntry(user.id, e.id);
+      sync(e.id);
+      // A second, live entry behind it proves the worker got past the first.
+      const live = entry({ title: "live one" });
+      sync(live.id);
+      await waitFor(() =>
+        activity("journal:indexCompleted", (d) => d.entryId === live.id),
+      );
+      expect(ollama.requests).toHaveLength(1);
+      expect(ollama.requests[0].body.prompt).toContain("live one");
+      expect(status(e.id).qdrant_id).toBeNull();
+    },
+  );
+
+  it.skipIf(!ollamaFree)(
+    "bulk sync skips them and indexes the rest",
+    async () => {
+      worker.postMessage({ type: "journal:bulk-sync-requested" });
+      await waitFor(() => activity("qdrant:bulkCompleted"));
+      events.length = 0;
+      ollama.requests.length = 0;
+      qdrant.requests.length = 0;
+
+      const trashed = entry({ title: "trashed one" });
+      const kept = entry({ title: "kept one" });
+      localDB.deleteJournalEntry(user.id, trashed.id);
+
+      worker.postMessage({ type: "journal:bulk-sync-requested" });
+      await waitFor(() => activity("qdrant:bulkCompleted"));
+      expect(activity("qdrant:bulkStarted").data.total).toBe(1);
+      expect(ollama.requests.map((r) => r.body.prompt).join("|")).not.toContain(
+        "trashed one",
+      );
+      expect(status(kept.id).s).toBe("success");
+    },
+  );
+});
+
+describe("an entry deleted for good while it is being indexed", () => {
+  it.skipIf(!ollamaFree)(
+    "its point is queued for removal again, and main is asked to clear it",
+    async () => {
+      const e = entry({ title: "doomed" });
+      ollama.delayMs = 500;
+      sync(e.id);
+      await waitFor(() => ollama.requests.length === 1); // embedding is under way
+      localDB.deleteJournalEntry(user.id, e.id);
+      localDB.deleteForever(user.id, { entryIds: [e.id], goalIds: [] });
+      // Main would have cleared the queue after the purge; the worker is about
+      // to write a point that nothing points at.
+      localDB.db
+        .prepare("DELETE FROM vector_deletions WHERE source_id = ?")
+        .run(e.id);
+
+      await waitFor(() => events.some((m) => m?.type === "vector-cleanup"));
+      expect(qdrant.upserts).toHaveLength(1); // the orphan really was written
+      const queued = localDB.db
+        .prepare(
+          "SELECT user_id, source_type FROM vector_deletions WHERE source_id = ?",
+        )
+        .get(e.id);
+      expect(queued).toEqual({ user_id: user.id, source_type: "journal" });
+    },
+  );
+
+  it.skipIf(!ollamaFree)(
+    "an entry that is only in the trash keeps its point and asks for nothing",
+    async () => {
+      const e = entry({ title: "just trashed" });
+      ollama.delayMs = 300;
+      sync(e.id);
+      await waitFor(() => ollama.requests.length === 1);
+      localDB.deleteJournalEntry(user.id, e.id);
+      await waitFor(() => qdrant.upserts.length === 1);
+      await new Promise((r) => setTimeout(r, 200));
+      expect(events.some((m) => m?.type === "vector-cleanup")).toBe(false);
+      expect(
+        localDB.db
+          .prepare("SELECT 1 FROM vector_deletions WHERE source_id = ?")
+          .get(e.id),
+      ).toBeUndefined();
     },
   );
 });

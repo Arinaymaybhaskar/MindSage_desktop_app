@@ -341,7 +341,7 @@ const GoalsPage: React.FC = () => {
             isOpen
             onClose={closeModal}
             onConfirm={() => handleDelete(selectedGoal)}
-            type={"journal"}
+            type={"goal"}
           />
         )}
         {modalType === "reflection" && selectedGoal && (

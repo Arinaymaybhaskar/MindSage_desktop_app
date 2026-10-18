@@ -2,7 +2,7 @@ import { db } from "./connection.js";
 
 export const getActiveGoals = async (userId) => {
   const stmt = db.prepare(`
-        SELECT * FROM goals WHERE user_id = ? AND is_completed = 0
+        SELECT * FROM goals WHERE user_id = ? AND is_completed = 0 AND is_deleted = 0
     `);
   const goals = stmt.all(userId);
   return goals;
@@ -10,7 +10,7 @@ export const getActiveGoals = async (userId) => {
 
 export const getCompletedGoals = async (userId) => {
   const stmt = db.prepare(`
-        SELECT * FROM goals WHERE user_id = ? AND is_completed = 1
+        SELECT * FROM goals WHERE user_id = ? AND is_completed = 1 AND is_deleted = 0
     `);
   const goals = stmt.all(userId);
   return goals;
@@ -79,7 +79,7 @@ export const updateGoal = async (userId, goal_id, goalData) => {
     is_completed,
   } = goalData;
   const stmt = db.prepare(`
-        UPDATE goals SET category_id = ?, title = ?, description = ?, parent_goal_title = ?, current_value = ?, target_value = ?, unit = ?, is_pinned = ?, is_completed = ? WHERE id = ? AND user_id = ?
+        UPDATE goals SET category_id = ?, title = ?, description = ?, parent_goal_title = ?, current_value = ?, target_value = ?, unit = ?, is_pinned = ?, is_completed = ? WHERE id = ? AND user_id = ? AND is_deleted = 0
     `);
   const result = stmt.run(
     category_id,
@@ -96,20 +96,22 @@ export const updateGoal = async (userId, goal_id, goalData) => {
   );
   return result;
 };
+// Moves the goal to the trash. Its progress logs stay with it, so restoring
+// brings the whole history back; they go when the goal is purged.
 export const deleteGoal = async (userId, goal_id) => {
-  const logsStmt = db.prepare("DELETE FROM progress_logs WHERE goal_id = ?");
-  logsStmt.run(goal_id);
   const stmt = db.prepare(`
-        DELETE FROM goals WHERE id = ? AND user_id = ?
+        UPDATE goals
+           SET is_deleted = 1, is_pinned = 0,
+               deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND user_id = ? AND is_deleted = 0
     `);
-  const result = stmt.run(goal_id, userId);
-  return result;
+  return stmt.run(goal_id, userId);
 };
 export const togglePinGoal = async (userId, goal_id) => {
   const stmt = db.prepare(`
     UPDATE goals
     SET is_pinned = CASE is_pinned WHEN 1 THEN 0 ELSE 1 END
-    WHERE user_id = ? AND id = ?
+    WHERE user_id = ? AND id = ? AND is_deleted = 0
   `);
   const result = stmt.run(userId, goal_id);
   return result;
@@ -118,33 +120,33 @@ export const completeGoal = async (userId, goal_id) => {
   const stmt = db.prepare(`
         UPDATE goals 
         SET is_completed = 1, completed_date = DATE('now'), is_pinned = 0 
-        WHERE user_id = ? AND id = ?
+        WHERE user_id = ? AND id = ? AND is_deleted = 0
     `);
   const result = stmt.run(userId, goal_id);
   return result;
 };
 export const updateProgress = async (userId, goal_id, value) => {
   const updateStmt = db.prepare(
-    "UPDATE goals SET current_value = ? WHERE id = ? AND user_id = ?",
+    "UPDATE goals SET current_value = ? WHERE id = ? AND user_id = ? AND is_deleted = 0",
   );
   updateStmt.run(value, goal_id, userId);
 
   const getGoalStmt = db.prepare(
-    "SELECT * FROM goals WHERE id = ? AND user_id = ?",
+    "SELECT * FROM goals WHERE id = ? AND user_id = ? AND is_deleted = 0",
   );
   return getGoalStmt.get(goal_id, userId);
 };
 
 export const getPinnedGoals = async (userId) => {
   const stmt = db.prepare(
-    "SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1",
+    "SELECT * FROM goals WHERE user_id = ? AND is_pinned = 1 AND is_deleted = 0",
   );
   return stmt.all(userId);
 };
 
 export const getGoalById = async (goalId, userId) => {
   const goalStmt = db.prepare(
-    "SELECT * FROM goals WHERE user_id = ? AND id = ?",
+    "SELECT * FROM goals WHERE user_id = ? AND id = ? AND is_deleted = 0",
   );
   const goal = goalStmt.get(userId, goalId);
 

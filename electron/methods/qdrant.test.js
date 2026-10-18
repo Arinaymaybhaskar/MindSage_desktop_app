@@ -14,6 +14,7 @@ const client = {
   search: vi.fn(),
   deleteCollection: vi.fn(),
   setPayload: vi.fn(),
+  delete: vi.fn(),
   updateVectors: vi.fn(),
 };
 const QdrantClient = vi.fn(function () {
@@ -25,6 +26,16 @@ vi.mock("./ollama.js", () => ({
   generateEmbedding: vi.fn(async () => [0.1, 0.2, 0.3]),
 }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
+
+// The database half of the trash: which results are live, and the queue of
+// index points waiting to be deleted. Both are tested against real SQLite in
+// trash.db.test.js; here they are stand-ins.
+const localDB = {
+  filterLiveResults: vi.fn((_userId, results) => results),
+  pendingVectorDeletions: vi.fn(() => []),
+  clearVectorDeletions: vi.fn(),
+};
+vi.mock("../db/index.js", () => ({ default: localDB }));
 
 // qdrant.js and searchIndex.js keep module-level state (the client, whether
 // the first start has ended), so each scenario loads a fresh copy of both.
@@ -51,7 +62,11 @@ const CLIENT_CHANNELS = [
   ["qdrant:update-vector", "c", 1, [0.1]],
 ];
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  localDB.filterLiveResults.mockImplementation((_u, results) => results);
+  localDB.pendingVectorDeletions.mockReturnValue([]);
+});
 
 describe("qdrant IPC after the first start failed", () => {
   it("registers every handler without a runtime", async () => {
@@ -237,7 +252,8 @@ describe("qdrant IPC once the index is running", () => {
     expect(results).toEqual([{ id: 1, score: 0.9 }]);
     const [collection, body] = client.search.mock.calls[0];
     expect(collection).toBe("mind_entries");
-    expect(body.limit).toBe(5);
+    // Asks for twice as many, so dropping trashed items does not leave Ask short.
+    expect(body.limit).toBe(10);
     expect(body.filter).toEqual({
       must: [{ key: "user_id", match: { value: 7 } }],
     });
@@ -249,5 +265,175 @@ describe("qdrant IPC once the index is running", () => {
     await expect(call("qdrant:get-collections")).resolves.toEqual({
       collections: [],
     });
+  });
+});
+
+describe("search and the trash", () => {
+  async function running() {
+    const m = await fresh();
+    m.setQdrantRuntime({ baseUrl: "http://127.0.0.1:6400" });
+    m.markIndexSettled();
+    return m;
+  }
+
+  it("returns only results the database says are live, for the signed-in user", async () => {
+    await running();
+    client.search.mockResolvedValue([
+      {
+        id: "a",
+        score: 0.9,
+        payload: { source_type: "journal", source_id: 1 },
+      },
+      {
+        id: "b",
+        score: 0.8,
+        payload: { source_type: "journal", source_id: 2 },
+      },
+    ]);
+    localDB.filterLiveResults.mockImplementation((_u, results) =>
+      results.filter((r) => r.payload.source_id === 1),
+    );
+    const results = await call("qdrant:search", "mind_entries", "query", 5);
+    expect(results.map((r) => r.id)).toEqual(["a"]);
+    expect(localDB.filterLiveResults).toHaveBeenCalledWith(
+      7,
+      expect.any(Array),
+    );
+  });
+
+  it("never returns more than was asked for, whatever survives the filter", async () => {
+    await running();
+    client.search.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => ({
+        id: String(i),
+        score: 0.9,
+        payload: { source_type: "journal", source_id: i },
+      })),
+    );
+    const results = await call("qdrant:search", "mind_entries", "query", 3);
+    expect(results).toHaveLength(3);
+  });
+});
+
+describe("removing deleted items from the index", () => {
+  async function running() {
+    const m = await fresh();
+    m.setQdrantRuntime({ baseUrl: "http://127.0.0.1:6400" });
+    return m;
+  }
+  const row = (id, source_id, source_type = "journal", user_id = 7) => ({
+    id,
+    user_id,
+    source_type,
+    source_id,
+  });
+
+  it("deletes the queued points by user, kind and id, and clears them", async () => {
+    const m = await running();
+    localDB.pendingVectorDeletions
+      .mockReturnValueOnce([row(1, 11), row(2, 12), row(3, 5, "goal")])
+      .mockReturnValue([]);
+    client.delete.mockResolvedValue({});
+    await expect(m.processVectorDeletions()).resolves.toEqual({
+      removed: 3,
+      pending: 0,
+    });
+    expect(client.delete).toHaveBeenCalledTimes(2);
+    const [collection, body] = client.delete.mock.calls[0];
+    expect(collection).toBe("mind_entries");
+    expect(body.filter.must).toEqual([
+      { key: "user_id", match: { value: 7 } },
+      { key: "source_type", match: { value: "journal" } },
+      { key: "source_id", match: { any: [11, 12] } },
+    ]);
+    expect(localDB.clearVectorDeletions).toHaveBeenCalledWith([1, 2]);
+    expect(localDB.clearVectorDeletions).toHaveBeenCalledWith([3]);
+  });
+
+  it("keeps the queue when the index is down, so it is retried later", async () => {
+    const m = await fresh(); // no runtime
+    localDB.pendingVectorDeletions.mockReturnValue([row(1, 11)]);
+    await expect(m.processVectorDeletions()).resolves.toEqual({
+      removed: 0,
+      pending: 1,
+    });
+    expect(client.delete).not.toHaveBeenCalled();
+    expect(localDB.clearVectorDeletions).not.toHaveBeenCalled();
+  });
+
+  it("keeps what failed and does not throw", async () => {
+    const m = await running();
+    localDB.pendingVectorDeletions.mockReturnValue([row(1, 11)]);
+    client.delete.mockRejectedValue(new Error("qdrant went away"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await m.processVectorDeletions();
+    spy.mockRestore();
+    expect(result).toEqual({ removed: 0, pending: 1 });
+    expect(localDB.clearVectorDeletions).not.toHaveBeenCalled();
+  });
+
+  it("overlapping calls share one run instead of deleting twice", async () => {
+    const m = await running();
+    localDB.pendingVectorDeletions
+      .mockReturnValueOnce([row(1, 11)])
+      .mockReturnValue([]);
+    client.delete.mockResolvedValue({});
+    const [a, b] = await Promise.all([
+      m.processVectorDeletions(),
+      m.processVectorDeletions(),
+    ]);
+    expect(client.delete).toHaveBeenCalledTimes(1);
+    expect(a).toEqual(b);
+  });
+
+  it("clears rows when the collection does not exist: nothing of theirs is in it", async () => {
+    const m = await running();
+    localDB.pendingVectorDeletions
+      .mockReturnValueOnce([row(1, 11)])
+      .mockReturnValue([]);
+    client.delete.mockRejectedValue(
+      Object.assign(new Error("Not Found"), { status: 404 }),
+    );
+    await expect(m.processVectorDeletions()).resolves.toEqual({
+      removed: 1,
+      pending: 0,
+    });
+    expect(localDB.clearVectorDeletions).toHaveBeenCalledWith([1]);
+  });
+
+  it("one failing group does not hold back the others", async () => {
+    const m = await running();
+    let pending = [row(1, 11, "journal"), row(2, 5, "goal")];
+    localDB.pendingVectorDeletions.mockImplementation(() => pending);
+    localDB.clearVectorDeletions.mockImplementation((ids) => {
+      pending = pending.filter((r) => !ids.includes(r.id));
+    });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    client.delete.mockImplementation(async (_c, { filter }) => {
+      if (filter.must.some((m) => m.match.value === "journal"))
+        throw new Error("boom");
+    });
+    const result = await m.processVectorDeletions();
+    spy.mockRestore();
+    expect(result).toEqual({ removed: 1, pending: 1 });
+    expect(pending.map((r) => r.id)).toEqual([1]);
+  });
+
+  it("matches progress-log points by id alone, since they were written without a reliable user", async () => {
+    const m = await running();
+    localDB.pendingVectorDeletions
+      .mockReturnValueOnce([
+        row(1, 40, "progress_log", 7),
+        row(2, 41, "progress_log", 8),
+      ])
+      .mockReturnValue([]);
+    client.delete.mockResolvedValue({});
+    await m.processVectorDeletions();
+    expect(client.delete).toHaveBeenCalledTimes(1);
+    const { filter } = client.delete.mock.calls[0][1];
+    expect(filter.must).toEqual([
+      { key: "source_type", match: { value: "progress_log" } },
+      { key: "source_id", match: { any: [40, 41] } },
+    ]);
   });
 });

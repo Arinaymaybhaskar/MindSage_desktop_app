@@ -37,6 +37,7 @@ import { initializeColors } from "./utils/colorInitializer";
 import GoalDetail from "./pages/goalDetail";
 import GlobalSearch from "./components/GlobalSearch";
 import Memories from "./pages/Memories";
+import Trash from "./pages/Trash";
 import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
 import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -240,6 +241,14 @@ function AppLayout() {
                   element={
                     <PrivateRoute>
                       <Memories />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/trash"
+                  element={
+                    <PrivateRoute>
+                      <Trash />
                     </PrivateRoute>
                   }
                 />

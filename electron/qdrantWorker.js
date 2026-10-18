@@ -177,7 +177,7 @@ async function upsertProgressLogToQdrant(progressLog, goalTitle, embedding) {
         text_embedding: embedding,
       },
       payload: {
-        user_id: progressLog.user_id || null, // Will be set from goal data
+        user_id: progressLog.user_id || goalOwner(progressLog.goal_id),
         source_type: "progress_log",
         source_id: progressLog.id,
         goal_id: progressLog.goal_id,
@@ -207,6 +207,14 @@ async function upsertProgressLogToQdrant(progressLog, goalTitle, embedding) {
 
 // Function to update only the payload in Qdrant (without changing the vector)
 async function updateQdrantPayload(entry, sourceType = "journal") {
+  if (sourceType === "journal" && !isLive("journal_entries", entry.id)) return;
+  if (sourceType === "goal" && !isLive("goals", entry.id)) return;
+  if (sourceType === "progress_log") {
+    const parent = db
+      .prepare("SELECT is_deleted FROM goals WHERE id = ?")
+      .get(entry.goal_id);
+    if (!parent || parent.is_deleted) return;
+  }
   try {
     if (!entry.qdrant_id) {
       // No qdrant_id? Treat it like a create
@@ -293,7 +301,7 @@ async function updateQdrantPayload(entry, sourceType = "journal") {
         pointId = entry.qdrant_id;
         textToEmbed = `${entry.goal_title || ""} ${entry.description || ""}`;
         payload = {
-          user_id: entry.user_id || null,
+          user_id: entry.user_id || goalOwner(entry.goal_id),
           source_type: "progress_log",
           source_id: entry.id,
           goal_id: entry.goal_id,
@@ -354,8 +362,43 @@ async function updateQdrantPayload(entry, sourceType = "journal") {
   }
 }
 
+// A trashed or purged item is never indexed. Rows reach these functions from
+// several places (events, manual sync, bulk sync) holding a copy read earlier,
+// so the check is made here against the database as it is now.
+function isLive(table, id) {
+  const row = db
+    .prepare(`SELECT is_deleted FROM ${table} WHERE id = ?`)
+    .get(id);
+  return Boolean(row) && !row.is_deleted;
+}
+
+function rowGone(table, id) {
+  return !db.prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id);
+}
+
+const goalOwner = (goalId) =>
+  db.prepare("SELECT user_id FROM goals WHERE id = ?").get(goalId)?.user_id ??
+  null;
+
+/**
+ * An item can be deleted for good while its embedding is being made. The point
+ * then lands in the index after the purge already queued its removal, so the
+ * removal is queued again and main is asked to run it. (An item that is only
+ * in the trash keeps its point; restoring it must not need a re-index.)
+ */
+function cleanupIfPurged(table, type, userId, id) {
+  if (!rowGone(table, id)) return false;
+  db.prepare(
+    `INSERT OR IGNORE INTO vector_deletions (user_id, source_type, source_id)
+     VALUES (?, ?, ?)`,
+  ).run(userId, type, id);
+  parentPort?.postMessage({ type: "vector-cleanup" });
+  return true;
+}
+
 // Process journal entries
 async function processJournal(journal) {
+  if (!isLive("journal_entries", journal.id)) return;
   const perEntry = bulkDepth === 0;
   try {
     parentPort?.postMessage(`Processing journal ID: ${journal.id}`);
@@ -381,6 +424,11 @@ async function processJournal(journal) {
 
     // Upsert to Qdrant
     await upsertJournalToQdrant(journal, embedding);
+    if (
+      cleanupIfPurged("journal_entries", "journal", journal.user_id, journal.id)
+    ) {
+      return;
+    }
 
     // Update database to mark as synced
     const updateStmt = db.prepare(
@@ -416,6 +464,7 @@ async function processJournal(journal) {
 
 // Process goals
 async function processGoal(goal) {
+  if (!isLive("goals", goal.id)) return;
   try {
     parentPort?.postMessage(`Processing goal ID: ${goal.id}`);
 
@@ -432,6 +481,7 @@ async function processGoal(goal) {
 
     // Upsert to Qdrant
     await upsertGoalToQdrant(goal, embedding);
+    if (cleanupIfPurged("goals", "goal", goal.user_id, goal.id)) return;
 
     // Update database to mark as synced (assuming you add this column)
     try {
@@ -469,6 +519,10 @@ async function processGoal(goal) {
 
 // Process progress logs
 async function processProgressLog(progressLog) {
+  const parent = db
+    .prepare("SELECT is_deleted FROM goals WHERE id = ?")
+    .get(progressLog.goal_id);
+  if (!parent || parent.is_deleted) return;
   try {
     parentPort?.postMessage(`Processing progress log ID: ${progressLog.id}`);
 
@@ -499,6 +553,15 @@ async function processProgressLog(progressLog) {
 
     // Upsert to Qdrant
     await upsertProgressLogToQdrant(progressLog, goalTitle, embedding);
+    if (
+      cleanupIfPurged(
+        "progress_logs",
+        "progress_log",
+        goalOwner(progressLog.goal_id),
+        progressLog.id,
+      )
+    )
+      return;
 
     // Update database to mark as synced (assuming you add this column)
     try {
@@ -663,7 +726,7 @@ parentPort?.on("message", async (message) => {
     // entry permanently absent from semantic search.
     const pendingJournals = db
       .prepare(
-        `SELECT * FROM journal_entries WHERE synced_to_qdrant IN ('not_synced', 'pending', 'failed') OR synced_to_qdrant IS NULL ORDER BY created_at DESC`,
+        `SELECT * FROM journal_entries WHERE is_deleted = 0 AND (synced_to_qdrant IN ('not_synced', 'pending', 'failed') OR synced_to_qdrant IS NULL) ORDER BY created_at DESC`,
       )
       .all();
 
@@ -710,7 +773,9 @@ parentPort?.on("message", async (message) => {
     console.log("Worker: Received bulk sync request for goals");
 
     const pendingGoals = db
-      .prepare(`SELECT * FROM goals ORDER BY created_at DESC`)
+      .prepare(
+        `SELECT * FROM goals WHERE is_deleted = 0 ORDER BY created_at DESC`,
+      )
       .all();
 
     parentPort?.postMessage(`Found ${pendingGoals.length} goals to sync`);
@@ -903,7 +968,7 @@ eventBus.on("journal:bulk-sync-requested", async () => {
 
   const pendingJournals = db
     .prepare(
-      `SELECT * FROM journal_entries WHERE synced_to_qdrant IN ('not_synced', 'pending', 'failed') OR synced_to_qdrant IS NULL ORDER BY created_at DESC`,
+      `SELECT * FROM journal_entries WHERE is_deleted = 0 AND (synced_to_qdrant IN ('not_synced', 'pending', 'failed') OR synced_to_qdrant IS NULL) ORDER BY created_at DESC`,
     )
     .all();
 

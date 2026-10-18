@@ -17,7 +17,12 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
 }) => {
   // We can now use the main Modal component as the wrapper
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Delete ${type}`} size="sm">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Move ${type} to trash`}
+      size="sm"
+    >
       <div className="text-center">
         {/* --- CHANGE: Themed icon and container --- */}
         <div className="mx-auto flex w-12 items-center justify-center rounded-full bg-danger/10">
@@ -27,8 +32,9 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
           <div className="mt-2">
             {/* --- CHANGE: Themed text --- */}
             <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
-              Are you sure you want to delete this {type}? This action cannot be
-              undone.
+              This {type} moves to the Trash and is kept for 30 days. You can
+              restore it from the Trash until then; after that it is removed for
+              good.
             </p>
           </div>
         </div>
@@ -40,7 +46,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
           onClick={onConfirm}
           className="w-full inline-flex justify-center rounded-lg bg-danger px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-danger/90 transition-colors"
         >
-          Delete
+          Move to trash
         </button>
         {/* --- CHANGE: Themed cancel button --- */}
         <button

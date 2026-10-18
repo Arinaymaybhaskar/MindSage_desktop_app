@@ -425,6 +425,48 @@ export const MIGRATIONS = [
           ON journal_entries(user_id, is_deleted, created_at);
       `),
   },
+  {
+    // Trash (KAN-52). Deleting an entry or a goal used to either hide it
+    // forever (entries: is_deleted = 1, nothing ever read it back or removed
+    // it) or destroy it at once (goals). Both now sit in the trash for 30 days
+    // and are then purged, so each row records when it was trashed.
+    //
+    // Entries already soft-deleted get deleted_at = now, so their 30 days start
+    // at the upgrade: they appear in the Trash and can be restored. (Stamping
+    // them from their last update would purge the old ones within seconds of
+    // the first launch, before anyone could look.)
+    //
+    // vector_deletions is the durable queue of search-index points to remove
+    // after the row is gone, so a purge that happens while the vector store
+    // is down is finished later instead of leaving the text behind.
+    version: 5,
+    name: "trash",
+    up: (d) =>
+      d.exec(`
+        ALTER TABLE journal_entries ADD COLUMN deleted_at TEXT;
+        ALTER TABLE goals ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE goals ADD COLUMN deleted_at TEXT;
+
+        UPDATE journal_entries
+           SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE is_deleted = 1 AND deleted_at IS NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_goals_user_deleted
+          ON goals(user_id, is_deleted);
+        CREATE INDEX IF NOT EXISTS idx_journal_entries_trashed
+          ON journal_entries(user_id, deleted_at) WHERE is_deleted = 1;
+
+        CREATE TABLE IF NOT EXISTS vector_deletions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          source_type TEXT NOT NULL
+            CHECK(source_type IN ('journal', 'goal', 'progress_log')),
+          source_id INTEGER NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(source_type, source_id)
+        );
+      `),
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
