@@ -13,6 +13,8 @@ import { registerIPCHandlers } from "./ipcHandlers.js";
 import { setupEventBusListeners } from "./events.js";
 import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
 import { startServices } from "./services/startServices.js";
+import { markIndexSettled } from "./services/searchIndex.js";
+import { createServiceAnnouncer } from "./services/serviceAnnouncer.js";
 import { setQdrantRuntime } from "./methods/qdrant.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
 import { registerSetupIPC } from "./services/appSetup.js";
@@ -176,8 +178,6 @@ app.whenReady().then(async () => {
 
   // Sticky so it can be replayed to renderers that load later.
   let servicesReady = false;
-  // { degraded, search } from the last services-ready, replayed with it.
-  let serviceStatus = null;
   // The backend (DB/Ollama/Qdrant) finishing doesn't mean the renderer has
   // painted anything yet - on a cold start the JS bundle can still be
   // mounting React well after services-ready fires, which showed as a plain
@@ -254,25 +254,38 @@ app.whenReady().then(async () => {
     log(`Failed to create splash: ${e?.stack || e}`);
   }
 
-  // Create main window in background; it will be shown after services are ready
+  const splashStatus = (text) => {
+    if (splash && !splash.isDestroyed())
+      splash.webContents.send("splash-status", text);
+  };
+
+  // ---- Everything the window can ask for exists before the window does ----
+  //
+  // The database is initialised and every IPC handler is registered here,
+  // before the main window is created, so a renderer can never invoke a
+  // channel that has no handler yet. That used to be left to timing: handlers
+  // came after `await startQdrant()`, and a signed-in user's first screen
+  // asked for `models:get-selected` long before then ("No handler
+  // registered"). Do not put an await between these steps and createWindow.
   try {
-    win = await createWindow();
-    // Replay services-ready for reloads. The event below is sent once, so a
-    // renderer that mounts afterwards - or any in-session reload, which is
-    // routine while capturing screenshots - would otherwise never see it.
-    win.webContents.on("did-finish-load", () => {
-      if (servicesReady && !win.isDestroyed()) {
-        win.webContents.send("services-ready", serviceStatus);
-      }
-    });
-    log("Main window created");
+    log("Initializing localDB");
+    splashStatus("Initializing local database…");
+    localDB.initDatabase();
   } catch (e) {
-    log(`Failed to create window: ${e?.stack || e}`);
+    log(`localDB init error: ${e?.stack || e}`);
+  }
+
+  try {
+    log("Running OllamaEmbeddingModelSetup");
+    splashStatus("Preparing AI models…");
+    OllamaEmbeddingModelSetup();
+  } catch (e) {
+    log(`Ollama setup error: ${e?.stack || e}`);
   }
 
   // The renderer pings this once it has actually painted (see App.tsx),
   // after waiting a couple of animation frames past mount so this isn't just
-  // "the blank shell showed up". Registered before services finish so an
+  // "the blank shell showed up". Registered before the window exists so an
   // early ping (fast machine, warm cache) isn't missed.
   ipcMain.on("renderer:visually-ready", () => {
     if (rendererVisuallyReady) return;
@@ -280,6 +293,67 @@ app.whenReady().then(async () => {
     log("Renderer signaled visually ready");
     revealMainWindowIfReady();
   });
+
+  // Tells the window how services ended up, once there is a window, whether
+  // the vector index settles first or the window is created first.
+  const announcer = createServiceAnnouncer({
+    getWindow: () => win,
+    onSent: (status) => {
+      servicesReady = true;
+      log(
+        status.degraded
+          ? "Sent services-ready to renderer (degraded: search unavailable)"
+          : "Sent services-ready to renderer",
+      );
+      revealMainWindowIfReady();
+    },
+  });
+
+  // Registers the handlers and event bus synchronously, then starts the
+  // vector index in the background. See services/startServices.js.
+  startServices({
+    registerHandlers: () => {
+      splashStatus("Wiring up services…");
+      registerIPCHandlers();
+      setupEventBusListeners();
+      log("IPC handlers and event bus registered");
+    },
+    startIndex: async () => {
+      log("Starting Qdrant");
+      splashStatus("Starting vector database…");
+      const runtime = await startQdrant();
+      log("Qdrant started");
+      return runtime;
+    },
+    onIndexReady: (runtime) => {
+      setQdrantRuntime(runtime);
+      // startQdrant has set QDRANT_HTTP_PORT by now, which the worker
+      // reads; it is never started without one.
+      if (!global.qdrantWorker) createQdrantWorker();
+      log("Search index and worker initialized");
+    },
+    onStatus: (status) => {
+      markIndexSettled();
+      announcer.update(status);
+    },
+    log,
+  }).catch((e) => log(`Service startup error: ${e?.stack || e}`));
+
+  // Create main window in background; it will be shown after services are ready
+  try {
+    win = await createWindow();
+    // Replay services-ready for reloads. The event below is sent once, so a
+    // renderer that mounts afterwards - or any in-session reload, which is
+    // routine while capturing screenshots - would otherwise never see it.
+    win.webContents.on("did-finish-load", () => {
+      announcer.replay(win);
+    });
+    log("Main window created");
+    // The index may have settled before the window existed.
+    announcer.flush();
+  } catch (e) {
+    log(`Failed to create window: ${e?.stack || e}`);
+  }
 
   // Safety net: never let a lost/renamed IPC message strand the user on the
   // splash screen forever.
@@ -290,73 +364,6 @@ app.whenReady().then(async () => {
       revealMainWindowIfReady();
     }
   }, 15000);
-
-  // Start services asynchronously, and keep the UI up
-  (async () => {
-    try {
-      log("Initializing localDB");
-      if (splash && !splash.isDestroyed())
-        splash.webContents.send(
-          "splash-status",
-          "Initializing local database…",
-        );
-      localDB.initDatabase();
-    } catch (e) {
-      log(`localDB init error: ${e?.stack || e}`);
-    }
-
-    try {
-      log("Running OllamaEmbeddingModelSetup");
-      if (splash && !splash.isDestroyed())
-        splash.webContents.send("splash-status", "Preparing AI models…");
-      OllamaEmbeddingModelSetup();
-    } catch (e) {
-      log(`Ollama setup error: ${e?.stack || e}`);
-    }
-
-    // IPC handlers register whatever the vector index does: sign-in,
-    // writing and settings never need it. See services/startServices.js.
-    const splashStatus = (text) => {
-      if (splash && !splash.isDestroyed())
-        splash.webContents.send("splash-status", text);
-    };
-    await startServices({
-      registerHandlers: () => {
-        splashStatus("Wiring up services…");
-        registerIPCHandlers();
-        setupEventBusListeners();
-        log("IPC handlers and event bus registered");
-      },
-      startIndex: async () => {
-        log("Starting Qdrant");
-        splashStatus("Starting vector database…");
-        const runtime = await startQdrant();
-        log("Qdrant started");
-        return runtime;
-      },
-      onIndexReady: (runtime) => {
-        setQdrantRuntime(runtime);
-        // startQdrant has set QDRANT_HTTP_PORT by now, which the worker
-        // reads; it is never started without one.
-        if (!global.qdrantWorker) createQdrantWorker();
-        log("Search index and worker initialized");
-      },
-      onStatus: (status) => {
-        serviceStatus = status;
-        if (win && !win.isDestroyed()) {
-          servicesReady = true;
-          win.webContents.send("services-ready", status);
-          log(
-            status.degraded
-              ? "Sent services-ready to renderer (degraded: search unavailable)"
-              : "Sent services-ready to renderer",
-          );
-          revealMainWindowIfReady();
-        }
-      },
-      log,
-    });
-  })();
 
   // ------------------- Global Shortcut -------------------
   const shortcut =

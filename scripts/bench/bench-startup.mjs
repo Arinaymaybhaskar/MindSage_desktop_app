@@ -91,15 +91,33 @@ if (!fs.existsSync(exePath)) {
 const MARKERS = [
   "App ready",
   "Splash window shown",
-  "Main window created",
   "Initializing localDB",
   "Running OllamaEmbeddingModelSetup",
+  "IPC handlers and event bus registered",
   "Starting Qdrant",
+  "Main window created",
   "Qdrant started",
-  "IPC handlers, event bus, and worker initialized",
+  "Search index and worker initialized",
   "Sent services-ready to renderer",
   "Renderer signaled visually ready",
 ];
+
+/**
+ * Chromium's own log, where Electron reports a renderer calling a channel
+ * nobody has registered a handler for. main.log never sees it, so the app is
+ * launched with --enable-logging and this file is read after every run. Any
+ * match fails the bench: the race it names is the one KAN-59 closed.
+ */
+const MISSING_HANDLER = /No handler registered/g;
+const chromiumLog = path.join(userData, "chromium.log");
+const countMissingHandlers = () => {
+  try {
+    return (fs.readFileSync(chromiumLog, "utf8").match(MISSING_HANDLER) || [])
+      .length;
+  } catch {
+    return 0;
+  }
+};
 
 const LINE = /^\[([^\]]+)\]\s+(.*)$/;
 
@@ -117,7 +135,10 @@ function parseRun(sinceBytes) {
     const m = line.match(LINE);
     if (!m) continue;
     const [, iso, message] = m;
-    const marker = MARKERS.find((k) => message.trim() === k);
+    // "Sent services-ready to renderer (degraded: ...)" is the same step.
+    const marker = MARKERS.find(
+      (k) => message.trim() === k || message.startsWith(`${k} (`),
+    );
     if (marker) events.push({ marker, at: Date.parse(iso) });
   }
   return events;
@@ -138,6 +159,7 @@ const runs = [];
 
 for (let i = 0; i < RUNS; i++) {
   const startBytes = fs.existsSync(logPath) ? fs.statSync(logPath).size : 0;
+  fs.rmSync(chromiumLog, { force: true });
 
   const t0 = Date.now();
   // ELECTRON_RUN_AS_NODE must be stripped. The suite runner sets it for every
@@ -152,11 +174,15 @@ for (let i = 0; i < RUNS; i++) {
   };
   delete appEnv.ELECTRON_RUN_AS_NODE;
 
-  const proc = spawn(exePath, [], {
-    detached: true,
-    stdio: "ignore",
-    env: appEnv,
-  });
+  const proc = spawn(
+    exePath,
+    ["--enable-logging", `--log-file=${chromiumLog}`],
+    {
+      detached: true,
+      stdio: "ignore",
+      env: appEnv,
+    },
+  );
 
   // Poll the log rather than the process: the window appearing is what ends a
   // startup, and the process stays alive long after that.
@@ -173,6 +199,9 @@ for (let i = 0; i < RUNS; i++) {
     (e) => e.marker === "Renderer signaled visually ready",
   );
   const spawnToFirstMarker = events.length ? events[0].at - t0 : null;
+  // Give Chromium a moment to flush before the process is killed and read.
+  await new Promise((r) => setTimeout(r, 1000));
+  const missingHandlers = countMissingHandlers();
 
   killTree(proc.pid);
   // Let ports and file locks clear before the next launch, or Qdrant's port
@@ -199,10 +228,14 @@ for (let i = 0; i < RUNS; i++) {
     spawnToAppReadyMs: spawnToFirstMarker,
     steps,
     totalMs: total,
+    missingHandlers,
   });
 
   console.log(
-    `  run ${i + 1} (${runs[runs.length - 1].kind}): total ${fmt(total)}`,
+    `  run ${i + 1} (${runs[runs.length - 1].kind}): total ${fmt(total)}` +
+      (missingHandlers
+        ? `  FAIL: ${missingHandlers} "No handler registered"`
+        : ""),
   );
   for (const [marker, ms] of Object.entries(steps)) {
     if (ms >= 1) console.log(`      ${marker.padEnd(48)} ${fmt(ms)}`);
@@ -237,6 +270,7 @@ const report = {
   perRun: runs,
   stepStats,
   totals: summarise(runs.map((r) => r.totalMs)),
+  missingHandlerErrors: runs.reduce((n, r) => n + r.missingHandlers, 0),
   profile: `copy of the real profile: ${copied.join(", ") || "nothing found, empty profile"}`,
   note:
     "Measured against the packaged build and a copy of the real user profile. The first run " +
@@ -250,3 +284,14 @@ if (OUT) {
 }
 
 console.log(`\n  total startup p50: ${fmt(report.totals.p50)}`);
+
+// A renderer that called a channel before its handler existed is a failed
+// startup, however fast it was.
+if (report.missingHandlerErrors > 0) {
+  console.error(
+    `\n  FAILED: ${report.missingHandlerErrors} "No handler registered" error(s) in ${runs.length} run(s). ` +
+      "A window must never be created before every IPC handler is registered (see electron/main.js).",
+  );
+  process.exit(1);
+}
+console.log(`  no "No handler registered" errors in ${runs.length} run(s)`);

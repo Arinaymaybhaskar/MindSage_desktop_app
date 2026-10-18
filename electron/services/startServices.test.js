@@ -44,6 +44,15 @@ describe("startServices", () => {
     expect(d.wait).not.toHaveBeenCalled();
   });
 
+  // main.js starts this before it creates the window and relies on handlers
+  // existing by the time the call returns, without awaiting it.
+  it("registers handlers synchronously, before the first await", () => {
+    const d = deps({ startIndex: vi.fn(() => new Promise(() => {})) });
+    startServices(d);
+    expect(d.registerHandlers).toHaveBeenCalledTimes(1);
+    expect(d.startIndex).toHaveBeenCalledTimes(1);
+  });
+
   it("registers handlers before the index starts, so they never wait on it", async () => {
     const order = [];
     const d = deps({
