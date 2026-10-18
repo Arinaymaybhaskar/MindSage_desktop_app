@@ -10,7 +10,7 @@ export const handleGetProgressLogs = async (event, goalId) => {
     return { error: "Not signed in" };
   }
 
-  return localDB.getProgressLogs(goalId);
+  return localDB.getProgressLogs(userId, goalId);
 };
 
 export const handleAddProgressLog = async (
@@ -24,7 +24,12 @@ export const handleAddProgressLog = async (
     return { error: "Not signed in" };
   }
 
-  const addedLog = localDB.logProgress(goalId, value, description);
+  const addedLog = await localDB.logProgress(
+    userId,
+    goalId,
+    value,
+    description,
+  );
   if (addedLog) {
     // Emit event - worker will automatically pick this up
     eventBus.emit("progress_log:created", { entry: addedLog });

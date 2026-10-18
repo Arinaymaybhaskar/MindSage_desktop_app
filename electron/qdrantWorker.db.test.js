@@ -365,6 +365,49 @@ describe("bulk sync", () => {
   );
 });
 
+describe("items in the trash", () => {
+  it.skipIf(!ollamaFree)(
+    "a manual sync of a trashed entry does nothing",
+    async () => {
+      const e = entry();
+      localDB.deleteJournalEntry(user.id, e.id);
+      sync(e.id);
+      // A second, live entry behind it proves the worker got past the first.
+      const live = entry({ title: "live one" });
+      sync(live.id);
+      await waitFor(() =>
+        activity("journal:indexCompleted", (d) => d.entryId === live.id),
+      );
+      expect(ollama.requests).toHaveLength(1);
+      expect(ollama.requests[0].body.prompt).toContain("live one");
+      expect(status(e.id).qdrant_id).toBeNull();
+    },
+  );
+
+  it.skipIf(!ollamaFree)(
+    "bulk sync skips them and indexes the rest",
+    async () => {
+      worker.postMessage({ type: "journal:bulk-sync-requested" });
+      await waitFor(() => activity("qdrant:bulkCompleted"));
+      events.length = 0;
+      ollama.requests.length = 0;
+      qdrant.requests.length = 0;
+
+      const trashed = entry({ title: "trashed one" });
+      const kept = entry({ title: "kept one" });
+      localDB.deleteJournalEntry(user.id, trashed.id);
+
+      worker.postMessage({ type: "journal:bulk-sync-requested" });
+      await waitFor(() => activity("qdrant:bulkCompleted"));
+      expect(activity("qdrant:bulkStarted").data.total).toBe(1);
+      expect(ollama.requests.map((r) => r.body.prompt).join("|")).not.toContain(
+        "trashed one",
+      );
+      expect(status(kept.id).s).toBe("success");
+    },
+  );
+});
+
 describe("messages it should shrug off", () => {
   it("a sync request for an entry that does not exist does nothing and does not crash", async () => {
     sync(987_654);

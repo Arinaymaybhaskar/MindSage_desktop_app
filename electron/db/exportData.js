@@ -55,14 +55,14 @@ export async function exportEverything(userId, destinationPath) {
       "SELECT * FROM user_settings WHERE user_id = ?",
     );
     const journalEntriesQuery = db.prepare(
-      "SELECT * FROM journal_entries WHERE user_id = ? ORDER BY created_at DESC",
+      "SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC",
     );
     const tagsQuery = db.prepare("SELECT * FROM tags WHERE user_id = ?");
     const journalEntryTagsQuery = db.prepare(
-      "SELECT * FROM journal_entry_tags WHERE journal_entry_id IN (SELECT id FROM journal_entries WHERE user_id = ?)",
+      "SELECT * FROM journal_entry_tags WHERE journal_entry_id IN (SELECT id FROM journal_entries WHERE user_id = ? AND is_deleted = 0)",
     );
     const journalAnalysisQuery = db.prepare(
-      "SELECT * FROM journal_analysis WHERE journal_id IN (SELECT id FROM journal_entries WHERE user_id = ?)",
+      "SELECT * FROM journal_analysis WHERE journal_id IN (SELECT id FROM journal_entries WHERE user_id = ? AND is_deleted = 0)",
     );
     const notificationsQuery = db.prepare(
       "SELECT * FROM notifications WHERE user_id = ?",
@@ -85,9 +85,11 @@ export async function exportEverything(userId, destinationPath) {
     const categoriesQuery = db.prepare(
       "SELECT * FROM categories WHERE user_id = ?",
     );
-    const goalsQuery = db.prepare("SELECT * FROM goals WHERE user_id = ?");
+    const goalsQuery = db.prepare(
+      "SELECT * FROM goals WHERE user_id = ? AND is_deleted = 0",
+    );
     const progressLogsQuery = db.prepare(
-      "SELECT * FROM progress_logs WHERE goal_id IN (SELECT id FROM goals WHERE user_id = ?)",
+      "SELECT * FROM progress_logs WHERE goal_id IN (SELECT id FROM goals WHERE user_id = ? AND is_deleted = 0)",
     );
     const chatsQuery = db.prepare(
       "SELECT * FROM chats WHERE user_id = ? ORDER BY created_at DESC",

@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { generateEmbedding } from "./ollama.js";
 import { currentUserId } from "../session.js";
+import localDB from "../db/index.js";
 import {
   IndexUnavailableError,
   indexSettled,
@@ -35,6 +36,7 @@ export async function SemanticSearch(
 ) {
   const qdrant = await readyClient();
   if (!qdrant) throw new IndexUnavailableError();
+  const wanted = limit;
   const userFilter = {
     must: [
       {
@@ -46,13 +48,84 @@ export async function SemanticSearch(
 
   const results = await qdrant.search(collection, {
     vector: { name: "text_embedding", vector },
-    limit,
+    // Asks for more than needed: trashed items are dropped below and should
+    // not leave the caller short.
+    limit: limit * 2,
     filter: userFilter,
   });
 
   const filtered = results.filter((r) => r.score >= threshold);
 
-  return filtered;
+  // The vector store does not know about the trash. Only live items, the
+  // signed-in user's, may come back from search, Ask and related entries.
+  return localDB.filterLiveResults(userId, filtered).slice(0, wanted);
+}
+
+const COLLECTION = "mind_entries";
+const DELETE_CHUNK = 100;
+let deletingVectors = null;
+
+/**
+ * Removes the search-index points of items that were deleted for good. The
+ * queue lives in the database (vector_deletions), so a purge that happens
+ * while the index is down is finished here the next time it is up, rather than
+ * leaving the text behind. Safe to call at any time and from several places:
+ * overlapping calls share one run.
+ *
+ * @returns {Promise<{ removed: number, pending: number }>}
+ */
+export function processVectorDeletions() {
+  deletingVectors ??= (async () => {
+    let removed = 0;
+    try {
+      if (!client)
+        return { removed, pending: localDB.pendingVectorDeletions(1).length };
+      for (;;) {
+        const rows = localDB.pendingVectorDeletions(500);
+        if (!rows.length) break;
+        // One delete per user and kind, in chunks.
+        const groups = new Map();
+        for (const row of rows) {
+          const key = `${row.user_id}|${row.source_type}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(row);
+        }
+        for (const group of groups.values()) {
+          for (let i = 0; i < group.length; i += DELETE_CHUNK) {
+            const chunk = group.slice(i, i + DELETE_CHUNK);
+            await client.delete(COLLECTION, {
+              wait: true,
+              filter: {
+                must: [
+                  { key: "user_id", match: { value: chunk[0].user_id } },
+                  {
+                    key: "source_type",
+                    match: { value: chunk[0].source_type },
+                  },
+                  {
+                    key: "source_id",
+                    match: { any: chunk.map((r) => r.source_id) },
+                  },
+                ],
+              },
+            });
+            localDB.clearVectorDeletions(chunk.map((r) => r.id));
+            removed += chunk.length;
+          }
+        }
+      }
+    } catch (error) {
+      // Left queued; retried when the index next comes up and at the next purge.
+      console.error(
+        "Could not remove deleted items from the search index:",
+        error?.message ?? error,
+      );
+    }
+    return { removed, pending: localDB.pendingVectorDeletions(1).length };
+  })().finally(() => {
+    deletingVectors = null;
+  });
+  return deletingVectors;
 }
 
 export function registerQdrantIPC() {

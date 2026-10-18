@@ -76,7 +76,7 @@ export function getDashboardData(userId) {
       `
         SELECT *
         FROM goals
-        WHERE user_id = ? AND is_pinned = 1
+        WHERE user_id = ? AND is_pinned = 1 AND is_deleted = 0
     `,
     )
     .all(userId);
@@ -209,7 +209,7 @@ export function getUserStats(userId) {
             SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completedGoals,
             SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as activeGoals
         FROM goals
-        WHERE user_id = ?
+        WHERE user_id = ? AND is_deleted = 0
     `,
     )
     .get(userId);

@@ -138,6 +138,10 @@ contextBridge.exposeInMainWorld("electron", {
         "settings:set-check-for-updates",
         "update:check",
         "update:get-state",
+        "trash:list",
+        "trash:restore",
+        "trash:delete-forever",
+        "trash:empty",
         "update:install",
       ];
 
@@ -162,6 +166,7 @@ contextBridge.exposeInMainWorld("electron", {
         "update:progress",
         "update:downloaded",
         "update:error",
+        "trash:progress",
         "auth:changed",
       ];
       if (!validChannels.includes(channel)) {

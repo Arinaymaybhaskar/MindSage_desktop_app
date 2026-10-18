@@ -34,21 +34,28 @@ export async function getImageBase64(imagePath) {
  * The full-resolution image is still what `media:get-image` returns, so opening
  * an entry shows the real photograph.
  */
+/**
+ * Where the cached thumbnail of this photo lives. The cache key includes the
+ * file's size and mtime, so this has to be asked while the file still exists:
+ * it is how a purge finds and removes the small copy of a deleted photo.
+ */
+export function thumbnailCachePath(imagePath, maxWidth = 480) {
+  const { mtimeMs, size } = fs.statSync(imagePath);
+  const key = crypto
+    .createHash("sha1")
+    .update(`${imagePath}|${maxWidth}|${mtimeMs}|${size}`)
+    .digest("hex");
+  return path.join(app.getPath("userData"), "media", "thumbs", `${key}.jpg`);
+}
+
 export async function getThumbnailBase64(imagePath, maxWidth = 480) {
   try {
     if (!imagePath || !fs.existsSync(imagePath)) return null;
 
     // Key the cache on path, size and mtime, so replacing a photo in place
     // does not keep serving the thumbnail of the old one.
-    const { mtimeMs, size } = fs.statSync(imagePath);
-    const key = crypto
-      .createHash("sha1")
-      .update(`${imagePath}|${maxWidth}|${mtimeMs}|${size}`)
-      .digest("hex");
-
-    const cacheDir = path.join(app.getPath("userData"), "media", "thumbs");
-    fs.mkdirSync(cacheDir, { recursive: true });
-    const cachePath = path.join(cacheDir, `${key}.jpg`);
+    const cachePath = thumbnailCachePath(imagePath, maxWidth);
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
 
     if (fs.existsSync(cachePath)) {
       return `data:image/jpeg;base64,${fs.readFileSync(cachePath).toString("base64")}`;

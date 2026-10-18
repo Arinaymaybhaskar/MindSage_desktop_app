@@ -386,8 +386,9 @@ export function deleteJournalEntry(userId, journalId) {
   // Soft delete for offline mode to allow syncing the deletion.
   const stmt = db.prepare(`
         UPDATE journal_entries
-        SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP, synced = 0, sync_action = 'delete'
-        WHERE id = ? AND user_id = ?
+        SET is_deleted = 1, deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+            updated_at = CURRENT_TIMESTAMP, synced = 0, sync_action = 'delete'
+        WHERE id = ? AND user_id = ? AND is_deleted = 0
     `);
   const result = stmt.run(journalId, userId);
   return result.changes;

@@ -281,8 +281,8 @@ export default function JournalList() {
           </div>
           <div className="mt-4">
             <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
-              Are you sure you want to delete this entry? This action cannot be
-              undone.
+              This entry moves to the Trash and is kept for 30 days. You can
+              restore it from the Trash until then.
             </p>
           </div>
         </div>
@@ -298,7 +298,7 @@ export default function JournalList() {
                 : "bg-danger text-white hover:bg-danger/90"
             }`}
           >
-            Delete
+            Move to trash
           </button>
           <button
             ref={cancelBtnRef}
@@ -484,6 +484,13 @@ export default function JournalList() {
               )}
               <span>{bulkSyncing ? "Syncing..." : "Sync All"}</span>
             </button>
+            <Link
+              to="/trash"
+              className="flex items-center gap-2 px-5 py-2.5 bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark font-semibold rounded-lg shadow-md hover:bg-tertiary-light dark:hover:bg-tertiary-dark border border-border-light dark:border-border-dark transition-all duration-200"
+            >
+              <Trash2 size={20} />
+              <span>Trash</span>
+            </Link>
             <Link
               to="/"
               className="flex items-center gap-2 px-5 py-2.5 bg-light1 dark:bg-dark1 text-white font-semibold rounded-lg shadow-md hover:bg-light1 dark:hover:bg-dark1 transition-all duration-200 hover:scale-105"

@@ -210,6 +210,57 @@ describe("an install from before migrations were versioned", () => {
   });
 });
 
+describe("the trash migration", () => {
+  it("backfills deleted_at for entries already soft-deleted, and leaves live ones alone", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 4));
+    const seeded = seedJournal(db, { users: 1, entriesPerUser: 3 });
+    const [live, deleted] = seeded;
+    db.prepare(
+      "UPDATE journal_entries SET is_deleted = 1, updated_at = '2026-01-05T08:30:00.000Z' WHERE id = ?",
+    ).run(deleted.id);
+    db.prepare(
+      "INSERT INTO goals (user_id, title, target_value, unit) VALUES (?, 'g', 1, 'x')",
+    ).run(live.userId);
+
+    expect(runMigrations(db).applied).toEqual(["trash"]);
+
+    const row = (id) =>
+      db
+        .prepare(
+          "SELECT is_deleted, deleted_at FROM journal_entries WHERE id = ?",
+        )
+        .get(id);
+    expect(row(live.id)).toEqual({ is_deleted: 0, deleted_at: null });
+    expect(row(deleted.id).deleted_at).toBe("2026-01-05T08:30:00.000Z");
+    expect(
+      db.prepare("SELECT is_deleted, deleted_at FROM goals").get(),
+    ).toEqual({
+      is_deleted: 0,
+      deleted_at: null,
+    });
+    expect(tableNames(db)).toContain("vector_deletions");
+    expect(indexNames(db)).toEqual(
+      expect.arrayContaining([
+        "idx_goals_user_deleted",
+        "idx_journal_entries_trashed",
+      ]),
+    );
+    integrityOk(db);
+  });
+
+  it("gives the index queue one row per item and only known kinds", () => {
+    const { db } = open();
+    runMigrations(db);
+    const add = db.prepare(
+      "INSERT INTO vector_deletions (user_id, source_type, source_id) VALUES (1, ?, ?)",
+    );
+    add.run("journal", 5);
+    expect(() => add.run("journal", 5)).toThrow(/UNIQUE/);
+    expect(() => add.run("chat", 5)).toThrow(/CHECK/);
+  });
+});
+
 describe("a migration that fails", () => {
   it("leaves the database at the last version that fully applied, with its data", () => {
     const { db } = open();
