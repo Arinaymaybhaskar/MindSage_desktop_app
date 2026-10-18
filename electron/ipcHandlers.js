@@ -16,6 +16,7 @@ import {
 import {
   userChangePassword,
   userDeleteAccount,
+  userDeleteSummary,
   userGetMe,
   userGetSettings,
   userUpdateProfile,
@@ -148,6 +149,7 @@ export function registerIPCHandlers() {
   ipcMain.handle("user:get-settings", userGetSettings);
   ipcMain.handle("user:update-settings", userUpdateSettings);
   ipcMain.handle("user:change-password", userChangePassword);
+  ipcMain.handle("user:delete-summary", userDeleteSummary);
   ipcMain.handle("user:delete-account", userDeleteAccount);
 
   // Journal

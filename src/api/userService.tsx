@@ -14,6 +14,28 @@ const checkElectron = () => {
  * A service for handling all user-related actions, such as fetching profiles
  * and updating settings, for both online and offline modes.
  */
+export interface ProfileSummary {
+  entries: number;
+  trashedEntries: number;
+  goals: number;
+  trashedGoals: number;
+  photos: number;
+  recordings: number;
+  chats: number;
+  otherProfiles: number;
+  mediaBytes: number;
+}
+
+export interface DeleteProfileResult {
+  message: string;
+  entries: number;
+  filesRemoved: number;
+  /** True when no other profile is left on this computer. */
+  lastProfile: boolean;
+  backupsRemoved: boolean;
+  searchCleanupPending: number;
+}
+
 export const userService = {
   /**
    * Fetches the current user's profile information.
@@ -83,11 +105,17 @@ export const userService = {
    */
   deleteAccount: async (payload: {
     password: string;
-  }): Promise<{ message: string }> => {
+  }): Promise<DeleteProfileResult> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:delete-account",
       payload,
     );
+  },
+
+  /** What deleting this profile would remove, for the delete screen. */
+  deleteSummary: async (): Promise<ProfileSummary> => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke("user:delete-summary");
   },
 };
