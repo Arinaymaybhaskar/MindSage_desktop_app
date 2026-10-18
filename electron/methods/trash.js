@@ -3,8 +3,13 @@ import path from "node:path";
 import { app, ipcMain } from "electron";
 import localDB from "../db/index.js";
 import { currentUserId } from "../session.js";
-import { planFileRemoval } from "../mediaPaths.js";
-import { thumbnailCachePath } from "./media.js";
+import {
+  isInside,
+  journalMediaDir,
+  planFileRemoval,
+  removeThumbnails,
+} from "../mediaPaths.js";
+import { thumbnailDir } from "./media.js";
 import { processVectorDeletions } from "./qdrant.js";
 
 // IPC for the trash, and the job that empties it once items are 30 days old.
@@ -17,23 +22,36 @@ const yieldToLoop = () => new Promise((resolve) => setImmediate(resolve));
 
 const mediaDir = () => path.join(app.getPath("userData"), "media");
 
-/** Deletes the files of purged entries, and the thumbnails made from them. */
-function removeFiles(keys) {
-  const { remove, refused } = planFileRemoval(mediaDir(), keys);
+/**
+ * Deletes what the purged entries left on disk: their whole media folder
+ * (photos, the original recording and its WAV, anything replaced earlier), any
+ * file their rows point at, and every cached thumbnail of those photos. All of
+ * it confined to the app's media folder.
+ */
+function removeFiles({ keys, entryIds }) {
+  const base = mediaDir();
+  const { remove, refused } = planFileRemoval(base, keys);
   let removed = 0;
   for (const file of remove) {
-    try {
-      // Before the file goes: the thumbnail's name depends on its size and mtime.
-      const thumb = thumbnailCachePath(file);
-      fs.rmSync(thumb, { force: true });
-    } catch {
-      // No file, no thumbnail to find.
-    }
+    removeThumbnails(thumbnailDir(), file);
     try {
       fs.rmSync(file, { force: true });
       removed += 1;
     } catch (err) {
       console.error("Could not delete media file:", file, err?.message ?? err);
+    }
+  }
+  for (const id of entryIds) {
+    const dir = journalMediaDir(base, id);
+    if (!isInside(base, dir)) continue;
+    try {
+      // Thumbnails of anything in the folder that no row pointed at.
+      for (const name of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+        removeThumbnails(thumbnailDir(), path.join(dir, name));
+      }
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch (err) {
+      console.error("Could not delete media folder:", dir, err?.message ?? err);
     }
   }
   if (refused.length) {
@@ -64,7 +82,7 @@ export async function purge(
     });
     result.entries += r.entries;
     result.goals += r.goals;
-    result.files += removeFiles(r.files);
+    result.files += removeFiles({ keys: r.files, entryIds: r.entryIds });
     done += entries.length + goals.length;
     onProgress?.({ done, total });
     await yieldToLoop();

@@ -8,7 +8,8 @@ import { db } from "./connection.js";
 /** How long a trashed item is kept. */
 export const RETENTION_DAYS = 30;
 
-const daysLeft = `MAX(0, ${RETENTION_DAYS} - CAST(julianday('now') - julianday(deleted_at) AS INTEGER))`;
+// Clamped both ways: a clock set back must not read as 26,000 days left.
+const daysLeft = `MIN(${RETENTION_DAYS}, MAX(0, ${RETENTION_DAYS} - CAST(julianday('now') - julianday(deleted_at) AS INTEGER)))`;
 const expired = `julianday('now') - julianday(deleted_at) >= ${RETENTION_DAYS}`;
 
 const placeholders = (ids) => ids.map(() => "?").join(",");
@@ -45,40 +46,55 @@ export function trashedIds(userId) {
   return {
     entryIds: db
       .prepare(
-        `SELECT id FROM journal_entries WHERE user_id = ? AND is_deleted = 1`,
+        `SELECT id FROM journal_entries
+          WHERE user_id = ? AND is_deleted = 1 AND deleted_at IS NOT NULL`,
       )
       .all(userId)
       .map((r) => r.id),
     goalIds: db
-      .prepare(`SELECT id FROM goals WHERE user_id = ? AND is_deleted = 1`)
+      .prepare(
+        `SELECT id FROM goals
+          WHERE user_id = ? AND is_deleted = 1 AND deleted_at IS NOT NULL`,
+      )
       .all(userId)
       .map((r) => r.id),
   };
 }
+
+// SQLite allows 32,766 variables in one statement; stay far below it.
+const IN_CHUNK = 500;
+const chunks = (list) => {
+  const out = [];
+  for (let i = 0; i < list.length; i += IN_CHUNK)
+    out.push(list.slice(i, i + IN_CHUNK));
+  return out;
+};
 
 /** Brings items back, with their tags, links and progress logs untouched. */
 export function restoreItems(userId, { entryIds, goalIds }) {
   const entries = cleanIds(entryIds);
   const goals = cleanIds(goalIds);
   return db.transaction(() => {
-    const restoredEntries = entries.length
-      ? db
-          .prepare(
-            `UPDATE journal_entries
-                SET is_deleted = 0, deleted_at = NULL
-              WHERE user_id = ? AND is_deleted = 1 AND id IN (${placeholders(entries)})`,
-          )
-          .run(userId, ...entries).changes
-      : 0;
-    const restoredGoals = goals.length
-      ? db
-          .prepare(
-            `UPDATE goals
-                SET is_deleted = 0, deleted_at = NULL
-              WHERE user_id = ? AND is_deleted = 1 AND id IN (${placeholders(goals)})`,
-          )
-          .run(userId, ...goals).changes
-      : 0;
+    let restoredEntries = 0;
+    for (const part of chunks(entries)) {
+      restoredEntries += db
+        .prepare(
+          `UPDATE journal_entries
+              SET is_deleted = 0, deleted_at = NULL
+            WHERE user_id = ? AND is_deleted = 1 AND id IN (${placeholders(part)})`,
+        )
+        .run(userId, ...part).changes;
+    }
+    let restoredGoals = 0;
+    for (const part of chunks(goals)) {
+      restoredGoals += db
+        .prepare(
+          `UPDATE goals
+              SET is_deleted = 0, deleted_at = NULL
+            WHERE user_id = ? AND is_deleted = 1 AND id IN (${placeholders(part)})`,
+        )
+        .run(userId, ...part).changes;
+    }
     return { entries: restoredEntries, goals: restoredGoals };
   })();
 }
@@ -90,7 +106,7 @@ export function restoreItems(userId, { entryIds, goalIds }) {
  * Chat answers that cited a removed entry keep the citation's place but lose
  * its title.
  *
- * @returns {{ entries: number, goals: number, files: string[] }}
+ * @returns {{ entries: number, goals: number, files: string[], entryIds: number[] }}
  */
 export function deleteForever(userId, { entryIds, goalIds }) {
   const entries = cleanIds(entryIds);
@@ -103,6 +119,7 @@ export function deleteForever(userId, { entryIds, goalIds }) {
     const files = [];
     let removedEntries = 0;
     let removedGoals = 0;
+    let removedEntryIds = [];
 
     if (entries.length) {
       const rows = db
@@ -117,6 +134,7 @@ export function deleteForever(userId, { entryIds, goalIds }) {
         queue.run(userId, "journal", row.id);
       }
       const ids = rows.map((r) => r.id);
+      removedEntryIds = ids;
       if (ids.length) {
         db.prepare(
           `UPDATE message_sources SET source_title = 'Removed entry'
@@ -155,7 +173,12 @@ export function deleteForever(userId, { entryIds, goalIds }) {
       }
     }
 
-    return { entries: removedEntries, goals: removedGoals, files };
+    return {
+      entries: removedEntries,
+      goals: removedGoals,
+      files,
+      entryIds: removedEntryIds,
+    };
   })();
 }
 

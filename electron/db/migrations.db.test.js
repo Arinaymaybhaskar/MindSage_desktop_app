@@ -211,7 +211,7 @@ describe("an install from before migrations were versioned", () => {
 });
 
 describe("the trash migration", () => {
-  it("backfills deleted_at for entries already soft-deleted, and leaves live ones alone", () => {
+  it("stamps entries already soft-deleted with the upgrade time, and leaves live ones alone", () => {
     const { db } = open();
     runMigrations(db, MIGRATIONS.slice(0, 4));
     const seeded = seedJournal(db, { users: 1, entriesPerUser: 3 });
@@ -232,7 +232,9 @@ describe("the trash migration", () => {
         )
         .get(id);
     expect(row(live.id)).toEqual({ is_deleted: 0, deleted_at: null });
-    expect(row(deleted.id).deleted_at).toBe("2026-01-05T08:30:00.000Z");
+    // Their 30 days start at the upgrade, not at the old deletion.
+    const stamped = Date.parse(row(deleted.id).deleted_at);
+    expect(Math.abs(Date.now() - stamped)).toBeLessThan(60_000);
     expect(
       db.prepare("SELECT is_deleted, deleted_at FROM goals").get(),
     ).toEqual({

@@ -325,7 +325,7 @@ export function updateJournalEntry(userId, journalId, entry) {
                 sync_action = 'update',
                 transcription = @transcription
             WHERE
-                id = @journalId AND user_id = @userId
+                id = @journalId AND user_id = @userId AND is_deleted = 0
         `);
 
     const result = updateStmt.run({
@@ -431,7 +431,7 @@ export function addContentSummary(summary, journalId, userId) {
   const stmt = db.prepare(`
         UPDATE journal_entries
         SET content_summary = ?, updated_at = CURRENT_TIMESTAMP, synced = 0, sync_action = 'update'
-        WHERE id = ? AND user_id = ?
+        WHERE id = ? AND user_id = ? AND is_deleted = 0
     `);
   const result = stmt.run(summary, journalId, userId);
   return result.changes;

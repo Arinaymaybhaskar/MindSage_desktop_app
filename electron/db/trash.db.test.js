@@ -99,7 +99,7 @@ describe("deleting an entry", () => {
     ).toBe(first);
   });
 
-  it("is left out of counts, streaks, mood and exports", () => {
+  it("is left out of the counts, tags and mood the dashboard shows", () => {
     const u = Number(
       db
         .prepare(
@@ -107,22 +107,48 @@ describe("deleting an entry", () => {
         )
         .run().lastInsertRowid,
     );
-    const keep = entry(u, { content: "kept" });
-    const gone = entry(u, { content: "trashed-secret" });
-    localDB.deleteJournalEntry(u, gone.id);
-    const stats = localDB.getDashboardStats
-      ? localDB.getDashboardStats(u)
-      : null;
-    if (stats) expect(JSON.stringify(stats)).not.toContain("trashed-secret");
+    entry(u, { content: "kept", mood_tags: ["calm"], mood_score: 4 });
+    const gone1 = entry(u, {
+      content: "trashed one",
+      mood_tags: ["angry"],
+      mood_score: 1,
+    });
+    const gone2 = entry(u, {
+      content: "trashed two",
+      mood_tags: ["angry"],
+      mood_score: 1,
+    });
+    expect(localDB.getUserStats(u).mostUsedTag).toBe("angry"); // 2 vs 1, live
+    localDB.deleteJournalEntry(u, gone1.id);
+    localDB.deleteJournalEntry(u, gone2.id);
+
+    const stats = localDB.getUserStats(u);
+    expect(stats.totalEntries).toBe(1);
+    expect(stats.mostUsedTag).toBe("calm");
+    expect(stats.averageMood).toBe(4);
+    const dash = localDB.getDashboardData(u);
+    expect(JSON.stringify(dash)).not.toContain("trashed one");
+    expect(JSON.stringify(dash)).not.toContain("trashed two");
+    expect(localDB.getMoodScores(u, 7)).toHaveLength(1);
+  });
+
+  it("cannot be edited or re-summarised while it is in the trash", () => {
+    const e = entry(alice, { title: "frozen", content: "original words" });
+    localDB.deleteJournalEntry(alice, e.id);
     expect(
-      db
-        .prepare(
-          "SELECT COUNT(*) n FROM journal_entries WHERE user_id = ? AND is_deleted = 0",
-        )
-        .get(u).n,
-    ).toBe(1);
-    expect(localDB.getMoodScores(u, 7).length).toBe(1);
-    expect(keep.id).toBeTruthy();
+      localDB.updateJournalEntry(alice, e.id, {
+        title: "x",
+        content: "changed",
+        mood_tags: [],
+      }),
+    ).toBeNull();
+    expect(localDB.addContentSummary("a summary", e.id, alice)).toBe(0);
+    const row = db
+      .prepare(
+        "SELECT content, content_summary FROM journal_entries WHERE id = ?",
+      )
+      .get(e.id);
+    expect(row).toEqual({ content: "original words", content_summary: null });
   });
 });
 
@@ -192,7 +218,30 @@ describe("the days-left badge", () => {
   });
 });
 
+describe("days left", () => {
+  it("never exceeds 30, even if the clock was set back when it was deleted", () => {
+    const e = entry(alice);
+    localDB.deleteJournalEntry(alice, e.id);
+    db.prepare(
+      "UPDATE journal_entries SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now','+400 days') WHERE id = ?",
+    ).run(e.id);
+    expect(
+      localDB.listTrash(alice).entries.find((x) => x.id === e.id).days_left,
+    ).toBe(30);
+  });
+});
+
 describe("restoring", () => {
+  it("handles more ids than SQLite allows in one statement", () => {
+    const e = entry(alice);
+    localDB.deleteJournalEntry(alice, e.id);
+    const ids = Array.from({ length: 40_000 }, (_, i) => i + 1_000_000);
+    ids.push(e.id);
+    expect(
+      localDB.restoreItems(alice, { entryIds: ids, goalIds: [] }).entries,
+    ).toBe(1);
+  });
+
   it("brings an entry back with its tags, and a goal with its logs", async () => {
     const e = entry(alice, { mood_tags: ["calm", "grateful"] });
     const g = await goal(alice, "Restorable");
@@ -285,7 +334,7 @@ describe("deleting for good", () => {
       entryIds: [live.id],
       goalIds: [],
     });
-    expect(r).toEqual({ entries: 0, goals: 0, files: [] });
+    expect(r).toEqual({ entries: 0, goals: 0, files: [], entryIds: [] });
     expect(localDB.getJournalById(alice, live.id).content).toBe(
       "live-and-precious",
     );
@@ -349,6 +398,36 @@ describe("deleting for good", () => {
       .prepare("SELECT source_title FROM message_sources WHERE message_id = ?")
       .get(msg);
     expect(src.source_title).toBe("Removed entry");
+  });
+});
+
+describe("Empty trash", () => {
+  it("takes exactly what the list shows, never rows without a deleted_at", () => {
+    const u = Number(
+      db
+        .prepare(
+          `INSERT INTO users (username, email, password_hash) VALUES ('emptier', 'em@example.com', 'x')`,
+        )
+        .run().lastInsertRowid,
+    );
+    const listed = entry(u);
+    const stray = entry(u);
+    localDB.deleteJournalEntry(u, listed.id);
+    db.prepare(
+      "UPDATE journal_entries SET is_deleted = 1, deleted_at = NULL WHERE id = ?",
+    ).run(stray.id);
+    expect(localDB.trashedIds(u).entryIds).toEqual([listed.id]);
+    expect(localDB.listTrash(u).entries.map((e) => e.id)).toEqual([listed.id]);
+  });
+
+  it("deleteForever reports which entries went, so their media folders can follow", () => {
+    const e = entry(alice);
+    localDB.deleteJournalEntry(alice, e.id);
+    const live = entry(alice);
+    expect(
+      localDB.deleteForever(alice, { entryIds: [e.id, live.id], goalIds: [] })
+        .entryIds,
+    ).toEqual([e.id]);
   });
 });
 

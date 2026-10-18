@@ -431,10 +431,10 @@ export const MIGRATIONS = [
     // it) or destroy it at once (goals). Both now sit in the trash for 30 days
     // and are then purged, so each row records when it was trashed.
     //
-    // Entries already soft-deleted get deleted_at from the last time they were
-    // touched, which is when they were deleted. Any older than 30 days are
-    // therefore purged soon after this migration; the pre-migration backup
-    // taken by initDatabase() still holds them.
+    // Entries already soft-deleted get deleted_at = now, so their 30 days start
+    // at the upgrade: they appear in the Trash and can be restored. (Stamping
+    // them from their last update would purge the old ones within seconds of
+    // the first launch, before anyone could look.)
     //
     // vector_deletions is the durable queue of search-index points to remove
     // after the row is gone, so a purge that happens while the vector store
@@ -448,8 +448,7 @@ export const MIGRATIONS = [
         ALTER TABLE goals ADD COLUMN deleted_at TEXT;
 
         UPDATE journal_entries
-           SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ',
-                                     COALESCE(updated_at, created_at, 'now'))
+           SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE is_deleted = 1 AND deleted_at IS NULL;
 
         CREATE INDEX IF NOT EXISTS idx_goals_user_deleted

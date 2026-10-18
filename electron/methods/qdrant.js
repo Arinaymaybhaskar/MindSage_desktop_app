@@ -72,6 +72,10 @@ let deletingVectors = null;
  * leaving the text behind. Safe to call at any time and from several places:
  * overlapping calls share one run.
  *
+ * A group that fails (the store went away) stays queued without blocking the
+ * others; a missing collection means there is nothing to remove, so those rows
+ * are cleared instead of being retried forever.
+ *
  * @returns {Promise<{ removed: number, pending: number }>}
  */
 export function processVectorDeletions() {
@@ -83,43 +87,55 @@ export function processVectorDeletions() {
       for (;;) {
         const rows = localDB.pendingVectorDeletions(500);
         if (!rows.length) break;
-        // One delete per user and kind, in chunks.
+        let progressed = false;
+        // One delete per user and kind, in chunks. Progress-log points are
+        // matched by id alone: they were written without a reliable user_id.
         const groups = new Map();
         for (const row of rows) {
-          const key = `${row.user_id}|${row.source_type}`;
+          const key =
+            row.source_type === "progress_log"
+              ? "progress_log"
+              : `${row.user_id}|${row.source_type}`;
           if (!groups.has(key)) groups.set(key, []);
           groups.get(key).push(row);
         }
         for (const group of groups.values()) {
           for (let i = 0; i < group.length; i += DELETE_CHUNK) {
             const chunk = group.slice(i, i + DELETE_CHUNK);
-            await client.delete(COLLECTION, {
-              wait: true,
-              filter: {
-                must: [
-                  { key: "user_id", match: { value: chunk[0].user_id } },
-                  {
-                    key: "source_type",
-                    match: { value: chunk[0].source_type },
-                  },
-                  {
-                    key: "source_id",
-                    match: { any: chunk.map((r) => r.source_id) },
-                  },
-                ],
+            const must = [
+              { key: "source_type", match: { value: chunk[0].source_type } },
+              {
+                key: "source_id",
+                match: { any: chunk.map((r) => r.source_id) },
               },
-            });
+            ];
+            if (chunk[0].source_type !== "progress_log") {
+              must.unshift({
+                key: "user_id",
+                match: { value: chunk[0].user_id },
+              });
+            }
+            try {
+              await client.delete(COLLECTION, { wait: true, filter: { must } });
+            } catch (error) {
+              if (error?.status !== 404) {
+                console.error(
+                  "Could not remove deleted items from the search index:",
+                  error?.message ?? error,
+                );
+                continue; // stays queued; the other groups still run
+              }
+              // No collection, so nothing of theirs is in it.
+            }
             localDB.clearVectorDeletions(chunk.map((r) => r.id));
             removed += chunk.length;
+            progressed = true;
           }
         }
+        if (!progressed) break; // everything left failed; try again later
       }
     } catch (error) {
-      // Left queued; retried when the index next comes up and at the next purge.
-      console.error(
-        "Could not remove deleted items from the search index:",
-        error?.message ?? error,
-      );
+      console.error("Search index cleanup failed:", error?.message ?? error);
     }
     return { removed, pending: localDB.pendingVectorDeletions(1).length };
   })().finally(() => {

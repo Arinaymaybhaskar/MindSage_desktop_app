@@ -385,4 +385,55 @@ describe("removing deleted items from the index", () => {
     expect(client.delete).toHaveBeenCalledTimes(1);
     expect(a).toEqual(b);
   });
+
+  it("clears rows when the collection does not exist: nothing of theirs is in it", async () => {
+    const m = await running();
+    localDB.pendingVectorDeletions
+      .mockReturnValueOnce([row(1, 11)])
+      .mockReturnValue([]);
+    client.delete.mockRejectedValue(
+      Object.assign(new Error("Not Found"), { status: 404 }),
+    );
+    await expect(m.processVectorDeletions()).resolves.toEqual({
+      removed: 1,
+      pending: 0,
+    });
+    expect(localDB.clearVectorDeletions).toHaveBeenCalledWith([1]);
+  });
+
+  it("one failing group does not hold back the others", async () => {
+    const m = await running();
+    let pending = [row(1, 11, "journal"), row(2, 5, "goal")];
+    localDB.pendingVectorDeletions.mockImplementation(() => pending);
+    localDB.clearVectorDeletions.mockImplementation((ids) => {
+      pending = pending.filter((r) => !ids.includes(r.id));
+    });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    client.delete.mockImplementation(async (_c, { filter }) => {
+      if (filter.must.some((m) => m.match.value === "journal"))
+        throw new Error("boom");
+    });
+    const result = await m.processVectorDeletions();
+    spy.mockRestore();
+    expect(result).toEqual({ removed: 1, pending: 1 });
+    expect(pending.map((r) => r.id)).toEqual([1]);
+  });
+
+  it("matches progress-log points by id alone, since they were written without a reliable user", async () => {
+    const m = await running();
+    localDB.pendingVectorDeletions
+      .mockReturnValueOnce([
+        row(1, 40, "progress_log", 7),
+        row(2, 41, "progress_log", 8),
+      ])
+      .mockReturnValue([]);
+    client.delete.mockResolvedValue({});
+    await m.processVectorDeletions();
+    expect(client.delete).toHaveBeenCalledTimes(1);
+    const { filter } = client.delete.mock.calls[0][1];
+    expect(filter.must).toEqual([
+      { key: "source_type", match: { value: "progress_log" } },
+      { key: "source_id", match: { any: [40, 41] } },
+    ]);
+  });
 });

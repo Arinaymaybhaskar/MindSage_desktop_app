@@ -221,7 +221,8 @@ export function getUserStats(userId) {
         SELECT t.name
         FROM journal_entry_tags jet
         JOIN tags t ON jet.tag_id = t.id
-        WHERE t.user_id = ?
+        JOIN journal_entries je ON je.id = jet.journal_entry_id
+        WHERE t.user_id = ? AND je.is_deleted = 0
         GROUP BY t.name
         ORDER BY COUNT(jet.tag_id) DESC
         LIMIT 1

@@ -1,11 +1,11 @@
 import { app, shell, nativeImage } from "electron";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import localDB from "../db/index.js";
 import ffmpegPath from "ffmpeg-static";
 import { spawn } from "child_process";
 import { currentUserId } from "../session.js";
+import { thumbnailName } from "../mediaPaths.js";
 
 export async function getImageBase64(imagePath) {
   try {
@@ -34,19 +34,17 @@ export async function getImageBase64(imagePath) {
  * The full-resolution image is still what `media:get-image` returns, so opening
  * an entry shows the real photograph.
  */
-/**
- * Where the cached thumbnail of this photo lives. The cache key includes the
- * file's size and mtime, so this has to be asked while the file still exists:
- * it is how a purge finds and removes the small copy of a deleted photo.
- */
+/** Where the cached thumbnail of this photo, at this width, lives. */
 export function thumbnailCachePath(imagePath, maxWidth = 480) {
   const { mtimeMs, size } = fs.statSync(imagePath);
-  const key = crypto
-    .createHash("sha1")
-    .update(`${imagePath}|${maxWidth}|${mtimeMs}|${size}`)
-    .digest("hex");
-  return path.join(app.getPath("userData"), "media", "thumbs", `${key}.jpg`);
+  return path.join(
+    thumbnailDir(),
+    thumbnailName(imagePath, maxWidth, mtimeMs, size),
+  );
 }
+
+export const thumbnailDir = () =>
+  path.join(app.getPath("userData"), "media", "thumbs");
 
 export async function getThumbnailBase64(imagePath, maxWidth = 480) {
   try {

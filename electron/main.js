@@ -118,6 +118,11 @@ function createQdrantWorker() {
   worker.on("message", (message) => {
     // Structured progress goes to the renderer's AI activity panel; everything
     // else the worker posts is debug logging.
+    // The worker found an item purged while it was being indexed.
+    if (message?.type === "vector-cleanup") {
+      processVectorDeletions();
+      return;
+    }
     if (message?.type === "ai-activity") {
       const win = BrowserWindow.getAllWindows()[0];
       if (win && !win.isDestroyed()) {
