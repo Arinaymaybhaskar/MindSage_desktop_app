@@ -457,6 +457,7 @@ eventBus.on(
           userId,
           5,
           "mind_entries",
+          undefined,
           {
             from: propsRes.time_filter_from,
             to: propsRes.time_filter_to,
