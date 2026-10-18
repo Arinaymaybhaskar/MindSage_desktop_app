@@ -24,11 +24,6 @@ export interface JournalEntry {
   ai_summary_error?: string;
 }
 
-interface MoodScoreData {
-  mood_score: number;
-  created_at: string;
-}
-
 const checkElectron = () => {
   if (!window.electron?.ipcRenderer) {
     throw new Error("Not in an Electron environment.");
@@ -86,17 +81,6 @@ export const journalService = {
     return await window.electron.ipcRenderer.invoke("journal:delete", id);
   },
 
-  /**
-   * Fetches mood scores for a given date range.
-   */
-  getMoodRange: async (range: number): Promise<MoodScoreData[]> => {
-    checkElectron();
-    // Assuming you have a 'journal:get-mood-scores' handler
-    return await window.electron.ipcRenderer.invoke(
-      "journal:get-mood-scores",
-      range,
-    );
-  },
   getRecent: async () => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke("journal:get-recent");

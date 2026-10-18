@@ -62,7 +62,6 @@ contextBridge.exposeInMainWorld("electron", {
         "journal:update",
         "journal:update-ai-status",
         "journal:delete",
-        "journal:get-mood-scores",
         "journal:get-images",
         "journal:get-chart-data",
         "journal:retry-ai-metadata",
