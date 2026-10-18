@@ -183,9 +183,8 @@ export default function Trash() {
             {pending === "empty"
               ? `Delete all ${total} item(s) in the trash for good?`
               : `Delete the ${selectedCount} selected item(s) for good?`}{" "}
-            Their text, photos and recordings are removed from this computer and
-            from search. This cannot be undone. Backups made earlier still hold
-            them.
+            Their text, photos and recordings are removed from MindSage and from
+            search. This cannot be undone. Backups made earlier still hold them.
           </p>
           <div className="mt-3 flex gap-2">
             <button
