@@ -14,7 +14,9 @@ npm run build          # vite build && electron-builder → installers in releas
 npm run release        # same, with --publish always (used by .github/workflows/release.yml on v* tags)
 npm run rebuild        # electron-rebuild -f -w better-sqlite3
 npm run postinstall    # runs rebuild automatically; without it better-sqlite3 fails to load at runtime
-npm test               # vitest run
+npm test               # vitest run (pure modules + renderer; needs no native build)
+npm run test:db        # *.db.test.js under Electron-as-Node: real SQLite migrations, journal CRUD, backup, the AI worker thread
+npm run test:e2e       # builds, then launches the real app (Playwright): sign up, write, wait for AI, search. Needs Ollama + Qdrant; E2E_SKIP_AI=1 skips those steps
 npm run test:watch     # vitest
 npm run typecheck      # tsc -p tsconfig.app.json --noEmit  (renderer only)
 npm run lint           # eslint .
@@ -45,6 +47,8 @@ Three things that clean-up established, so treat them as conventions rather than
 - **The IPC bridge is typed, not `any`.** [src/electron.d.ts](src/electron.d.ts) now describes the whole `preload.js` surface, and `window.electron.ipcRenderer.invoke` is generic with an `unknown` default. Callers state the shape they expect, usually through the declared return type of the `src/api/*Service` wrapper that owns the channel. When you add a channel, type its wrapper against what the handler in `electron/methods/*` actually returns; when you add a member to the bridge, add it here too.
 - **Context hooks live in `src/hooks/`, not beside the provider.** `useAuth`, `useToast` and `useColorThemeContext` each sit in their own file so the context modules export only components, which is what React Fast Refresh needs and what `react-refresh/only-export-components` enforces. Adding a hook back into a `src/context/*.tsx` file will fail lint.
 - **Row shapes live in `src/types/`.** `User.ts`, `Goals.ts`, `Dashboard.ts`, `Ollama.ts`, `Qdrant.ts` and `sqlite.ts` mirror the DDL in [electron/db/connection.js](electron/db/connection.js). SQLite has no boolean, so 0/1 columns are typed `SqliteBoolean`; prefer extending these over redeclaring a near-copy in a component.
+
+**Database tests are a second project.** better-sqlite3 is built for Electron's ABI, so anything that touches the real database is a `*.db.test.js` file, excluded from `npm test` and run by `npm run test:db` under `ELECTRON_RUN_AS_NODE=1` ([vitest.db.config.ts](vitest.db.config.ts), [scripts/run-db-tests.mjs](scripts/run-db-tests.mjs); it needs the `electron-rebuild` build from `postinstall`). They use `electron/db/dbTestUtils.js` and choose their folder through `MS_DB_DIR` / `MS_USER_DATA_DIR` before the first import, because `connection.js` opens the database as a side effect. `qdrantWorker.db.test.js` runs the real worker thread against fake Ollama (it must own port 11434, because the worker hard-codes it) and fake Qdrant servers. A new migration needs a case in `migrations.db.test.js`. The end-to-end run is `scripts/e2e/run.mjs`; it waits on the app's own events, never a sleep.
 
 **Test conventions:** tests sit next to the module they cover (`electron/methods/jsonStream.test.js`, `src/api/journalService.test.ts`). [vitest.config.ts](vitest.config.ts) is deliberately separate from [vite.config.ts](vite.config.ts) so `vite-plugin-electron` doesn't boot during tests; it uses jsdom, `globals: true`, `src/test/setup.ts`, and `pool: "threads"` (the default `forks` pool hangs on newer Node). `electron/**` is in the include list, but only **pure modules** are testable there — anything importing `better-sqlite3` or `electron` won't load. `electron/methods/` is no longer copied into the package at all, so the explicit test exclusion that used to sit in the `viteStaticCopy` targets is gone with it.
 
