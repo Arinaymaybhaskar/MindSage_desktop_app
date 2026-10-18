@@ -43,8 +43,9 @@ export function describeProfile(userId) {
 }
 
 /** Removes everything of this profile. The caller has checked the password. */
-export async function deleteProfileEverything(userId) {
+export async function deleteProfileEverything(userId, { afterRows } = {}) {
   const removed = localDB.deleteProfile(userId);
+  afterRows?.();
   const filesRemoved = removeFiles({
     keys: removed.files,
     entryIds: removed.entryIds,
@@ -64,7 +65,16 @@ export async function deleteProfileEverything(userId) {
       );
     }
   }
-  const index = await processVectorDeletions();
+  // The queue is durable, so a slow or stuck index only delays the cleanup.
+  const index = await Promise.race([
+    processVectorDeletions(),
+    new Promise((resolve) =>
+      setTimeout(
+        () => resolve({ pending: removed.entryIds.length || 1 }),
+        8000,
+      ),
+    ),
+  ]);
   return {
     entries: removed.entryIds.length,
     filesRemoved,

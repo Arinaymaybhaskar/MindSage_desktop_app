@@ -214,8 +214,9 @@ export function DeleteAccount() {
                       Save a backup first?
                     </h2>
                     <p className="text-sm text-text-light-sub dark:text-text-dark-sub mb-3">
-                      A backup is a file you keep; you can import it into
-                      MindSage again later.
+                      A backup is a file you keep with your journal entries,
+                      photos and recordings; you can import it into MindSage
+                      again later. Goals, chats and Trash are not in it.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3">
                       <button

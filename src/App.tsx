@@ -323,11 +323,9 @@ function AppLayout() {
                 />
                 <Route
                   path="/delete-account"
-                  element={
-                    <PrivateRoute>
-                      <DeleteAccount />
-                    </PrivateRoute>
-                  }
+                  // Not behind PrivateRoute: deleting signs the user out, and the
+                  // "deleted" screen has to stay up after that.
+                  element={<DeleteAccount />}
                 />
                 <Route
                   path="/data-export"
