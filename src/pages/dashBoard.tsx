@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import PinnedSupportLink from "../components/support/PinnedSupportLink";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useAuth } from "../hooks/useAuth";
@@ -528,6 +529,7 @@ export default function Dashboard() {
           </BentoCard>
         </div>
       </main>
+      <PinnedSupportLink />
     </div>
   );
 }
