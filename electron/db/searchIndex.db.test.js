@@ -315,3 +315,81 @@ describe("resetting for a different embedding model", () => {
     );
   });
 });
+
+describe("vectors left behind without the extension (KAN-368)", () => {
+  let vectorSupport;
+  beforeAll(async () => {
+    ({ vectorSupport } = await import("./connection.js"));
+  });
+  const vectorCount = () =>
+    db.prepare("SELECT COUNT(*) n FROM vec_entries").get().n;
+  const hasVector = (rowid) =>
+    !!db
+      .prepare("SELECT 1 FROM vec_entries WHERE rowid = ?")
+      .get(BigInt(rowid));
+
+  it("keeps every vector that still belongs to an item, edited or not", () => {
+    const kept = entry(alice, { content: "kept" });
+    const edited = entry(alice, { content: "before the edit" });
+    index(kept.id, vec(50));
+    index(edited.id, vec(51));
+    // An edit waiting for its new embedding keeps the old vector meanwhile.
+    db.prepare("UPDATE journal_entries SET content = ? WHERE id = ?").run(
+      "after the edit",
+      edited.id,
+    );
+    expect(idx.noteChanged("journal", edited.id)).toBe(true);
+    idx.removeOrphanVectors(); // whatever earlier tests left
+    const before = vectorCount();
+    expect(idx.removeOrphanVectors()).toBe(0);
+    expect(vectorCount()).toBe(before);
+    expect(hasVector(idx.getState("journal", kept.id).id)).toBe(true);
+    expect(hasVector(idx.getState("journal", edited.id).id)).toBe(true);
+  });
+
+  it("a profile deleted without the extension leaves vectors the next start removes", () => {
+    const carol = Number(
+      db
+        .prepare(
+          `INSERT INTO users (username, email, password_hash) VALUES ('kan368-carol', 'kan368-carol@example.com', 'x')`,
+        )
+        .run().lastInsertRowid,
+    );
+    const ids = [entry(carol, { content: "c1" }), entry(carol)].map(
+      (e) => e.id,
+    );
+    ids.forEach((id, i) => index(id, vec(60 + i)));
+    const rowids = ids.map((id) => idx.getState("journal", id).id);
+    const others = vectorCount() - rowids.length;
+
+    vectorSupport.ok = false;
+    try {
+      idx.removeUserSources(carol);
+      expect(idx.removeOrphanVectors()).toBe(0); // cannot touch vec_entries
+    } finally {
+      vectorSupport.ok = true;
+    }
+    for (const r of rowids) expect(hasVector(r)).toBe(true);
+
+    expect(idx.removeOrphanVectors()).toBe(rowids.length);
+    for (const r of rowids) expect(hasVector(r)).toBe(false);
+    expect(vectorCount()).toBe(others);
+  });
+
+  it("a model reset made without the extension leaves no stale vector", () => {
+    const e = entry(alice, { content: "old model" });
+    index(e.id, vec(65));
+    const rowid = idx.getState("journal", e.id).id;
+    vectorSupport.ok = false;
+    try {
+      idx.resetAll(DIM);
+    } finally {
+      vectorSupport.ok = true;
+    }
+    expect(idx.searchSimilar(alice, vec(65), 5, { threshold: 0.9 })).toEqual(
+      [],
+    );
+    idx.removeOrphanVectors();
+    expect(hasVector(rowid)).toBe(false);
+  });
+});
