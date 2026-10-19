@@ -9,6 +9,22 @@ Reference documents for the MindSage desktop app. Orientation docs stay at the r
 | [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) | **The argument.** Everything between the current code and a shippable product, grouped by severity, with a verified-state table. Read it for *why* an item matters; read the Jira release for *when*. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | **The reasoning.** Why each significant technical choice was made, the trade-offs accepted, and what would change at a different scale. Read it before proposing a replacement for any of them. |
 
+## Agent guides
+
+`CLAUDE.md` at the repo root is a short index. The detail it points to lives in [agent/](agent/), one file per area, so each agent reads only what its task needs.
+
+| Document | Read it when |
+| --- | --- |
+| [agent/orchestrator.md](agent/orchestrator.md) | You are the orchestrating session: delegation and model selection, the testing loop and Jira statuses, briefs for subagents. |
+| [agent/workflow.md](agent/workflow.md) | Branching, naming of branches/commits/PRs, bugs found along the way, the hooks in `.claude/`. |
+| [agent/architecture.md](agent/architecture.md) | Layers, request flow, startup order, migrations, renderer conventions. |
+| [agent/tooling-and-tests.md](agent/tooling-and-tests.md) | Commands, tests, CI, lint/format, benchmarks, demo data. |
+| [agent/search-index.md](agent/search-index.md) | The sqlite-vec search index and the indexer. |
+| [agent/trash-and-deletion.md](agent/trash-and-deletion.md) | Trash, purge, deleting a profile. |
+| [agent/security-and-session.md](agent/security-and-session.md) | Session, CSP, window sandboxing, the Windows uninstaller. |
+| [agent/logging.md](agent/logging.md) | Logging rules and redaction. |
+| [agent/features.md](agent/features.md) | Import/export, updates, support lines, env flags, native binaries, packaging. |
+
 ## Audits and reviews
 
 | Document | Reviewed | What it covers |
