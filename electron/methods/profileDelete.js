@@ -77,6 +77,5 @@ export async function deleteProfileEverything(userId, { afterRows } = {}) {
     backupsRemoved,
     backupsReplaced,
     filesPending: pendingFileCount(),
-    searchCleanupPending: 0,
   };
 }

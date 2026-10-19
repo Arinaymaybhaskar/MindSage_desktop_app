@@ -26,34 +26,29 @@ main: "Main process   electron/" {
   handlers: "ipcHandlers.js\nchannel routing"
   methods: "methods/*.js\nbusiness logic"
   data: "db/*.js\nSQL · all DDL in connection.js"
-  services: "services/\nQdrant · Ollama · updater"
+  services: "services/\nindexer · Ollama · updater"
 
   handlers -> methods -> data
 }
 
-bus: "eventBus.js\njournal:created · journal:audio-saved · journal:aiCompleted" {
+bus: "eventBus.js\njournal:created · journal:updated · goal:updated · journal:aiCompleted" {
   shape: queue
   style.stroke-width: 2
 }
 
-worker: "qdrantWorker.js   worker thread" {
+indexer: "services/indexer.js   main process" {
   grid-columns: 3
   style.stroke-width: 2
   style.border-radius: 12
 
   embed: "Generate embedding"
-  upsert: "Upsert vector + payload"
-  mark: "Mark synced_to_qdrant"
+  store: "Store vector\nre-check item live"
+  mark: "Mark search_index ok"
 
-  embed -> upsert -> mark
+  embed -> store -> mark
 }
 
 sqlite: "SQLite\nmind-sage.db" {
-  shape: cylinder
-  style.stroke-width: 2
-}
-
-qdrant: "Qdrant\nlocal vector index" {
   shape: cylinder
   style.stroke-width: 2
 }
@@ -73,10 +68,9 @@ main -> sqlite: "read / write"
 main -> whisper: "transcribe"
 main -> ollama: "titles · moods · tags\nsummaries · chat · autocomplete"
 main -> bus: "emit"
-bus -> worker: "dispatch"
-worker -> ollama: "embed"
-worker -> qdrant: "upsert"
-worker -> sqlite: "mark synced"
+bus -> indexer: "journal / goal / progress\ncreated · updated"
+indexer -> ollama: "embed"
+indexer -> sqlite: "vec_entries + search_index\nsame database file"
 main -> renderer: "webContents.send\naiStarted / aiCompleted" {
   style.stroke-dash: 4
 }

@@ -1,6 +1,6 @@
 # Global search: keyword and semantic search running side by side.
-# Derived from src/components/GlobalSearch.tsx, electron/methods/qdrant.js
-# and electron/methods/ollama.js.
+# Derived from src/components/GlobalSearch.tsx, electron/methods/search.js
+# and electron/db/searchIndex.js.
 
 direction: down
 
@@ -31,20 +31,20 @@ ollama: "Ollama\nlocalhost:11434" {
   style.stroke-width: 2
 }
 
-search: "Qdrant similarity search\ntop k nearest neighbours" {
+search: "sqlite-vec nearest neighbours\nof the signed-in user, cosine distance\nscore above 0.5" {
   style.stroke-width: 2
 }
 
-qdrant: "Qdrant\nvector index" {
+vectors: "vec_entries\nin the journal database" {
   shape: cylinder
   style.stroke-width: 2
 }
 
-ids: "Qdrant returns ids\nand similarity scores\npayload stays minimal" {
+ids: "Hits are rowids\nand similarity scores" {
   style.stroke-width: 2
 }
 
-hydrate: "Hydrate full rows from SQLite\nby id" {
+hydrate: "Read the rows back from the tables\ntrashed items are dropped here" {
   style.stroke-width: 2
 }
 
@@ -68,7 +68,7 @@ split -> local
 split -> embed
 embed -> ollama: "embed"
 embed -> search
-search -> qdrant: "query"
+search -> vectors: "KNN query"
 search -> ids
 ids -> hydrate
 hydrate -> sqlite: "SELECT by id"

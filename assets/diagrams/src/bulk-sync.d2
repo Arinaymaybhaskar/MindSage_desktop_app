@@ -1,5 +1,6 @@
-# Bulk re-indexing. Runs when the vector store is empty, stale, or rebuilt
-# after a model change. Derived from electron/qdrantWorker.js.
+# Filling the search index. Runs on a fresh install, after an upgrade from the
+# Qdrant build, for items saved while Ollama was down, and after a model change.
+# Derived from electron/services/indexer.js and electron/db/searchIndex.js.
 
 direction: down
 
@@ -8,24 +9,15 @@ trigger: "Trigger" {
   style.stroke-width: 2
 }
 
-startup: "Collection missing\nor dimension mismatch" {
+startup: "App start or\nsearch:bulk-sync" {
   style.stroke-width: 2
 }
 
-manual: "Manual re-index\nfrom settings" {
+changed: "Entry saved or edited\nimport · model swap" {
   style.stroke-width: 2
 }
 
-post: "worker.postMessage\nbulk sync request" {
-  shape: queue
-  style.stroke-width: 2
-}
-
-collection: "Ensure the collection exists\ncreate with the right vector size" {
-  style.stroke-width: 2
-}
-
-select: "Select unsynced rows\njournals · goals · progress logs\nwhere synced_to_qdrant is not set" {
+work: "pendingWork\npending rows, retries that are due,\nlive items with no index row" {
   style.stroke-width: 2
 }
 
@@ -34,12 +26,12 @@ sqlite: "SQLite\nmind-sage.db" {
   style.stroke-width: 2
 }
 
-loop: "For each row" {
+batch: "Batch of 25\npause between batches\nyield 1.5 s after any write" {
   shape: diamond
   style.stroke-width: 2
 }
 
-embed: "Generate embedding\nvia Ollama" {
+embed: "Embed the item's\ncurrent text" {
   style.stroke-width: 2
 }
 
@@ -48,24 +40,19 @@ ollama: "Ollama\nlocalhost:11434" {
   style.stroke-width: 2
 }
 
-upsert: "Upsert point\nvector plus minimal payload" {
+store: "Store vector\none transaction: item still live\nand text unchanged" {
   style.stroke-width: 2
 }
 
-qdrant: "Qdrant\nvector index" {
-  shape: cylinder
+down: "Ollama unavailable\nrows stay pending\nno attempt spent, retry later" {
   style.stroke-width: 2
 }
 
-mark: "Mark synced_to_qdrant\nso a crash resumes\nrather than restarts" {
+failed: "Item failed\nbackoff 1 min, 5 min, 30 min,\n2 h, 12 h; gives up after 5\nuntil the text changes" {
   style.stroke-width: 2
 }
 
-failed: "Row failed\nleft unmarked, retried\non the next run" {
-  style.stroke-width: 2
-}
-
-report: "parentPort.postMessage\nprogress back to the main process" {
+report: "ai-status-event\nindex:bulkProgress to the window" {
   shape: queue
   style.stroke-width: 2
 }
@@ -76,20 +63,19 @@ done: "Index consistent with the database" {
 }
 
 trigger -> startup
-trigger -> manual
-startup -> post
-manual -> post
-post -> collection -> select
-select -> sqlite: "SELECT"
-select -> loop
-loop -> embed
+trigger -> changed
+startup -> work
+changed -> work: "markStale if the\nembedded text changed"
+work -> sqlite: "SELECT"
+work -> batch
+batch -> embed
 embed -> ollama: "embed"
-embed -> upsert
-upsert -> qdrant: "upsert"
-upsert -> mark
-mark -> sqlite: "UPDATE"
+embed -> store
+store -> sqlite: "vec_entries +\nsearch_index"
+embed -> down: "unreachable"
 embed -> failed: "error"
-failed -> loop: "continue"
-mark -> loop: "next row"
-loop -> report: "batch done"
+down -> work: "later"
+failed -> batch: "next item"
+store -> batch: "next item"
+batch -> report: "progress"
 report -> done
