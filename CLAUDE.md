@@ -60,6 +60,23 @@ Three things that clean-up established, so treat them as conventions rather than
 
 `main` is protected on GitHub: no direct pushes (enforced for admins too), no force-pushes, no deletions, and merging requires the `Typecheck & Lint` check to pass, which now genuinely means typecheck, lint **and** `npm test` all passing (see above). All work happens on a branch off `main` and lands via PR.
 
+### Start of every session
+
+Run `git fetch origin` before starting any work, again at least every hour of a long session, and before every merge or push. If the branch is behind its upstream, `git pull` (merge, never rebase) first. Check the Jira status of the ticket before starting, and pick up from the ticket's latest comment. The SessionStart hook does the fetch and reports where the branch stands, but the rule still applies wherever hooks are off (another tool, `--bare`, a fresh clone before trusting project settings).
+
+### Enforced by hooks
+
+Project hooks live in `.claude/settings.json` (committed) and `.claude/hooks/*.mjs`. They are plain Node scripts using only `node:` built-ins, so on Windows, macOS and Linux they run through the Node this repo already requires and need no extra tooling. They fail open: offline, no git or an unreadable command never blocks anything. Tested in `.claude/hooks/hooks.test.mjs` (part of `npm test`).
+
+What they **block** (exit 2, with the rule in the message):
+- `git push` to `main` or `dev` in any form (`git push origin HEAD:main`, a bare `git push` while on one of them, `--all`/`--mirror`), and any force-push except `--force-with-lease` on `claude/*` or `backup/*` branches.
+- `git commit` whose `-m`, heredoc or `-F` file text contains `Co-Authored-By` or `Claude-Session`, and `git commit --no-verify` / `-n`.
+- Edit, Write and NotebookEdit on a file inside the repo while the checked-out branch is `main`, `dev` or `phase/*`: create a `<type>/<KEY>-<slug>` branch first. Files outside the repo (scratchpads) are not affected.
+
+What they only **report**: the SessionStart hook injects the branch, its ahead/behind count and a short reminder of the rules.
+
+What stays **instruction-only**, because a hook cannot tell the main session from a subagent and cannot see which model is running: "all work goes through agents", the model choice in the table below, the testing loop and its Jira statuses, and the commit-message conventions beyond the trailers above. Do not assume a hook will catch a slip there.
+
 ### Naming: branches, commits and pull requests
 
 Work is tracked in Jira, project **KAN** (MindSage) at arinaymaybhaskar7500.atlassian.net. Every branch, commit and PR that does a ticket names its key, so the work and the ticket find each other. One ticket per branch and per PR.
@@ -79,7 +96,7 @@ Work is tracked in Jira, project **KAN** (MindSage) at arinaymaybhaskar7500.atla
 
 A ticket that is built and merged into its phase branch goes to **Ready for testing**, never straight to Done. Done means verified by a person and merged to `main`. From there:
 
-1. **Test.** A *separate* testing agent (never the one that wrote the code, and given only the ticket and its QA-steps comment) launches the real app (`xvfb-run` and Playwright, `MS_REMOTE_DEBUG` or the dev app for debug mode; `scripts/e2e/run.mjs` is the pattern) and works through the ticket's acceptance criteria and QA steps in the UI, thoroughly, including the edge cases the ticket lists. It cannot pass what the sandbox cannot do (no real Ollama, no Windows or macOS packaged build): those parts are reported as not tested, and a ticket labelled `needs-hardware` stays in Ready for testing with the parts that could run recorded in a comment.
+1. **Test.** A *separate* testing agent (never the one that wrote the code, and given only the ticket and its QA-steps comment) launches the real app (`xvfb-run` and Playwright, `MS_REMOTE_DEBUG` or the dev app for debug mode; `scripts/e2e/run.mjs` is the pattern; on Windows there is no `xvfb-run`, so run the same Playwright flow against the app in a normal window) and works through the ticket's acceptance criteria and QA steps in the UI, thoroughly, including the edge cases the ticket lists. It cannot pass what the sandbox cannot do (no real Ollama, no Windows or macOS packaged build): those parts are reported as not tested, and a ticket labelled `needs-hardware` stays in Ready for testing with the parts that could run recorded in a comment.
 2. **Pass.** Everything that can be checked passed: move the story to **Ready for release** and comment exactly what was run and seen.
 3. **Fail.** Move the story to **Failed Testing** and file a Jira **Bug** under the same epic with the repro steps, evidence (screenshot, log lines) and what was expected, labelled `release-pN`, `found-in-phase-N` and `phase-N-closeout`, with the phase's release as fix version and linked to the story.
 4. **Fix.** The coding agent reads the bug, fixes it on a branch named for the bug (`fix/KAN-nnn-slug`), merges it into the phase branch, and moves **both the bug and the story back to Ready for testing**, with a comment saying what changed and what to retest.
