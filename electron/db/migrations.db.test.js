@@ -210,6 +210,31 @@ describe("an install from before migrations were versioned", () => {
   });
 });
 
+describe("the search-index migration", () => {
+  it("adds one state row per item and only known kinds and states", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 6));
+    expect(tableNames(db)).not.toContain("search_index");
+    expect(runMigrations(db).applied).toEqual(["search-index"]);
+    expect(indexNames(db)).toEqual(
+      expect.arrayContaining([
+        "idx_search_index_work",
+        "idx_search_index_user",
+      ]),
+    );
+    const add = db.prepare(
+      "INSERT INTO search_index (user_id, source_type, source_id) VALUES (1, ?, ?)",
+    );
+    add.run("journal", 5);
+    expect(() => add.run("journal", 5)).toThrow(/UNIQUE/);
+    expect(() => add.run("chat", 5)).toThrow(/CHECK/);
+    expect(
+      db.prepare("SELECT state, attempts FROM search_index").get(),
+    ).toEqual({ state: "pending", attempts: 0 });
+    integrityOk(db);
+  });
+});
+
 describe("the trash migration", () => {
   it("stamps entries already soft-deleted with the upgrade time, and leaves live ones alone", () => {
     const { db } = open();
@@ -342,7 +367,9 @@ describe("the message-sources lookup migration", () => {
         .all()
         .map((r) => r.name);
     expect(names()).not.toContain("idx_message_sources_source");
-    expect(runMigrations(db).applied).toEqual(["message-sources-lookup"]);
+    expect(runMigrations(db, MIGRATIONS.slice(0, 6)).applied).toEqual([
+      "message-sources-lookup",
+    ]);
     expect(names()).toContain("idx_message_sources_source");
     const plan = db
       .prepare(

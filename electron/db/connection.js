@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 import { MIGRATIONS, runMigrations } from "./migrations.js";
+import { ensureVectorTable, loadVectorExtension } from "./vectorExtension.js";
 
 // Where the database used to be resolved: next to Electron's userData on
 // Windows, but ~/Library/Preferences on macOS and ~/.local/share on Linux,
@@ -64,6 +65,14 @@ db.pragma("synchronous = NORMAL");
 // Deleted rows are overwritten, not left readable in the file's free pages:
 // deleting something for good has to remove its text from the database file.
 db.pragma("secure_delete = ON");
+
+// The search index is a sqlite-vec table in this same file (KAN-192). If the
+// extension cannot be loaded the journal still opens and only search is
+// unavailable; callers check this before using the index.
+export const vectorSupport = loadVectorExtension(db);
+if (!vectorSupport.ok) {
+  console.error("Search index unavailable:", vectorSupport.error);
+}
 
 // A pre-migration snapshot is the user's only insurance: the database is the
 // single copy of their journal and there is no undo for a bad ALTER.
@@ -174,6 +183,10 @@ export function initDatabase() {
   const { from, to, applied } = runMigrations(db, MIGRATIONS, {
     beforeMigrate: backupDatabase,
   });
+
+  // After the numbered migrations, and outside them on purpose: a machine that
+  // cannot load the extension must still migrate its journal.
+  if (vectorSupport.ok) ensureVectorTable(db);
 
   if (applied.length) {
     console.log(
