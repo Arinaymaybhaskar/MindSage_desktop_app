@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { ASK_DISCLAIMER } from "../constants/askDisclaimer";
+import AskFooter from "../components/chat/AskFooter";
 import { motion } from "framer-motion";
 import { Sidebar } from "../components/chat/Sidebar";
 import { chatService, type ChatMediaUploadResult } from "../api/chatService";
@@ -577,12 +577,7 @@ export const ChatPage: React.FC = () => {
                   onRemoveImage={handleRemoveImage}
                   onRemovePdf={() => setAttachedPdf(null)}
                 />
-                <p
-                  data-testid="ask-disclaimer"
-                  className="mx-auto mt-2 px-4 text-center text-xs text-text-light-sub dark:text-text-dark-sub"
-                >
-                  {ASK_DISCLAIMER}
-                </p>
+                <AskFooter />
               </motion.div>
             </>
           ) : (
