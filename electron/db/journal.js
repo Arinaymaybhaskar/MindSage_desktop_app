@@ -114,7 +114,9 @@ export function getRecentEntries(userId) {
             (SELECT GROUP_CONCAT(t.name)
                FROM journal_entry_tags jt
                JOIN tags t ON t.id = jt.tag_id
-              WHERE jt.journal_entry_id = j.id) AS mood_tags
+              WHERE jt.journal_entry_id = j.id) AS mood_tags,
+            (SELECT s.state FROM search_index s
+               WHERE s.source_type = 'journal' AND s.source_id = j.id) AS index_state
         FROM journal_entries j
         WHERE j.user_id = ? AND j.is_deleted = 0
         ORDER BY j.created_at DESC
@@ -155,7 +157,9 @@ export function getAllEntries(
             (SELECT GROUP_CONCAT(t.name)
                FROM journal_entry_tags jt
                JOIN tags t ON t.id = jt.tag_id
-              WHERE jt.journal_entry_id = j.id) AS mood_tags
+              WHERE jt.journal_entry_id = j.id) AS mood_tags,
+            (SELECT s.state FROM search_index s
+               WHERE s.source_type = 'journal' AND s.source_id = j.id) AS index_state
         FROM journal_entries j
         WHERE j.user_id = ? AND j.is_deleted = 0
     `;
@@ -256,7 +260,9 @@ export function getJournalById(userId, journalId) {
   const stmt = db.prepare(`
         SELECT
             j.*,
-            GROUP_CONCAT(t.name) AS mood_tags
+            GROUP_CONCAT(t.name) AS mood_tags,
+            (SELECT s.state FROM search_index s
+               WHERE s.source_type = 'journal' AND s.source_id = j.id) AS index_state
         FROM journal_entries j
         LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id
         LEFT JOIN tags t ON jt.tag_id = t.id
@@ -436,23 +442,3 @@ export function addContentSummary(summary, journalId, userId) {
   const result = stmt.run(summary, journalId, userId);
   return result.changes;
 }
-
-export const getPendingJournal = (userId) => {
-  const stmt = db.prepare(`
-        SELECT * FROM journal_entries 
-        WHERE synced_to_qdrant = 'pending' AND user_id = ?
-        ORDER BY created_at ASC 
-        LIMIT 1
-    `);
-  return stmt.get(userId);
-};
-
-export const updateSyncStatus = (journalId, userId, status) => {
-  const stmt = db.prepare(`
-        UPDATE journal_entries
-        SET synced_to_qdrant = ?
-        WHERE id = ? AND user_id = ?
-    `);
-  const result = stmt.run(status, journalId, userId);
-  return result.changes;
-};

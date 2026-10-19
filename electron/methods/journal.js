@@ -60,6 +60,8 @@ export async function handleUpdateJournal(event, journalId, payload) {
   if (!userId) throw new Error("Not signed in");
   let updatedJournal;
   updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
+  // The indexer re-embeds it if the words changed.
+  eventBus.emit("journal:updated", { entry: updatedJournal });
   if (updatedJournal.audio_key) {
     eventBus.emit("journal:audio-saved", { entry: updatedJournal, event });
   }
@@ -96,18 +98,6 @@ export async function handleGetChartData(event, range) {
   if (!userId) throw new Error("Not signed in");
   return localDB.getMoodScores(userId, range);
 }
-
-export const getPendingJournals = (userId) => {
-  if (!userId) throw new Error("Invalid userId");
-  return localDB.getPendingJournals(userId);
-};
-
-export const updateSyncStatus = (userId, journalId, status) => {
-  if (!userId) throw new Error("Invalid userId");
-  if (!journalId) throw new Error("Invalid journalId");
-  if (!status) throw new Error("Invalid status");
-  return localDB.updateSyncStatus(userId, journalId, status);
-};
 
 const addContentSummary = (summary, journalId, userId) => {
   return localDB.addContentSummary(summary, journalId, userId);
@@ -156,17 +146,6 @@ eventBus.on("journal:aiCompleted", ({ entry, metadata, force }) => {
     `UPDATE journal_entries SET ai_metadata_status = 'completed', ai_metadata_error = NULL WHERE id = ?`,
   ).run(entry.id);
   eventBus.emit("journal:updated", { entry: updated });
-  // Trigger Qdrant update with the new fields via worker message
-  if (global.qdrantWorker) {
-    global.qdrantWorker.postMessage({
-      type: "journal:qdrant-update-needed",
-      data: { entry: updated },
-    });
-  } else {
-    log.error(
-      `[JOURNAL] Qdrant worker not available for journal ID: ${entry.id}`,
-    );
-  }
 });
 
 eventBus.on("ollama:summary-generated", ({ summary, id, userId }) => {

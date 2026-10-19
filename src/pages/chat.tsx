@@ -426,7 +426,7 @@ export const ChatPage: React.FC = () => {
                     .trimEnd()
                 : m.content;
 
-            // The database returns flat rows; the bubble reads the Qdrant hit
+            // The database returns flat rows; the bubble reads the search hit
             // shape that a live reply produces. Normalise so both paths render
             // through the same code.
             const sources = (m.sources || []).map((s) => ({

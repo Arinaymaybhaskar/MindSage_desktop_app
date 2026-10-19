@@ -11,7 +11,6 @@ import * as chat from "./chat.js";
 import * as exportData from "./exportData.js";
 import * as trash from "./trash.js";
 import * as profile from "./profile.js";
-import * as liveSources from "./liveSources.js";
 
 // Export all database functions in a structured object
 const localDB = {
@@ -28,7 +27,6 @@ const localDB = {
   ...exportData,
   ...trash,
   ...profile,
-  ...liveSources,
 };
 
 export default localDB;

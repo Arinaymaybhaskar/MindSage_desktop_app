@@ -402,10 +402,6 @@ export default function JournalForm() {
           audio_key: audioKey,
         });
       }
-      await window.electron.ipcRenderer.invoke(
-        "qdrant:sync-journal",
-        journalId,
-      );
 
       localStorage.removeItem(DRAFT_KEY);
       navigate("/dashboard");

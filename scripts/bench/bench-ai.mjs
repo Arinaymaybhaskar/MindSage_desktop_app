@@ -124,12 +124,11 @@ for (const input of EMBED_INPUTS) {
   };
 
   /**
-   * Projected cost of the worker's startup backfill: qdrantWorker.js:546
-   * sweeps every entry not marked 'success'.
+   * Projected cost of the index's first fill (electron/services/indexer.js):
+   * it embeds every entry that has no vector yet.
    *
-   * Embedding-only. The real sweep also does a Qdrant upsert and a SQLite
-   * write per entry, and that write contends with foreground reads, so these
-   * are optimistic lower bounds.
+   * Embedding-only. The real sweep also does a vector insert and a state
+   * write per entry in one transaction, so these are optimistic lower bounds.
    */
   results["embed.projectedBacklog"] = Object.fromEntries(
     [150, 5000, 50000].map((n) => [

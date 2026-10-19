@@ -159,6 +159,23 @@ export function markStale(type, id, userId) {
   ).run(userId, type, id);
 }
 
+/**
+ * Called when an item is created or edited. Queues it only if its embedded text
+ * differs from what the stored vector was made from, so edits that touch only
+ * tags, mood or a goal's progress cost no embedding.
+ * @returns {boolean} true if the item is now waiting for a vector
+ */
+export function noteChanged(type, id) {
+  const source = loadSource(type, id);
+  if (!source || !source.live) return false;
+  const row = getState(type, id);
+  if (row && row.state === "ok" && row.content_hash === source.hash) {
+    return false;
+  }
+  markStale(type, id, source.userId);
+  return true;
+}
+
 export function getState(type, id) {
   return (
     db
@@ -325,6 +342,43 @@ export function pendingWork(limit = 25, now = Date.now()) {
     )
     .all(limit - due.length);
   return [...due, ...missing];
+}
+
+/** How many items are waiting for a vector or a retry, over all users. */
+export function pendingCount(now = Date.now()) {
+  const queued = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM search_index
+        WHERE state = 'pending'
+           OR (state = 'failed' AND next_attempt_at IS NOT NULL
+               AND next_attempt_at <= ?)`,
+    )
+    .get(now).n;
+  const missing = db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM journal_entries j WHERE j.is_deleted = 0 AND NOT EXISTS (
+            SELECT 1 FROM search_index s WHERE s.source_type = 'journal' AND s.source_id = j.id))
+       + (SELECT COUNT(*) FROM goals g WHERE g.is_deleted = 0 AND NOT EXISTS (
+            SELECT 1 FROM search_index s WHERE s.source_type = 'goal' AND s.source_id = g.id))
+       + (SELECT COUNT(*) FROM progress_logs l JOIN goals g ON g.id = l.goal_id
+           WHERE g.is_deleted = 0 AND NOT EXISTS (
+            SELECT 1 FROM search_index s WHERE s.source_type = 'progress_log' AND s.source_id = l.id)) AS n`,
+    )
+    .get().n;
+  return queued + missing;
+}
+
+/** When the soonest failed row becomes due again, or null if none will. */
+export function nextRetryAt() {
+  return (
+    db
+      .prepare(
+        `SELECT MIN(next_attempt_at) AS t FROM search_index
+          WHERE state = 'failed' AND next_attempt_at IS NOT NULL`,
+      )
+      .get().t ?? null
+  );
 }
 
 /**
