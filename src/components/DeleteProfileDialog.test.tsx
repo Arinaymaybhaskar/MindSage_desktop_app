@@ -98,10 +98,10 @@ describe("DeleteProfileDialog", () => {
     expect(screen.getByText(/Recovery tools can sometimes/)).toBeTruthy();
   });
 
-  it("keeps the safety copies and says why when other profiles exist", async () => {
+  it("says the safety copies are replaced when other profiles exist", async () => {
     await open();
     expect(
-      screen.getByText(/also protect the other profiles on this PC/),
+      screen.getByText(/replaced by one new copy made after the delete/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/this is the last profile here/)).toBeNull();
   });
@@ -133,6 +133,8 @@ describe("DeleteProfileDialog", () => {
     deleteAccount.mockResolvedValue({
       lastProfile: false,
       backupsRemoved: false,
+      backupsReplaced: true,
+      filesPending: 2,
     });
     await open();
     typePassword("secret");
@@ -141,7 +143,10 @@ describe("DeleteProfileDialog", () => {
     expect(
       await screen.findByText("Your profile was deleted"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/safety copies stay/)).toBeInTheDocument();
+    expect(screen.getByText(/were replaced by a new one/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 files are in use by another program/),
+    ).toBeInTheDocument();
   });
 
   it("a wrong password stays in the dialog with the message and clears the field", async () => {

@@ -66,3 +66,25 @@ export function removeThumbnails(thumbDir, imagePath) {
   }
   return removed;
 }
+
+/**
+ * After a file is deleted, removes the folders it leaves empty, walking up but
+ * never removing `base` itself. A folder that still holds anything stays. This
+ * is what clears media/chats/<message>/<chat>/ once its attachments are gone.
+ * Returns how many folders were removed.
+ */
+export function pruneEmptyDirs(base, file) {
+  let removed = 0;
+  let dir = path.dirname(path.resolve(file));
+  while (isInside(base, dir)) {
+    try {
+      if (fs.readdirSync(dir).length > 0) break;
+      fs.rmdirSync(dir);
+      removed += 1;
+    } catch {
+      break;
+    }
+    dir = path.dirname(dir);
+  }
+  return removed;
+}
