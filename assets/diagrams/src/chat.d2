@@ -26,7 +26,7 @@ searching: "Phase: searching\nembed the query, or the\nbase_query when time-filt
   style.stroke-width: 2
 }
 
-qdrant: "SemanticSearch over mind_entries\ntop 5, optional from / to filter" {
+index: "semanticSearch over vec_entries\ntop 5, optional from / to filter\nresults read back from the tables" {
   shape: cylinder
   style.stroke-width: 2
 }
@@ -80,8 +80,8 @@ valid -> thinking: "no, retry up to 3 times"
 valid -> needs: "yes"
 needs -> searching: "yes"
 needs -> without: "no"
-searching -> qdrant
-qdrant -> withCtx
+searching -> index
+index -> withCtx
 withCtx -> writing
 without -> writing
 writing -> stream

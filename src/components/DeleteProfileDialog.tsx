@@ -153,9 +153,6 @@ export default function DeleteProfileDialog() {
               {result.filesPending
                 ? ` ${result.filesPending} file${result.filesPending === 1 ? " is" : "s are"} in use by another program and will be removed the next time MindSage starts.`
                 : ""}
-              {result.searchCleanupPending
-                ? " Search will finish clearing your entries the next time it is running."
-                : ""}
             </p>
             <button
               onClick={finish}

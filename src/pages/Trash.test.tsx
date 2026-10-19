@@ -69,7 +69,6 @@ beforeEach(() => {
       entries: 1,
       goals: 0,
       files: 0,
-      searchCleanupPending: 0,
       filesPending: 0,
     };
   });
@@ -245,7 +244,6 @@ describe("Trash page", () => {
           entries: 2,
           goals: 1,
           files: 0,
-          searchCleanupPending: 0,
           filesPending: 0,
         };
       }
@@ -265,30 +263,5 @@ describe("Trash page", () => {
     act(() => progressHandler({ done: 2, total: 3 }));
     expect(screen.getByRole("status")).toHaveTextContent("2 of 3");
     await act(async () => finish());
-  });
-
-  it("warns when search could not be cleared yet", async () => {
-    invoke.mockImplementation(async (channel: string) =>
-      channel === "trash:list"
-        ? contents
-        : {
-            entries: 1,
-            goals: 0,
-            files: 0,
-            searchCleanupPending: 1,
-            filesPending: 0,
-          },
-    );
-    await mount();
-    fireEvent.click(screen.getByLabelText("Delete A walk forever"));
-    await hold(
-      within(screen.getByRole("alertdialog")).getByRole("button", {
-        name: /hold to delete forever/i,
-      }),
-    );
-    expect(showToast).toHaveBeenCalledWith(
-      "Deleted. Search will finish clearing them when it is running.",
-      "success",
-    );
   });
 });
