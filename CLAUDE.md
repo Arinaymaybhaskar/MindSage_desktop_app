@@ -56,6 +56,8 @@ Three things that clean-up established, so treat them as conventions rather than
 
 ## Branching and workflow
 
+**Branch flow: ticket branch → phase branch → `dev` → `main`.** `dev` is the beta branch, cut from `main`: every finished phase lands in it through one PR, beta testers run builds of `dev`, and only when they are satisfied does `dev` land in `main` through one PR. `main` therefore only ever holds what beta testers have seen. Merge `main` into `dev` (never rebase it) whenever `main` moves.
+
 `main` is protected on GitHub: no direct pushes (enforced for admins too), no force-pushes, no deletions, and merging requires the `Typecheck & Lint` check to pass, which now genuinely means typecheck, lint **and** `npm test` all passing (see above). All work happens on a branch off `main` and lands via PR.
 
 ### Naming: branches, commits and pull requests
@@ -68,10 +70,23 @@ Work is tracked in Jira, project **KAN** (MindSage) at arinaymaybhaskar7500.atla
 - `<KEY>` is the Jira key in capitals. Work with no ticket drops it: `docs/naming-conventions`. Anything bigger than a typo should get a ticket first.
 - `<slug>` is two to five lowercase words joined by hyphens, from the ticket summary.
 - Delete both the local and remote branch immediately after merge; don't let merged branches accumulate.
-- `phase/p<n>-<slug>` — one per roadmap phase (the Jira release), for example `phase/p1-make-the-promise-true`, cut from `main` when the phase starts. Ticket branches for that phase branch from it and merge back into it, never straight into `main`. When the phase's gate passes and `npm run bench:phase -- <n>` is committed, the phase branch lands in `main` through one PR. Merge `main` into an open phase branch (never rebase it) whenever `main` moves. CI runs on every pull request whatever its base, but not on direct pushes to a phase branch, so run typecheck, lint, `format:check` and `npm test` before merging into one by hand.
+- `phase/p<n>-<slug>` — one per roadmap phase (the Jira release), for example `phase/p1-make-the-promise-true`, cut from `dev` when the phase starts. Ticket branches for that phase branch from it and merge back into it, never straight into `dev` or `main`. When the phase's gate passes (every ticket in Ready for release and the owner's own test done, see **The testing loop**) and `npm run bench:phase -- <n>` is committed, the phase branch lands in `dev` through one PR. Merge `dev` into an open phase branch (never rebase it) whenever `main` moves. CI runs on every pull request whatever its base, but not on direct pushes to a phase branch, so run typecheck, lint, `format:check` and `npm test` before merging into one by hand.
 - `backup/<slug>` — a snapshot taken before a history rewrite or other destructive git operation (e.g. `backup/pre-coauthor-removal`, taken before stripping `Co-Authored-By` trailers from history). Kept indefinitely as cheap insurance.
 - `archive/<slug>` — work deliberately abandoned but kept for reference (e.g. `archive/redesign-preview`, a scrapped redesign). Not meant to merge.
 - `claude/<slug>` — branches Claude Code creates on its own in cloud sessions. Rename to the pattern above before opening a PR for ticket work.
+
+### The testing loop (Jira statuses)
+
+A ticket that is built and merged into its phase branch goes to **Ready for testing**, never straight to Done. Done means verified by a person and merged to `main`. From there:
+
+1. **Test.** A *separate* testing agent (never the one that wrote the code, and given only the ticket and its QA-steps comment) launches the real app (`xvfb-run` and Playwright, `MS_REMOTE_DEBUG` or the dev app for debug mode; `scripts/e2e/run.mjs` is the pattern) and works through the ticket's acceptance criteria and QA steps in the UI, thoroughly, including the edge cases the ticket lists. It cannot pass what the sandbox cannot do (no real Ollama, no Windows or macOS packaged build): those parts are reported as not tested, and a ticket labelled `needs-hardware` stays in Ready for testing with the parts that could run recorded in a comment.
+2. **Pass.** Everything that can be checked passed: move the story to **Ready for release** and comment exactly what was run and seen.
+3. **Fail.** Move the story to **Failed Testing** and file a Jira **Bug** under the same epic with the repro steps, evidence (screenshot, log lines) and what was expected, labelled `release-pN`, `found-in-phase-N` and `phase-N-closeout`, with the phase's release as fix version and linked to the story.
+4. **Fix.** The coding agent reads the bug, fixes it on a branch named for the bug (`fix/KAN-nnn-slug`), merges it into the phase branch, and moves **both the bug and the story back to Ready for testing**, with a comment saying what changed and what to retest.
+5. **Retest.** The testing agent tests the bug and the story again and sets each status accordingly. Repeat 3 to 5 until every ticket of the phase is in Ready for release.
+6. **Owner pass.** The coding agent writes, per ticket, what to test and how (the QA-steps comment, kept current, with what is automated and what is not). The owner tests from those instructions. Only then does the phase branch go to `dev` (and later `dev` to `main`, after the beta testers).
+
+Rules that keep the loop honest: a tester reports what it saw, not what the code intends; a pass never rests on unit tests alone; a bug found in a ticket's own acceptance criteria is the ticket's (it goes to Failed Testing), a bug found elsewhere is filed separately and the ticket may still pass; statuses are changed only by the agent whose step it is.
 
 **Bugs found along the way:** when ticket work, a review or a benchmark turns up a bug that is not the ticket's own, do not widen the ticket. File a Jira **Bug** in project KAN under the closest epic, labelled `found-in-phase-<n>` and `phase-<n>-closeout`, with the phase's release as its fix version, a description saying where it was found and whether it was reproduced or only read from the code, and acceptance criteria. Say so in the PR. Closing a phase includes fixing everything labelled `phase-<n>-closeout` (or deliberately moving it to a later release) before the phase branch goes to `main`.
 
