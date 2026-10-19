@@ -19,6 +19,9 @@ const setRegion = (code: string | null) => {
   else localStorage.removeItem(SUPPORT_REGION_KEY);
 };
 
+const lineCard = (name: string) =>
+  screen.getByText(name, { selector: "p" }).closest("li") as HTMLElement;
+
 describe("SupportSheet", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -31,69 +34,100 @@ describe("SupportSheet", () => {
     vi.restoreAllMocks();
   });
 
-  it("opens on the saved region with its lines, offline data only", () => {
+  it("opens on the saved region with its lines and the emergency number", () => {
     setRegion("UK");
     render(<SupportSheet open onClose={() => {}} />);
     expect(screen.getByText("Samaritans")).toBeInTheDocument();
     expect(screen.getAllByText("116 123").length).toBeGreaterThan(0);
     expect(screen.getByText("999")).toBeInTheDocument();
-    expect(screen.getByText(/if you are under 18/i)).toBeInTheDocument();
-    expect(screen.getByText("Childline")).toBeInTheDocument();
+    expect(screen.getByText(/Under 18\?/).closest("li")).toHaveTextContent(
+      /Childline · 0800 1111/,
+    );
+    expect(screen.getByText(/Showing lines for/)).toHaveTextContent(
+      "United Kingdom",
+    );
   });
 
-  it("defaults the region from the system language", () => {
+  it("India lists Tele-MANAS and iCall, and Childline for under 18s", () => {
+    setRegion("IN");
+    render(<SupportSheet open onClose={() => {}} />);
+    expect(screen.getByText("Tele-MANAS")).toBeInTheDocument();
+    expect(screen.getByText("iCall")).toBeInTheDocument();
+    expect(screen.getAllByText("+91 91529 87821").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Under 18\?/).closest("li")).toHaveTextContent(
+      /Childline · 1098/,
+    );
+  });
+
+  it("defaults the region from the system language and says so", () => {
     vi.spyOn(navigator, "language", "get").mockReturnValue("en-AU");
     vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-AU"]);
     render(<SupportSheet open onClose={() => {}} />);
     expect(screen.getByText("Lifeline")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Based on this PC's time zone and region/),
+    ).toHaveTextContent("Australia");
   });
 
   it("asks for a country when the region is unknown, and remembers the choice", () => {
     render(<SupportSheet open onClose={() => {}} />);
     expect(screen.getByText(/choose your country/i)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/where are you/i), {
-      target: { value: "DE" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: /Other countries/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Germany" }));
     expect(screen.getByText("Telefonseelsorge")).toBeInTheDocument();
     expect(localStorage.getItem(SUPPORT_REGION_KEY)).toBe("DE");
   });
 
-  it("points elsewhere to international resources and emergency guidance", () => {
+  it("Change opens the country list", () => {
+    setRegion("UK");
     render(<SupportSheet open onClose={() => {}} />);
-    fireEvent.change(screen.getByLabelText(/where are you/i), {
-      target: { value: "OTHER" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(screen.getByRole("button", { name: "Canada" })).toBeInTheDocument();
+  });
+
+  it("points elsewhere to international resources and emergency guidance", () => {
+    setRegion("UK");
+    render(<SupportSheet open onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /Other countries/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Somewhere else" }));
     expect(screen.getAllByText(/findahelpline\.com/).length).toBeGreaterThan(0);
     expect(screen.getByText(/local emergency number/i)).toBeInTheDocument();
+    expect(localStorage.getItem(SUPPORT_REGION_KEY)).toBeNull();
   });
 
   it("voice-only lines never offer text; text lines do", () => {
-    setRegion("CA");
+    setRegion("IN");
     render(<SupportSheet open onClose={() => {}} />);
-    const kids = screen.getByText("Kids Help Phone").closest("li")!;
-    expect(within(kids).getByText("Text")).toBeInTheDocument();
+    expect(
+      within(lineCard("Tele-MANAS")).queryByText("Text"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(lineCard("Tele-MANAS")).getByText("Call"),
+    ).toBeInTheDocument();
     cleanup();
-    setRegion("AU");
-    render(<SupportSheet open onClose={() => {}} />);
-    const kidsAu = screen.getByText("Kids Helpline").closest("li")!;
-    expect(within(kidsAu).queryByText("Text")).not.toBeInTheDocument();
-    expect(within(kidsAu).getByText("Call")).toBeInTheDocument();
-  });
-
-  it("Canada shows 988 as a call and as a text", () => {
     setRegion("CA");
     render(<SupportSheet open onClose={() => {}} />);
-    const row = screen
-      .getByText("9-8-8 Suicide Crisis Helpline")
-      .closest("li")!;
+    const row = lineCard("9-8-8 Suicide Crisis Helpline");
     expect(within(row).getByText("Call")).toBeInTheDocument();
     expect(within(row).getByText("Text")).toBeInTheDocument();
+  });
+
+  it("an under-18 voice-only line has no text action", () => {
+    setRegion("AU");
+    render(<SupportSheet open onClose={() => {}} />);
+    const young = screen.getByText(/Under 18\?/).closest("li")!;
+    expect(
+      within(young).queryByRole("button", { name: /to text/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(young).getByRole("button", { name: /to call 1800 55 1800/i }),
+    ).toBeInTheDocument();
   });
 
   it("text-only Shout has no call row", () => {
     setRegion("UK");
     render(<SupportSheet open onClose={() => {}} />);
-    const shout = screen.getByText("Shout (text only)").closest("li")!;
+    const shout = lineCard("Shout (text only)");
     expect(within(shout).queryByText("Call")).not.toBeInTheDocument();
     expect(within(shout).getAllByText("85258").length).toBeGreaterThan(0);
   });
@@ -114,17 +148,39 @@ describe("SupportSheet", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("Show on my phone draws a QR labelled with the number, not 'QR image'", () => {
-    setRegion("US");
+  it("Show on my phone opens the QR inside that line's card, labelled with the number", () => {
+    setRegion("IN");
     render(<SupportSheet open onClose={() => {}} />);
+    const card = lineCard("Tele-MANAS");
     fireEvent.click(
-      screen.getAllByRole("button", { name: /show on my phone/i })[0],
+      within(card).getByRole("button", { name: /show on my phone/i }),
     );
-    const qr = screen.getByRole("img", { name: "Call 988" });
+    const qr = within(card).getByRole("img", { name: "Call 14416" });
     expect(qr.querySelector("path")?.getAttribute("d")?.length).toBeGreaterThan(
       50,
     );
-    expect(screen.getByTestId("support-number")).toHaveTextContent("988");
+    expect(
+      within(card).getByText(/Point your phone's camera here/),
+    ).toBeTruthy();
+    expect(
+      within(card).getByText(/opens 14416 in your phone's dialler/),
+    ).toBeTruthy();
+    // another line's card has none
+    expect(
+      within(lineCard("iCall")).queryByRole("img"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("the pressed Show on my phone button toggles the QR off again", () => {
+    setRegion("US");
+    render(<SupportSheet open onClose={() => {}} />);
+    const button = screen.getAllByRole("button", {
+      name: /show on my phone/i,
+    })[0];
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(button);
+    expect(screen.queryByRole("img", { name: "Call 988" })).toBeNull();
   });
 
   it("Copy number confirms with a toast", async () => {

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Copy, Smartphone, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Globe,
+  Lock,
+  Smartphone,
+  User,
+  X,
+} from "lucide-react";
 import QrCode from "./QrCode";
 import { useToast } from "../../hooks/useToast";
 import {
@@ -10,30 +19,62 @@ import {
   type RegionCode,
   type SupportLine,
 } from "../../data/supportLines";
-import { getSupportRegion, setSupportRegion } from "../../utils/supportRegion";
+import {
+  getSupportRegion,
+  hasChosenSupportRegion,
+  setSupportRegion,
+} from "../../utils/supportRegion";
 
 interface SupportSheetProps {
   open: boolean;
   onClose: () => void;
 }
 
-type Shown = { line: SupportLine; mode: "call" | "text" } | null;
+type Mode = "call" | "text";
+type Shown = { id: string; mode: Mode } | null;
 
-const OTHER = "OTHER";
+interface Way {
+  mode: Mode;
+  label: string;
+  number: string;
+  uri: string;
+}
+
+const waysOf = (line: SupportLine): Way[] => {
+  const ways: Way[] = [];
+  if (line.voice && line.voiceDial)
+    ways.push({
+      mode: "call",
+      label: "Call",
+      number: line.voice,
+      uri: `tel:${line.voiceDial}`,
+    });
+  if (line.text)
+    ways.push({
+      mode: "text",
+      label: "Text",
+      number: line.text,
+      uri: `sms:${line.text.replace(/\s+/g, "")}`,
+    });
+  return ways;
+};
 
 /**
  * People to talk to, by country (KAN-54, KAN-55). Everything is bundled, so it
- * works offline. A desktop cannot place a call, so a number is shown to read,
- * copy, or open on a phone through a QR code made on this computer.
+ * works offline. A desktop cannot dial, so a number is shown to read, copy, or
+ * open on a phone through a QR code made on this computer, right under the
+ * line it belongs to.
  */
 export default function SupportSheet({ open, onClose }: SupportSheetProps) {
   const { showToast } = useToast();
   const [region, setRegion] = useState<RegionCode | null>(null);
-  const [chosenOther, setChosenOther] = useState(false);
+  const [chosen, setChosen] = useState(false);
+  const [others, setOthers] = useState(false);
+  const [somewhereElse, setSomewhereElse] = useState(false);
   const [shown, setShown] = useState<Shown>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const firstAction = useRef<HTMLButtonElement>(null);
-  const picker = useRef<HTMLSelectElement>(null);
+  const othersToggle = useRef<HTMLButtonElement>(null);
   const numberRef = useRef<HTMLElement>(null);
   const opener = useRef<Element | null>(null);
 
@@ -41,8 +82,11 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
   useEffect(() => {
     if (!open) return;
     opener.current = document.activeElement;
-    setRegion(getSupportRegion());
-    setChosenOther(false);
+    const r = getSupportRegion();
+    setRegion(r);
+    setChosen(hasChosenSupportRegion());
+    setOthers(false);
+    setSomewhereElse(false);
     setShown(null);
     return () => {
       (opener.current as HTMLElement | null)?.focus?.();
@@ -50,17 +94,16 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
   }, [open]);
 
   const data = regionByCode(region);
-  const needsPicker = !data;
 
-  // Focus lands on the first line (or the country picker when there is none).
+  // Focus lands on the first line (or on the country list when there is none).
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(
-      () => (firstAction.current ?? picker.current)?.focus(),
+      () => (firstAction.current ?? othersToggle.current)?.focus(),
       0,
     );
     return () => clearTimeout(t);
-  }, [open, region, chosenOther]);
+  }, [open, region]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -71,7 +114,7 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
       }
       if (e.key !== "Tab") return;
       const nodes = dialogRef.current?.querySelectorAll<HTMLElement>(
-        "button, select, a[href], [tabindex]:not([tabindex='-1'])",
+        "button:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])",
       );
       if (!nodes?.length) return;
       const first = nodes[0];
@@ -105,6 +148,15 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
     }
   };
 
+  const choose = (code: RegionCode) => {
+    setRegion(code);
+    setChosen(true);
+    setSupportRegion(code);
+    setSomewhereElse(false);
+    setOthers(false);
+    setShown(null);
+  };
+
   if (!open) return null;
 
   const lines = data?.lines ?? [];
@@ -118,95 +170,116 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
   };
 
   const btn =
-    "inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-border-dark bg-tertiary-light dark:bg-tertiary-dark px-3 py-1.5 text-xs font-semibold text-text-light dark:text-text-dark hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-info";
+    "inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-border-dark bg-secondary-light dark:bg-secondary-dark px-3 py-1.5 text-sm font-medium text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark focus:outline-none focus:ring-2 focus:ring-info";
+  const pressed = "ring-2 ring-light1 dark:ring-dark1";
 
-  const lineRow = (line: SupportLine) => {
-    const rows: {
-      mode: "call" | "text";
-      label: string;
-      number: string;
-      uri: string;
-    }[] = [];
-    if (line.voice && line.voiceDial)
-      rows.push({
-        mode: "call",
-        label: "Call",
-        number: line.voice,
-        uri: `tel:${line.voiceDial}`,
-      });
-    if (line.text)
-      rows.push({
-        mode: "text",
-        label: "Text",
-        number: line.text,
-        uri: `sms:${line.text.replace(/\s+/g, "")}`,
-      });
+  const buttons = (line: SupportLine, way: Way, ref?: typeof firstAction) => {
+    const isShown = shown?.id === line.id && shown.mode === way.mode;
     return (
-      <li
-        key={line.id}
-        className="rounded-xl border border-border-light dark:border-border-dark p-3"
-      >
-        <p className="font-semibold text-text-light dark:text-text-dark">
-          {line.name}
-        </p>
-        <p className="text-xs text-text-light-sub dark:text-text-dark-sub">
-          {line.hours}
-        </p>
-        {line.note && (
-          <p className="mt-1 text-xs text-text-light-sub dark:text-text-dark-sub">
-            {line.note}
-          </p>
-        )}
-        <ul className="mt-2 space-y-2">
-          {rows.map((r) => (
-            <li
-              key={r.mode}
-              className="flex flex-wrap items-center justify-between gap-2"
-            >
-              <span className="text-sm text-text-light dark:text-text-dark">
-                {r.label}{" "}
-                <span className="font-semibold tabular-nums">{r.number}</span>
-              </span>
-              <span className="flex gap-2">
-                <button
-                  ref={takeFirst()}
-                  type="button"
-                  className={btn}
-                  onClick={() => setShown({ line, mode: r.mode })}
-                >
-                  <Smartphone size={14} aria-hidden />
-                  Show on my phone
-                  <span className="sr-only">
-                    {` to ${r.label.toLowerCase()} ${r.number}`}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={btn}
-                  onClick={() => copy(r.number)}
-                >
-                  <Copy size={14} aria-hidden />
-                  Copy number
-                  <span className="sr-only">{` ${r.number}`}</span>
-                </button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </li>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={btn}
+          onClick={() => copy(way.number)}
+          aria-label={`Copy number ${way.number}`}
+        >
+          <Copy size={14} aria-hidden /> Copy number
+        </button>
+        <button
+          ref={ref}
+          type="button"
+          className={`${btn} ${isShown ? pressed : ""}`}
+          aria-expanded={isShown}
+          aria-label={`Show on my phone to ${way.label.toLowerCase()} ${way.number}`}
+          onClick={() =>
+            setShown(isShown ? null : { id: line.id, mode: way.mode })
+          }
+        >
+          <Smartphone size={14} aria-hidden /> Show on my phone
+        </button>
+      </div>
     );
   };
 
-  const shownRow = shown && {
-    number:
-      shown.mode === "call"
-        ? (shown.line.voice ?? "")
-        : (shown.line.text ?? ""),
-    uri:
-      shown.mode === "call"
-        ? `tel:${shown.line.voiceDial}`
-        : `sms:${(shown.line.text ?? "").replace(/\s+/g, "")}`,
-  };
+  const qrPanel = (line: SupportLine, way: Way) =>
+    shown?.id === line.id && shown.mode === way.mode ? (
+      <div
+        className="mt-3 flex flex-wrap items-center gap-4 rounded-xl bg-white p-3 text-black"
+        role="region"
+        aria-label={`Open ${line.name} on your phone`}
+      >
+        <QrCode
+          value={way.uri}
+          label={`${way.label} ${way.number}`}
+          size={120}
+        />
+        <div className="min-w-0 flex-1 basis-48">
+          <p className="font-semibold">Point your phone&apos;s camera here</p>
+          <p className="mt-1 text-sm text-black/70">
+            {way.mode === "call"
+              ? `It opens ${way.number} in your phone's dialler, ready to call. Most PCs can't make phone calls themselves.`
+              : `It opens a text to ${way.number} on your phone.`}
+          </p>
+          <strong
+            ref={numberRef}
+            className="mt-2 block select-all text-lg tabular-nums"
+            data-testid="support-number"
+          >
+            {way.number}
+          </strong>
+        </div>
+      </div>
+    ) : null;
+
+  const generalCard = (line: SupportLine) => (
+    <li key={line.id} className="py-3 first:pt-1 last:pb-1">
+      <p className="font-semibold text-text-light dark:text-text-dark">
+        {line.name}
+      </p>
+      <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+        {line.hours}
+      </p>
+      {line.note && (
+        <p className="text-xs text-text-light-sub dark:text-text-dark-sub">
+          {line.note}
+        </p>
+      )}
+      <ul className="mt-1 divide-y-0">
+        {waysOf(line).map((way) => (
+          <li key={way.mode} className="mt-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-sm text-text-light-sub dark:text-text-dark-sub">
+                {way.label}
+              </span>
+              <span className="text-xl font-semibold tabular-nums text-text-light dark:text-text-dark">
+                {way.number}
+              </span>
+            </div>
+            {buttons(line, way, takeFirst())}
+            {qrPanel(line, way)}
+          </li>
+        ))}
+      </ul>
+    </li>
+  );
+
+  const youngRow = (line: SupportLine) => (
+    <li key={line.id} className="text-sm text-text-light dark:text-text-dark">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <User size={16} aria-hidden className="shrink-0" />
+        <span>
+          <strong>Under 18?</strong> {line.name} · {line.voice ?? line.text} ·{" "}
+          {line.hours}
+        </span>
+      </div>
+      {waysOf(line).map((way) => (
+        <div key={way.mode} className="ml-6">
+          {buttons(line, way)}
+          {qrPanel(line, way)}
+        </div>
+      ))}
+    </li>
+  );
 
   return (
     <div
@@ -221,126 +294,155 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
         aria-modal="true"
         aria-labelledby="support-title"
         onKeyDown={onKeyDown}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border-light dark:border-border-dark bg-secondary-light dark:bg-secondary-dark p-5 shadow-xl text-text-light dark:text-text-dark"
+        className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border-light dark:border-border-dark bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark shadow-xl"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 id="support-title" className="font-display text-xl font-bold">
-              Talk to someone
-            </h2>
-            <p className="mt-1 text-sm text-text-light-sub dark:text-text-dark-sub">
-              You do not have to go through this alone. These lines are free and
-              work without MindSage being online.
-            </p>
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2
+                id="support-title"
+                className="font-display text-2xl font-semibold"
+              >
+                Talk to someone
+              </h2>
+              <p className="mt-2 text-sm text-text-light-sub dark:text-text-dark-sub">
+                You don&apos;t have to carry it alone. These lines are free and
+                confidential, and this list works without MindSage being online.
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="rounded-lg p-1.5 hover:bg-tertiary-light dark:hover:bg-tertiary-dark focus:outline-none focus:ring-2 focus:ring-info"
+            >
+              <X size={18} aria-hidden />
+            </button>
           </div>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className={btn}
-          >
-            <X size={14} aria-hidden />
-          </button>
-        </div>
 
-        <div className="mt-4">
-          <label htmlFor="support-region" className="text-sm font-medium">
-            Where are you?
-          </label>
-          <select
-            id="support-region"
-            ref={picker}
-            value={chosenOther ? OTHER : (region ?? "")}
-            onChange={(e) => {
-              setShown(null);
-              if (e.target.value === OTHER) {
-                setChosenOther(true);
-                setRegion(null);
-                setSupportRegion(null);
-              } else {
-                setChosenOther(false);
-                const code = e.target.value as RegionCode;
-                setRegion(code);
-                setSupportRegion(code);
-              }
-            }}
-            className="mt-1 w-full rounded-lg border border-border-light dark:border-border-dark bg-tertiary-light dark:bg-tertiary-dark p-2 text-sm"
-          >
-            <option value="" disabled>
-              Choose a country
-            </option>
-            {SUPPORT_REGIONS.map((r) => (
-              <option key={r.code} value={r.code}>
-                {r.name}
-              </option>
-            ))}
-            <option value={OTHER}>Somewhere else</option>
-          </select>
-        </div>
-
-        {needsPicker ? (
-          <p className="mt-4 text-sm">
-            {chosenOther ? (
-              <>
-                {INTERNATIONAL_HELP.text}{" "}
-                <a
-                  href={INTERNATIONAL_HELP.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  findahelpline.com
-                </a>
-              </>
+          <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-text-light-sub dark:text-text-dark-sub">
+            <Globe size={16} aria-hidden />
+            {data ? (
+              <span>
+                {chosen
+                  ? "Showing lines for"
+                  : "Based on this PC's time zone and region:"}{" "}
+                {data.name}
+              </span>
             ) : (
-              "Choose your country to see the lines near you."
+              <span>
+                {somewhereElse
+                  ? "Somewhere else"
+                  : "Choose your country to see the lines near you."}
+              </span>
             )}
+            <button
+              type="button"
+              className="font-medium text-text-light underline underline-offset-2 dark:text-text-dark"
+              onClick={() => setOthers(true)}
+            >
+              Change
+            </button>
           </p>
-        ) : (
-          <>
-            <p className="mt-4 rounded-lg bg-danger/10 p-3 text-sm">
+
+          {data && (
+            <>
+              <ul className="mt-4 divide-y divide-border-light rounded-2xl bg-tertiary-light/60 p-4 dark:divide-border-dark dark:bg-tertiary-dark/60">
+                {general.map(generalCard)}
+              </ul>
+              {young.length > 0 && (
+                <ul className="mt-4 space-y-2">{young.map(youngRow)}</ul>
+              )}
+            </>
+          )}
+
+          {somewhereElse && !data && (
+            <p className="mt-4 text-sm">
+              {INTERNATIONAL_HELP.text}{" "}
+              <a
+                href={INTERNATIONAL_HELP.url}
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                findahelpline.com
+              </a>
+            </p>
+          )}
+
+          <div className="mt-4">
+            <button
+              ref={othersToggle}
+              type="button"
+              aria-expanded={others}
+              onClick={() => setOthers((o) => !o)}
+              className="inline-flex items-center gap-1 text-sm font-medium"
+            >
+              {others ? (
+                <ChevronDown size={16} aria-hidden />
+              ) : (
+                <ChevronRight size={16} aria-hidden />
+              )}
+              Other countries
+            </button>
+            {others && (
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {SUPPORT_REGIONS.map((r) => (
+                  <li key={r.code}>
+                    <button
+                      type="button"
+                      className={`${btn} ${r.code === region ? pressed : ""}`}
+                      aria-pressed={r.code === region}
+                      onClick={() => choose(r.code)}
+                    >
+                      {r.name}
+                    </button>
+                  </li>
+                ))}
+                <li>
+                  <button
+                    type="button"
+                    className={btn}
+                    onClick={() => {
+                      setRegion(null);
+                      setChosen(false);
+                      setSupportRegion(null);
+                      setSomewhereElse(true);
+                      setShown(null);
+                    }}
+                  >
+                    Somewhere else
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
+
+          {data && (
+            <p className="mt-4 text-sm text-text-light dark:text-text-dark">
               In danger right now? Call the emergency number:{" "}
               <strong className="tabular-nums">{data.emergency}</strong>
             </p>
-            <ul className="mt-4 space-y-3">{general.map(lineRow)}</ul>
-            {young.length > 0 && (
-              <>
-                <h3 className="mt-5 text-sm font-semibold">
-                  If you are under 18
-                </h3>
-                <ul className="mt-2 space-y-3">{young.map(lineRow)}</ul>
-              </>
-            )}
-          </>
-        )}
+          )}
 
-        {shown && shownRow && (
-          <div
-            className="mt-5 flex flex-col items-center gap-2 rounded-xl border border-border-light dark:border-border-dark p-4"
-            role="region"
-            aria-label={`Open ${shown.line.name} on your phone`}
+          <p className="mt-4 flex items-start gap-2 text-xs text-text-light-sub dark:text-text-dark-sub">
+            <Lock size={14} aria-hidden className="mt-0.5 shrink-0" />
+            <span>
+              MindSage is a journal, not therapy or an emergency service.
+              Nothing is sent anywhere when you open this. Numbers last checked{" "}
+              {VERIFIED_ON}.
+            </span>
+          </p>
+        </div>
+        <div className="flex justify-end border-t border-border-light px-6 py-3 dark:border-border-dark">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-light1 px-5 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-info dark:bg-dark1"
           >
-            <QrCode
-              value={shownRow.uri}
-              label={`${shown.mode === "call" ? "Call" : "Text"} ${shownRow.number}`}
-            />
-            <p className="text-sm">
-              Scan with your phone&apos;s camera to{" "}
-              {shown.mode === "call" ? "call" : "text"}
-            </p>
-            <strong
-              ref={numberRef}
-              className="select-all text-2xl tabular-nums"
-              data-testid="support-number"
-            >
-              {shownRow.number}
-            </strong>
-          </div>
-        )}
-
-        <p className="mt-5 text-xs text-text-light-sub dark:text-text-dark-sub">
-          Numbers last checked {VERIFIED_ON}. MindSage is not a crisis service.
-        </p>
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );
