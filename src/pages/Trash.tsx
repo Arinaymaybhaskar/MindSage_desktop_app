@@ -129,7 +129,9 @@ export default function Trash() {
       await finish(
         r.searchCleanupPending > 0
           ? "Deleted. Search will finish clearing them when it is running."
-          : `Deleted ${r.entries + r.goals} item(s) for good`,
+          : r.filesPending > 0
+            ? "Deleted. A few files are in use and will be removed the next time MindSage starts."
+            : `Deleted ${r.entries + r.goals} item(s) for good`,
       );
     } catch (err) {
       console.error(err);

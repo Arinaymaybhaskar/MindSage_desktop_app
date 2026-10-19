@@ -33,6 +33,10 @@ export interface DeleteProfileResult {
   /** True when no other profile is left on this computer. */
   lastProfile: boolean;
   backupsRemoved: boolean;
+  /** True when other profiles remain and the old safety copies were swapped for a fresh one. */
+  backupsReplaced: boolean;
+  /** Files another program was holding open; retried on the next start. */
+  filesPending: number;
   searchCleanupPending: number;
 }
 

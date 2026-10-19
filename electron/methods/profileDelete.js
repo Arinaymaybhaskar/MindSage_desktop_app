@@ -4,13 +4,15 @@ import { app } from "electron";
 import localDB from "../db/index.js";
 import { journalMediaDir } from "../mediaPaths.js";
 import { processVectorDeletions } from "./qdrant.js";
-import { removeFiles } from "./trash.js";
+import { pendingFileCount, removeFiles } from "./trash.js";
 
 // Deleting a whole profile (KAN-56): the database rows, their media files and
 // thumbnails, their search-index points, and, when it was the last profile on
 // this computer, the database backups too (they hold nothing but that
-// profile). With other profiles present the backups stay: they are whole-
-// database snapshots and also protect those people.
+// profile). With other profiles present the old backups are replaced by one
+// taken after the delete: they are whole-database snapshots, so they still
+// hold the deleted journal, but they also protect those people. Files that
+// are locked right now are retried later (pendingDeletions.js).
 
 const userData = () => app.getPath("userData");
 
@@ -51,6 +53,12 @@ export async function deleteProfileEverything(userId, { afterRows } = {}) {
     entryIds: removed.entryIds,
   });
   let backupsRemoved = false;
+  let backupsReplaced = false;
+  if (!removed.lastProfile) {
+    // The old copies still hold this profile's journal; swap them for one
+    // taken now.
+    backupsReplaced = localDB.replaceBackups().replaced;
+  }
   if (removed.lastProfile) {
     try {
       fs.rmSync(path.join(userData(), "backups"), {
@@ -80,6 +88,8 @@ export async function deleteProfileEverything(userId, { afterRows } = {}) {
     filesRemoved,
     lastProfile: removed.lastProfile,
     backupsRemoved,
+    backupsReplaced,
+    filesPending: pendingFileCount(),
     searchCleanupPending: index.pending,
   };
 }
