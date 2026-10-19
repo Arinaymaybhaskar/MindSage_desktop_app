@@ -2,7 +2,12 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 import { MIGRATIONS, runMigrations } from "./migrations.js";
-import { ensureVectorTable, loadVectorExtension } from "./vectorExtension.js";
+import {
+  describeLoadFailure,
+  ensureVectorTable,
+  extensionPath,
+  loadVectorExtension,
+} from "./vectorExtension.js";
 import { log } from "../log.js";
 
 // Where the database used to be resolved: next to Electron's userData on
@@ -71,7 +76,13 @@ db.pragma("secure_delete = ON");
 // unavailable; callers check this before using the index.
 export const vectorSupport = loadVectorExtension(db);
 if (!vectorSupport.ok) {
-  log.error("Search index unavailable:", vectorSupport.error);
+  let where = "";
+  try {
+    where = extensionPath();
+  } catch (error) {
+    where = `unresolved: ${error?.message ?? error}`;
+  }
+  log.error(describeLoadFailure(where, vectorSupport.error));
 }
 
 // A pre-migration snapshot is the user's only insurance: the database is the
