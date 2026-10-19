@@ -1,6 +1,7 @@
 import localDB from "../db/index.js";
 import { eventBus } from "../eventBus.js";
 import { currentUserId } from "../session.js";
+import { log } from "../log.js";
 
 export const handleGetActiveGoals = async (event) => {
   const userId = currentUserId();
@@ -25,7 +26,7 @@ export const handleCreateGoal = async (event, goal) => {
     return { error: "Not signed in" };
   }
   const goalCreated = await localDB.AddGoal(userId, goal);
-  console.log(goalCreated, "goal created");
+  log.info(goalCreated, "goal created");
   if (goalCreated.changes == 1) {
     // Trigger Qdrant sync
     eventBus.emit("goal:created", { entry: goal });

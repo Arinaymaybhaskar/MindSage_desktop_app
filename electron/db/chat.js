@@ -1,4 +1,5 @@
 import { db } from "./connection.js";
+import { log } from "../log.js";
 
 export const addAIResponse = async (
   chatId,
@@ -54,8 +55,8 @@ export const addAIResponse = async (
     const messageId = transaction();
     return { id: messageId };
   } catch (error) {
-    console.error("[addAIResponse] Error:", error);
-    console.error("Params:", { chatId, content, sources, files });
+    log.error("[addAIResponse] Error:", error);
+    log.error("Params:", { chatId, content, sources, files });
     throw error;
   }
 };
@@ -78,8 +79,8 @@ export const getChatsTitlesByUsers = async (userId, limit = 10, offset = 0) => {
     const chats = stmt.all(userId, limit, offset);
     return chats;
   } catch (error) {
-    console.error("[getChatsTitlesByUsers] Error:", error);
-    console.error("Params:", { userId, limit, offset });
+    log.error("[getChatsTitlesByUsers] Error:", error);
+    log.error("Params:", { userId, limit, offset });
     throw error;
   }
 };
@@ -166,8 +167,8 @@ export const getChatById = async (userId, chatId) => {
 
         return chat;
       } catch (error) {
-        console.error("[getChatById] Transaction error:", error);
-        console.error("Params:", { userId, chatId });
+        log.error("[getChatById] Transaction error:", error);
+        log.error("Params:", { userId, chatId });
         throw error;
       }
     });
@@ -176,7 +177,7 @@ export const getChatById = async (userId, chatId) => {
       const result = transaction();
       resolve(result);
     } catch (error) {
-      console.error("[getChatById] Outer error:", error);
+      log.error("[getChatById] Outer error:", error);
       reject(error);
     }
   });
@@ -192,8 +193,8 @@ export const AddChat = async (userId, chatData) => {
     const result = stmt.run(userId, title, model);
     return { id: result.lastInsertRowid };
   } catch (error) {
-    console.error("[AddChat] Error:", error);
-    console.error("Params:", { userId, chatData });
+    log.error("[AddChat] Error:", error);
+    log.error("Params:", { userId, chatData });
     throw error;
   }
 };
@@ -206,8 +207,8 @@ export const deleteChat = async (userId, chatId) => {
     const result = stmt.run(userId, chatId);
     return result.changes > 0;
   } catch (error) {
-    console.error("[deleteChat] Error:", error);
-    console.error("Params:", { userId, chatId });
+    log.error("[deleteChat] Error:", error);
+    log.error("Params:", { userId, chatId });
     throw error;
   }
 };
@@ -220,8 +221,8 @@ export const changeChatTitle = async (userId, chatId, newTitle) => {
     const result = stmt.run(newTitle, userId, chatId);
     return result.changes > 0;
   } catch (error) {
-    console.error("[changeChatTitle] Error:", error);
-    console.error("Params:", { userId, chatId, newTitle });
+    log.error("[changeChatTitle] Error:", error);
+    log.error("Params:", { userId, chatId, newTitle });
     throw error;
   }
 };
@@ -270,8 +271,8 @@ export const addMessage = async (chatId, sender, content, sources, files) => {
     const messageId = insertTransaction();
     return { id: messageId };
   } catch (error) {
-    console.error("[addMessage] Error:", error);
-    console.error("Params:", { chatId, sender, content, sources, files });
+    log.error("[addMessage] Error:", error);
+    log.error("Params:", { chatId, sender, content, sources, files });
     throw error;
   }
 };

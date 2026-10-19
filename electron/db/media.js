@@ -1,4 +1,5 @@
 import { db } from "./connection.js";
+import { log } from "../log.js";
 
 /**
  * Associates a local file path with a journal entry.
@@ -30,12 +31,12 @@ export function linkMediaToJournal(journalId, mediaKey, mediaType) {
     const result = stmt.run({ mediaKey, journalId });
     return result.changes > 0;
   } catch (error) {
-    console.log(error);
+    log.error("Could not link media", error);
   }
 }
 
 export function linkMediaToMessage(messageId, chatId, mediaKey, filetype) {
-  console.log("linkMediaToMessage", messageId, chatId, mediaKey, filetype);
+  log.debug("linkMediaToMessage", { messageId, chatId, filetype });
   try {
     const stmt = db.prepare(`
             INSERT INTO files (chat_id, message_id, file_type, file_path) 
@@ -44,6 +45,6 @@ export function linkMediaToMessage(messageId, chatId, mediaKey, filetype) {
     const result = stmt.run({ chatId, messageId, mediaKey, filetype });
     return result.changes > 0;
   } catch (error) {
-    console.log(error);
+    log.error("Could not link media", error);
   }
 }

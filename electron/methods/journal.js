@@ -11,6 +11,7 @@ import {
 } from "./AIPrompts.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
+import { log } from "../log.js";
 
 export async function handleCreateJournal(event, payload) {
   const userId = currentUserId();
@@ -50,7 +51,7 @@ export async function handleGetJournalById(event, journalId) {
   const userId = currentUserId();
   if (!userId) throw new Error("Not signed in");
 
-  console.log("Fetching journal by ID in offline mode:", journalId);
+  log.info("Fetching journal by ID in offline mode:", journalId);
   return localDB.getJournalById(userId, journalId);
 }
 
@@ -162,7 +163,7 @@ eventBus.on("journal:aiCompleted", ({ entry, metadata, force }) => {
       data: { entry: updated },
     });
   } else {
-    console.error(
+    log.error(
       `[JOURNAL] Qdrant worker not available for journal ID: ${entry.id}`,
     );
   }
@@ -183,7 +184,7 @@ eventBus.on("whisper:transcribe-ended", ({ entry, transcriptionText }) => {
 });
 
 eventBus.on("custom:test-event", (data) => {
-  console.log("Custom test event received with data:", data);
+  log.debug("Custom test event received");
 });
 
 // --- AI Metadata Retry Handler ---
@@ -237,7 +238,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
       });
       return { success: true };
     } catch (err) {
-      console.error("AI metadata retry failed:", err);
+      log.error("AI metadata retry failed:", err);
       db.prepare(
         `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`,
       ).run(err.message, journalId);
@@ -305,7 +306,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
       });
       return { success: true };
     } catch (err) {
-      console.error("AI summary retry failed:", err);
+      log.error("AI summary retry failed:", err);
       db.prepare(
         `UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ? WHERE id = ?`,
       ).run(err.message, journalId);
