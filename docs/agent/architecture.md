@@ -1,0 +1,36 @@
+# Architecture and code conventions
+
+Read this before you add an IPC channel, a handler, a migration or a renderer screen, or when you need to know how a request or the startup flows through the app.
+
+Electron + React + TypeScript desktop journaling app, **offline-first**: data lives in a local `better-sqlite3` DB, Ollama (generation/embeddings) and Whisper.cpp (speech-to-text) run locally, and the vector search index lives in the same database file (sqlite-vec, see [search-index.md](search-index.md)).
+
+## Three layers
+
+- **Renderer** (`src/`) — React 19 + Tailwind v4 + Vite. **HashRouter** (`#/path`), React Context for state (`AuthContext`, `ColorThemeContext`, `ToastContext`). The renderer **never imports Node APIs directly** — every backend call goes through an `src/api/*Service.tsx` wrapper that delegates to `window.electron.ipcRenderer.invoke("<channel>", ...args)`. The bridge is fully typed in [src/electron.d.ts](../../src/electron.d.ts); it used to be deliberately loose and incomplete, which is what most of the old renderer typecheck errors came from.
+- **Main process** (`electron/`) — Node ESM (`"type": "module"`; reconstruct `__dirname` via `fileURLToPath(import.meta.url)`). `preload.js` exposes the bridge (emitted as CommonJS `preload.cjs`, because the windows are sandboxed and a sandboxed preload cannot be an ES module; `splashPreload.js` is the splash's own, smaller bridge); `ipcHandlers.js` routes each channel to a handler in `methods/*.js` (business logic), which reads/writes through `db/*.js` (SQLite; `connection.js` holds all DDL). `services/` holds the process managers and background services — `indexer.js` (the search indexer), `OllamaSetup.js`, `appSetup.js`, `autoUpdater.js`.
+- **Optional online-sync backend** (`src/server/`) — unreachable (its import in `electron/main.js` is commented out), do not build on it. [ONLINE_MODE_REMOVAL.md](../ONLINE_MODE_REMOVAL.md) judges it safe to delete.
+
+## Request flow
+
+UI component → `src/api/xService.tsx` → IPC channel → [electron/ipcHandlers.js](../../electron/ipcHandlers.js) → `electron/methods/x.js` → `electron/db/x.js` → SQLite.
+
+## Background AI is event-driven
+
+Journal handlers emit on the `eventBus` ([electron/eventBus.js](../../electron/eventBus.js)); [electron/events.js](../../electron/events.js) forwards `journal:aiStarted` / `journal:aiCompleted` to the renderer via `webContents.send`, while the main process does the enrichment — title/tags/mood/summary generation through Ollama, and the search indexer ([search-index.md](search-index.md)) for embeddings. **AI metadata is never ready synchronously after a journal create/update.**
+
+## Startup ordering matters
+
+In [electron/main.js](../../electron/main.js), inside `app.whenReady()`: splash → `initDatabase()` → Ollama embedding-model setup (started, not awaited) → every IPC handler and the event bus register, synchronously (`startServices`, [electron/services/startServices.js](../../electron/services/startServices.js)) → the hidden main window is created → `services-ready` is sent with `{ degraded, search }` (by `createServiceAnnouncer`, once there is a window and the index has settled; it is replayed on every renderer reload), and the window is shown once the renderer has painted. The search index needs no process to start (see [search-index.md](search-index.md)): `startIndex` only checks that the sqlite-vec extension loaded and `onIndexReady` starts the indexer. **Handlers must exist before the window does, and nothing in the app may depend on search being available:** if the extension could not load, search and Ask return an `index-unavailable` result and everything else carries on. Do not put an `await` between `initDatabase()` and `createWindow()`; `scripts/bench/bench-startup.mjs` fails on any `No handler registered`.
+
+## Schema changes and the database file
+
+**Schema changes go in [electron/db/migrations.js](../../electron/db/migrations.js)**, as a new entry appended to the ordered `MIGRATIONS` list. `runMigrations` applies everything newer than `PRAGMA user_version`, each migration in its own transaction together with its version stamp, and `initDatabase()` takes a `VACUUM INTO` snapshot into `<userData>/backups/` (5 kept) before the first one runs. **Never edit a shipped migration** — versions 1 to 3 are the pre-versioning schema and are idempotent only because they had to be; from 4 onward a migration runs exactly once per install, so it may be destructive. `migrations.js` is deliberately import-free (no `better-sqlite3`, no `electron`) so `runMigrations` is unit-testable; `connection.js` opens the DB as a module-level side effect and cannot be imported under vitest. A new migration needs a case in `migrations.db.test.js` (see [tooling-and-tests.md](tooling-and-tests.md)). The DB is still the user's only copy of their journal (`<userData>/mind-sage.db`, i.e. `%APPDATA%/MindSage/mind-sage.db` on Windows; an existing journal at the old macOS/Linux path is kept in place), so treat schema edits as high-risk. `MS_SKIP_DB_BACKUP=1` skips the snapshot.
+
+**Every query that reads entries or goals must filter `is_deleted = 0`** (details in [trash-and-deletion.md](trash-and-deletion.md)).
+
+## Renderer conventions
+
+- **The IPC bridge is typed, not `any`.** [src/electron.d.ts](../../src/electron.d.ts) describes the whole `preload.js` surface, and `window.electron.ipcRenderer.invoke` is generic with an `unknown` default. Callers state the shape they expect, usually through the declared return type of the `src/api/*Service` wrapper that owns the channel. When you add a channel, type its wrapper against what the handler in `electron/methods/*` actually returns; when you add a member to the bridge, add it here too. IPC channels take no `token` and no user id (see [security-and-session.md](security-and-session.md)).
+- **Context hooks live in `src/hooks/`, not beside the provider.** `useAuth`, `useToast` and `useColorThemeContext` each sit in their own file so the context modules export only components, which is what React Fast Refresh needs and what `react-refresh/only-export-components` enforces. Adding a hook back into a `src/context/*.tsx` file will fail lint.
+- **Row shapes live in `src/types/`.** `User.ts`, `Goals.ts`, `Dashboard.ts`, `Ollama.ts`, `Search.ts` and `sqlite.ts` mirror the DDL in [electron/db/connection.js](../../electron/db/connection.js). SQLite has no boolean, so 0/1 columns are typed `SqliteBoolean`; prefer extending these over redeclaring a near-copy in a component.
+- **Renderer imports omit the file extension** (`import App from "./App"`). `allowImportingTsExtensions` is on, so both forms resolve, but most imports under `src/` omit it: match the surrounding code.

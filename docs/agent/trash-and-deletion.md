@@ -1,0 +1,28 @@
+# Trash, purge and deleting a profile
+
+Read this before you touch delete, trash, purge, backups, media cleanup or profile deletion, or write any new query that reads entries or goals.
+
+## Deleting is two steps: the trash, then a purge (KAN-52)
+
+`journal:delete` and `goal:delete` only mark the row (`is_deleted = 1`, `deleted_at`); nothing is removed for 30 days. **Every query that reads entries or goals must filter `is_deleted = 0`**, including anything new (a new query that forgets it shows trashed items in search, Ask, counts or exports).
+
+- Search results are built by joining the vector hits back to the base tables (`db/searchIndex.js` `searchSimilar`), which filter `is_deleted = 0`, so a trashed item cannot be returned even though its vector stays until the purge; the indexer's `storeVector` re-checks the item in the same transaction that writes its vector (see [search-index.md](search-index.md)).
+- [electron/db/trash.js](../../electron/db/trash.js) lists, restores and removes (`deleteForever` only ever touches rows already in the trash, and only the signed-in user's).
+- [electron/methods/trash.js](../../electron/methods/trash.js) deletes the entry's whole `media/journals/<id>/` folder (photos, the original recording and its WAV) and every cached thumbnail of its photos (thumbnail names start with a hash of the photo's path, so all widths are found from the path), all confined to `userData/media` by [mediaPaths.js](../../electron/mediaPaths.js), runs the purge shortly after launch and every 24 h, and reports progress.
+- The purge removes the item's vector and `search_index` row in the same transaction as the row itself (`removeSources`), so nothing is queued and nothing of the text is left in the index.
+- Goals keep their progress logs while trashed.
+- Saved Ask answers that cited a purged entry lose its quoted words (`redactQuotes.js` replaces every run of five or more words shared with the entry by "[entry removed]").
+- Backups made before a purge still contain the item, and the UI and Settings say so.
+- Known limits of the answer scrub (KAN-53 review): it matches runs of five or more words against the entry's *current* text and its title (short entries only as a whole), so a sentence edited out of an entry before the purge can survive in an older answer; scripts written without spaces (Japanese, Chinese, Thai) are caught only as whole clauses; user messages are not scrubbed; `secure_delete` is on so removed rows are overwritten in the database file, and the purge truncates the WAL, and vectors are removed in the same transaction (the vector table's freed pages are overwritten the same way, unverified for vec0's chunk files).
+
+## Deleting a profile is one main-process transaction plus file cleanup (KAN-56)
+
+- `user:delete-summary` tells the screen what goes (counts, photo/recording bytes, other profiles).
+- `user:delete-account` re-checks the password in the main process through `electron/attemptLimiter.js` (5 wrong tries lock it for 60 s, and a locked profile refuses even the right password), then `db/profile.js` `deleteProfile` removes the user row (cascade), removes the profile's vectors and `search_index` rows in the same transaction (`removeUserSources`) and returns the media to remove; `methods/profileDelete.js` removes files and thumbnails.
+- Database backups are whole-DB snapshots shared by every profile: they are removed when the deleted profile was the last one, and otherwise replaced (`replaceBackups()` in `connection.js` takes a fresh snapshot after the rows are gone, then deletes the older ones) so no copy of the deleted journal survives.
+- Files another program holds open (EBUSY on Windows) are written to `userData/pending-file-deletions.json` by `electron/pendingDeletions.js` and retried at every start and every purge; the empty `media/chats/<message>/<chat>/` folders are pruned after their attachments go (KAN-344).
+- The renderer side is a Delete profile card on Settings, Profile (`DeleteProfileCard`: a backup offer via the export, a failed backup blocks deleting until it works or is skipped) that opens `DeleteProfileDialog` (what goes, what stays, password, `HoldButton`), and `utils/clearLocalTraces.ts` clears `userInfo` afterwards.
+- The dialog is mounted once in `App.tsx`, outside the routes and driven by `utils/deleteProfileDialog.ts`, so its "deleted" screen survives the sign-out that deleting causes; nothing is deleted until the hold completes.
+- Password checks (delete and change-password share one count) run one at a time per profile and the session ends the moment the rows are gone.
+- The offered backup holds journal entries and their media only, not goals, chats or Trash, and the card says so.
+- Drafts are cleared only with the last profile (draft keys are not per profile).
