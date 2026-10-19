@@ -209,8 +209,35 @@ describe("SupportSheet", () => {
     );
     expect(addRange).toHaveBeenCalled();
     const range = addRange.mock.calls[0][0] as Range;
-    expect(range.startContainer).toBe(screen.getByTestId("support-number"));
+    expect(range.toString()).toBe(
+      screen.getByTestId("support-number").textContent,
+    );
   });
+
+  it.each(["US", "IN"])(
+    "a blocked clipboard selects the number with the phone panel closed (%s)",
+    async (region) => {
+      setRegion(region);
+      Object.assign(navigator, {
+        clipboard: { writeText: vi.fn().mockRejectedValue(new Error("no")) },
+      });
+      render(<SupportSheet open onClose={() => {}} />);
+      expect(screen.queryByTestId("support-number")).not.toBeInTheDocument();
+      // Let the sheet's own initial focus move settle first.
+      await new Promise((r) => setTimeout(r, 10));
+      const button = screen.getAllByRole("button", { name: /copy number/i })[0];
+      const number = /Copy number (.+)/.exec(
+        button.getAttribute("aria-label") ?? "",
+      )![1];
+      fireEvent.click(button);
+      await waitFor(() =>
+        expect(showToast).toHaveBeenCalledWith(
+          expect.stringMatching(/blocked/i),
+        ),
+      );
+      expect(window.getSelection()?.toString()).toBe(number);
+    },
+  );
 });
 
 describe("PinnedSupportLink", () => {

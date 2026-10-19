@@ -75,7 +75,6 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const firstAction = useRef<HTMLButtonElement>(null);
   const othersToggle = useRef<HTMLButtonElement>(null);
-  const numberRef = useRef<HTMLElement>(null);
   const opener = useRef<Element | null>(null);
 
   // Each time it opens: start from the saved or system region.
@@ -130,13 +129,15 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
     [onClose],
   );
 
-  const copy = async (number: string) => {
+  const copy = async (number: string, holder: HTMLElement | null) => {
     try {
       await navigator.clipboard.writeText(number);
       showToast(`Copied ${number}`, "success");
     } catch {
       // Clipboard blocked: select the number so Ctrl+C works.
-      const el = numberRef.current;
+      // Always rendered next to the buttons, so it works with the QR panel
+      // closed too.
+      const el = holder?.querySelector<HTMLElement>("[data-copy-number]");
       if (el) {
         const range = document.createRange();
         range.selectNodeContents(el);
@@ -177,10 +178,13 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
     const isShown = shown?.id === line.id && shown.mode === way.mode;
     return (
       <div className="mt-2 flex flex-wrap gap-2">
+        <span className="sr-only" data-copy-number>
+          {way.number}
+        </span>
         <button
           type="button"
           className={btn}
-          onClick={() => copy(way.number)}
+          onClick={(e) => copy(way.number, e.currentTarget.parentElement)}
           aria-label={`Copy number ${way.number}`}
         >
           <Copy size={14} aria-hidden /> Copy number
@@ -221,7 +225,6 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
               : `It opens a text to ${way.number} on your phone.`}
           </p>
           <strong
-            ref={numberRef}
             className="mt-2 block select-all text-lg tabular-nums"
             data-testid="support-number"
           >
