@@ -1,5 +1,5 @@
 # Creating a journal entry, from the save click to the AI fields arriving.
-# Derived from electron/methods/journal.js, ollama.js, whisper.js and qdrantWorker.js.
+# Derived from electron/methods/journal.js, ollama.js, whisper.js and services/indexer.js.
 
 direction: down
 
@@ -48,7 +48,7 @@ summary: "Summary listener   ollama.js" {
   style.stroke-width: 2
 }
 
-worker: "Worker thread   qdrantWorker.js\nembed and index" {
+worker: "Indexer   services/indexer.js\nembed and index" {
   style.stroke-width: 2
 }
 
@@ -86,7 +86,7 @@ aiFailed: "journal:aiFailed\nstatus flips to failed,\nretryable from the UI" {
   style.stroke-width: 2
 }
 
-qdrant: "Qdrant upsert\n+ mark synced_to_qdrant" {
+vec: "Store vector in vec_entries\n+ mark search_index ok" {
   shape: cylinder
   style.stroke-width: 2
 }
@@ -117,4 +117,4 @@ short -> skipped: "yes"
 short -> genSummary: "no"
 genSummary -> sqlite: "store summary"
 
-worker -> qdrant
+worker -> vec

@@ -44,7 +44,6 @@ export interface PurgeResult {
   goals: number;
   files: number;
   /** Items whose search-index points could not be removed yet (index down). */
-  searchCleanupPending: number;
   /** Files another program was holding open; retried on the next start. */
   filesPending: number;
 }

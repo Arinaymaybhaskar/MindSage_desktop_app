@@ -50,7 +50,7 @@ gen: "Prompt for a generation model if none\nchat, summaries and autocomplete ne
   style.stroke-width: 2
 }
 
-qdrant: "startQdrant\nspawn the bundled binary on a free port,\nexport QDRANT_HTTP_PORT to the worker" {
+index: "Search index ready\nsqlite-vec loaded in the journal database,\nindexer starts, no process to launch" {
   style.stroke-width: 2
 }
 
@@ -69,4 +69,4 @@ wait -> serve
 serve -> startServe: "no"
 startServe -> models
 serve -> models: "yes"
-models -> embed -> gen -> qdrant -> ready
+models -> embed -> gen -> index -> ready

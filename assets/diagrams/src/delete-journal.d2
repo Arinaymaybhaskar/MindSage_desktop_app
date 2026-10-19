@@ -1,5 +1,6 @@
-# Deleting a journal entry, including the media and vector cleanup that has to
-# happen alongside the row. Derived from electron/methods/journal.js.
+# Deleting a journal entry: the trash first, then the purge that removes the
+# row, its media and its search vector together. Derived from
+# electron/methods/journal.js, electron/db/trash.js and electron/methods/trash.js.
 
 direction: down
 
@@ -12,42 +13,42 @@ ipc: "journalService.deleteJournal\ninvoke \"journal:delete\"" {
   style.stroke-width: 2
 }
 
-fetch: "Read the row first\nto recover the image and\naudio file paths" {
+mark: "Mark the row\nis_deleted = 1, deleted_at = now\nnothing is removed yet" {
   style.stroke-width: 2
 }
 
-files: "Delete the media files\nfrom disk" {
+hidden: "Hidden from lists, search,\nAsk, counts and exports\nrestorable for 30 days" {
   style.stroke-width: 2
 }
 
-row: "DELETE from journal_entries" {
+purge: "Purge\nafter 30 days, or Delete forever\nin Trash" {
+  shape: diamond
   style.stroke-width: 2
 }
 
-point: "Delete the Qdrant point\nby stored point id" {
+tx: "One transaction\ndelete the row · delete its vector\nand search_index row ·\nscrub saved Ask answers" {
   style.stroke-width: 2
 }
 
-sqlite: "SQLite\nmind-sage.db" {
+files: "Delete the media folder\nphotos, recording, thumbnails\nretry later if a file is in use" {
+  style.stroke-width: 2
+}
+
+sqlite: "SQLite\nmind-sage.db\njournal rows and vec_entries" {
   shape: cylinder
   style.stroke-width: 2
 }
 
-qdrant: "Qdrant\nvector index" {
-  shape: cylinder
-  style.stroke-width: 2
-}
-
-done: "UI removes the entry\nfrom the list" {
+done: "Nothing of the entry\nis left to search" {
   shape: oval
   style.stroke-width: 2
 }
 
-del -> ipc -> fetch
-fetch -> sqlite: "SELECT paths"
-fetch -> files
-files -> row
-row -> sqlite: "DELETE"
-row -> point
-point -> qdrant: "delete point"
-point -> done
+del -> ipc -> mark
+mark -> sqlite: "UPDATE"
+mark -> hidden
+hidden -> purge
+purge -> tx
+tx -> sqlite: "DELETE"
+tx -> files
+files -> done

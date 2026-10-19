@@ -37,7 +37,7 @@ recalc: "Recalculate percent complete" {
   style.stroke-width: 2
 }
 
-syncLog: "syncProgressLogToQdrant\nthe note is searchable too" {
+syncLog: "progress_log:created event\nindexer embeds it: the note is searchable too" {
   style.stroke-width: 2
 }
 
@@ -63,7 +63,7 @@ sqlite: "SQLite\ngoals · progress_logs" {
   style.stroke-width: 2
 }
 
-qdrant: "Qdrant\nvector index" {
+index: "vec_entries\nsame database file" {
   shape: cylinder
   style.stroke-width: 2
 }
@@ -80,7 +80,7 @@ logRow -> recalc
 recalc -> reached
 reached -> celebrate: "yes"
 logRow -> syncLog
-syncLog -> qdrant: "upsert"
+syncLog -> index: "store vector"
 
 pin -> sqlite: "UPDATE pinned"
 pin -> dashboard
