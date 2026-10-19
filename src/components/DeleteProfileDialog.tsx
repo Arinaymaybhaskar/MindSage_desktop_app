@@ -148,7 +148,10 @@ export default function DeleteProfileDialog() {
                 : ""}
               .
               {!result.lastProfile
-                ? " The database safety copies stay, because they also protect the other profiles here."
+                ? " The older database safety copies were replaced by a new one made after your profile was removed, so they no longer hold it."
+                : ""}
+              {result.filesPending
+                ? ` ${result.filesPending} file${result.filesPending === 1 ? " is" : "s are"} in use by another program and will be removed the next time MindSage starts.`
                 : ""}
               {result.searchCleanupPending
                 ? " Search will finish clearing your entries the next time it is running."
@@ -238,8 +241,9 @@ export default function DeleteProfileDialog() {
                   <li className="flex gap-2">
                     <Check size={14} className="mt-1 shrink-0" aria-hidden />
                     <span>
-                      The database safety copies, because they also protect the
-                      other profiles on this PC
+                      The database safety copies are replaced by one new copy
+                      made after the delete, because they also protect the other
+                      profiles on this PC
                     </span>
                   </li>
                 )}

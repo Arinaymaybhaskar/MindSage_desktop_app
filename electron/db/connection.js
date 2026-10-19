@@ -115,6 +115,38 @@ function backupDatabase(fromVersion) {
 
   console.log(`Backed up the database to ${target}`);
   pruneBackups(dir);
+  return target;
+}
+
+/**
+ * Replaces every older safety copy with one made now. Used when a profile is
+ * deleted but others remain: the old copies still hold that profile's journal,
+ * and cannot be edited safely (older schemas), so they go and a fresh copy,
+ * taken after the rows were removed, takes their place. The new copy is made
+ * first; the old ones are removed even if it could not be (the person asked
+ * for the data to go). KAN-344.
+ */
+export function replaceBackups() {
+  const dir = path.join(path.dirname(db.name), BACKUP_DIR_NAME);
+  let fresh = null;
+  try {
+    fresh = backupDatabase(db.pragma("user_version", { simple: true })) ?? null;
+  } catch (err) {
+    console.error("Could not make a fresh database backup:", err);
+  }
+  const keep = fresh ? path.basename(fresh) : null;
+  let removed = 0;
+  try {
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.startsWith("mind-sage-v")) continue;
+      if (keep && name.startsWith(keep)) continue;
+      fs.rmSync(path.join(dir, name), { force: true });
+      removed += 1;
+    }
+  } catch (err) {
+    console.error("Could not remove the old database backups:", err);
+  }
+  return { replaced: fresh !== null, removed };
 }
 
 function pruneBackups(dir) {

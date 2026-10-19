@@ -65,7 +65,13 @@ beforeEach(() => {
   invoke.mockImplementation(async (channel: string) => {
     if (channel === "trash:list") return contents;
     if (channel === "trash:restore") return { entries: 1, goals: 0 };
-    return { entries: 1, goals: 0, files: 0, searchCleanupPending: 0 };
+    return {
+      entries: 1,
+      goals: 0,
+      files: 0,
+      searchCleanupPending: 0,
+      filesPending: 0,
+    };
   });
   window.electron = {
     ipcRenderer: {
@@ -235,7 +241,13 @@ describe("Trash page", () => {
       if (channel === "trash:list") return contents;
       if (channel === "trash:empty") {
         await new Promise<void>((r) => (finish = r));
-        return { entries: 2, goals: 1, files: 0, searchCleanupPending: 0 };
+        return {
+          entries: 2,
+          goals: 1,
+          files: 0,
+          searchCleanupPending: 0,
+          filesPending: 0,
+        };
       }
       return {};
     });
@@ -259,7 +271,13 @@ describe("Trash page", () => {
     invoke.mockImplementation(async (channel: string) =>
       channel === "trash:list"
         ? contents
-        : { entries: 1, goals: 0, files: 0, searchCleanupPending: 1 },
+        : {
+            entries: 1,
+            goals: 0,
+            files: 0,
+            searchCleanupPending: 1,
+            filesPending: 0,
+          },
     );
     await mount();
     fireEvent.click(screen.getByLabelText("Delete A walk forever"));
