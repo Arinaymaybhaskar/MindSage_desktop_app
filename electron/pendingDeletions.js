@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isInside } from "./mediaPaths.js";
+import { log } from "./log.js";
 
 // Files that could not be deleted when their entry was purged or their
 // profile removed (a locked file on Windows, an antivirus scan, a full disk).
@@ -31,7 +32,7 @@ function writePending(listFile, paths) {
     fs.writeFileSync(tmp, JSON.stringify(paths));
     fs.renameSync(tmp, listFile);
   } catch (err) {
-    console.error("Could not save the pending deletions:", err?.message ?? err);
+    log.error("Could not save the pending deletions:", err?.message ?? err);
   }
 }
 

@@ -3,6 +3,7 @@ import path from "node:path";
 import { zip } from "zip-a-folder";
 import { db } from "./connection.js";
 import os from "node:os";
+import { log } from "../log.js";
 
 /**
  * Creates a comprehensive ZIP archive of all user data, handling cases where some data tables may be empty.
@@ -137,13 +138,11 @@ export async function exportEverything(userId, destinationPath) {
           ensureDirExists(destDir);
           fs.copyFileSync(sourcePath, path.join(destDir, destFilename));
         } catch (error) {
-          console.error(`Failed to copy asset: ${sourcePath}`, error);
+          log.error(`Failed to copy asset: ${sourcePath}`, error);
         }
       } else if (sourcePath) {
         // Log a warning if the source file doesn't exist to make debugging easier.
-        console.warn(
-          `Asset source file not found, skipping copy: ${sourcePath}`,
-        );
+        log.warn(`Asset source file not found, skipping copy: ${sourcePath}`);
       }
     };
 
@@ -251,10 +250,10 @@ export async function exportEverything(userId, destinationPath) {
     // -- 6. Cleanup the temporary directory --
     fs.rmSync(tempDir, { recursive: true, force: true });
 
-    console.log(`Combined data exported successfully to: ${destinationPath}`);
+    log.info(`Combined data exported successfully to: ${destinationPath}`);
     return destinationPath;
   } catch (error) {
-    console.error("Error during combined data export:", error);
+    log.error("Error during combined data export:", error);
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }

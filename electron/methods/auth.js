@@ -9,6 +9,7 @@ import {
   signIn,
   signOut,
 } from "../session.js";
+import { log } from "../log.js";
 
 // The session lives in the main process (session.js). Login no longer issues
 // a token: there is no server to present one to, and the old one was never
@@ -36,7 +37,7 @@ export const handleLogin = async (event, credentials) => {
     markLegacySessionChecked();
     return { userInfo: toUserInfo(user) };
   } catch (error) {
-    console.error("Offline login error:", error);
+    log.error("Offline login error:", error);
     throw error;
   }
 };
@@ -129,7 +130,7 @@ export const handleRegister = async (event, details) => {
     const newUser = localDB.createUser(details);
     return { user: newUser };
   } catch (error) {
-    console.error("Offline registration error:", error);
+    log.error("Offline registration error:", error);
     throw error;
   }
 };

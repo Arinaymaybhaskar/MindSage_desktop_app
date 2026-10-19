@@ -1,3 +1,4 @@
+import { log } from "../log.js";
 // Single source of truth for the mood taxonomy. Used both to build the prompt
 // and to validate/sanitize whatever the model returns, so the two can't drift.
 export const MOOD_TAG_GROUPS = {
@@ -332,7 +333,7 @@ export function generateContextTimeAndBaseQueryPrompt(
   userQuery,
   currentTimeISO,
 ) {
-  console.log(currentTimeISO, "current time");
+  log.info(currentTimeISO, "current time");
   return `
 You are MindSage, an AI journaling assistant that analyzes user queries to determine search requirements.
 

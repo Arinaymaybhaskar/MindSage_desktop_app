@@ -5,6 +5,9 @@ import App from "./App.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { RootErrorFallback } from "./components/ErrorFallback";
+import { installRendererLogging } from "./utils/rendererLog";
+
+installRendererLogging();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
