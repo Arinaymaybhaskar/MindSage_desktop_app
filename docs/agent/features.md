@@ -1,0 +1,40 @@
+# Features, env flags, native binaries and packaging notes
+
+Read this before you touch import/export, the auto-updater, the support lines, Whisper or FFmpeg paths, environment flags, or anything about how the app is bundled and packaged. Logging has its own file: [logging.md](logging.md).
+
+## Import and export formats
+
+**Import and export formats live in [electron/portability/](../../electron/portability/)**, one pure module per format (`detect`, `read`, `write` over a map of path to bytes, no `electron` or database imports) so each is unit-tested in `portability.test.js`. Add a format there, register it in `index.js` (readers are tried most specific first), and give it a round-trip test.
+
+Imports go through `electron/methods/portability.js`, which writes with `localDB.createJournalEntry` rather than the editor's create handler on purpose: the handler emits `journal:created`, which would queue AI title, tag and summary generation for every imported entry and overwrite the source's own. One call to the indexer's `sweep()` afterwards indexes them for search (see [search-index.md](search-index.md)).
+
+App logos come from Simple Icons via [AppLogo.tsx](../../src/components/settings/AppLogo.tsx); apps it does not carry get a lettered tile, not a logo copied from their site.
+
+## Updates are quiet and opt-in
+
+`electron/services/autoUpdater.js` checks only when the user turned on automatic checks or pressed "Check now"; `updateRelay.js` remembers where the download stands (`update:get-state`) and `UpdateBar` shows it. "Restart to update" goes through `prepareToRestart()` in [src/utils/unsavedWork.ts](../../src/utils/unsavedWork.ts): a screen holding text a restart would lose registers a guard there (the entry form does), and the restart is refused while one is dirty. Notices that sit above the page (`UpdateBar`, `AIReadinessBanner`) go in the wrapper in `App.tsx`, because the title bar is `fixed` over the top 40px.
+
+## Support lines are bundled data, and safety-critical (KAN-50/54/55)
+
+[src/data/supportLines.ts](../../src/data/supportLines.ts) lists the lines per region (India, US, UK, Canada, Australia, Germany) with the date they were last checked; change a number only after checking the operator's own page and bump `VERIFIED_ON`. The first check (2026-10-19) was by web search of public pages, not against each operator's site, so a person re-checking them is still owed.
+
+- `SupportSheet` works offline: a desktop cannot dial, so it shows the number, a copy button (with a select-the-number fallback when the clipboard is blocked) and a QR code (`tel:`/`sms:`) drawn locally with `qrcode-generator`, always on a white quiet zone, opened inside the card of the line it belongs to; under-18 lines are one compact row each, and "Other countries" lists the regions.
+- iCall's hours differ between sources, so its note says to check their site. Voice-only lines never get a Text row.
+- The region comes from the person's choice (`localStorage.support_region`) or the system language.
+- The pinned link on Today (`PinnedSupportLink`) sits above the dock.
+- Ask shows `ASK_DISCLAIMER` under the composer and in onboarding, and both Ask prompts carry `NO_ADVICE_RULE`.
+
+## Native binaries live in `resources/`
+
+Whisper.cpp + DLLs and FFmpeg ship via `electron-builder` `extraResources`. Path resolution differs between dev (`../resources/...`) and packaged (`process.resourcesPath`) — copy the pattern in [electron/methods/whisper.js](../../electron/methods/whisper.js).
+
+## Environment flags
+
+- `MS_DISABLE_GPU=1` (Windows) disables GPU for machines with broken drivers (the `win32` check near the top of `electron/main.js`).
+- `MS_REMOTE_DEBUG=<port>` opens a loopback CDP endpoint (`remote-debugging-port` switch in `electron/main.js`) — anything that reaches it has full control of the renderer, so leave it off by default.
+- `MS_USER_DATA_DIR=<dir>` points Electron's `userData` (the database, logs, media, electron-store files) at another directory, and a profile chosen this way always gets its own database; the benchmark harness also sets `APPDATA`, which the db-only bench scripts still resolve the database from, since they run without an Electron `app`. It is applied by [electron/userDataOverride.js](../../electron/userDataOverride.js), which must stay the first import in `main.js`.
+- `MS_SKIP_DB_BACKUP=1` skips the pre-migration snapshot ([architecture.md](architecture.md)); `MS_DEBUG=1` keeps `debug` log lines ([logging.md](logging.md)); `MS_DB_DIR` / `MS_USER_DATA_DIR` are for db tests and `MS_SKIP_BENCH=1` skips the quick benchmark for one commit ([tooling-and-tests.md](tooling-and-tests.md)).
+
+## Build and packaging notes
+
+**Everything under `electron/` is bundled into `main.js`.** There are no worker threads and no `viteStaticCopy` targets any more (they existed only for `qdrantWorker.js`, which was spawned from a file path); a new main-process file needs no build config. A native dependency that must be loaded from disk (sqlite-vec's `vec0` library) is kept external by `vite.config.ts` (every `dependencies` entry is) and unpacked from the asar by `asarUnpack` in `package.json`; `electron/db/vectorExtension.js` rewrites `app.asar` to `app.asar.unpacked` when it resolves the path. The Windows uninstaller prompt is in [security-and-session.md](security-and-session.md).

@@ -45,7 +45,7 @@ try {
   }
   lines.push(
     "Rules from CLAUDE.md: branches flow ticket -> phase -> dev -> main, never straight to dev or main.",
-    "All work goes through agents with the model chosen from the CLAUDE.md table (instruction only, not enforced by hooks).",
+    "All work goes through agents with the model chosen from the table in docs/agent/orchestrator.md (instruction only, not enforced by hooks).",
     "Commits carry no Co-Authored-By or Claude-Session trailers.",
   );
   process.stdout.write(
