@@ -17,6 +17,7 @@ import {
   retryPending,
 } from "../pendingDeletions.js";
 import { thumbnailDir } from "./media.js";
+import { getIndexer } from "./search.js";
 import { log } from "../log.js";
 
 // IPC for the trash, and the job that empties it once items are 30 days old.
@@ -173,12 +174,18 @@ export function registerTrashIPC(getWin) {
 
   ipcMain.handle("trash:list", () => localDB.listTrash(user()));
 
-  ipcMain.handle("trash:restore", (_e, selection) =>
-    localDB.restoreItems(user(), {
+  ipcMain.handle("trash:restore", (_e, selection) => {
+    const result = localDB.restoreItems(user(), {
       entryIds: idList(selection?.entryIds),
       goalIds: idList(selection?.goalIds),
-    }),
-  );
+    });
+    // An item trashed while its embedding was in flight lost its index row
+    // (storeVector's "gone" path), so nothing would wake the indexer for it
+    // (KAN-372). One sweep covers every restored entry, goal and progress log,
+    // however many, and embeds nothing that already has a vector.
+    if (result.entries || result.goals) getIndexer()?.sweep();
+    return result;
+  });
 
   const send = (progress) => {
     const win = getWin?.();
