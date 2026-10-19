@@ -109,19 +109,20 @@ Rules that keep the loop honest: a tester reports what it saw, not what the code
 
 The goal is to spend tokens where a mistake is expensive and nowhere else. **All work goes through agents** (the `Agent` tool, with its `model` parameter set explicitly). The main session only orchestrates: it reads the Jira state, writes each agent's brief, merges and pushes what the agents return, and talks to the owner. It does not write feature code, run the test loop, review diffs or do Jira bookkeeping itself. The only things done inline are single-command facts (a `git status`, one status check) where writing a brief would cost more than the answer.
 
-| Work | Model | Notes |
-|---|---|---|
-| High-risk coding: migrations, the search indexer, anything touching the journal database or its backups, security, the AI pipeline (tickets labelled `opus-review`) | `opus` (`fable` when the owner asks for the strongest) | A mistake loses or leaks journal text. |
-| Everyday coding: UI behaviour, handlers, tests, bug fixes | `sonnet` | The default coding agent. |
-| Testing agents (the loop above) | `sonnet`; `opus` for `opus-review` tickets | Reports what it saw, never what the code intends. |
-| Diff review before a phase branch merges | `opus` | Never the model session that wrote the code. |
-| Planning, re-planning phases, moving tickets between releases | `opus` | A wrong call multiplies across tickets. |
-| Mechanical chores: Jira status moves, comments, filing bugs from the template, reformatting, grep-and-report | `haiku` | Nothing subtle to get wrong. |
+| Work | Model | Effort | Notes |
+|---|---|---|---|
+| High-risk coding: migrations, the search indexer, anything touching the journal database or its backups, security, the AI pipeline (tickets labelled `opus-review`) | `opus` (`fable` when the owner asks for the strongest) | `high` | A mistake loses or leaks journal text. |
+| Everyday coding: UI behaviour, handlers, tests, bug fixes | `sonnet` | `medium` | The default coding agent. |
+| Testing agents (the loop above) | `sonnet`; `opus` for `opus-review` tickets | `medium`; `high` for `opus-review` tickets | Reports what it saw, never what the code intends. |
+| Diff review before a phase branch merges | `opus` | `high` | Never the model session that wrote the code. |
+| Planning, re-planning phases, moving tickets between releases | `opus` | `high` | A wrong call multiplies across tickets. |
+| Mechanical chores: Jira status moves, comments, filing bugs from the template, reformatting, grep-and-report | `haiku` | `low` | Nothing subtle to get wrong. |
 
 Rules:
 - **Risk decides the tier, not size.** A one-line migration change goes to `opus`; a large UI change can go to `sonnet`.
 - **Author and judge are different agents.** The agent that wrote a change never tests or reviews it.
-- **Escalate on failure.** If a `sonnet` fix fails retest twice, the bug goes to `opus` instead of a third try.
+- **Escalate on failure.** If a `sonnet` fix fails retest twice, the bug goes to `opus` instead of a third try (see the effort rule below for the order).
+- **Effort is set explicitly too.** Every agent is launched with the `effort` parameter from the table (`low`, `medium`, `high`, `xhigh`, `max`); this file is the standing instruction that allows setting it. Effort rises before the model does: a failed `sonnet` fix is retried once at `high` before escalating to `opus`, and an `opus` fix that fails is retried at `xhigh`. Use `xhigh` or `max` only for migrations, data-loss risks and security findings, never for routine work.
 - **Brief like a peer.** Each brief names the ticket key and branch, the files that matter, what is already ruled out, the checks to run (`typecheck`, `lint`, `format:check`, `npm test`, `npm run test:db`), the commit rules in this file (conventional commit, `Refs: KAN-nn`, no `Co-Authored-By` or session trailers), and asks for a short report: what changed, what was checked, what was not. Agents do not touch Jira statuses unless their step in the loop says so.
 - **Parallel where independent.** Tickets that touch different files run as separate agents in one batch, each in its own worktree (`isolation: "worktree"`) when they could collide. Do not run several agents on the same files.
 - **Keep the main context small.** Ask for summaries, not file dumps, and do not re-read what an agent already reported. Do not start an agent for something a single grep answers.
