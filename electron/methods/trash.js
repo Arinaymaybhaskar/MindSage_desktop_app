@@ -7,8 +7,15 @@ import {
   isInside,
   journalMediaDir,
   planFileRemoval,
+  pruneEmptyDirs,
   removeThumbnails,
 } from "../mediaPaths.js";
+import {
+  addPending,
+  pendingCount,
+  removePath,
+  retryPending,
+} from "../pendingDeletions.js";
 import { thumbnailDir } from "./media.js";
 import { processVectorDeletions } from "./qdrant.js";
 
@@ -21,6 +28,22 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const yieldToLoop = () => new Promise((resolve) => setImmediate(resolve));
 
 const mediaDir = () => path.join(app.getPath("userData"), "media");
+const pendingFile = () =>
+  path.join(app.getPath("userData"), "pending-file-deletions.json");
+
+/** Files that could not be deleted yet and are waiting for a retry. */
+export const pendingFileCount = () => pendingCount(pendingFile());
+
+/** Tries the files that were locked last time. Cheap when there are none. */
+export function retryPendingFiles() {
+  const r = retryPending(pendingFile(), mediaDir(), (target) => {
+    removeThumbnails(thumbnailDir(), target);
+    removePath(target);
+    pruneEmptyDirs(mediaDir(), target);
+  });
+  if (r.removed) console.log(`Removed ${r.removed} file(s) left from before`);
+  return r;
+}
 
 /**
  * Deletes what the purged entries left on disk: their whole media folder
@@ -32,13 +55,16 @@ export function removeFiles({ keys, entryIds }) {
   const base = mediaDir();
   const { remove, refused } = planFileRemoval(base, keys);
   let removed = 0;
+  const failed = [];
   for (const file of remove) {
     removeThumbnails(thumbnailDir(), file);
     try {
       fs.rmSync(file, { force: true });
       removed += 1;
+      pruneEmptyDirs(base, file);
     } catch (err) {
       console.error("Could not delete media file:", file, err?.message ?? err);
+      failed.push(file);
     }
   }
   for (const id of entryIds) {
@@ -52,8 +78,10 @@ export function removeFiles({ keys, entryIds }) {
       fs.rmSync(dir, { recursive: true, force: true });
     } catch (err) {
       console.error("Could not delete media folder:", dir, err?.message ?? err);
+      failed.push(dir);
     }
   }
+  if (failed.length) addPending(pendingFile(), base, failed);
   if (refused.length) {
     console.warn(
       `Skipped ${refused.length} media path(s) outside the media folder`,
@@ -100,11 +128,16 @@ export async function purge(
     // A busy checkpoint only delays the cleanup.
   }
   const index = await processVectorDeletions();
-  return { ...result, searchCleanupPending: index.pending };
+  return {
+    ...result,
+    searchCleanupPending: index.pending,
+    filesPending: pendingFileCount(),
+  };
 }
 
 /** Purges everything past its 30 days, for every user. */
 export async function purgeExpired() {
+  retryPendingFiles();
   let total = { entries: 0, goals: 0 };
   for (const [userId, ids] of localDB.expiredItems()) {
     const r = await purge(userId, ids);

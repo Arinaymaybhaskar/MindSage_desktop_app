@@ -87,3 +87,52 @@ describe("the pre-migration backup", () => {
     expect(backups()).toHaveLength(1);
   });
 });
+
+describe("replacing the backups when a profile is deleted (KAN-344)", () => {
+  it("swaps old snapshots for one made after the rows were removed", async () => {
+    vi.resetModules();
+    process.env.MS_DB_DIR = dir;
+    process.env.MS_USER_DATA_DIR = dir;
+    delete process.env.MS_SKIP_DB_BACKUP;
+    const { initDatabase, db, replaceBackups } =
+      await import("./connection.js");
+    initDatabase();
+
+    const phrase = "zebra-secret-phrase-8c1f";
+    const userId = Number(
+      db
+        .prepare(
+          "INSERT INTO users (username, email, password_hash) VALUES ('gone', 'gone@example.com', 'x')",
+        )
+        .run().lastInsertRowid,
+    );
+    db.prepare(
+      "INSERT INTO journal_entries (user_id, title, content) VALUES (?, 'title', ?)",
+    ).run(userId, phrase);
+
+    // A safety copy made while the profile still existed.
+    const old = path.join(
+      dir,
+      "backups",
+      "mind-sage-v1-2020-01-01T00-00-00-000Z.db",
+    );
+    db.exec(`VACUUM INTO '${old.replace(/'/g, "''")}'`);
+    expect(fs.readFileSync(old).includes(phrase)).toBe(true);
+
+    db.prepare("DELETE FROM users WHERE id = ?").run(userId);
+    const result = replaceBackups();
+
+    expect(result.replaced).toBe(true);
+    expect(result.removed).toBeGreaterThanOrEqual(2); // the old ones are gone
+    expect(fs.existsSync(old)).toBe(false);
+    const left = backups();
+    expect(left).toHaveLength(1);
+    const bytes = fs.readFileSync(path.join(dir, "backups", left[0]));
+    expect(bytes.includes(phrase)).toBe(false);
+    const snapshot = openDb(path.join(dir, "backups", left[0]));
+    expect(snapshot.pragma("user_version", { simple: true })).toBe(
+      MIGRATIONS.at(-1).version,
+    );
+    snapshot.close();
+  });
+});

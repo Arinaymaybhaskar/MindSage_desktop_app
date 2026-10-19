@@ -6,6 +6,7 @@ import {
   isInside,
   journalMediaDir,
   planFileRemoval,
+  pruneEmptyDirs,
   removeThumbnails,
   thumbnailName,
 } from "./mediaPaths.js";
@@ -100,5 +101,50 @@ describe("thumbnails", () => {
     expect(fs.readdirSync(dir).sort()).toEqual([other, "stray.jpg"].sort());
     expect(removeThumbnails(dir, "/m/a.jpg")).toBe(0);
     expect(removeThumbnails(path.join(dir, "nope"), "/m/a.jpg")).toBe(0);
+  });
+});
+
+describe("pruneEmptyDirs", () => {
+  const make = () => fs.mkdtempSync(path.join(os.tmpdir(), "ms-prune-"));
+
+  it("removes the chat folders a deleted attachment leaves empty, up to the media folder", () => {
+    const media = make();
+    try {
+      const folder = path.join(media, "chats", "12", "3");
+      fs.mkdirSync(folder, { recursive: true });
+      const file = path.join(folder, "1-photo.png");
+      fs.writeFileSync(file, "x");
+      fs.rmSync(file);
+      expect(pruneEmptyDirs(media, file)).toBe(3);
+      expect(fs.existsSync(path.join(media, "chats"))).toBe(false);
+      expect(fs.existsSync(media)).toBe(true);
+    } finally {
+      fs.rmSync(media, { recursive: true, force: true });
+    }
+  });
+
+  it("stops at a folder that still holds something", () => {
+    const media = make();
+    try {
+      const keep = path.join(media, "chats", "12", "4");
+      const gone = path.join(media, "chats", "12", "3");
+      fs.mkdirSync(keep, { recursive: true });
+      fs.mkdirSync(gone, { recursive: true });
+      fs.writeFileSync(path.join(keep, "other.png"), "x");
+      expect(pruneEmptyDirs(media, path.join(gone, "a.png"))).toBe(1);
+      expect(fs.existsSync(keep)).toBe(true);
+    } finally {
+      fs.rmSync(media, { recursive: true, force: true });
+    }
+  });
+
+  it("never walks out of the media folder", () => {
+    const media = make();
+    try {
+      expect(pruneEmptyDirs(media, path.join(media, "..", "x.png"))).toBe(0);
+      expect(fs.existsSync(media)).toBe(true);
+    } finally {
+      fs.rmSync(media, { recursive: true, force: true });
+    }
   });
 });
