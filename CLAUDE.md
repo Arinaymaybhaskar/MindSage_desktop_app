@@ -88,6 +88,28 @@ A ticket that is built and merged into its phase branch goes to **Ready for test
 
 Rules that keep the loop honest: a tester reports what it saw, not what the code intends; a pass never rests on unit tests alone; a bug found in a ticket's own acceptance criteria is the ticket's (it goes to Failed Testing), a bug found elsewhere is filed separately and the ticket may still pass; statuses are changed only by the agent whose step it is.
 
+### Who does the work: delegation and model selection
+
+The goal is to spend tokens where a mistake is expensive and nowhere else. **All work goes through agents** (the `Agent` tool, with its `model` parameter set explicitly). The main session only orchestrates: it reads the Jira state, writes each agent's brief, merges and pushes what the agents return, and talks to the owner. It does not write feature code, run the test loop, review diffs or do Jira bookkeeping itself. The only things done inline are single-command facts (a `git status`, one status check) where writing a brief would cost more than the answer.
+
+| Work | Model | Notes |
+|---|---|---|
+| High-risk coding: migrations, the search indexer, anything touching the journal database or its backups, security, the AI pipeline (tickets labelled `opus-review`) | `opus` (`fable` when the owner asks for the strongest) | A mistake loses or leaks journal text. |
+| Everyday coding: UI behaviour, handlers, tests, bug fixes | `sonnet` | The default coding agent. |
+| Testing agents (the loop above) | `sonnet`; `opus` for `opus-review` tickets | Reports what it saw, never what the code intends. |
+| Diff review before a phase branch merges | `opus` | Never the model session that wrote the code. |
+| Planning, re-planning phases, moving tickets between releases | `opus` | A wrong call multiplies across tickets. |
+| Mechanical chores: Jira status moves, comments, filing bugs from the template, reformatting, grep-and-report | `haiku` | Nothing subtle to get wrong. |
+
+Rules:
+- **Risk decides the tier, not size.** A one-line migration change goes to `opus`; a large UI change can go to `sonnet`.
+- **Author and judge are different agents.** The agent that wrote a change never tests or reviews it.
+- **Escalate on failure.** If a `sonnet` fix fails retest twice, the bug goes to `opus` instead of a third try.
+- **Brief like a peer.** Each brief names the ticket key and branch, the files that matter, what is already ruled out, the checks to run (`typecheck`, `lint`, `format:check`, `npm test`, `npm run test:db`), the commit rules in this file (conventional commit, `Refs: KAN-nn`, no `Co-Authored-By` or session trailers), and asks for a short report: what changed, what was checked, what was not. Agents do not touch Jira statuses unless their step in the loop says so.
+- **Parallel where independent.** Tickets that touch different files run as separate agents in one batch, each in its own worktree (`isolation: "worktree"`) when they could collide. Do not run several agents on the same files.
+- **Keep the main context small.** Ask for summaries, not file dumps, and do not re-read what an agent already reported. Do not start an agent for something a single grep answers.
+- **Verify before relaying.** An agent's report is a claim: the orchestrator checks the commit exists and the checks it names were run before it moves a ticket or tells the owner it is done, and says plainly what was not verified.
+
 **Bugs found along the way:** when ticket work, a review or a benchmark turns up a bug that is not the ticket's own, do not widen the ticket. File a Jira **Bug** in project KAN under the closest epic, labelled `found-in-phase-<n>` and `phase-<n>-closeout`, with the phase's release as its fix version, a description saying where it was found and whether it was reproduced or only read from the code, and acceptance criteria. Say so in the PR. Closing a phase includes fixing everything labelled `phase-<n>-closeout` (or deliberately moving it to a later release) before the phase branch goes to `main`.
 
 **Functionality first, design later:** a screen's work is split into two tickets. The functionality ticket (behaviour, data, accessibility, tests) is built and verified first. Its look goes in a separate `design-only` Task under the same epic, in the release that brings the new visual system (labels `design-only`, `ui`; today P3), linked from a comment on the functionality ticket. Do not widen the functionality ticket with colours, fonts or layout polish; do not change behaviour in a design ticket.
