@@ -15,6 +15,7 @@ import { SemanticSearch } from "./qdrant.js";
 import { isIndexUnavailable } from "../services/searchIndex.js";
 import z from "zod";
 import { currentUserId } from "../session.js";
+import { log } from "../log.js";
 
 // Schemas
 // Be lenient about optional-ish fields: small local models routinely omit
@@ -51,7 +52,7 @@ function makeStreamEmitter(event, streamId) {
     try {
       event.sender.send("chat:stream", { streamId, type, ...payload });
     } catch (err) {
-      console.warn("[chat:stream] failed to emit", type, err.message);
+      log.warn("[chat:stream] failed to emit", type, err.message);
     }
   };
 }
@@ -60,15 +61,15 @@ function makeStreamEmitter(event, streamId) {
 async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log("calling ai");
+      log.debug("calling ai");
       const raw = await rawFn();
-      console.log("ai response", raw);
+      log.debug("ai response", { chars: raw?.length });
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("No JSON found");
 
       return schema.parse(JSON.parse(jsonMatch[0]));
     } catch (err) {
-      console.log(`Attempt ${attempt} failed: ${err.message}`);
+      log.warn(`AI attempt ${attempt} failed`, { reason: err?.name });
       if (attempt === maxRetries)
         throw new Error(`Failed after ${maxRetries} attempts`);
     }
@@ -85,19 +86,13 @@ async function aiResponse(
 ) {
   const { onPhase = () => {}, onDelta = () => {}, onReset = () => {} } = hooks;
   try {
-    console.log(
-      "aiResponse called with",
-      "content: ",
-      content,
-      "chatId: ",
+    log.debug("aiResponse called", {
       chatId,
-      "messageId: ",
       messageId,
-      "model: ",
       model,
-      "userId: ",
       userId,
-    );
+      contentChars: content?.length,
+    });
     const now = new Date();
     const currentTimeISO = now.toISOString();
 
@@ -112,19 +107,22 @@ async function aiResponse(
       propsResSchema,
       3,
     );
-    console.log("Validated propsRes:", propsRes);
+    log.debug("Validated propsRes", {
+      requiresContext: propsRes.requires_context,
+      requiresTimeFilter: propsRes.requires_time_filter,
+    });
 
     let semanticResult = [];
 
     // 2️⃣ Semantic search logic
     if (propsRes.requires_context) {
       // Use original user content
-      console.log("requires context");
+      log.debug("requires context");
       onPhase("searching");
       const vector = await generateEmbedding(content);
       semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries");
     } else if (propsRes.requires_time_filter) {
-      console.log("requires context with time filter");
+      log.debug("requires context with time filter");
       onPhase("searching");
       // Use base_query and time filter
       const vector = await generateEmbedding(propsRes.base_query);
@@ -140,11 +138,11 @@ async function aiResponse(
         },
       );
     }
-    console.log(semanticResult, "Semantic Result");
+    log.debug("Semantic result", { count: semanticResult.length });
     let mainPrompt;
 
     if (!propsRes.requires_context && semanticResult.length == 0) {
-      console.log("No context needed");
+      log.debug("No context needed");
       mainPrompt = respondWithoutContext(content);
     } else {
       // 3️⃣ Generate prompt for main AI response
@@ -173,13 +171,15 @@ async function aiResponse(
       chatResponseSchema,
       3,
     );
-    console.log(chatResponse, "ai chat res");
+    log.debug("ai chat response ready", {
+      chars: JSON.stringify(chatResponse ?? "").length,
+    });
     return { chatResponse, chatId, messageId, semanticResult };
   } catch (error) {
     // The caller tells the renderer this one in plain words; every other
     // failure keeps the old swallow-and-report behaviour.
     if (isIndexUnavailable(error)) throw error;
-    console.log(error, "error occcured");
+    log.error("Ask failed", error);
     eventBus.emit("chat:error", error);
   }
 }
@@ -187,7 +187,7 @@ async function aiResponse(
 async function storeAIResponse(aiRes, chatId) {
   try {
     if (!aiRes || !aiRes.chatResponse) {
-      console.warn("[storeAIResponse] No AI response found to store.");
+      log.warn("[storeAIResponse] No AI response found to store.");
       return null;
     }
 
@@ -222,7 +222,7 @@ async function storeAIResponse(aiRes, chatId) {
     );
     const aiMessageId = aiMessage?.id ?? null;
 
-    console.log("[storeAIResponse] Stored AI message:", {
+    log.info("[storeAIResponse] Stored AI message:", {
       chatId,
       aiMessageId,
       sourcesCount: sources.length,
@@ -234,8 +234,8 @@ async function storeAIResponse(aiRes, chatId) {
       followUp: suggested_user_prompt || null,
     };
   } catch (error) {
-    console.error("[storeAIResponse] Error:", error);
-    console.error("Params:", { chatId, aiRes });
+    log.error("[storeAIResponse] Error:", error);
+    log.error("Params:", { chatId, aiRes });
     throw error;
   }
 }
@@ -270,19 +270,13 @@ export const handleUserMessage = async (
   );
   const messageId = userMessage.id;
   // eventBus.emit("chat:new-message", { content: message, chatId, messageId, model, userId });
-  console.log(
-    "aiResponse called with",
-    "content: ",
-    message,
-    "chatId: ",
+  log.debug("aiResponse called", {
     chatId,
-    "messageId: ",
     messageId,
-    "model: ",
     model,
-    "userId: ",
     userId,
-  );
+    contentChars: message?.length,
+  });
 
   // The chat id is only known here once a new chat has been created, and
   // the renderer needs it before the reply finishes so a mid-generation
@@ -369,7 +363,7 @@ export const linkMediaToMessage = async (
   chatId,
   imageKey,
 ) => {
-  console.log("linkMediaToMessage called with in method file:", {
+  log.info("linkMediaToMessage called with in method file:", {
     messageId,
     chatId,
     imageKey,
@@ -393,7 +387,7 @@ export const linkMediaToMessage = async (
     // Store with inferred type
     return localDB.linkMediaToMessage(messageId, chatId, imageKey, fileType);
   } catch (err) {
-    console.error("Failed to infer file type for media link:", err);
+    log.error("Failed to infer file type for media link:", err);
     return localDB.linkMediaToMessage(messageId, chatId, imageKey, "image");
   }
 };

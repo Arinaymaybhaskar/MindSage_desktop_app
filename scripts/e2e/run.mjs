@@ -164,6 +164,35 @@ async function main() {
     if (!entryId) throw new Error("saved entry has no id");
   });
 
+  await step(
+    "the log is written and holds none of the entry's text",
+    async () => {
+      // A renderer error goes through the one log channel (KAN-170)...
+      await page.evaluate(() => console.error("e2e renderer log check"));
+      const file = path.join(profile, "logs", "mindsage.log");
+      const read = () =>
+        fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+      const deadline = Date.now() + 10_000;
+      while (!read().includes("e2e renderer log check")) {
+        if (Date.now() > deadline)
+          throw new Error("renderer log line never reached the log file");
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      // ...and nothing in any log file quotes what was written.
+      const everything = fs
+        .readdirSync(path.join(profile, "logs"))
+        .map((f) => fs.readFileSync(path.join(profile, "logs", f), "utf8"))
+        .join("\n");
+      for (const secret of [entryTitle, entryBody, marker]) {
+        if (everything.includes(secret)) {
+          throw new Error(
+            `a log file contains the entry text: ${secret.slice(0, 30)}`,
+          );
+        }
+      }
+    },
+  );
+
   if (skipAi) {
     log("E2E_SKIP_AI=1: AI metadata, indexing and search were NOT exercised.");
     return;
@@ -227,6 +256,7 @@ try {
   } catch {}
 } finally {
   await app?.close().catch(() => {});
-  fs.rmSync(profile, { recursive: true, force: true });
+  if (process.env.E2E_KEEP_PROFILE === "1") log(`profile kept at ${profile}`);
+  else fs.rmSync(profile, { recursive: true, force: true });
 }
 process.exit(failed ? 1 : 0);

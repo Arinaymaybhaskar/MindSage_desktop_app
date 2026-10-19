@@ -1,8 +1,8 @@
 // main.js
 // Must stay first: it redirects userData before any module reads it.
 import "./userDataOverride.js";
+import "./logSetup.js";
 import { app, BrowserWindow, globalShortcut, ipcMain, shell } from "electron";
-import fs from "node:fs";
 import path, { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +25,8 @@ import { applyLaunchAtStartup, registerAppSettingsIPC } from "./appSettings.js";
 import { registerSessionIPC } from "./methods/auth.js";
 import { initAutoUpdater, registerUpdaterIPC } from "./services/autoUpdater.js";
 import { Worker } from "node:worker_threads";
+import { log as appLog } from "./log.js";
+import { registerLogIPC } from "./logIpc.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,7 +82,7 @@ function openQuickCaptureWindow() {
     ? `${process.env.VITE_DEV_SERVER_URL}#/quick-capture`
     : `file://${path.join(process.env.DIST, "index.html")}#/quick-capture`;
 
-  console.log("Loading QuickCapture URL:", url);
+  appLog.info("Loading QuickCapture URL:", url);
   quickCaptureWindow.loadURL(url);
 
   quickCaptureWindow.once("ready-to-show", () => {
@@ -134,15 +136,15 @@ function createQdrantWorker() {
       }
       return;
     }
-    console.log("Qdrant Worker Message:", message);
+    appLog.debug("Qdrant Worker Message:", message);
   });
-  worker.on("error", (error) => console.error("Qdrant Worker Error:", error));
+  worker.on("error", (error) => appLog.error("Qdrant Worker Error:", error));
   worker.on("exit", (code) => {
     if (code !== 0)
-      console.error(`Qdrant Worker stopped with exit code ${code}`);
-    else console.log("Qdrant worker exited successfully");
+      appLog.error(`Qdrant Worker stopped with exit code ${code}`);
+    else appLog.info("Qdrant worker exited successfully");
   });
-  worker.on("online", () => console.log("Qdrant worker is online"));
+  worker.on("online", () => appLog.info("Qdrant worker is online"));
 
   global.qdrantWorker = worker;
 
@@ -190,13 +192,8 @@ if (process.env.MS_REMOTE_DEBUG) {
 
 // ------------------- App Ready -------------------
 app.whenReady().then(async () => {
-  // Simple file logger in userData to debug startup on customer machines
-  const logPath = path.join(app.getPath("userData"), "main.log");
-  const log = (message) => {
-    try {
-      fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`);
-    } catch {}
-  };
+  // Startup lines go to the shared, rotating, redacted logger (userData/logs).
+  const log = (message) => appLog.info(message);
 
   log("App ready");
 
@@ -237,6 +234,7 @@ app.whenReady().then(async () => {
   // Register setup + app-settings IPC up front so the renderer's first-run
   // onboarding flow can query/drive them before the heavier services finish.
   try {
+    registerLogIPC();
     registerSetupIPC();
     registerAppSettingsIPC();
     registerUpdaterIPC(() => win);
@@ -416,7 +414,7 @@ app.whenReady().then(async () => {
       : "Control+Alt+Space";
 
   const registered = globalShortcut.register(shortcut, () => {
-    console.log("QuickCapture triggered!");
+    appLog.info("QuickCapture triggered!");
     openQuickCaptureWindow();
   });
 
@@ -428,7 +426,7 @@ app.whenReady().then(async () => {
   });
 
   if (!registered)
-    console.log("Failed to register QuickCapture global shortcut");
+    appLog.info("Failed to register QuickCapture global shortcut");
 
   const reopen = createReopener({
     getWindow: () => win,

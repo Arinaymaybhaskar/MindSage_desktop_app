@@ -12,6 +12,7 @@
 import { app, ipcMain } from "electron";
 import { appSettings } from "../appSettings.js";
 import { createUpdateRelay } from "./updateRelay.js";
+import { log } from "../log.js";
 
 let updaterPromise = null;
 
@@ -33,12 +34,12 @@ function loadUpdater(getWin) {
     try {
       mod = await import("electron-updater");
     } catch {
-      console.warn("[updater] electron-updater not installed, skipping");
+      log.warn("[updater] electron-updater not installed, skipping");
       return null;
     }
     const autoUpdater = mod.autoUpdater ?? mod.default?.autoUpdater;
     if (!autoUpdater) {
-      console.warn("[updater] electron-updater exposes no autoUpdater");
+      log.warn("[updater] electron-updater exposes no autoUpdater");
       return null;
     }
 
@@ -53,7 +54,7 @@ function loadUpdater(getWin) {
     autoUpdater.on("download-progress", (p) => relay.progress(p));
     autoUpdater.on("update-downloaded", (info) => relay.downloaded(info));
     autoUpdater.on("error", (err) => {
-      console.error("[updater] error:", err?.message || err);
+      log.error("[updater] error:", err?.message || err);
       relay.failed();
     });
     return autoUpdater;
@@ -80,7 +81,7 @@ export async function checkForUpdates(getWin) {
     return { status: "up-to-date", version: app.getVersion() };
   } catch (err) {
     const full = String(err?.message || err);
-    console.error("[updater] check failed:", full);
+    log.error("[updater] check failed:", full);
     // electron-updater's messages embed the whole HTTP response, headers and
     // feed included. The Settings page gets one readable line.
     const message = /Unable to find latest version|No published versions/i.test(
