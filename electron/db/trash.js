@@ -33,7 +33,8 @@ export function listTrash(userId) {
   const goals = db
     .prepare(
       `SELECT id, title, description, current_value, target_value, unit,
-              is_completed, created_at, deleted_at, ${daysLeft} AS days_left
+              is_completed, created_at, deleted_at, ${daysLeft} AS days_left,
+              (SELECT COUNT(*) FROM progress_logs WHERE goal_id = goals.id) AS log_count
          FROM goals
         WHERE user_id = ? AND is_deleted = 1 AND deleted_at IS NOT NULL
         ORDER BY deleted_at DESC, id DESC`,
