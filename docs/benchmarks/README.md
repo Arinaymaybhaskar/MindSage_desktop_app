@@ -14,7 +14,7 @@ taken the same way before and after.
 
 | | Quick | Full |
 | --- | --- | --- |
-| When | Every commit that stages runtime code (`electron/`, `src/` outside tests, `package.json`, `vite.config.ts`), from the pre-commit hook | Once at the end of each phase of [MASTER_TODO](../MASTER_TODO.md) |
+| When | Every commit that stages runtime code (`electron/`, `src/` outside tests, `package.json`, `vite.config.ts`), from the pre-commit hook | Once at the end of each roadmap phase (a Jira release) |
 | Command | automatic, or `npm run bench:quick` | `npm run bench:phase -- <phase number>` |
 | What | `db` stage at 150 and 5,000 entries, 20 samples, about 25 seconds | Every stage, on a fresh packaged build, with Ollama required, about half an hour |
 | Label | `quick-<time>-<staged tree hash>` | `phase-<n>-<date>` |

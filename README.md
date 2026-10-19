@@ -390,7 +390,7 @@ Run a single test file with `npx vitest run src/api/journalService.test.ts`, or 
 
 Tests live next to the module they cover. In `electron/`, only pure modules are testable, since anything importing `better-sqlite3` or `electron` will not load under Vitest. A pre-commit hook runs `gitleaks protect --staged` against staged changes.
 
-Before adding a pattern, read [docs/MASTER_TODO.md](docs/MASTER_TODO.md) and [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). They are candid about what is unfinished, and several items would be easy to make worse by accident.
+Before adding a pattern, read [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) and check the open tickets in Jira (project KAN). They are candid about what is unfinished, and several items would be easy to make worse by accident.
 
 ---
 
@@ -425,7 +425,7 @@ New files under `electron/db`, `electron/methods`, or `electron/services` must b
 
 ## Roadmap
 
-Ordered by what actually blocks a confident public release. The full queue lives in [docs/MASTER_TODO.md](docs/MASTER_TODO.md).
+Ordered by what actually blocks a confident public release. The full queue lives in Jira (project KAN, one release per phase).
 
 - Encryption at rest for the journal database
 - Gating the update check behind an explicit setting
@@ -444,7 +444,6 @@ Ordered by what actually blocks a confident public release. The full queue lives
 | Document | What it covers |
 | --- | --- |
 | [docs/README.md](docs/README.md) | Index of every document below |
-| [docs/MASTER_TODO.md](docs/MASTER_TODO.md) | The single ordered work queue |
 | [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) | What stands between the code and a shippable product, with a verified-state table |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Long-form reasoning behind each technical decision |
 | [docs/NETWORK_AUDIT.md](docs/NETWORK_AUDIT.md) | Every outbound network path, with evidence |

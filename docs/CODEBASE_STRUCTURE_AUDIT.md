@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-25 · **Implemented:** 2026-08-28
 **Scope:** folder layout, file placement, naming, dead code, and packaging hygiene.
-**Status:** closed. The findings were worked through and the queue for what remains is [MASTER_TODO.md](MASTER_TODO.md), which is newer than this file.
+**Status:** closed. The findings were worked through and the queue for what remains is Jira (project KAN).
 
 This document is kept as the record of what the audit found, what came of it, and
 what it got wrong. The long findings sections it used to carry have been removed
@@ -99,7 +99,7 @@ working. Fixed by resolving from `__dirname`. Verified against a real
 
 **`extraResources` shipped every platform's binaries to every platform.** The
 filter was `**/*`, so a Windows installer carried the 74 MB macOS Qdrant build.
-This was already item 12 in MASTER_TODO and [BUNDLE_SIZE_PLAN §2.1](BUNDLE_SIZE_PLAN.md);
+This was already tracked as a work-queue item and [BUNDLE_SIZE_PLAN §2.1](BUNDLE_SIZE_PLAN.md);
 it is now implemented as per-platform `extraResources`.
 
 ---
@@ -135,4 +135,4 @@ different shape: it still constructs a fresh `QdrantClient` from four separate
 `await import("@qdrant/js-client-rest")` calls, where one module-level client
 would remove the repeated connection setup.
 
-Both are carried in [MASTER_TODO.md](MASTER_TODO.md) as items 52 and 64.
+Both are tracked in Jira.

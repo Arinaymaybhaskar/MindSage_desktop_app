@@ -6,7 +6,7 @@
  * seconds: the db stage at 150 and 5,000 entries, 20 samples each, compared
  * with the previous quick run on this machine. The full suite (every stage,
  * about half an hour, needs Ollama and a packaged build) is what
- * `npm run bench:phase` runs at the end of each MASTER_TODO phase.
+ * `npm run bench:phase` runs at the end of each roadmap phase.
  *
  * Rules, all deliberate:
  *

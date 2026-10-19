@@ -9,7 +9,7 @@ type SecuritySettingsProps = Pick<
 
 // `settings`/`onSettingsSave` are accepted for the settings-panel contract but
 // unread: the biometric-lock toggle that used them implied a protection the
-// app never had, and was removed (MASTER_TODO 19).
+// app never had, and was removed.
 const SecuritySettings: React.FC<SecuritySettingsProps> = () => {
   return (
     <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl border border-border-light dark:border-border-dark">
@@ -22,7 +22,7 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = () => {
         </p>
       </div>
       <div className="p-6 divide-y divide-border-light dark:divide-border-dark">
-        {/* What the password does. MASTER_TODO 15 chose option B: the
+        {/* What the password does. The decision (option B): the
             password picks the account and keeps people out of the app; it
             does not encrypt anything on disk. Say so where people look. */}
         <div className="py-4">
