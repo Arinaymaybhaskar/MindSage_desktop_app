@@ -71,19 +71,19 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = () => {
           </Link>
         </div>
 
-        {/* Delete Account Setting */}
+        {/* Delete profile moved to Settings, Profile, with its backup offer. */}
         <div className="py-4 flex justify-between items-center">
           <div>
-            <label className="font-medium text-danger">Delete Account</label>
+            <label className="font-medium text-danger">Delete profile</label>
             <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
-              Permanently delete your account and all data.
+              Permanently delete your profile and all its data.
             </p>
           </div>
           <Link
-            to="/delete-account"
+            to="/settings/profile"
             className="text-sm font-semibold text-danger bg-danger/10 hover:bg-danger/20 px-4 py-2 rounded-lg transition-colors"
           >
-            Delete
+            Open
           </Link>
         </div>
       </div>

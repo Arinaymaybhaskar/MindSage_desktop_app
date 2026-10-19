@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Save, Upload, User as UserIcon, Loader2, X } from "lucide-react";
 import Cropper, { type Area } from "react-easy-crop";
 import type { SettingsPanelProps } from "../../types/User";
+import DeleteProfileCard from "./DeleteProfileCard";
 
 type ProfileSettingsProps = Pick<SettingsPanelProps, "user" | "onProfileSave">;
 
@@ -337,6 +338,7 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
           </div>
         </form>
       </div>
+      <DeleteProfileCard name={user?.full_name || user?.username || ""} />
     </>
   );
 };

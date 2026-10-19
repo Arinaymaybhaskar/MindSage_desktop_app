@@ -16,7 +16,7 @@ import JournalForm from "./pages/journalForm";
 import JournalDetail from "./pages/journalDetails";
 import Settings from "./pages/settings";
 import ChangePassword from "./pages/auth/changePassword";
-import { DeleteAccount } from "./pages/auth/deleteAccount";
+import DeleteProfileDialog from "./components/DeleteProfileDialog";
 import ForgotPassword from "./pages/auth/forgotPassword";
 import DataExport from "./pages/dataExport";
 import { ChatPage } from "./pages/chat";
@@ -204,6 +204,9 @@ function AppLayout() {
             {!isQuickCapturePage && !isAuthPage && <UpdateBar />}
             {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
           </div>
+          {/* Outside the routes: deleting a profile signs the person out, and
+              its "deleted" screen has to survive that. */}
+          {!isQuickCapturePage && <DeleteProfileDialog />}
           <main
             className={`flex-1 overflow-hidden no-scrollbar ${
               isQuickCapturePage ? "" : "peer-empty:pt-10"
@@ -320,12 +323,6 @@ function AppLayout() {
                       <ChangePassword />
                     </PrivateRoute>
                   }
-                />
-                <Route
-                  path="/delete-account"
-                  // Not behind PrivateRoute: deleting signs the user out, and the
-                  // "deleted" screen has to stay up after that.
-                  element={<DeleteAccount />}
                 />
                 <Route
                   path="/data-export"
