@@ -7,6 +7,7 @@ import {
   ensureVectorTable,
   extensionPath,
   loadVectorExtension,
+  removeOrphanVectors,
 } from "./vectorExtension.js";
 import { log } from "../log.js";
 
@@ -197,7 +198,19 @@ export function initDatabase() {
 
   // After the numbered migrations, and outside them on purpose: a machine that
   // cannot load the extension must still migrate its journal.
-  if (vectorSupport.ok) ensureVectorTable(db);
+  if (vectorSupport.ok) {
+    ensureVectorTable(db);
+    // A purge made while the extension could not load left its vectors
+    // behind; they go now, before anything can search or index (KAN-368).
+    try {
+      const removed = removeOrphanVectors(db);
+      if (removed) {
+        log.info(`Search index: removed ${removed} orphaned vector(s)`);
+      }
+    } catch (err) {
+      log.error("Could not remove orphaned vectors:", err);
+    }
+  }
 
   if (applied.length) {
     log.info(

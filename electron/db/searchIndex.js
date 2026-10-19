@@ -1,7 +1,12 @@
 import crypto from "node:crypto";
 import { db, vectorSupport } from "./connection.js";
-import { ensureVectorTable, rebuildVectorTable } from "./vectorExtension.js";
+import {
+  ensureVectorTable,
+  rebuildVectorTable,
+  removeOrphanVectors as removeOrphans,
+} from "./vectorExtension.js";
 import { filterByTimeRange, hasTimeRange } from "../timeFilter.js";
+import { log } from "../log.js";
 
 // The search index (KAN-192, KAN-88). Vectors live in vec_entries, in the same
 // database file as the journal; search_index records, for every entry, goal and
@@ -262,7 +267,16 @@ export function markFailure(type, id, userId, error, now = Date.now()) {
 // ---------------------------------------------------------------------------
 
 function deleteVectorsFor(rowids) {
-  if (!vectorSupport.ok || !rowids.length) return;
+  if (!rowids.length) return;
+  if (!vectorSupport.ok) {
+    // vec_entries cannot be touched without the extension. The state rows
+    // still go, which is what marks these vectors as orphans: the next start
+    // that loads the extension removes them (removeOrphanVectors, KAN-368).
+    log.warn(
+      `Search index: ${rowids.length} vector(s) left for removal at the next start with the extension`,
+    );
+    return;
+  }
   const del = db.prepare("DELETE FROM vec_entries WHERE rowid = ?");
   for (const id of rowids) del.run(BigInt(id));
 }
@@ -442,6 +456,12 @@ export function resetAll(dim) {
 
 export { ensureVectorTable };
 
+/** Removes vectors left behind without the extension; see vectorExtension.js. */
+export function removeOrphanVectors() {
+  if (!vectorSupport.ok) return 0;
+  return removeOrphans(db);
+}
+
 // ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------
@@ -469,8 +489,12 @@ export function searchSimilar(
     )
     .all(vectorBuffer(vector), k, BigInt(userId));
 
+  // Only a row storeVector filled owns its rowid's vector. A row that was
+  // never indexed may have been handed the id of a purged item whose vector
+  // could not be removed yet (KAN-368), so its hit is not this item's.
   const row = db.prepare(
-    "SELECT source_type, source_id FROM search_index WHERE id = ?",
+    `SELECT source_type, source_id FROM search_index
+      WHERE id = ? AND indexed_at IS NOT NULL`,
   );
   const results = [];
   for (const hit of hits) {
