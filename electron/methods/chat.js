@@ -103,7 +103,8 @@ async function aiResponse(
       currentTimeISO,
     );
     const propsRes = await parseAIWithRetries(
-      () => handleOllamaPrompt("", "", model, queryPropsPrompt, true),
+      // (event, model, prompt, jsonMode): called directly, so no IPC event.
+      () => handleOllamaPrompt(null, model, queryPropsPrompt, true),
       propsResSchema,
       3,
     );

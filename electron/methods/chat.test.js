@@ -107,3 +107,72 @@ describe("Ask when the search index is unavailable", () => {
     expect(sent.filter((p) => p.type === "error")).toHaveLength(1);
   });
 });
+
+describe("Ask passes the model and prompt to Ollama in order (KAN-367)", () => {
+  it("calls the planning step as (event, model, prompt, jsonMode)", async () => {
+    semanticSearch.mockReturnValue([]);
+    ollama.streamOllamaPrompt.mockResolvedValue(
+      JSON.stringify({ response: "ok", suggested_user_prompt: "next" }),
+    );
+
+    await handleUserMessage(null, 5, "What about the river?", "llama3.2");
+
+    expect(ollama.handleOllamaPrompt).toHaveBeenCalledTimes(1);
+    const [, model, prompt, jsonMode, ...extra] =
+      ollama.handleOllamaPrompt.mock.calls[0];
+    expect(model).toBe("llama3.2");
+    expect(prompt).toContain("What about the river?");
+    expect(jsonMode).toBe(true);
+    expect(extra).toEqual([]);
+  });
+
+  it("streams the answer with the model first and stores it with its source", async () => {
+    semanticSearch.mockReturnValue([
+      {
+        id: 1,
+        score: 0.9,
+        payload: {
+          source_type: "journal",
+          source_id: 3,
+          title: "By the river",
+          content: "Walked by the river.",
+        },
+      },
+    ]);
+    ollama.streamOllamaPrompt.mockResolvedValue(
+      JSON.stringify({
+        response: "You found calm by the river.",
+        suggested_user_prompt: "When else did I feel calm?",
+      }),
+    );
+    db.addMessage.mockResolvedValueOnce({ id: 21 });
+    db.addMessage.mockResolvedValueOnce({ id: 22 });
+
+    const result = await handleUserMessage(
+      null,
+      5,
+      "What about the river?",
+      "llama3.2",
+    );
+
+    const [model, prompt, options] = ollama.streamOllamaPrompt.mock.calls[0];
+    expect(model).toBe("llama3.2");
+    expect(prompt).toContain("What about the river?");
+    expect(options).toMatchObject({ jsonMode: true });
+
+    expect(result).toMatchObject({ chatId: 5, messageId: 21, aiMessageId: 22 });
+    expect(db.addMessage).toHaveBeenLastCalledWith(
+      5,
+      "ai",
+      "You found calm by the river.\n\nFollow-up: When else did I feel calm?",
+      [
+        {
+          source_type: "journal",
+          source_id: "3",
+          source_title: "By the river",
+        },
+      ],
+      [],
+    );
+  });
+});
