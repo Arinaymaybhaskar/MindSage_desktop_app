@@ -6,6 +6,7 @@ import ffmpegPath from "ffmpeg-static";
 import { spawn } from "child_process";
 import { currentUserId } from "../session.js";
 import { thumbnailName } from "../mediaPaths.js";
+import { log } from "../log.js";
 
 export async function getImageBase64(imagePath) {
   try {
@@ -14,7 +15,7 @@ export async function getImageBase64(imagePath) {
     const mimeType = getMimeType(imagePath); // you can use 'mime-types' package
     return `data:${mimeType};base64,${base64}`;
   } catch (err) {
-    console.error("Error loading image:", err);
+    log.error("Error loading image:", err);
     return null;
   }
 }
@@ -74,7 +75,7 @@ export async function getThumbnailBase64(imagePath, maxWidth = 480) {
     fs.writeFileSync(cachePath, buffer);
     return `data:image/jpeg;base64,${buffer.toString("base64")}`;
   } catch (err) {
-    console.error("Error creating thumbnail:", err);
+    log.error("Error creating thumbnail:", err);
     // Fall back to the original rather than showing a hole in the grid.
     return getImageBase64(imagePath);
   }
@@ -86,7 +87,7 @@ export async function getPdfBase64(pdfPath) {
     const base64 = data.toString("base64");
     return `data:application/pdf;base64,${base64}`;
   } catch (err) {
-    console.error("Error loading pdf:", err);
+    log.error("Error loading pdf:", err);
     return null;
   }
 }
@@ -108,7 +109,7 @@ async function convertWebmToWav(webmBuffer, wavPath) {
       wavPath,
     ]);
 
-    ffmpeg.stderr.on("data", (data) => console.log(data.toString()));
+    ffmpeg.stderr.on("data", (data) => log.info(data.toString()));
 
     ffmpeg.on("close", (code) => {
       fs.unlinkSync(tempWebm); // cleanup temp file
@@ -131,7 +132,7 @@ export async function getAudioBase64(audioPath) {
     const base64 = fileBuffer.toString("base64");
     return `data:audio/webm;base64,${base64}`;
   } catch (err) {
-    console.error("Error reading file:", err);
+    log.error("Error reading file:", err);
     return null;
   }
 }
@@ -186,7 +187,7 @@ export const handleSaveMedia = async (
 
     throw new Error("Unknown mediaType");
   } catch (err) {
-    console.error(err);
+    log.error(err);
     return { success: false, message: String(err) };
   }
 };
@@ -204,7 +205,7 @@ export async function handleOpenMedia(event, filePath) {
     await shell.openPath(filePath);
     return { success: true };
   } catch (error) {
-    console.error(`Failed to open media file: ${filePath}`, error);
+    log.error(`Failed to open media file: ${filePath}`, error);
     throw error;
   }
 }
@@ -238,21 +239,18 @@ export async function handleSaveProfileImage(event, { arrayBuffer, filename }) {
             )
             .run(destPath, userId);
         } else {
-          console.warn(
+          log.warn(
             "localDB has no known updateUser helper; caller should update users table separately.",
           );
         }
       } catch (dbErr) {
-        console.error(
-          "Failed to persist profile_picture to users table:",
-          dbErr,
-        );
+        log.error("Failed to persist profile_picture to users table:", dbErr);
       }
     }
 
     return { success: true, path: destPath };
   } catch (err) {
-    console.error("Error saving profile image:", err);
+    log.error("Error saving profile image:", err);
     return { success: false, message: String(err) };
   }
 }
@@ -280,7 +278,7 @@ export const handleSaveChatMedia = async (
     fs.writeFileSync(destPath, buffer);
     return { success: true, key: destPath };
   } catch (err) {
-    console.error(err);
+    log.error(err);
     return { success: false, message: String(err) };
   }
 };

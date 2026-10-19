@@ -18,6 +18,7 @@ import {
 } from "../pendingDeletions.js";
 import { thumbnailDir } from "./media.js";
 import { processVectorDeletions } from "./qdrant.js";
+import { log } from "../log.js";
 
 // IPC for the trash, and the job that empties it once items are 30 days old.
 // Everything the renderer can ask for is scoped to the signed-in user by the
@@ -41,7 +42,7 @@ export function retryPendingFiles() {
     removePath(target);
     pruneEmptyDirs(mediaDir(), target);
   });
-  if (r.removed) console.log(`Removed ${r.removed} file(s) left from before`);
+  if (r.removed) log.info(`Removed ${r.removed} file(s) left from before`);
   return r;
 }
 
@@ -63,7 +64,7 @@ export function removeFiles({ keys, entryIds }) {
       removed += 1;
       pruneEmptyDirs(base, file);
     } catch (err) {
-      console.error("Could not delete media file:", file, err?.message ?? err);
+      log.error("Could not delete media file:", file, err?.message ?? err);
       failed.push(file);
     }
   }
@@ -77,13 +78,13 @@ export function removeFiles({ keys, entryIds }) {
       }
       fs.rmSync(dir, { recursive: true, force: true });
     } catch (err) {
-      console.error("Could not delete media folder:", dir, err?.message ?? err);
+      log.error("Could not delete media folder:", dir, err?.message ?? err);
       failed.push(dir);
     }
   }
   if (failed.length) addPending(pendingFile(), base, failed);
   if (refused.length) {
-    console.warn(
+    log.warn(
       `Skipped ${refused.length} media path(s) outside the media folder`,
     );
   }
@@ -149,9 +150,7 @@ export async function purgeExpired() {
   // Also finishes any index cleanup an earlier purge could not.
   await processVectorDeletions();
   if (total.entries || total.goals) {
-    console.log(
-      `Trash: purged ${total.entries} entries and ${total.goals} goals`,
-    );
+    log.info(`Trash: purged ${total.entries} entries and ${total.goals} goals`);
   }
   return total;
 }
@@ -161,7 +160,7 @@ let timer = null;
 /** Runs the purge shortly after launch, then once a day. */
 export function startTrashJob({ firstRunDelayMs = 15_000 } = {}) {
   const run = () =>
-    purgeExpired().catch((err) => console.error("Trash purge failed:", err));
+    purgeExpired().catch((err) => log.error("Trash purge failed:", err));
   setTimeout(run, firstRunDelayMs).unref?.();
   timer ??= setInterval(run, DAY_MS);
   timer.unref?.();

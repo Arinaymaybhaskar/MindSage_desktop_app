@@ -5,6 +5,7 @@ import localDB from "../db/index.js";
 import { journalMediaDir } from "../mediaPaths.js";
 import { processVectorDeletions } from "./qdrant.js";
 import { pendingFileCount, removeFiles } from "./trash.js";
+import { log } from "../log.js";
 
 // Deleting a whole profile (KAN-56): the database rows, their media files and
 // thumbnails, their search-index points, and, when it was the last profile on
@@ -67,10 +68,7 @@ export async function deleteProfileEverything(userId, { afterRows } = {}) {
       });
       backupsRemoved = true;
     } catch (err) {
-      console.error(
-        "Could not delete the database backups:",
-        err?.message ?? err,
-      );
+      log.error("Could not delete the database backups:", err?.message ?? err);
     }
   }
   // The queue is durable, so a slow or stuck index only delays the cleanup.

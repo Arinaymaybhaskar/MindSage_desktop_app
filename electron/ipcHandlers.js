@@ -100,16 +100,16 @@ import {
 import { handleExportUserData } from "./methods/exportData.js";
 import { eventBus } from "./eventBus.js";
 import { db } from "./db/connection.js";
+import { log } from "./log.js";
 
 export function createQdrantWorker() {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
 
   const worker = new Worker(join(__dirname, "qdrantWorker.js"));
-  worker.on("error", (error) => console.error("Qdrant Worker Error:", error));
+  worker.on("error", (error) => log.error("Qdrant Worker Error:", error));
   worker.on("exit", (code) => {
-    if (code !== 0)
-      console.error(`Qdrant Worker stopped with exit code ${code}`);
+    if (code !== 0) log.error(`Qdrant Worker stopped with exit code ${code}`);
   });
   return worker;
 }
@@ -202,7 +202,7 @@ export function registerIPCHandlers() {
       try {
         return await generateSuggestion(prompt, maxTokens);
       } catch (err) {
-        console.error(err);
+        log.error(err);
         return "";
       }
     },
@@ -241,7 +241,7 @@ export function registerIPCHandlers() {
         }
         return null;
       } catch (err) {
-        console.error("Transcription error:", err);
+        log.error("Transcription error:", err);
         return null;
       }
     },

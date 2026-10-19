@@ -16,6 +16,7 @@ import { SemanticSearch } from "./qdrant.js";
 import { currentUserId } from "../session.js";
 import z from "zod";
 import { db } from "../db/connection.js";
+import { log } from "../log.js";
 
 export const handleGetOllamaModels = async (event) => {
   const userId = currentUserId();
@@ -56,7 +57,7 @@ export const handleGetOllamaModels = async (event) => {
           }
           return { ...model, info };
         } catch (err) {
-          console.error(`Error fetching info for ${model.name}`, err);
+          log.error(`Error fetching info for ${model.name}`, err);
           return model; // fallback to basic info
         }
       }),
@@ -64,7 +65,7 @@ export const handleGetOllamaModels = async (event) => {
 
     return enrichedModels;
   } catch (err) {
-    console.error("Error fetching Ollama models:", err);
+    log.error("Error fetching Ollama models:", err);
     return [];
   }
 };
@@ -167,7 +168,7 @@ export const handleOllamaPrompt = async (
   // if (!userId) {
   //     return { error: "Not signed in" };
   // }
-  console.log(model, prompt, "model", "prompt");
+  log.debug("Ollama prompt", { model, promptChars: prompt?.length });
   if (!model || !prompt) {
     return { error: "Model name and prompt are required." };
   }
@@ -198,7 +199,7 @@ export const handleOllamaPrompt = async (
     const data = await res.json();
     return data.response;
   } catch (err) {
-    console.error("Ollama error:", err);
+    log.error("Ollama error:", err);
     return { error: err.message };
   }
 };
@@ -239,7 +240,7 @@ export const handleOllamaImagePrompt = async (
     const data = await res.json();
     return data.response;
   } catch (err) {
-    console.error("Ollama image error:", err);
+    log.error("Ollama image error:", err);
     return { error: err.message };
   }
 };
@@ -268,7 +269,7 @@ eventBus.on("journal:created", async ({ entry }) => {
     // Get the selected chat model from settings
     const selectedModels = modelStore.get("selectedModels");
     const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
-    console.log(model, "model used for filing up missing details");
+    log.debug("Filling in missing details", { model });
     try {
       const res2 = await fetch("http://localhost:11434/api/generate", {
         method: "POST",
@@ -298,7 +299,7 @@ eventBus.on("journal:created", async ({ entry }) => {
         entryId: entry.id,
       });
     } catch (err) {
-      console.error("AI metadata generation failed:", err);
+      log.error("AI metadata generation failed:", err);
       db.prepare(
         `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`,
       ).run(err.message, entry.id);
@@ -370,7 +371,7 @@ eventBus.on("journal:created", async ({ entry }) => {
       entryId: entry.id,
     });
   } catch (err) {
-    console.error("AI summary generation failed:", err);
+    log.error("AI summary generation failed:", err);
     db.prepare(
       `UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ? WHERE id = ?`,
     ).run(err.message, entry.id);
@@ -401,15 +402,15 @@ const chatResponseSchema = z.object({
 async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log("calling ai");
+      log.debug("calling ai");
       const raw = await rawFn();
-      console.log("ai response", raw);
+      log.debug("ai response", { chars: raw?.length });
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("No JSON found");
 
       return schema.parse(JSON.parse(jsonMatch[0]));
     } catch (err) {
-      console.log(`Attempt ${attempt} failed: ${err.message}`);
+      log.warn(`AI attempt ${attempt} failed`, { reason: err?.name });
       if (attempt === maxRetries)
         throw new Error(`Failed after ${maxRetries} attempts`);
     }
@@ -433,14 +434,17 @@ eventBus.on(
         propsResSchema,
         3,
       );
-      console.log("Validated propsRes:", propsRes);
+      log.debug("Validated propsRes", {
+        requiresContext: propsRes.requires_context,
+        requiresTimeFilter: propsRes.requires_time_filter,
+      });
 
       let semanticResult = [];
 
       // 2️⃣ Semantic search logic
       if (propsRes.requires_context) {
         // Use original user content
-        console.log("requires context");
+        log.debug("requires context");
         const vector = await generateEmbedding(content);
         semanticResult = await SemanticSearch(
           vector,
@@ -449,7 +453,7 @@ eventBus.on(
           "mind_entries",
         );
       } else if (propsRes.requires_time_filter) {
-        console.log("requires context with time filter");
+        log.debug("requires context with time filter");
         // Use base_query and time filter
         const vector = await generateEmbedding(propsRes.base_query);
         semanticResult = await SemanticSearch(
@@ -468,7 +472,7 @@ eventBus.on(
       let mainPrompt;
 
       if (!propsRes.requires_context && semanticResult.length == 0) {
-        console.log("No context needed");
+        log.debug("No context needed");
         mainPrompt = respondWithoutContext(content);
       } else {
         // 3️⃣ Generate prompt for main AI response
@@ -481,7 +485,9 @@ eventBus.on(
         chatResponseSchema,
         3,
       );
-      console.log(chatResponse, "ai chat res");
+      log.debug("ai chat response ready", {
+        chars: JSON.stringify(chatResponse ?? "").length,
+      });
       // 5️⃣ Emit validated response
       eventBus.emit("chat:response-generated", {
         response: chatResponse,
@@ -490,7 +496,7 @@ eventBus.on(
         semanticResult,
       });
     } catch (error) {
-      console.log(error, "error occcured");
+      log.error("Ask failed", error);
       eventBus.emit("chat:error", error);
     }
   },
@@ -530,7 +536,7 @@ export async function generateSuggestion(prompt, maxTokens = 20) {
     // The generated text is in the 'response' property
     return data.response.trim();
   } catch (error) {
-    console.error("[generateSuggestion] Error fetching suggestion:", error);
+    log.error("[generateSuggestion] Error fetching suggestion:", error);
     // Return an empty string on failure so the frontend doesn't break
     return "";
   }
@@ -624,7 +630,7 @@ export async function generateEmbedding(text) {
     const data = await response.json();
     return data.embedding;
   } catch (error) {
-    console.error("Error generating embedding:", error);
+    log.error("Error generating embedding:", error);
     throw error;
   }
 }
