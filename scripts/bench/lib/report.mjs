@@ -274,7 +274,7 @@ function aiSection(ai) {
   if (backlog) {
     lines.push(
       "",
-      "**Projected worker backfill** (embedding only - excludes the Qdrant upsert and",
+      "**Projected index backfill** (embedding only - excludes the vector insert and",
       "the SQLite write per entry, both of which contend with foreground reads):",
       "",
       row(["Journal size", "Backfill time"]),
@@ -292,12 +292,12 @@ function vectorSection(vector) {
   const r = vector.results;
   const lines = [row(["Measurement", "Value"]), divider(2)];
 
-  const startup = r["qdrant.startupToReady"];
-  if (startup) lines.push(row(["Process spawn to ready", fmt(startup.wallMs)]));
+  const startup = r["vector.extensionLoad"];
+  if (startup) lines.push(row(["Extension load", fmt(startup.wallMs)]));
 
   for (const size of vector.sizes ?? []) {
     const s = r[`search.at${size}`];
-    const rss = r[`qdrant.rssAt${size}`];
+    const rss = r[`vector.rssAt${size}`];
     const up = r[`upsert.to${size}`];
     if (s) {
       lines.push(
@@ -324,12 +324,12 @@ function vectorSection(vector) {
       );
   }
 
-  const disk = r["qdrant.storageOnDisk"];
+  const disk = r["vector.storageOnDisk"];
   if (disk) {
     lines.push(
       row([
         `Storage on disk (${disk.vectors?.toLocaleString()} vectors)`,
-        `${fmtBytes(disk.bytes)} — includes mmap preallocation`,
+        `${fmtBytes(disk.bytes)}`,
       ]),
     );
   }
@@ -604,7 +604,7 @@ ${mediaSection(media)}
 
 ${aiSection(ai)}
 
-## Vector search (Qdrant)
+## Vector search (sqlite-vec)
 
 ${vectorSection(vector)}
 

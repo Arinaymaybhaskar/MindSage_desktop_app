@@ -4,8 +4,9 @@ import { tempDir } from "./dbTestUtils.js";
 
 // Deleting a whole profile against the real database: everything of theirs is
 // gone, nothing of anyone else's is touched, and what has to be removed
-// outside the database is handed back or queued.
+// outside the database is handed back.
 let localDB;
+let idx;
 let db;
 let dir;
 
@@ -15,6 +16,7 @@ beforeAll(async () => {
   process.env.MS_USER_DATA_DIR = dir;
   process.env.MS_SKIP_DB_BACKUP = "1";
   ({ default: localDB } = await import("./index.js"));
+  idx = await import("./searchIndex.js");
   db = localDB.db;
   localDB.initDatabase();
 });
@@ -191,22 +193,34 @@ describe("deleting a profile", () => {
     );
   });
 
-  it("queues the search-index points of every entry, goal and progress log", async () => {
+  it("removes the vectors and index state of every entry, goal and progress log", async () => {
     const u = makeUser("vec");
     const ids = await populate(u, "vec");
-    db.prepare("DELETE FROM vector_deletions").run();
+    const other = makeUser("vecother");
+    const keep = await populate(other, "vecother");
+    const index = (type, id, n) => {
+      const source = idx.loadSource(type, id);
+      idx.markStale(type, id, source.userId);
+      const v = new Array(768).fill(0);
+      v[n] = 1;
+      expect(idx.storeVector(type, id, v, source.hash)).toBe("ok");
+    };
+    index("journal", ids.live, 1);
+    index("goal", ids.goal, 2);
+    index("progress_log", ids.log, 3);
+    index("journal", keep.live, 4);
+    const before = db.prepare("SELECT COUNT(*) n FROM vec_entries").get().n;
+
     localDB.deleteProfile(u);
-    const queued = db
-      .prepare("SELECT source_type, source_id, user_id FROM vector_deletions")
-      .all();
-    const has = (type, id) =>
-      queued.some(
-        (q) => q.source_type === type && q.source_id === id && q.user_id === u,
-      );
-    expect(has("journal", ids.live)).toBe(true);
-    expect(has("journal", ids.trashed)).toBe(true);
-    expect(has("goal", ids.goal)).toBe(true);
-    expect(has("progress_log", ids.log)).toBe(true);
+
+    expect(idx.getState("journal", ids.live)).toBeNull();
+    expect(idx.getState("goal", ids.goal)).toBeNull();
+    expect(idx.getState("progress_log", ids.log)).toBeNull();
+    expect(db.prepare("SELECT COUNT(*) n FROM vec_entries").get().n).toBe(
+      before - 3,
+    );
+    // Another profile's vector is untouched.
+    expect(idx.getState("journal", keep.live)).not.toBeNull();
   });
 
   it("says when it was the last profile on this computer", () => {

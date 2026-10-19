@@ -1,5 +1,6 @@
 import { db } from "./connection.js";
 import { redactQuotes } from "../redactQuotes.js";
+import { removeSources } from "./searchIndex.js";
 
 // The trash (KAN-52). Deleting an entry or a goal only marks it; this module
 // lists, restores and finally removes what is marked. Every function takes the
@@ -127,8 +128,7 @@ function scrubSavedAnswers(userId, types, id, item) {
 
 /**
  * Removes trashed items for good, in one transaction: the rows (tag links and
- * progress logs go with them by cascade), and queues their search-index points
- * for removal. Returns the media files the caller has to delete from disk.
+ * progress logs go with them by cascade) and their search vectors. Returns the media files the caller has to delete from disk.
  * Chat answers that cited a removed entry keep the citation's place but lose
  * its title.
  *
@@ -138,10 +138,6 @@ export function deleteForever(userId, { entryIds, goalIds }) {
   const entries = cleanIds(entryIds);
   const goals = cleanIds(goalIds);
   return db.transaction(() => {
-    const queue = db.prepare(
-      `INSERT OR IGNORE INTO vector_deletions (user_id, source_type, source_id)
-       VALUES (?, ?, ?)`,
-    );
     const files = [];
     let removedEntries = 0;
     let removedGoals = 0;
@@ -157,10 +153,12 @@ export function deleteForever(userId, { entryIds, goalIds }) {
       for (const row of rows) {
         if (row.image_key) files.push(row.image_key);
         if (row.audio_key) files.push(row.audio_key);
-        queue.run(userId, "journal", row.id);
       }
       const ids = rows.map((r) => r.id);
       removedEntryIds = ids;
+      // The vectors and their state go in this same transaction, so a purge
+      // leaves nothing of the text behind and nothing waiting to be cleaned.
+      removeSources("journal", ids);
       for (const row of rows)
         scrubSavedAnswers(userId, ["journal"], row.id, row);
       if (ids.length) {
@@ -191,7 +189,6 @@ export function deleteForever(userId, { entryIds, goalIds }) {
         .all(userId, ...goals);
       const ids = rows.map((r) => r.id);
       for (const goal of rows) {
-        queue.run(userId, "goal", goal.id);
         scrubSavedAnswers(userId, ["goal"], goal.id, {
           title: goal.title,
           content: goal.description,
@@ -201,7 +198,7 @@ export function deleteForever(userId, { entryIds, goalIds }) {
             `SELECT id, description FROM progress_logs WHERE goal_id = ?`,
           )
           .all(goal.id)) {
-          queue.run(userId, "progress_log", log.id);
+          removeSources("progress_log", [log.id]);
           scrubSavedAnswers(userId, ["progress_log"], log.id, {
             title: goal.title,
             content: log.description,
@@ -213,6 +210,7 @@ export function deleteForever(userId, { entryIds, goalIds }) {
         }
       }
       if (ids.length) {
+        removeSources("goal", ids);
         db.prepare(
           `UPDATE message_sources SET source_title = 'Removed goal'
             WHERE source_type = 'goal' AND source_id IN (${placeholders(ids)})`,
@@ -258,22 +256,4 @@ export function expiredItems() {
     slot(r.user_id).goalIds.push(r.id);
   }
   return byUser;
-}
-
-/** Search-index points still waiting to be removed. */
-export function pendingVectorDeletions(limit = 500) {
-  return db
-    .prepare(
-      `SELECT id, user_id, source_type, source_id FROM vector_deletions
-        ORDER BY id LIMIT ?`,
-    )
-    .all(limit);
-}
-
-export function clearVectorDeletions(ids) {
-  const list = cleanIds(ids);
-  if (!list.length) return 0;
-  return db
-    .prepare(`DELETE FROM vector_deletions WHERE id IN (${placeholders(list)})`)
-    .run(...list).changes;
 }

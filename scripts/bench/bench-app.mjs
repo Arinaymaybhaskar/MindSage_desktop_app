@@ -117,7 +117,7 @@ try {
   // loads against Electron's ABI, and inheriting it here turns MindSage.exe
   // into a bare Node process that exits immediately with code 0.
   // APPDATA moves the database; MS_USER_DATA_DIR moves everything Electron
-  // keeps under userData (logs, media, qdrant-data), which APPDATA does not.
+  // keeps under userData (logs, media), which APPDATA does not.
   const appEnv = {
     ...process.env,
     APPDATA: profile,

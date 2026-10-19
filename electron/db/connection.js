@@ -2,6 +2,8 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 import { MIGRATIONS, runMigrations } from "./migrations.js";
+import { ensureVectorTable, loadVectorExtension } from "./vectorExtension.js";
+import { log } from "../log.js";
 
 // Where the database used to be resolved: next to Electron's userData on
 // Windows, but ~/Library/Preferences on macOS and ~/.local/share on Linux,
@@ -18,8 +20,7 @@ const legacyDbPath = path.join(
 
 /**
  * The database lives in Electron's userData (MS_DB_DIR, set by
- * userDataOverride.js before this module loads; the Qdrant worker inherits
- * it). On Windows that is the same file as before. Elsewhere, an existing
+ * userDataOverride.js before this module loads). On Windows that is the same file as before. Elsewhere, an existing
  * journal at the legacy path wins over an empty new location, so moving the
  * default can never present a user with a blank journal.
  */
@@ -34,7 +35,7 @@ function resolveDbPath() {
     !fs.existsSync(preferred) &&
     fs.existsSync(legacyDbPath)
   ) {
-    console.log(`Using the existing database at ${legacyDbPath}`);
+    log.info(`Using the existing database at ${legacyDbPath}`);
     return legacyDbPath;
   }
   return preferred;
@@ -52,8 +53,8 @@ export const db = new Database(dbPath);
 // never reached it at all.
 db.pragma("foreign_keys = ON");
 
-// WAL lets the main process read while the Qdrant worker writes; in the
-// default rollback journal every worker write blocked every read, measured at
+// WAL lets reads continue while a write is in flight; in the
+// default rollback journal every write blocked every read, measured at
 // 200ms for a 1ms query (docs/benchmarks/FINDINGS.md §2). journal_mode is
 // stored in the file, so this is a no-op after the first launch, and the
 // worker's handle repeats it harmlessly. synchronous is per connection: NORMAL
@@ -65,6 +66,14 @@ db.pragma("synchronous = NORMAL");
 // deleting something for good has to remove its text from the database file.
 db.pragma("secure_delete = ON");
 
+// The search index is a sqlite-vec table in this same file (KAN-192). If the
+// extension cannot be loaded the journal still opens and only search is
+// unavailable; callers check this before using the index.
+export const vectorSupport = loadVectorExtension(db);
+if (!vectorSupport.ok) {
+  log.error("Search index unavailable:", vectorSupport.error);
+}
+
 // A pre-migration snapshot is the user's only insurance: the database is the
 // single copy of their journal and there is no undo for a bad ALTER.
 const BACKUP_DIR_NAME = "backups";
@@ -72,7 +81,7 @@ const BACKUPS_TO_KEEP = 5;
 
 function backupDatabase(fromVersion) {
   if (process.env.MS_SKIP_DB_BACKUP === "1") {
-    console.log("Skipping database backup (MS_SKIP_DB_BACKUP=1)");
+    log.info("Skipping database backup (MS_SKIP_DB_BACKUP=1)");
     return;
   }
 
@@ -104,7 +113,7 @@ function backupDatabase(fromVersion) {
   } catch (err) {
     // VACUUM INTO refuses on a corrupt database, where a raw byte copy still
     // salvages whatever is readable.
-    console.error("VACUUM INTO failed, falling back to a file copy:", err);
+    log.error("VACUUM INTO failed, falling back to a file copy:", err);
     fs.copyFileSync(db.name, target);
     for (const suffix of ["-wal", "-shm"]) {
       if (fs.existsSync(db.name + suffix)) {
@@ -113,7 +122,7 @@ function backupDatabase(fromVersion) {
     }
   }
 
-  console.log(`Backed up the database to ${target}`);
+  log.info(`Backed up the database to ${target}`);
   pruneBackups(dir);
   return target;
 }
@@ -132,7 +141,7 @@ export function replaceBackups() {
   try {
     fresh = backupDatabase(db.pragma("user_version", { simple: true })) ?? null;
   } catch (err) {
-    console.error("Could not make a fresh database backup:", err);
+    log.error("Could not make a fresh database backup:", err);
   }
   const keep = fresh ? path.basename(fresh) : null;
   let removed = 0;
@@ -144,7 +153,7 @@ export function replaceBackups() {
       removed += 1;
     }
   } catch (err) {
-    console.error("Could not remove the old database backups:", err);
+    log.error("Could not remove the old database backups:", err);
   }
   return { replaced: fresh !== null, removed };
 }
@@ -163,7 +172,7 @@ function pruneBackups(dir) {
       fs.rmSync(path.join(dir, stale + "-shm"), { force: true });
     }
   } catch (err) {
-    console.error("Could not prune old database backups:", err);
+    log.error("Could not prune old database backups:", err);
   }
 }
 
@@ -175,8 +184,12 @@ export function initDatabase() {
     beforeMigrate: backupDatabase,
   });
 
+  // After the numbered migrations, and outside them on purpose: a machine that
+  // cannot load the extension must still migrate its journal.
+  if (vectorSupport.ok) ensureVectorTable(db);
+
   if (applied.length) {
-    console.log(
+    log.info(
       `Database migrated from version ${from} to ${to}: ${applied.join(", ")}`,
     );
   }
@@ -209,5 +222,5 @@ export function initDatabase() {
     insertCategory.run(cat.name, cat.color);
   });
 
-  console.log(`Local database ready at schema version ${to}.`);
+  log.info(`Local database ready at schema version ${to}.`);
 }

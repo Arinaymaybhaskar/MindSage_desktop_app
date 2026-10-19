@@ -1,10 +1,12 @@
 /**
- * Stand-in for electron/qdrantWorker.js during the contention benchmark.
+ * A second connection writing to the journal database, for the contention
+ * benchmark.
  *
- * The real worker is a `Worker` thread that opens the same SQLite file as the
- * main process and writes sync status back as it embeds each entry
- * (qdrantWorker.js:320-333). This reproduces that write pattern without needing
- * Qdrant or Ollama running - the lock behaviour under test comes from two
+ * The app's indexer runs in the main process now, but the scenario still
+ * matters: any second thread or process that opens the same file (a future
+ * worker, an import, a backup) writes while the UI reads. This reproduces the
+ * write pattern of the old index worker - a state update per entry - without
+ * needing Ollama running. The lock behaviour under test comes from two
  * connections sharing one file, not from what the writes contain.
  */
 
@@ -14,9 +16,9 @@ const { db } = await import("../../../electron/db/connection.js");
 
 const { userId } = workerData;
 
-// Cycle through the same status values the real worker writes, so the CHECK
-// constraint on synced_to_qdrant is exercised rather than sidestepped.
-const STATUSES = ["pending", "in_progress", "success"];
+// Cycle through the same states the index writes, so the CHECK constraint on
+// search_index.state is exercised rather than sidestepped.
+const STATUSES = ["pending", "failed", "ok"];
 
 const ids = db
   .prepare(
@@ -26,7 +28,10 @@ const ids = db
   .map((r) => r.id);
 
 const update = db.prepare(
-  "UPDATE journal_entries SET synced_to_qdrant = ?, updated_at = ? WHERE id = ?",
+  `INSERT INTO search_index (user_id, source_type, source_id, state, indexed_at)
+   VALUES (@userId, 'journal', @id, @state, @at)
+   ON CONFLICT(source_type, source_id)
+   DO UPDATE SET state = excluded.state, indexed_at = excluded.indexed_at`,
 );
 
 let completed = 0;
@@ -45,11 +50,12 @@ async function writeLoop() {
   let i = 0;
   while (!stopped) {
     try {
-      update.run(
-        STATUSES[i % STATUSES.length],
-        new Date().toISOString(),
-        ids[i % ids.length],
-      );
+      update.run({
+        userId,
+        id: ids[i % ids.length],
+        state: STATUSES[i % STATUSES.length],
+        at: new Date().toISOString(),
+      });
       completed++;
     } catch {
       // A SQLITE_BUSY on the writing side is expected in `delete` journal mode

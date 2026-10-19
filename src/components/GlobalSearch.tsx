@@ -23,7 +23,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { actionsCommands, settingsCommands } from "../utils/SearchActions";
 import { MindSageMark } from "./ui/MindSageMark";
-import { qdrantService } from "../api/qDrantService";
+import { searchService } from "../api/searchService";
 import journalService from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
 import clsx from "clsx";
@@ -48,7 +48,7 @@ interface SearchableItem {
   action?: () => void;
   keywords?: string[];
   content?: string;
-  /** Cosine similarity from Qdrant, 0..1. Absent on local matches. */
+  /** Cosine similarity from the search index, 0..1. Absent on local matches. */
   relevance?: number;
   createdAt?: string;
   moodScore?: number;
@@ -61,9 +61,9 @@ interface SearchableItem {
   value_logged?: number;
 }
 
-/** One hit from `qdrant:search`. The payload shape is written by the sync
- *  worker in electron/qdrantWorker.js and varies by `source_type`. */
-interface QdrantHit {
+/** One hit from `search:query`. The payload is built from the database by
+ *  electron/db/searchIndex.js and varies by `source_type`. */
+interface SearchResultHit {
   score?: number;
   payload?: {
     source_type?: "journal" | "goal" | "progress_log";
@@ -527,11 +527,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
 
     const timer = setTimeout(async () => {
       try {
-        const results = await qdrantService.search(
-          "mind_entries",
-          trimmed,
-          SEMANTIC_LIMIT,
-        );
+        const results = await searchService.search(trimmed, SEMANTIC_LIMIT);
 
         // The IPC handler answers `{ success: false, error }` rather than
         // throwing when embedding fails - which is the normal outcome when
@@ -551,7 +547,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
         if (cancelled) return;
         setSearchError(null);
         setSemanticResults(
-          (results as QdrantHit[]).map((res): SearchableItem => {
+          (results as SearchResultHit[]).map((res): SearchableItem => {
             const p = res.payload ?? {};
             if (p.source_type === "goal") {
               return {

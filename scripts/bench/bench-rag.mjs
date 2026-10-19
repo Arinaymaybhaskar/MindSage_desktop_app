@@ -5,7 +5,7 @@
  *
  *   1. a generation that plans the query and decides whether context is needed
  *   2. an embedding of the resulting base query
- *   3. a Qdrant similarity search
+ *   3. a sqlite-vec similarity search
  *   4. a second generation that answers using the retrieved entries
  *
  * All four are serialized, and Ollama serves requests one at a time, so the
@@ -14,24 +14,23 @@
  * because the fix for "retrieval is slow" and the fix for "generation is slow"
  * have nothing in common.
  *
- * Runs against a throwaway Qdrant instance seeded with *real* embeddings of the
+ * Runs against a throwaway sqlite-vec table seeded with *real* embeddings of the
  * fixture entries. Random vectors would be fine for latency, but stage 4's cost
  * depends on how much retrieved text gets stuffed into the prompt, and that
  * only behaves realistically if the retrieved entries are real ones.
  *
  *   node scripts/bench/bench-rag.mjs --out results.json
  *
- * Requires Ollama running and the bundled Qdrant binary.
+ * Requires Ollama running (run it under Electron-as-Node, as `npm run bench` does).
  */
 
-import { spawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { summarise, fmt } from "./lib/stats.mjs";
 import * as ollama from "./lib/ollama.mjs";
+import { openVecStore } from "./lib/vecstore.mjs";
 import {
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
@@ -56,82 +55,19 @@ const RUNS = Number(flag("--runs", "3"));
 const CORPUS_SIZE = Number(flag("--corpus", "60"));
 const CHAT_MODEL = flag("--chat-model", "llama3.2:latest");
 const EMBED_MODEL = flag("--embed-model", "nomic-embed-text:v1.5");
-const HTTP_PORT = Number(flag("--port", "6534"));
-
-const BASE = `http://127.0.0.1:${HTTP_PORT}`;
-const COLLECTION = "bench_rag";
-const VECTOR_NAME = "text_embedding";
 
 if (!(await ollama.isUp())) {
   console.error("Ollama is not reachable at http://localhost:11434.");
   process.exit(1);
 }
 
-const binary =
-  process.platform === "win32"
-    ? path.join(repoRoot, "resources", "win", "qdrant.exe")
-    : path.join(repoRoot, "resources", "mac", "qdrant");
-if (!fs.existsSync(binary)) {
-  console.error(`Qdrant binary not found at ${binary}`);
-  process.exit(1);
-}
-
-const storageDir = fs.mkdtempSync(
-  path.join(os.tmpdir(), "mindsage-bench-rag-"),
-);
 const results = {};
-let proc = null;
-
-const send = async (url, body, method = "POST") => {
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`${url}: ${res.status} ${await res.text()}`);
-  return res.json();
-};
+let store = null;
 
 try {
-  // -------------------------------------------------------- start Qdrant ---
+  // ------------------------------------------------------- open the store ---
 
-  proc = spawn(binary, [], {
-    env: {
-      ...process.env,
-      QDRANT__STORAGE__STORAGE_PATH: storageDir,
-      QDRANT__SERVICE__HTTP_PORT: String(HTTP_PORT),
-      QDRANT__SERVICE__GRPC_PORT: String(HTTP_PORT + 1),
-      QDRANT__SERVICE__HOST: "127.0.0.1",
-    },
-    cwd: path.dirname(binary),
-    stdio: ["ignore", "ignore", "ignore"],
-  });
-
-  const deadline = Date.now() + 30000;
-  let ready = false;
-  while (Date.now() < deadline) {
-    try {
-      if (
-        (await fetch(`${BASE}/readyz`, { signal: AbortSignal.timeout(1000) }))
-          .ok
-      ) {
-        ready = true;
-        break;
-      }
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  if (!ready) throw new Error("Qdrant did not become ready");
-
-  await fetch(`${BASE}/collections/${COLLECTION}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      vectors: { [VECTOR_NAME]: { size: 768, distance: "Cosine" } },
-    }),
-  });
+  store = openVecStore();
 
   // ------------------------------------------------------- seed the store ---
 
@@ -141,23 +77,16 @@ try {
    * restatement of the backfill finding in FINDINGS.md 5.2.
    */
   console.log(
-    `  embedding ${CORPUS_SIZE} entries into a throwaway collection...`,
+    `  embedding ${CORPUS_SIZE} entries into a throwaway sqlite-vec table...`,
   );
   const points = [];
   for (let i = 0; i < CORPUS_SIZE; i++) {
     const entry = JOURNAL_ENTRIES[i % JOURNAL_ENTRIES.length];
     const { vector } = await ollama.embed(entry.text, EMBED_MODEL);
-    points.push({
-      id: i + 1,
-      vector: { [VECTOR_NAME]: vector },
-      payload: { user_id: 1, entry_id: i + 1, content: entry.text },
-    });
+    points.push({ id: i + 1, vector, content: entry.text });
   }
-  await send(
-    `${BASE}/collections/${COLLECTION}/points?wait=true`,
-    { points },
-    "PUT",
-  );
+  store.insertMany(points);
+  const contentById = new Map(points.map((p) => [p.id, p.content]));
 
   // ------------------------------------------------------- the four stages ---
 
@@ -205,20 +134,13 @@ try {
       const { vector } = await ollama.embed(baseQuery, EMBED_MODEL);
       stage2.push(performance.now() - t2);
 
-      // 3. Vector search, same shape as SemanticSearch (qdrant.js:33).
+      // 3. Vector search, same shape as semanticSearch (electron/db/searchIndex.js).
       const t3 = performance.now();
-      const found = await send(
-        `${BASE}/collections/${COLLECTION}/points/search`,
-        {
-          vector: { name: VECTOR_NAME, vector },
-          limit: 5,
-          with_payload: true,
-        },
-      );
+      const found = store.search(vector, 5);
       stage3.push(performance.now() - t3);
 
-      const context = (found.result ?? []).map((hit) => ({
-        content: hit.payload?.content ?? JOURNAL_MEDIUM,
+      const context = found.map((hit) => ({
+        content: contentById.get(hit.id) ?? JOURNAL_MEDIUM,
         created_at: new Date().toISOString(),
       }));
 
@@ -274,15 +196,7 @@ try {
   console.error(`  bench-rag failed: ${err.message}`);
   results.error = String(err.message ?? err);
 } finally {
-  if (proc) {
-    try {
-      proc.kill();
-    } catch {
-      /* already gone */
-    }
-  }
-  await new Promise((r) => setTimeout(r, 1000));
-  fs.rmSync(storageDir, { recursive: true, force: true });
+  store?.close();
 }
 
 const report = {

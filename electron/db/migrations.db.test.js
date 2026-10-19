@@ -162,8 +162,16 @@ describe("an install from before migrations were versioned", () => {
     };
     expect(after.entries).toHaveLength(seeded.length);
     // Every pre-existing column is unchanged; new ones only add to the row.
+    // The two Qdrant columns are the one deliberate removal (migration 8).
+    const dropped = ["synced_to_qdrant", "qdrant_id"];
+    const kept = (row) =>
+      Object.fromEntries(
+        Object.entries(row).filter(([k]) => !dropped.includes(k)),
+      );
     for (const key of ["users", "entries"]) {
-      after[key].forEach((row, i) => expect(row).toMatchObject(before[key][i]));
+      after[key].forEach((row, i) =>
+        expect(row).toMatchObject(kept(before[key][i])),
+      );
     }
     expect(after.links).toEqual(before.links);
 
@@ -207,6 +215,70 @@ describe("an install from before migrations were versioned", () => {
       .map((r) => r.detail)
       .join("\n");
     expect(plan).toMatch(/idx_journal_entries_user_deleted_created/);
+  });
+});
+
+describe("the search-index migration", () => {
+  it("adds one state row per item and only known kinds and states", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 6));
+    expect(tableNames(db)).not.toContain("search_index");
+    expect(runMigrations(db, MIGRATIONS.slice(0, 7)).applied).toEqual([
+      "search-index",
+    ]);
+    expect(indexNames(db)).toEqual(
+      expect.arrayContaining([
+        "idx_search_index_work",
+        "idx_search_index_user",
+      ]),
+    );
+    const add = db.prepare(
+      "INSERT INTO search_index (user_id, source_type, source_id) VALUES (1, ?, ?)",
+    );
+    add.run("journal", 5);
+    expect(() => add.run("journal", 5)).toThrow(/UNIQUE/);
+    expect(() => add.run("chat", 5)).toThrow(/CHECK/);
+    expect(
+      db.prepare("SELECT state, attempts FROM search_index").get(),
+    ).toEqual({ state: "pending", attempts: 0 });
+    integrityOk(db);
+  });
+});
+
+describe("the drop-qdrant-state migration", () => {
+  it("removes the Qdrant bookkeeping and keeps every row", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 7));
+    const seeded = seedJournal(db, { users: 1, entriesPerUser: 4 });
+    db.prepare(
+      "INSERT INTO goals (user_id, title, target_value, unit, qdrant_id) VALUES (?, 'g', 1, 'x', 'abc')",
+    ).run(seeded[0].userId);
+    const goalId = db.prepare("SELECT id FROM goals").get().id;
+    db.prepare(
+      "INSERT INTO progress_logs (goal_id, value, description) VALUES (?, 1, 'd')",
+    ).run(goalId);
+    db.prepare(
+      "INSERT INTO vector_deletions (user_id, source_type, source_id) VALUES (1, 'journal', 9)",
+    ).run();
+    const before = db.prepare("SELECT COUNT(*) n FROM journal_entries").get().n;
+
+    expect(runMigrations(db).applied).toEqual(["drop-qdrant-state"]);
+
+    expect(tableNames(db)).not.toContain("vector_deletions");
+    for (const table of ["journal_entries", "goals", "progress_logs"]) {
+      expect(columnNames(db, table)).not.toContain("synced_to_qdrant");
+      expect(columnNames(db, table)).not.toContain("qdrant_id");
+    }
+    expect(indexNames(db)).not.toContain("idx_goals_synced_to_qdrant");
+    expect(indexNames(db)).not.toContain("idx_progress_logs_synced_to_qdrant");
+    expect(db.prepare("SELECT COUNT(*) n FROM journal_entries").get().n).toBe(
+      before,
+    );
+    expect(db.prepare("SELECT title FROM goals").get().title).toBe("g");
+    expect(db.prepare("SELECT description FROM progress_logs").get()).toEqual({
+      description: "d",
+    });
+    integrityOk(db);
   });
 });
 
@@ -255,7 +327,7 @@ describe("the trash migration", () => {
 
   it("gives the index queue one row per item and only known kinds", () => {
     const { db } = open();
-    runMigrations(db);
+    runMigrations(db, MIGRATIONS.slice(0, 7));
     const add = db.prepare(
       "INSERT INTO vector_deletions (user_id, source_type, source_id) VALUES (1, ?, ?)",
     );
@@ -342,7 +414,9 @@ describe("the message-sources lookup migration", () => {
         .all()
         .map((r) => r.name);
     expect(names()).not.toContain("idx_message_sources_source");
-    expect(runMigrations(db).applied).toEqual(["message-sources-lookup"]);
+    expect(runMigrations(db, MIGRATIONS.slice(0, 6)).applied).toEqual([
+      "message-sources-lookup",
+    ]);
     expect(names()).toContain("idx_message_sources_source");
     const plan = db
       .prepare(

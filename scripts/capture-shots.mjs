@@ -319,7 +319,7 @@ const shots = {
       // hand-written ones - which is the point of the feature and what makes
       // the shot worth taking. Keyword-ish queries surface filler entries that
       // share stock phrasing, which reads as generated.
-      // Semantic search embeds the query through Ollama and queries Qdrant.
+      // Semantic search embeds the query through Ollama and queries the search index.
       await cdp.sleep(3000);
     },
     skipDockHover: true,

@@ -17,7 +17,6 @@ import {
   retryPending,
 } from "../pendingDeletions.js";
 import { thumbnailDir } from "./media.js";
-import { processVectorDeletions } from "./qdrant.js";
 import { log } from "../log.js";
 
 // IPC for the trash, and the job that empties it once items are 30 days old.
@@ -128,10 +127,9 @@ export async function purge(
   } catch {
     // A busy checkpoint only delays the cleanup.
   }
-  const index = await processVectorDeletions();
   return {
     ...result,
-    searchCleanupPending: index.pending,
+    searchCleanupPending: 0,
     filesPending: pendingFileCount(),
   };
 }
@@ -147,8 +145,6 @@ export async function purgeExpired() {
       goals: total.goals + r.goals,
     };
   }
-  // Also finishes any index cleanup an earlier purge could not.
-  await processVectorDeletions();
   if (total.entries || total.goals) {
     log.info(`Trash: purged ${total.entries} entries and ${total.goals} goals`);
   }

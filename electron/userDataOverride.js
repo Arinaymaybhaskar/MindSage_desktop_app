@@ -6,12 +6,11 @@
 // APPDATA alone is not enough on Windows. connection.js reads APPDATA, so the
 // database moves, but Electron resolves userData through the OS known-folder
 // API and ignores the variable. Without this, a "scratch" launch still wrote
-// main.log, logs/, media/ and qdrant-data/ into the user's real profile, so a
-// benchmark run could reach the real vector index.
+// main.log, logs/ and media/ into the user's real profile, so a
+// benchmark run could reach the real journal.
 //
 // It also tells connection.js where the database goes (MS_DB_DIR): userData,
-// beside the logs and media, which the Qdrant worker thread inherits through
-// the environment because it has no Electron app object to ask.
+// beside the logs and media.
 //
 // This module must be the first import in main.js. electron-store builds its
 // file path when appSettings.js, store.js and session.js are evaluated,

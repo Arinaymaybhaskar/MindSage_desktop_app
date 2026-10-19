@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import journalService from "../api/journalService";
-import { qdrantService } from "../api/qDrantService";
+import { searchService } from "../api/searchService";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 
@@ -220,21 +220,21 @@ export default function LocalAIPanel() {
       const { event, data } = payload ?? {};
       if (!data) return;
 
-      if (event?.startsWith("qdrant:bulk")) {
+      if (event?.startsWith("index:bulk")) {
         const kind = data.kind ?? "entries";
         const total = data.total ?? 0;
-        if (event === "qdrant:bulkStarted" && total === 0) return;
+        if (event === "index:bulkStarted" && total === 0) return;
         setBulks((previous) => {
           const current = previous.find((bulk) => bulk.kind === kind);
           const updated: BulkActivity = {
             kind,
             total: total || current?.total || 0,
             done:
-              event === "qdrant:bulkCompleted"
+              event === "index:bulkCompleted"
                 ? total || current?.total || 0
                 : (data.done ?? current?.done ?? 0),
             failed: data.failed ?? current?.failed ?? 0,
-            settledAt: event === "qdrant:bulkCompleted" ? Date.now() : null,
+            settledAt: event === "index:bulkCompleted" ? Date.now() : null,
           };
           // Update in place: re-appending made the rows reshuffle under the
           // cursor on every progress tick.
@@ -440,7 +440,7 @@ export default function LocalAIPanel() {
       setRetrying(key);
       try {
         if (job === "index") {
-          await qdrantService.syncJournal(entry.entryId);
+          await searchService.syncItem("journal", entry.entryId);
         } else {
           if (!sessionUser) throw new Error("Not signed in");
           const result = await journalService.retryAIMetadata(

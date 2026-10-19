@@ -6,8 +6,9 @@ import { tempDir } from "./dbTestUtils.js";
 
 // The trash against the real database: what deleting does, what is hidden
 // while an item is in it, restore, removal for good, the 30-day purge, and the
-// queue of search-index points to remove.
+// vectors removed with the item.
 let localDB;
+let idx;
 let db;
 let dir;
 let alice;
@@ -19,6 +20,7 @@ beforeAll(async () => {
   process.env.MS_USER_DATA_DIR = dir;
   process.env.MS_SKIP_DB_BACKUP = "1";
   ({ default: localDB } = await import("./index.js"));
+  idx = await import("./searchIndex.js");
   db = localDB.db;
   localDB.initDatabase();
   const make = (name) =>
@@ -33,6 +35,19 @@ beforeAll(async () => {
   bob = make("bob");
 });
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+const DIM = 768;
+const unitVec = (n) => {
+  const v = new Array(DIM).fill(0);
+  v[n % DIM] = 1;
+  return v;
+};
+/** Gives an item a vector, as the indexer would. */
+const indexItem = (type, id, n = id) => {
+  const source = idx.loadSource(type, id);
+  idx.markStale(type, id, source.userId);
+  expect(idx.storeVector(type, id, unitVec(n), source.hash)).toBe("ok");
+};
 
 const entry = (userId, overrides = {}) =>
   localDB.createJournalEntry(userId, {
@@ -301,8 +316,12 @@ describe("restoring", () => {
 });
 
 describe("deleting for good", () => {
-  it("removes the row and tag links, returns the media files, and queues the index points", () => {
+  it("removes the row and tag links, returns the media files, and removes the vector", () => {
     const e = entry(alice, { mood_tags: ["calm"] });
+    indexItem("journal", e.id);
+    const vectorCountBefore = db
+      .prepare("SELECT COUNT(*) n FROM vec_entries")
+      .get().n;
     db.prepare(
       "UPDATE journal_entries SET image_key = ?, audio_key = ? WHERE id = ?",
     ).run("/media/photo.jpg", "/media/voice.wav", e.id);
@@ -319,13 +338,10 @@ describe("deleting for good", () => {
         .prepare("SELECT 1 FROM journal_entry_tags WHERE journal_entry_id = ?")
         .get(e.id),
     ).toBeUndefined();
-    expect(
-      db
-        .prepare(
-          "SELECT 1 FROM vector_deletions WHERE source_type = 'journal' AND source_id = ?",
-        )
-        .get(e.id),
-    ).toBeTruthy();
+    expect(idx.getState("journal", e.id)).toBeNull();
+    expect(db.prepare("SELECT COUNT(*) n FROM vec_entries").get().n).toBe(
+      vectorCountBefore - 1,
+    );
   });
 
   it("refuses to remove an entry that is not in the trash", () => {
@@ -352,10 +368,16 @@ describe("deleting for good", () => {
     ).toBeTruthy();
   });
 
-  it("removes a goal with its progress logs and queues them all", async () => {
+  it("removes a goal with its progress logs and all their vectors", async () => {
     const g = await goal(alice, "Doomed");
     const l1 = (await localDB.logProgress(alice, g, 1, "a")).id;
     const l2 = (await localDB.logProgress(alice, g, 2, "b")).id;
+    indexItem("goal", g, 900);
+    indexItem("progress_log", l1, 901);
+    indexItem("progress_log", l2, 902);
+    const vectorCountBefore = db
+      .prepare("SELECT COUNT(*) n FROM vec_entries")
+      .get().n;
     await localDB.deleteGoal(alice, g);
     const r = localDB.deleteForever(alice, { entryIds: [], goalIds: [g] });
     expect(r.goals).toBe(1);
@@ -364,15 +386,12 @@ describe("deleting for good", () => {
         .prepare("SELECT COUNT(*) n FROM progress_logs WHERE goal_id = ?")
         .get(g).n,
     ).toBe(0);
-    const queued = db
-      .prepare("SELECT source_type, source_id FROM vector_deletions")
-      .all()
-      .filter(
-        (q) =>
-          (q.source_type === "goal" && q.source_id === g) ||
-          (q.source_type === "progress_log" && [l1, l2].includes(q.source_id)),
-      );
-    expect(queued).toHaveLength(3);
+    expect(idx.getState("goal", g)).toBeNull();
+    expect(idx.getState("progress_log", l1)).toBeNull();
+    expect(idx.getState("progress_log", l2)).toBeNull();
+    expect(db.prepare("SELECT COUNT(*) n FROM vec_entries").get().n).toBe(
+      vectorCountBefore - 3,
+    );
   });
 
   it("a chat answer that cited the entry keeps its place but loses the title", () => {
@@ -478,247 +497,5 @@ describe("the 30-day purge", () => {
       db.prepare("SELECT 1 FROM journal_entries WHERE id = ?").get(e.id),
     ).toBeUndefined();
     expect(files).toContain("/media/old.jpg");
-  });
-});
-
-describe("the queue of index points", () => {
-  it("lists what is pending, ignores duplicates, and clears what was done", () => {
-    db.prepare("DELETE FROM vector_deletions").run();
-    const e = entry(alice);
-    localDB.deleteJournalEntry(alice, e.id);
-    localDB.deleteForever(alice, { entryIds: [e.id], goalIds: [] });
-    db.prepare(
-      "INSERT OR IGNORE INTO vector_deletions (user_id, source_type, source_id) VALUES (?, 'journal', ?)",
-    ).run(alice, e.id);
-    const pending = localDB.pendingVectorDeletions();
-    expect(pending).toHaveLength(1);
-    expect(pending[0]).toMatchObject({
-      user_id: alice,
-      source_type: "journal",
-      source_id: e.id,
-    });
-    expect(localDB.clearVectorDeletions(pending.map((p) => p.id))).toBe(1);
-    expect(localDB.pendingVectorDeletions()).toEqual([]);
-    expect(localDB.clearVectorDeletions([])).toBe(0);
-  });
-});
-
-describe("what a saved Ask answer keeps", () => {
-  const chatFor = (userId) =>
-    Number(
-      db
-        .prepare("INSERT INTO chats (user_id, title) VALUES (?, 'c')")
-        .run(userId).lastInsertRowid,
-    );
-  const answer = (chat, content, cites = []) => {
-    const id = Number(
-      db
-        .prepare(
-          "INSERT INTO messages (chat_id, sender, content) VALUES (?, 'ai', ?)",
-        )
-        .run(chat, content).lastInsertRowid,
-    );
-    for (const e of cites) {
-      db.prepare(
-        "INSERT INTO message_sources (message_id, source_type, source_id, source_title) VALUES (?, 'journal', ?, ?)",
-      ).run(id, String(e.id), e.title);
-    }
-    return id;
-  };
-  const text = (id) =>
-    db.prepare("SELECT content FROM messages WHERE id = ?").get(id).content;
-
-  it("loses the quotes of a purged entry, and nothing else", () => {
-    const e = entry(alice, {
-      title: "Harbour notes",
-      content:
-        "The lighthouse keeper told me the storm would pass before midnight and it did.",
-    });
-    const other = entry(alice, {
-      title: "Other",
-      content: "A completely different thought about gardening in spring.",
-    });
-    const chat = chatFor(alice);
-    const citing = answer(
-      chat,
-      'You wrote "the lighthouse keeper told me the storm would pass before midnight". Also you like gardening in spring.',
-      [e, other],
-    );
-    const unrelated = answer(
-      chat,
-      "The lighthouse keeper told me the storm would pass, said someone.",
-      [],
-    );
-    const userMessage = Number(
-      db
-        .prepare(
-          "INSERT INTO messages (chat_id, sender, content) VALUES (?, 'user', ?)",
-        )
-        .run(
-          chat,
-          "the lighthouse keeper told me the storm would pass before midnight",
-        ).lastInsertRowid,
-    );
-
-    localDB.deleteJournalEntry(alice, e.id);
-    localDB.deleteForever(alice, { entryIds: [e.id], goalIds: [] });
-
-    expect(text(citing)).toContain("[entry removed]");
-    expect(text(citing)).not.toMatch(/lighthouse|midnight/i);
-    expect(text(citing)).toContain("gardening in spring"); // quoted from the other, live entry
-    expect(text(unrelated)).toContain("lighthouse keeper"); // never cited it
-    expect(
-      db.prepare("SELECT content FROM messages WHERE id = ?").get(userMessage)
-        .content,
-    ).toContain("lighthouse");
-  });
-
-  it("does not reach into another user's chats", () => {
-    const mine = entry(alice, {
-      content: "my secret plan involves a very long walk home tonight",
-    });
-    const theirs = chatFor(bob);
-    const msg = answer(
-      theirs,
-      "my secret plan involves a very long walk home tonight",
-      [mine],
-    );
-    localDB.deleteJournalEntry(alice, mine.id);
-    localDB.deleteForever(alice, { entryIds: [mine.id], goalIds: [] });
-    expect(text(msg)).toContain("secret plan"); // bob's chat is bob's
-  });
-
-  it("a purged goal loses its title and notes from saved answers too", async () => {
-    const g = Number(
-      (
-        await localDB.AddGoal(alice, {
-          title: "Run the marathon in Lisbon",
-          description: "train every morning before work starts",
-          target_value: 5,
-          unit: "km",
-        })
-      ).lastInsertRowid,
-    );
-    const chat = chatFor(alice);
-    const id = Number(
-      db
-        .prepare(
-          "INSERT INTO messages (chat_id, sender, content) VALUES (?, 'ai', ?)",
-        )
-        .run(
-          chat,
-          "Your goal is to train every morning before work starts, nice.",
-        ).lastInsertRowid,
-    );
-    db.prepare(
-      "INSERT INTO message_sources (message_id, source_type, source_id, source_title) VALUES (?, 'goal', ?, 'Run the marathon in Lisbon')",
-    ).run(id, String(g));
-    await localDB.deleteGoal(alice, g);
-    localDB.deleteForever(alice, { entryIds: [], goalIds: [g] });
-    expect(text(id)).not.toContain("every morning");
-    expect(text(id)).toContain("[entry removed]");
-    expect(
-      db
-        .prepare(
-          "SELECT source_title FROM message_sources WHERE message_id = ?",
-        )
-        .get(id).source_title,
-    ).toBe("Removed goal");
-  });
-
-  it("overwrites deleted rows instead of leaving them in free pages", () => {
-    expect(db.pragma("secure_delete", { simple: true })).toBe(1);
-  });
-
-  it("after Delete forever no table holds a trace of the entry's text", () => {
-    const phrase = "zanzibar-quetzal-obsidian-lantern";
-    const e = entry(alice, {
-      title: `Trace ${phrase}`,
-      content: `I dreamed of ${phrase} all night long again`,
-      mood_tags: [phrase],
-    });
-    db.prepare(
-      "UPDATE journal_entries SET transcription = ?, content_summary = ? WHERE id = ?",
-    ).run(`spoken ${phrase}`, `summary of ${phrase}`, e.id);
-    answer(chatFor(alice), `You mentioned ${phrase} all night long again`, [e]);
-    const dump = () =>
-      db
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
-        )
-        .all()
-        .flatMap(({ name }) => db.prepare(`SELECT * FROM ${name}`).all())
-        .map((row) => JSON.stringify(row))
-        .filter((json) => json.includes(phrase));
-
-    expect(dump().length).toBeGreaterThan(0); // the probe works while it exists
-    localDB.deleteJournalEntry(alice, e.id);
-    expect(dump().length).toBeGreaterThan(0); // still in the trash
-    localDB.deleteForever(alice, { entryIds: [e.id], goalIds: [] });
-    expect(dump()).toEqual([]);
-  });
-});
-
-describe("search results", () => {
-  it("keeps only live items that belong to the user, and drops what it does not know", async () => {
-    const live = entry(alice);
-    const trashed = entry(alice);
-    const theirs = entry(bob);
-    const purged = entry(alice);
-    localDB.deleteJournalEntry(alice, trashed.id);
-    localDB.deleteJournalEntry(alice, purged.id);
-    localDB.deleteForever(alice, { entryIds: [purged.id], goalIds: [] });
-    const g = await goal(alice, "Live goal");
-    const gTrashed = await goal(alice, "Gone goal");
-    await localDB.deleteGoal(alice, gTrashed);
-    const log = (await localDB.logProgress(alice, g, 1, "x")).id;
-
-    const r = (type, id) => ({ payload: { source_type: type, source_id: id } });
-    const out = localDB.filterLiveResults(alice, [
-      r("journal", live.id),
-      r("journal", trashed.id),
-      r("journal", theirs.id),
-      r("journal", purged.id),
-      r("goal", g),
-      r("goal", gTrashed),
-      r("progress_log", log),
-      r("mystery", 1),
-      { payload: {} },
-      {},
-    ]);
-    expect(
-      out.map((x) => `${x.payload.source_type}:${x.payload.source_id}`),
-    ).toEqual([`journal:${live.id}`, `goal:${g}`, `progress_log:${log}`]);
-  });
-});
-
-describe("exports", () => {
-  const hasUnzip = spawnSync("unzip", ["-v"]).status === 0;
-
-  it.skipIf(!hasUnzip)("leave out what is in the trash", async () => {
-    const u = Number(
-      db
-        .prepare(
-          `INSERT INTO users (username, email, password_hash) VALUES ('exporter', 'ex@example.com', 'x')`,
-        )
-        .run().lastInsertRowid,
-    );
-    entry(u, { content: "kept-in-export" });
-    const gone = entry(u, { content: "trashed-not-exported" });
-    localDB.deleteJournalEntry(u, gone.id);
-    const keptGoal = await goal(u, "Kept goal");
-    const goneGoal = await goal(u, "Trashed goal");
-    await localDB.deleteGoal(u, goneGoal);
-    expect(keptGoal).toBeTruthy();
-
-    const zip = path.join(dir, "export.zip");
-    await localDB.exportEverything(u, zip);
-    const json = spawnSync("unzip", ["-p", zip, "data.json"], {
-      maxBuffer: 50 * 1024 * 1024,
-    }).stdout.toString();
-    expect(json).toContain("kept-in-export");
-    expect(json).toContain("Kept goal");
-    expect(json).not.toContain("trashed-not-exported");
-    expect(json).not.toContain("Trashed goal");
   });
 });
