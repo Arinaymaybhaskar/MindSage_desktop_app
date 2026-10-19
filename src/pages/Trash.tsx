@@ -1,23 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, RotateCcw, Trash2, Target, BookOpen } from "lucide-react";
+import { ChevronLeft, RotateCcw, Target } from "lucide-react";
 import { useToast } from "../hooks/useToast";
-import { daysLeftLabel } from "../utils/trashLabels";
+import HoldButton from "../components/HoldButton";
+import {
+  deletedAgoLabel,
+  goneForGoodLabel,
+  GOING_SOON_DAYS,
+} from "../utils/trashLabels";
 import {
   trashService,
   type PurgeResult,
   type TrashContents,
   type TrashProgress,
+  type TrashSelection,
 } from "../api/trashService";
 
-type Pending = "forever" | "empty" | null;
+type Pending = { kind: "forever" | "empty"; selection: TrashSelection } | null;
 
 const key = (type: "e" | "g", id: number) => `${type}:${id}`;
 
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+const dayOfMonth = (iso: string) =>
+  String(new Date(iso).getDate()).padStart(2, "0");
+const weekday = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { weekday: "short" });
+const dayAndMonth = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
+
+const plural = (n: number, one: string, many = `${one}s`) =>
+  `${n} ${n === 1 ? one : many}`;
+
 /**
- * Deleted entries and goals, kept 30 days. Select some to restore them or
- * delete them for good, or empty the whole trash. Deleting for good asks first,
- * and says what it takes with it.
+ * Deleted entries and goals, kept 30 days. Each row can be restored or deleted
+ * for good, several can be picked at once, and the whole trash can be emptied.
+ * Deleting for good asks you to hold a button, and says what it takes with it.
  */
 export default function Trash() {
   const { showToast } = useToast();
@@ -44,7 +69,7 @@ export default function Trash() {
 
   const total = (trash?.entries.length ?? 0) + (trash?.goals.length ?? 0);
 
-  const selection = useMemo(
+  const selection = useMemo<TrashSelection>(
     () => ({
       entryIds: (trash?.entries ?? [])
         .filter((e) => selected.has(key("e", e.id)))
@@ -84,10 +109,10 @@ export default function Trash() {
     await load();
   };
 
-  const restore = async () => {
+  const restore = async (which: TrashSelection) => {
     setBusy(true);
     try {
-      const r = await trashService.restore(selection);
+      const r = await trashService.restore(which);
       await finish(`Restored ${r.entries + r.goals} item(s)`);
     } catch (err) {
       console.error(err);
@@ -96,12 +121,9 @@ export default function Trash() {
     }
   };
 
-  const purge = async (run: () => Promise<PurgeResult>) => {
+  const purge = async (run: () => Promise<PurgeResult>, items: number) => {
     setBusy(true);
-    setProgress({
-      done: 0,
-      total: pending === "empty" ? total : selectedCount,
-    });
+    setProgress({ done: 0, total: items });
     try {
       const r = await run();
       await finish(
@@ -118,60 +140,134 @@ export default function Trash() {
     }
   };
 
+  const confirmDelete = () => {
+    if (!pending) return;
+    if (pending.kind === "empty") purge(() => trashService.empty(), total);
+    else
+      purge(
+        () => trashService.deleteForever(pending.selection),
+        pending.selection.entryIds.length + pending.selection.goalIds.length,
+      );
+  };
+
+  const pendingCount = pending
+    ? pending.kind === "empty"
+      ? total
+      : pending.selection.entryIds.length + pending.selection.goalIds.length
+    : 0;
+
+  const outlined =
+    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-50";
+  const neutral = `${outlined} border-border-light dark:border-border-dark text-text-light dark:text-text-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark`;
+  const danger = `${outlined} border-danger/60 text-danger hover:bg-danger/10`;
+
+  const chip = (days: number) => (
+    <span
+      className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${
+        days <= GOING_SOON_DAYS
+          ? "bg-warning/20 text-text-light dark:text-text-dark"
+          : "bg-tertiary-light dark:bg-tertiary-dark text-text-light-sub dark:text-text-dark-sub"
+      }`}
+      data-testid="days-left"
+    >
+      {goneForGoodLabel(days)}
+    </span>
+  );
+
+  const actions = (which: TrashSelection, label: string) => (
+    <div className="flex shrink-0 items-center gap-2">
+      <button
+        onClick={() => restore(which)}
+        disabled={busy}
+        aria-label={`Restore ${label}`}
+        className={neutral}
+      >
+        <RotateCcw size={14} aria-hidden /> Restore
+      </button>
+      <button
+        onClick={() => setPending({ kind: "forever", selection: which })}
+        disabled={busy}
+        aria-label={`Delete ${label} forever`}
+        className={danger}
+      >
+        Delete forever
+      </button>
+    </div>
+  );
+
   return (
-    <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <Link
-            to="/journals"
-            aria-label="Back to journals"
-            className="p-2 rounded-full hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </Link>
-          <div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-text-light dark:text-text-dark">
-              Trash
-            </h1>
-            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
-              Deleted items are kept {trash?.retentionDays ?? 30} days, then
-              removed for good.
-            </p>
-          </div>
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
+      <Link
+        to="/journals"
+        className="inline-flex items-center gap-1 text-sm text-text-light-sub dark:text-text-dark-sub hover:text-text-light dark:hover:text-text-dark"
+      >
+        <ChevronLeft size={16} aria-hidden /> Journal
+      </Link>
+
+      <header className="mt-2 mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="font-display text-4xl font-semibold tracking-tight text-text-light dark:text-text-dark">
+            Trash
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm text-text-light-sub dark:text-text-dark-sub">
+            Deleted entries and goals wait here for {trash?.retentionDays ?? 30}{" "}
+            days, with their photos and voice notes, then they&apos;re gone for
+            good. Entries in Trash don&apos;t appear in Search or Ask.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={selectAll}
-            disabled={busy || total === 0}
-            className="px-3 py-2 text-sm font-medium rounded-lg border border-border-light dark:border-border-dark hover:bg-tertiary-light dark:hover:bg-tertiary-dark disabled:opacity-50"
-          >
-            {selectedCount === total && total > 0
-              ? "Clear selection"
-              : "Select all"}
-          </button>
-          <button
-            onClick={restore}
-            disabled={busy || selectedCount === 0}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-light1 dark:bg-dark1 text-white disabled:opacity-50"
-          >
-            <RotateCcw size={16} /> Restore
-          </button>
-          <button
-            onClick={() => setPending("forever")}
-            disabled={busy || selectedCount === 0}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-danger text-white disabled:opacity-50"
-          >
-            <Trash2 size={16} /> Delete forever
-          </button>
-          <button
-            onClick={() => setPending("empty")}
-            disabled={busy || total === 0}
-            className="px-3 py-2 text-sm font-semibold rounded-lg text-danger border border-danger/40 hover:bg-danger/10 disabled:opacity-50"
-          >
-            Empty trash
-          </button>
-        </div>
+        <button
+          onClick={() =>
+            setPending({
+              kind: "empty",
+              selection: { entryIds: [], goalIds: [] },
+            })
+          }
+          disabled={busy || total === 0}
+          className={danger}
+        >
+          Empty trash…
+        </button>
       </header>
+
+      {total > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
+          <label className="inline-flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub">
+            <input
+              type="checkbox"
+              checked={selectedCount === total}
+              onChange={selectAll}
+              disabled={busy}
+            />
+            Select all
+          </label>
+          {selectedCount > 0 && (
+            <>
+              <span
+                className="text-text-light dark:text-text-dark"
+                role="status"
+              >
+                {selectedCount} selected
+              </span>
+              <button
+                onClick={() => restore(selection)}
+                disabled={busy}
+                className={neutral}
+              >
+                <RotateCcw size={14} aria-hidden /> Restore selected
+              </button>
+              <button
+                onClick={() =>
+                  setPending({ kind: "forever", selection: { ...selection } })
+                }
+                disabled={busy}
+                className={danger}
+              >
+                Delete selected forever
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {pending && (
         <div
@@ -180,33 +276,33 @@ export default function Trash() {
           className="mb-6 rounded-xl border border-danger/40 bg-danger/5 p-4"
         >
           <p className="text-sm text-text-light dark:text-text-dark">
-            {pending === "empty"
+            {pending.kind === "empty"
               ? `Delete all ${total} item(s) in the trash for good?`
-              : `Delete the ${selectedCount} selected item(s) for good?`}{" "}
+              : `Delete ${plural(pendingCount, "item")} for good?`}{" "}
             Their text, photos and recordings are removed from MindSage and from
             search. This cannot be undone. Backups made earlier still hold them.
           </p>
-          <div className="mt-3 flex gap-2">
-            <button
-              onClick={() =>
-                purge(() =>
-                  pending === "empty"
-                    ? trashService.empty()
-                    : trashService.deleteForever(selection),
-                )
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <HoldButton
+              label={
+                pending.kind === "empty"
+                  ? "Hold to empty trash"
+                  : "Hold to delete forever"
               }
+              holdingLabel="Keep holding…"
+              onComplete={confirmDelete}
               disabled={busy}
-              className="px-4 py-2 text-sm font-semibold rounded-lg bg-danger text-white disabled:opacity-50"
-            >
-              {pending === "empty" ? "Empty trash" : "Delete forever"}
-            </button>
+            />
             <button
               onClick={() => setPending(null)}
               disabled={busy}
-              className="px-4 py-2 text-sm font-medium rounded-lg border border-border-light dark:border-border-dark"
+              className={neutral}
             >
               Cancel
             </button>
+            <span className="text-xs text-text-light-sub dark:text-text-dark-sub">
+              Hold for a moment. Enter works too.
+            </span>
           </div>
         </div>
       )}
@@ -226,70 +322,110 @@ export default function Trash() {
       )}
 
       {trash && total === 0 ? (
-        <div className="text-center py-24 text-text-light-sub dark:text-text-dark-sub">
-          <Trash2 className="mx-auto mb-3" size={32} />
+        <div className="py-24 text-center text-text-light-sub dark:text-text-dark-sub">
           <p className="font-medium">The trash is empty</p>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {trash?.entries.map((e) => (
-            <li key={key("e", e.id)}>
-              <label className="flex items-start gap-3 p-4 rounded-xl border border-border-light dark:border-border-dark bg-secondary-light dark:bg-secondary-dark cursor-pointer">
+        <ul className="space-y-3">
+          {trash?.entries.map((e) => {
+            const name = e.title || `Untitled · ${dayAndMonth(e.created_at)}`;
+            const extras = [
+              e.has_image ? "1 photo" : null,
+              e.has_audio ? "1 voice note" : null,
+            ].filter(Boolean);
+            return (
+              <li
+                key={key("e", e.id)}
+                className="flex flex-wrap items-center gap-4 rounded-2xl border border-border-light dark:border-border-dark bg-secondary-light dark:bg-secondary-dark p-4"
+              >
                 <input
                   type="checkbox"
                   checked={selected.has(key("e", e.id))}
                   onChange={() => toggle(key("e", e.id))}
                   aria-label={`Select ${e.title || "untitled entry"}`}
-                  className="mt-1"
                 />
-                <BookOpen size={18} className="mt-0.5 shrink-0" aria-hidden />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium truncate text-text-light dark:text-text-dark">
-                    {e.title || "Untitled entry"}
-                  </span>
-                  <span className="block text-sm truncate text-text-light-sub dark:text-text-dark-sub">
-                    {e.preview}
-                  </span>
-                </span>
-                <span
-                  className="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-tertiary-light dark:bg-tertiary-dark"
-                  data-testid="days-left"
+                <div
+                  className="w-12 shrink-0 text-center leading-tight"
+                  aria-hidden
                 >
-                  {daysLeftLabel(e.days_left)}
-                </span>
-              </label>
-            </li>
-          ))}
+                  <div className="font-display text-2xl text-text-light dark:text-text-dark">
+                    {dayOfMonth(e.created_at)}
+                  </div>
+                  <div className="text-xs text-text-light-sub dark:text-text-dark-sub">
+                    {weekday(e.created_at)}
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 basis-64">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-text-light dark:text-text-dark">
+                      {name}
+                    </span>
+                    {chip(e.days_left)}
+                  </div>
+                  <p className="mt-0.5 truncate font-display text-[15px] text-text-light-sub dark:text-text-dark-sub">
+                    {e.preview}
+                  </p>
+                  <p className="mt-0.5 text-xs text-text-light-sub dark:text-text-dark-sub">
+                    {[
+                      shortDate(e.created_at),
+                      deletedAgoLabel(e.deleted_at),
+                      ...extras,
+                    ].join(" · ")}
+                  </p>
+                </div>
+                {actions({ entryIds: [e.id], goalIds: [] }, name)}
+              </li>
+            );
+          })}
           {trash?.goals.map((g) => (
-            <li key={key("g", g.id)}>
-              <label className="flex items-start gap-3 p-4 rounded-xl border border-border-light dark:border-border-dark bg-secondary-light dark:bg-secondary-dark cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selected.has(key("g", g.id))}
-                  onChange={() => toggle(key("g", g.id))}
-                  aria-label={`Select goal ${g.title}`}
-                  className="mt-1"
-                />
-                <Target size={18} className="mt-0.5 shrink-0" aria-hidden />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium truncate text-text-light dark:text-text-dark">
+            <li
+              key={key("g", g.id)}
+              className="flex flex-wrap items-center gap-4 rounded-2xl border border-border-light dark:border-border-dark bg-secondary-light dark:bg-secondary-dark p-4"
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(key("g", g.id))}
+                onChange={() => toggle(key("g", g.id))}
+                aria-label={`Select goal ${g.title}`}
+              />
+              <div
+                className="flex w-12 shrink-0 justify-center text-text-light-sub dark:text-text-dark-sub"
+                aria-hidden
+              >
+                <Target size={24} />
+              </div>
+              <div className="min-w-0 flex-1 basis-64">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-text-light dark:text-text-dark">
                     {g.title}
                   </span>
-                  <span className="block text-sm text-text-light-sub dark:text-text-dark-sub">
-                    Goal · {g.current_value} of {g.target_value} {g.unit}
-                  </span>
-                </span>
-                <span
-                  className="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-tertiary-light dark:bg-tertiary-dark"
-                  data-testid="days-left"
-                >
-                  {daysLeftLabel(g.days_left)}
-                </span>
-              </label>
+                  {chip(g.days_left)}
+                </div>
+                <p className="mt-0.5 truncate font-display text-[15px] text-text-light-sub dark:text-text-dark-sub">
+                  {g.description ||
+                    `${g.current_value} of ${g.target_value} ${g.unit}`}
+                </p>
+                <p className="mt-0.5 text-xs text-text-light-sub dark:text-text-dark-sub">
+                  {[
+                    "Goal",
+                    deletedAgoLabel(g.deleted_at),
+                    g.log_count > 0 ? plural(g.log_count, "check-in") : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              {actions({ entryIds: [], goalIds: [g.id] }, g.title)}
             </li>
           ))}
         </ul>
       )}
+
+      <p className="mt-6 max-w-3xl text-xs text-text-light-sub dark:text-text-dark-sub">
+        Delete forever and Empty trash can&apos;t be undone, so they ask you to
+        hold for a moment. Enter works too. Deleting forever also clears the
+        entry from the search index on this PC.
+      </p>
     </main>
   );
 }

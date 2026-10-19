@@ -24,6 +24,8 @@ export interface TrashedGoal {
   created_at: string;
   deleted_at: string;
   days_left: number;
+  /** Progress check-ins that go with it. */
+  log_count: number;
 }
 
 export interface TrashContents {
