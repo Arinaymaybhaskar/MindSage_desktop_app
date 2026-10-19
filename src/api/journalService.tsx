@@ -15,8 +15,8 @@ export interface JournalEntry {
   transcription?: string;
   content_summary?: string;
   tags?: string[];
-  synced_to_qdrant?:
-    "not_synced" | "pending" | "in_progress" | "success" | "failed";
+  /** Place in the search index; null when the entry has no vector yet. */
+  index_state?: "ok" | "pending" | "failed" | null;
   ai_metadata_status?: "not_started" | "pending" | "completed" | "failed";
   ai_summary_status?:
     "not_started" | "pending" | "completed" | "failed" | "skipped";

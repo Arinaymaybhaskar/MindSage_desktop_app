@@ -8,8 +8,6 @@ export interface ProgressLog {
   value: number;
   description?: string;
   logged_at: string;
-  synced_to_qdrant?: string;
-  qdrant_id?: string | null;
 }
 
 export interface Goal {

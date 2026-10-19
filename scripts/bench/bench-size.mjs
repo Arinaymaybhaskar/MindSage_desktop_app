@@ -120,7 +120,6 @@ for (const [label, rel] of Object.entries({
   "media/journals": path.join("media", "journals"),
   "media/thumbs": path.join("media", "thumbs"),
   "media/profile": path.join("media", "profile"),
-  "qdrant storage": "qdrant",
 })) {
   const full = path.join(userDataDir, rel);
   if (!fs.existsSync(full)) {

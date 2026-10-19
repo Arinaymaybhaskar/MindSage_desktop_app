@@ -20,8 +20,8 @@ const ollama = {
 };
 vi.mock("./ollama.js", () => ollama);
 
-const SemanticSearch = vi.fn();
-vi.mock("./qdrant.js", () => ({ SemanticSearch }));
+const semanticSearch = vi.fn();
+vi.mock("./search.js", () => ({ semanticSearch }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 
 const { handleUserMessage } = await import("./chat.js");
@@ -48,7 +48,9 @@ beforeEach(() => {
 
 describe("Ask when the search index is unavailable", () => {
   it("returns the plain unavailable message instead of the generic model failure", async () => {
-    SemanticSearch.mockRejectedValue(new IndexUnavailableError());
+    semanticSearch.mockImplementation(() => {
+      throw new IndexUnavailableError();
+    });
     const { event, sent } = streamEvent();
 
     const result = await handleUserMessage(
@@ -85,7 +87,9 @@ describe("Ask when the search index is unavailable", () => {
   });
 
   it("keeps the old behaviour for any other search failure", async () => {
-    SemanticSearch.mockRejectedValue(new Error("connection reset"));
+    semanticSearch.mockImplementation(() => {
+      throw new Error("connection reset");
+    });
     const { event, sent } = streamEvent();
 
     const result = await handleUserMessage(

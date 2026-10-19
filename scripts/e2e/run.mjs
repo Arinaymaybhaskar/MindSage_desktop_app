@@ -6,7 +6,6 @@
 // Needs, for the AI and search steps (all of them in CI, see ci.yml):
 //   - Ollama running with the embedding model (nomic-embed-text:v1.5) and a
 //     small chat model named in E2E_CHAT_MODEL (default llama3.2:1b)
-//   - the Qdrant binary the app ships in resources/ (Windows build)
 // E2E_SKIP_AI=1 stops after the entry is saved and says so loudly: it proves
 // launch, sign-up, sign-in and writing, and nothing about AI or search.
 //

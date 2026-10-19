@@ -7,14 +7,6 @@ import { describe, expect, it } from "vitest";
 // files still use console, each for a stated reason, and the list must only
 // shrink.
 const STILL_CONSOLE = [
-  // Deleted with the Qdrant index (KAN-192).
-  "qdrantWorker.js",
-  path.join("methods", "qdrant.js"),
-  path.join("services", "qdrantManager.js"),
-  // Also loaded by the worker thread, which has no access to log.js without
-  // adding it to the viteStaticCopy targets; its console output is captured
-  // in the main process anyway.
-  path.join("db", "connection.js"),
   // A sandboxed preload may import only "electron".
   "preload.js",
   "splashPreload.js",

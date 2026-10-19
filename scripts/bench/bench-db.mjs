@@ -176,8 +176,8 @@ try {
  * Measures what the background worker does to foreground reads.
  *
  * This is the scenario PERFORMANCE.md §1.1 describes and the one a user
- * actually feels: electron/qdrantWorker.js opens the same database file from a
- * second thread and writes embedding/sync status while the UI is reading. In
+ * actually feels: a second thread opens the same database file and writes
+ * index status while the UI is reading (the old Qdrant worker did exactly this). In
  * the default `delete` journal mode a writer takes an exclusive lock, so reads
  * queue behind it and simultaneous access can throw SQLITE_BUSY outright. A
  * single-threaded benchmark would never surface any of that.

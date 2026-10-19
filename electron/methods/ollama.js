@@ -12,7 +12,7 @@ import {
   respondWithoutContext,
 } from "./AIPrompts.js";
 import { modelStore } from "../store.js";
-import { SemanticSearch } from "./qdrant.js";
+import { semanticSearch } from "./search.js";
 import { currentUserId } from "../session.js";
 import z from "zod";
 import { db } from "../db/connection.js";
@@ -446,27 +446,17 @@ eventBus.on(
         // Use original user content
         log.debug("requires context");
         const vector = await generateEmbedding(content);
-        semanticResult = await SemanticSearch(
-          vector,
-          userId,
-          5,
-          "mind_entries",
-        );
+        semanticResult = semanticSearch(vector, userId, 5);
       } else if (propsRes.requires_time_filter) {
         log.debug("requires context with time filter");
         // Use base_query and time filter
         const vector = await generateEmbedding(propsRes.base_query);
-        semanticResult = await SemanticSearch(
-          vector,
-          userId,
-          5,
-          "mind_entries",
-          undefined,
-          {
+        semanticResult = semanticSearch(vector, userId, 5, {
+          range: {
             from: propsRes.time_filter_from,
             to: propsRes.time_filter_to,
           },
-        );
+        });
       }
 
       let mainPrompt;

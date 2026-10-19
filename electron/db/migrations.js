@@ -479,6 +479,66 @@ export const MIGRATIONS = [
         ON message_sources(source_type, source_id);
     `),
   },
+  {
+    // The search index (KAN-192). The vectors live in a sqlite-vec table made
+    // at startup (vectorExtension.js, so a machine that cannot load the
+    // extension still migrates); this table says what is indexed, what
+    // is waiting and what failed, and its id is the vector's rowid.
+    //
+    // attempts / next_attempt_at are the bounded backfill's memory (KAN-88):
+    // a row that fails waits 1 min, 5 min, 30 min, 2 h, then 12 h; after
+    // five failed attempts it waits until its content changes.
+    version: 7,
+    name: "search-index",
+    up: (d) =>
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS search_index (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          source_type TEXT NOT NULL
+            CHECK(source_type IN ('journal', 'goal', 'progress_log')),
+          source_id INTEGER NOT NULL,
+          content_hash TEXT,
+          state TEXT NOT NULL DEFAULT 'pending'
+            CHECK(state IN ('pending', 'ok', 'failed')),
+          attempts INTEGER NOT NULL DEFAULT 0,
+          next_attempt_at INTEGER,
+          last_error TEXT,
+          indexed_at TEXT,
+          UNIQUE(source_type, source_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_search_index_work
+          ON search_index(state, next_attempt_at);
+        CREATE INDEX IF NOT EXISTS idx_search_index_user
+          ON search_index(user_id);
+      `),
+  },
+  {
+    // Qdrant is gone (KAN-192). Its bookkeeping goes with it: the queue of
+    // points to delete (a purge now removes vectors in its own transaction)
+    // and the per-row sync state, which search_index replaced. The two
+    // indexes on that state must be dropped before their columns.
+    version: 8,
+    name: "drop-qdrant-state",
+    up: (d) => {
+      d.exec(`
+        DROP TABLE IF EXISTS vector_deletions;
+        DROP INDEX IF EXISTS idx_goals_synced_to_qdrant;
+        DROP INDEX IF EXISTS idx_progress_logs_synced_to_qdrant;
+      `);
+      for (const table of ["journal_entries", "goals", "progress_logs"]) {
+        const columns = d
+          .prepare(`PRAGMA table_info(${table})`)
+          .all()
+          .map((c) => c.name);
+        for (const column of ["synced_to_qdrant", "qdrant_id"]) {
+          if (columns.includes(column)) {
+            d.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+          }
+        }
+      }
+    },
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

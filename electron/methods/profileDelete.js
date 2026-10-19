@@ -3,7 +3,6 @@ import path from "node:path";
 import { app } from "electron";
 import localDB from "../db/index.js";
 import { journalMediaDir } from "../mediaPaths.js";
-import { processVectorDeletions } from "./qdrant.js";
 import { pendingFileCount, removeFiles } from "./trash.js";
 import { log } from "../log.js";
 
@@ -71,16 +70,6 @@ export async function deleteProfileEverything(userId, { afterRows } = {}) {
       log.error("Could not delete the database backups:", err?.message ?? err);
     }
   }
-  // The queue is durable, so a slow or stuck index only delays the cleanup.
-  const index = await Promise.race([
-    processVectorDeletions(),
-    new Promise((resolve) =>
-      setTimeout(
-        () => resolve({ pending: removed.entryIds.length || 1 }),
-        8000,
-      ),
-    ),
-  ]);
   return {
     entries: removed.entryIds.length,
     filesRemoved,
@@ -88,6 +77,6 @@ export async function deleteProfileEverything(userId, { afterRows } = {}) {
     backupsRemoved,
     backupsReplaced,
     filesPending: pendingFileCount(),
-    searchCleanupPending: index.pending,
+    searchCleanupPending: 0,
   };
 }

@@ -75,27 +75,12 @@
       "output": "release"
     },
     "mac": {
-      "target": "dmg",
-      "extraResources": [
-        {
-          "from": "resources/mac/",
-          "to": "mac"
-        }
-      ]
+      "target": "dmg"
     },
     "win": {
       "target": "nsis",
       "icon": "assets/icon2.ico",
       "extraResources": [
-        {
-          "from": "resources/win/",
-          "to": "win",
-          "filter": [
-            "**/*",
-            "!.qdrant-initialized",
-            "!snapshots/**"
-          ]
-        },
         {
           "from": "resources/whisper-bin-x64/",
           "to": "whisper-bin-x64"
@@ -113,11 +98,13 @@
     "linux": {
       "target": "AppImage",
       "icon": "assets/icon2.png"
-    }
+    },
+    "asarUnpack": [
+      "node_modules/sqlite-vec-*/**"
+    ]
   },
   "dependencies": {
     "@google/genai": "^1.10.0",
-    "@qdrant/js-client-rest": "^1.15.1",
     "axios": "^1.10.0",
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^12.2.0",
@@ -133,7 +120,6 @@
     "fflate": "^0.8.3",
     "ffmpeg-static": "^5.2.0",
     "framer-motion": "^12.23.12",
-    "get-port": "^7.1.0",
     "google-auth-library": "^10.1.0",
     "gsap": "^3.13.0",
     "lottie-react": "^2.4.1",
@@ -149,6 +135,7 @@
     "recharts": "^3.0.2",
     "sentiment": "^5.0.2",
     "simple-icons": "^16.34.0",
+    "sqlite-vec": "0.1.9",
     "strip-ansi": "^7.1.0",
     "uuid": "^11.1.0",
     "zip-a-folder": "^3.1.9",
@@ -189,7 +176,6 @@
     "vite": "^7.0.4",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6",
-    "vite-plugin-static-copy": "^3.1.2",
     "vitest": "^4.1.10"
   }
 }

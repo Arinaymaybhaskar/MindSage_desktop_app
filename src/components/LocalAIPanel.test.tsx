@@ -30,8 +30,8 @@ vi.mock("../api/journalService", () => ({
     retryAIMetadata: (...args: unknown[]) => retryAIMetadata(...args),
   },
 }));
-vi.mock("../api/qDrantService", () => ({
-  qdrantService: { syncJournal: vi.fn().mockResolvedValue({ success: true }) },
+vi.mock("../api/searchService", () => ({
+  searchService: { syncItem: vi.fn().mockResolvedValue({ success: true }) },
 }));
 
 interface AIStatusPayload {
@@ -176,8 +176,8 @@ describe("LocalAIPanel", () => {
   });
 
   it("collapses a bulk re-index into one row with progress", async () => {
-    send("qdrant:bulkStarted", { kind: "journals", total: 40 });
-    send("qdrant:bulkProgress", { kind: "journals", done: 12, total: 40 });
+    send("index:bulkStarted", { kind: "journals", total: 40 });
+    send("index:bulkProgress", { kind: "journals", done: 12, total: 40 });
     expect(pill()).toHaveTextContent("Indexing 12/40");
 
     const panel = await openPanel();
