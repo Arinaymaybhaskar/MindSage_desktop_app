@@ -1,0 +1,193 @@
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import DeleteProfileDialog from "./DeleteProfileDialog";
+import { deleteProfileDialog } from "../utils/deleteProfileDialog";
+
+const summary = {
+  entries: 3,
+  trashedEntries: 1,
+  goals: 2,
+  trashedGoals: 0,
+  photos: 4,
+  recordings: 1,
+  chats: 2,
+  otherProfiles: 1,
+  mediaBytes: 0,
+};
+const deleteSummary = vi.fn();
+const deleteAccount = vi.fn();
+vi.mock("../api/userService", () => ({
+  userService: {
+    deleteSummary: (...a: unknown[]) => deleteSummary(...a),
+    deleteAccount: (...a: unknown[]) => deleteAccount(...a),
+  },
+}));
+const logout = vi.fn();
+vi.mock("../hooks/useAuth", () => ({ useAuth: () => ({ logout }) }));
+
+const renderDialog = () =>
+  render(
+    <MemoryRouter>
+      <DeleteProfileDialog />
+    </MemoryRouter>,
+  );
+
+const open = async (backupPath: string | null = null) => {
+  renderDialog();
+  act(() => deleteProfileDialog.open("Meera", backupPath));
+  await screen.findByText(/The journal:/);
+};
+
+const hold = async (button: HTMLElement, ms = 1600) => {
+  vi.useFakeTimers();
+  fireEvent.pointerDown(button);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+  vi.useRealTimers();
+};
+
+const typePassword = (value: string) =>
+  fireEvent.change(screen.getByLabelText(/password to confirm/i), {
+    target: { value },
+  });
+
+describe("DeleteProfileDialog", () => {
+  beforeEach(() => {
+    deleteSummary.mockResolvedValue(summary);
+    deleteAccount.mockReset();
+    logout.mockReset();
+  });
+  afterEach(() => {
+    cleanup();
+    act(() => deleteProfileDialog.close());
+  });
+
+  it("renders nothing until it is opened", () => {
+    renderDialog();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("lists what goes and what stays, by name", async () => {
+    await open("C:/Docs/backup.mindsage");
+    expect(
+      screen.getByRole("heading", { name: "Delete Meera's profile?" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /The journal: 4 entries, 4 photos, 1 voice note and 2 Ask conversations/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/2 goals and their progress/)).toBeInTheDocument();
+    expect(
+      screen.getByText("The media folder and the search index"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Exports and backups you saved elsewhere, like C:\/Docs/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Recovery tools can sometimes/)).toBeTruthy();
+  });
+
+  it("keeps the safety copies and says why when other profiles exist", async () => {
+    await open();
+    expect(
+      screen.getByText(/also protect the other profiles on this PC/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/this is the last profile here/)).toBeNull();
+  });
+
+  it("lists the safety copies as removed for the last profile", async () => {
+    deleteSummary.mockResolvedValue({ ...summary, otherProfiles: 0 });
+    await open();
+    expect(screen.getByText(/this is the last profile here/)).toBeTruthy();
+  });
+
+  it("Hold to delete is off until the password is typed", async () => {
+    await open();
+    const holdButton = screen.getByRole("button", { name: /hold to delete/i });
+    expect(holdButton).toBeDisabled();
+    typePassword("secret");
+    expect(holdButton).toBeEnabled();
+  });
+
+  it("a plain click or a short hold deletes nothing", async () => {
+    await open();
+    typePassword("secret");
+    const holdButton = screen.getByRole("button", { name: /hold to delete/i });
+    fireEvent.click(holdButton);
+    await hold(holdButton, 800);
+    expect(deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it("deletes after the hold, sending the password, and shows the done screen", async () => {
+    deleteAccount.mockResolvedValue({
+      lastProfile: false,
+      backupsRemoved: false,
+    });
+    await open();
+    typePassword("secret");
+    await hold(screen.getByRole("button", { name: /hold to delete/i }));
+    expect(deleteAccount).toHaveBeenCalledWith({ password: "secret" });
+    expect(
+      await screen.findByText("Your profile was deleted"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/safety copies stay/)).toBeInTheDocument();
+  });
+
+  it("a wrong password stays in the dialog with the message and clears the field", async () => {
+    deleteAccount.mockRejectedValue(
+      new Error(
+        "Error invoking remote method 'user:delete-account': Error: Incorrect password. 4 attempts left.",
+      ),
+    );
+    await open();
+    typePassword("nope");
+    await hold(screen.getByRole("button", { name: /hold to delete/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Incorrect password. 4 attempts left.",
+    );
+    expect(screen.getByLabelText(/password to confirm/i)).toHaveValue("");
+    expect(screen.queryByText("Your profile was deleted")).toBeNull();
+  });
+
+  it("Keep my profile and Escape close it without deleting", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Keep my profile" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    act(() => deleteProfileDialog.open("Meera"));
+    await screen.findByText(/The journal:/);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it("the done screen stays up and Choose a profile signs out", async () => {
+    deleteAccount.mockResolvedValue({
+      lastProfile: false,
+      backupsRemoved: false,
+    });
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, reload },
+      configurable: true,
+    });
+    await open();
+    typePassword("secret");
+    await hold(screen.getByRole("button", { name: /hold to delete/i }));
+    const done = await screen.findByRole("status");
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(within(done).getByText("Your profile was deleted")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Choose a profile" }));
+    expect(logout).toHaveBeenCalled();
+  });
+});
