@@ -499,3 +499,93 @@ describe("the 30-day purge", () => {
     expect(files).toContain("/media/old.jpg");
   });
 });
+
+describe("deleting for good while the search extension cannot load (KAN-368)", () => {
+  let vectorSupport;
+  beforeAll(async () => {
+    ({ vectorSupport } = await import("./connection.js"));
+  });
+  const vectorIds = () =>
+    db
+      .prepare("SELECT rowid AS id FROM vec_entries")
+      .all()
+      .map((r) => Number(r.id));
+  /** Runs fn the way a process that could not load sqlite-vec would. */
+  const withoutExtension = (fn) => {
+    vectorSupport.ok = false;
+    try {
+      return fn();
+    } finally {
+      vectorSupport.ok = true;
+    }
+  };
+  const nextStart = () => localDB.initDatabase();
+
+  it("the vector left behind is removed at the next start that loads the extension", () => {
+    const e = entry(alice, { content: "purged while search was off" });
+    indexItem("journal", e.id);
+    const rowid = idx.getState("journal", e.id).id;
+    localDB.deleteJournalEntry(alice, e.id);
+
+    withoutExtension(() =>
+      localDB.deleteForever(alice, { entryIds: [e.id], goalIds: [] }),
+    );
+    expect(idx.getState("journal", e.id)).toBeNull();
+    // vec_entries could not be touched in that process.
+    expect(vectorIds()).toContain(rowid);
+
+    nextStart();
+    expect(vectorIds()).not.toContain(rowid);
+  });
+
+  it("an item given the purged item's id never inherits its vector", () => {
+    const old = entry(alice, { content: "old private words" });
+    indexItem("journal", old.id, 300);
+    const rowid = idx.getState("journal", old.id).id;
+    localDB.deleteJournalEntry(alice, old.id);
+
+    const fresh = withoutExtension(() => {
+      localDB.deleteForever(alice, { entryIds: [old.id], goalIds: [] });
+      const e = entry(alice, { content: "new words" });
+      idx.markStale("journal", e.id, alice); // what journal:created does
+      return e;
+    });
+    // SQLite hands the freed id on, so the danger is real.
+    expect(idx.getState("journal", fresh.id).id).toBe(rowid);
+
+    const hitsFor = (n) =>
+      idx
+        .searchSimilar(alice, unitVec(n), 10, { threshold: 0.99 })
+        .map((h) => h.payload.source_id);
+    // Even before the sweep, the old vector does not find the new entry.
+    expect(hitsFor(300)).not.toContain(fresh.id);
+
+    nextStart();
+    expect(vectorIds()).not.toContain(rowid);
+    expect(idx.getState("journal", fresh.id)).toMatchObject({
+      state: "pending",
+    });
+
+    // The new entry gets its own vector, and only that one finds it.
+    indexItem("journal", fresh.id, 301);
+    expect(hitsFor(301)).toContain(fresh.id);
+    expect(hitsFor(300)).not.toContain(fresh.id);
+  });
+
+  it("a goal purged without the extension loses its own and its logs' vectors", async () => {
+    const g = await goal(alice, "Swim");
+    const logId = (await localDB.logProgress(alice, g, 1, "lap")).id;
+    indexItem("goal", g, 910);
+    indexItem("progress_log", logId, 911);
+    const rowids = [
+      idx.getState("goal", g).id,
+      idx.getState("progress_log", logId).id,
+    ];
+    await localDB.deleteGoal(alice, g);
+    withoutExtension(() =>
+      localDB.deleteForever(alice, { entryIds: [], goalIds: [g] }),
+    );
+    nextStart();
+    for (const id of rowids) expect(vectorIds()).not.toContain(id);
+  });
+});
