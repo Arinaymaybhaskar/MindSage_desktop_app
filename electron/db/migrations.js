@@ -479,6 +479,40 @@ export const MIGRATIONS = [
         ON message_sources(source_type, source_id);
     `),
   },
+  {
+    // The search index (KAN-192). The vectors live in a sqlite-vec table made
+    // at startup (vectorExtension.js, so a machine that cannot load the
+    // extension still migrates); this table says what is indexed, what
+    // is waiting and what failed, and its id is the vector's rowid.
+    //
+    // attempts / next_attempt_at are the bounded backfill's memory (KAN-88):
+    // a row that fails waits 1 min, 5 min, 30 min, 2 h, then 12 h; after
+    // five failed attempts it waits until its content changes.
+    version: 7,
+    name: "search-index",
+    up: (d) =>
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS search_index (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          source_type TEXT NOT NULL
+            CHECK(source_type IN ('journal', 'goal', 'progress_log')),
+          source_id INTEGER NOT NULL,
+          content_hash TEXT,
+          state TEXT NOT NULL DEFAULT 'pending'
+            CHECK(state IN ('pending', 'ok', 'failed')),
+          attempts INTEGER NOT NULL DEFAULT 0,
+          next_attempt_at INTEGER,
+          last_error TEXT,
+          indexed_at TEXT,
+          UNIQUE(source_type, source_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_search_index_work
+          ON search_index(state, next_attempt_at);
+        CREATE INDEX IF NOT EXISTS idx_search_index_user
+          ON search_index(user_id);
+      `),
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
