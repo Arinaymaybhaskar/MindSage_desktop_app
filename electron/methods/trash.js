@@ -129,7 +129,6 @@ export async function purge(
   }
   return {
     ...result,
-    searchCleanupPending: 0,
     filesPending: pendingFileCount(),
   };
 }

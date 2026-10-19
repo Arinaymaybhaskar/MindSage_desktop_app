@@ -37,7 +37,6 @@ export interface DeleteProfileResult {
   backupsReplaced: boolean;
   /** Files another program was holding open; retried on the next start. */
   filesPending: number;
-  searchCleanupPending: number;
 }
 
 export const userService = {

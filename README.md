@@ -190,7 +190,7 @@ Three layers, with a strict boundary between them.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/diagrams/architecture-dark.svg">
-  <img alt="MindSage architecture: the React renderer reaches the Electron main process only through preload's contextBridge; the main process owns SQLite, Ollama and whisper.cpp, and emits onto an event bus that dispatches embedding work to a Qdrant worker thread" src="./assets/diagrams/architecture.svg" width="100%">
+  <img alt="MindSage architecture: the React renderer reaches the Electron main process only through preload's contextBridge; the main process owns SQLite, Ollama and whisper.cpp, and emits onto an event bus that dispatches embedding work to the search indexer, which stores vectors in the same SQLite file" src="./assets/diagrams/architecture.svg" width="100%">
 </picture>
 
 **Request flow.** A UI component calls a service wrapper in `src/api/`, which invokes an IPC channel. [electron/ipcHandlers.js](electron/ipcHandlers.js) routes the channel to a handler in `electron/methods/`, which holds the business logic and reads or writes through `electron/db/`. The renderer never imports a Node API directly, which keeps the security boundary real rather than nominal.
@@ -230,7 +230,7 @@ They are collapsed below only to keep this page scannable. **Open any of them.**
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/diagrams/delete-journal-dark.svg">
-  <img alt="Flowchart of journal deletion: read the row for media paths, delete the files from disk, delete the row from SQLite, then delete the point from Qdrant" src="./assets/diagrams/delete-journal.svg" width="100%">
+  <img alt="Flowchart of journal deletion: mark the row as deleted so it leaves lists and search, then after 30 days or Delete forever remove the row, its search vector and its media in one purge" src="./assets/diagrams/delete-journal.svg" width="100%">
 </picture>
 
 </details>
@@ -258,7 +258,7 @@ WebM from the browser's MediaRecorder is not something whisper.cpp can read, so 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/diagrams/semantic-search-dark.svg">
-  <img alt="Flowchart of global search: keyword matching over SQLite and semantic search through Ollama embeddings and a Qdrant nearest-neighbour lookup, with results hydrated from SQLite and merged" src="./assets/diagrams/semantic-search.svg" width="100%">
+  <img alt="Flowchart of global search: keyword matching over SQLite and semantic search through Ollama embeddings and a sqlite-vec nearest-neighbour lookup, with results read back from the SQLite tables and merged" src="./assets/diagrams/semantic-search.svg" width="100%">
 </picture>
 
 **Retrieval-augmented chat.** Two sequential model calls. The first classifies the query and decides whether retrieval is needed; only the second one streams, which is why the interface reports a thinking and searching phase before any text appears.
@@ -307,7 +307,7 @@ WebM from the browser's MediaRecorder is not something whisper.cpp can read, so 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/diagrams/ollama-setup-dark.svg">
-  <img alt="Flowchart of first-run provisioning: detect Ollama, install it silently on Windows or guide the user elsewhere, poll for the service, pull the embedding model, then start the bundled Qdrant binary before revealing the window" src="./assets/diagrams/ollama-setup.svg" width="100%">
+  <img alt="Flowchart of first-run provisioning: detect Ollama, install it silently on Windows or guide the user elsewhere, poll for the service, pull the embedding model, then start the search indexer before revealing the window" src="./assets/diagrams/ollama-setup.svg" width="100%">
 </picture>
 
 </details>
@@ -489,7 +489,7 @@ MindSage is proprietary software. The source is public so it can be read and rev
 
 <div align="center">
 
-**MindSage** · offline AI journaling · local LLM · private journal app · Electron desktop app · semantic search · retrieval-augmented generation · speech to text · Ollama · Qdrant · whisper.cpp · SQLite
+**MindSage** · offline AI journaling · local LLM · private journal app · Electron desktop app · semantic search · retrieval-augmented generation · speech to text · Ollama · sqlite-vec · whisper.cpp · SQLite
 
 MindSage does not track its users. It helps them track themselves.
 

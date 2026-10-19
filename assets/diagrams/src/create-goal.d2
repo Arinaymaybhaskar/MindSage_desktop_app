@@ -61,11 +61,11 @@ sqlite: "SQLite\ngoals · categories" {
   style.stroke-width: 2
 }
 
-sync: "syncGoalToQdrant\nembed and index the goal" {
+sync: "goal:created event\nindexer embeds the goal" {
   style.stroke-width: 2
 }
 
-qdrant: "Qdrant\nvector index" {
+index: "vec_entries\nsame database file" {
   shape: cylinder
   style.stroke-width: 2
 }
@@ -86,4 +86,4 @@ review -> save
 manual -> save
 save -> sqlite: "INSERT"
 save -> sync
-sync -> qdrant: "upsert"
+sync -> index: "store vector"
