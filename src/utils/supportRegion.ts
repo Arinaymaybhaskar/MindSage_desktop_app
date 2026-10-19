@@ -19,6 +19,15 @@ export function regionFromLocale(
   return (country && COUNTRY_TO_REGION[country]) || null;
 }
 
+/** True when the person picked a region, rather than it coming from the system. */
+export function hasChosenSupportRegion(): boolean {
+  try {
+    return regionByCode(localStorage.getItem(SUPPORT_REGION_KEY)) !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** The region the person chose, else the one the system language suggests. */
 export function getSupportRegion(): RegionCode | null {
   try {

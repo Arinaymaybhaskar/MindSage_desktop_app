@@ -52,6 +52,16 @@ export const SUPPORT_REGIONS: SupportRegion[] = [
         source: "telemanas.mohfw.gov.in",
       },
       {
+        id: "in-icall",
+        name: "iCall",
+        voice: "+91 91529 87821",
+        voiceDial: "+919152987821",
+        hours: "Trained counsellors · Mon-Sat 10 AM-8 PM · also by email",
+        audience: "everyone",
+        note: "Hours differ between sources (one lists 8 AM-10 PM); check icallhelpline.org.",
+        source: "icallhelpline.org",
+      },
+      {
         id: "in-childline",
         name: "Childline",
         voice: "1098",
