@@ -17,6 +17,7 @@ import { db } from "../db/connection.js";
 import { exportEverything } from "../db/exportData.js";
 import { currentUserId } from "../session.js";
 import { purge } from "./trash.js";
+import { getIndexer } from "./search.js";
 import {
   EXPORT_FORMATS,
   FORMAT_NAMES,
@@ -281,7 +282,7 @@ export async function handleCommitImport() {
   lastImport = { userId, ids, at: new Date().toISOString() };
   // Index the new entries for search in one sweep, rather than queueing AI
   // title and summary generation for every one of them.
-  global.qdrantWorker?.postMessage({ type: "journal:bulk-sync-requested" });
+  getIndexer()?.sweep();
   return { imported: ids.length };
 }
 

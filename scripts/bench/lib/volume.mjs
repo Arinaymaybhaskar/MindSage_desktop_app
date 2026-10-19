@@ -91,11 +91,11 @@ export function buildDataset(db, entryCount, { seed = 42 } = {}) {
     INSERT INTO journal_entries (
       user_id, title, content, mood_score, sentiment_score,
       image_key, content_summary, created_at, updated_at,
-      is_deleted, synced, sync_action, synced_to_qdrant
+      is_deleted, synced, sync_action
     ) VALUES (
       @userId, @title, @content, @mood, @sentiment,
       @imageKey, @summary, @createdAt, @createdAt,
-      0, 1, 'create', 'success'
+      0, 1, 'create'
     )
   `);
   const linkTag = db.prepare(

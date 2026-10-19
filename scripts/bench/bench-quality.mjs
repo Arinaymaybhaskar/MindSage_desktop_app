@@ -24,13 +24,12 @@
  *   node scripts/bench/bench-quality.mjs --out results.json
  */
 
-import { spawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as ollama from "./lib/ollama.mjs";
+import { openVecStore } from "./lib/vecstore.mjs";
 import { ENTRIES, QUERIES } from "./fixtures/retrieval.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -44,7 +43,6 @@ const flag = (name, fallback = null) => {
 
 const OUT = flag("--out", null);
 const EMBED_MODEL = flag("--embed-model", "nomic-embed-text:v1.5");
-const HTTP_PORT = Number(flag("--port", "6535"));
 const K = Number(flag("--k", "5"));
 
 /**
@@ -58,78 +56,16 @@ const USE_PREFIX = argv.includes("--prefix");
 const docPrefix = USE_PREFIX ? "search_document: " : "";
 const queryPrefix = USE_PREFIX ? "search_query: " : "";
 
-const BASE = `http://127.0.0.1:${HTTP_PORT}`;
-const COLLECTION = "bench_quality";
-const VECTOR_NAME = "text_embedding";
-
 if (!(await ollama.isUp())) {
   console.error("Ollama is not reachable at http://localhost:11434.");
   process.exit(1);
 }
 
-const binary =
-  process.platform === "win32"
-    ? path.join(repoRoot, "resources", "win", "qdrant.exe")
-    : path.join(repoRoot, "resources", "mac", "qdrant");
-if (!fs.existsSync(binary)) {
-  console.error(`Qdrant binary not found at ${binary}`);
-  process.exit(1);
-}
-
-const storageDir = fs.mkdtempSync(
-  path.join(os.tmpdir(), "mindsage-bench-quality-"),
-);
 const results = {};
-let proc = null;
-
-const send = async (url, body, method = "POST") => {
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`${url}: ${res.status} ${await res.text()}`);
-  return res.json();
-};
+let store = null;
 
 try {
-  proc = spawn(binary, [], {
-    env: {
-      ...process.env,
-      QDRANT__STORAGE__STORAGE_PATH: storageDir,
-      QDRANT__SERVICE__HTTP_PORT: String(HTTP_PORT),
-      QDRANT__SERVICE__GRPC_PORT: String(HTTP_PORT + 1),
-      QDRANT__SERVICE__HOST: "127.0.0.1",
-    },
-    cwd: path.dirname(binary),
-    stdio: ["ignore", "ignore", "ignore"],
-  });
-
-  const deadline = Date.now() + 30000;
-  let ready = false;
-  while (Date.now() < deadline) {
-    try {
-      if (
-        (await fetch(`${BASE}/readyz`, { signal: AbortSignal.timeout(1000) }))
-          .ok
-      ) {
-        ready = true;
-        break;
-      }
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  if (!ready) throw new Error("Qdrant did not become ready");
-
-  await fetch(`${BASE}/collections/${COLLECTION}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      vectors: { [VECTOR_NAME]: { size: 768, distance: "Cosine" } },
-    }),
-  });
+  store = openVecStore();
 
   // -------------------------------------------------------------- index ---
 
@@ -137,17 +73,9 @@ try {
   const points = [];
   for (const entry of ENTRIES) {
     const { vector } = await ollama.embed(docPrefix + entry.text, EMBED_MODEL);
-    points.push({
-      id: entry.id,
-      vector: { [VECTOR_NAME]: vector },
-      payload: { entry_id: entry.id, topic: entry.topic },
-    });
+    points.push({ id: entry.id, vector });
   }
-  await send(
-    `${BASE}/collections/${COLLECTION}/points?wait=true`,
-    { points },
-    "PUT",
-  );
+  store.insertMany(points);
 
   // --------------------------------------------------------- evaluate ---
 
@@ -160,16 +88,7 @@ try {
 
   for (const { query, relevant } of QUERIES) {
     const { vector } = await ollama.embed(queryPrefix + query, EMBED_MODEL);
-    const found = await send(
-      `${BASE}/collections/${COLLECTION}/points/search`,
-      {
-        vector: { name: VECTOR_NAME, vector },
-        limit: K,
-        with_payload: true,
-      },
-    );
-
-    const returned = (found.result ?? []).map((hit) => hit.id);
+    const returned = store.search(vector, K).map((hit) => hit.id);
     const hits = returned.filter((id) => relevant.includes(id));
     const recall = relevant.length ? hits.length / relevant.length : 0;
 
@@ -226,15 +145,7 @@ try {
   console.error(`  bench-quality failed: ${err.message}`);
   results.error = String(err.message ?? err);
 } finally {
-  if (proc) {
-    try {
-      proc.kill();
-    } catch {
-      /* already gone */
-    }
-  }
-  await new Promise((r) => setTimeout(r, 1000));
-  fs.rmSync(storageDir, { recursive: true, force: true });
+  store?.close();
 }
 
 if (OUT) {

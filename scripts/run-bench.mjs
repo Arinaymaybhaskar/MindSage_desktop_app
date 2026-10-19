@@ -76,7 +76,7 @@ const modelArgs = [
  *
  * The default is the headless trio: fast, needs nothing running, safe to run
  * any time. The remaining stages each need something external - Ollama, the
- * Qdrant binary, the Windows speech API, a packaged build - and together take
+ * Windows speech API, a packaged build - and together take
  * far longer, so they are opt-in via `--stages all` (npm run bench:full).
  */
 const ALL_STAGES = [

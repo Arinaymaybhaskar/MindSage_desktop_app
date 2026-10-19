@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
-import { qdrantService } from "../api/qDrantService";
+import { searchService } from "../api/searchService";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import WeeklyMoodStrip from "../components/weeklyMoodStrip";
@@ -38,7 +38,7 @@ const SyncIcon = (state: string) => {
       return <Clock className="w-5 h-5 text-yellow-500" />;
     case "in_progress":
       return <Loader2 className="w-5 h-5 animate-spin text-blue-500" />;
-    case "success":
+    case "ok":
       return <CheckCircle2 className="w-5 h-5 text-green-500" />;
     case "failed":
       return <AlertCircle className="w-5 h-5 text-red-500" />;
@@ -96,7 +96,7 @@ const JournalEntryCard = ({
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <p>{SyncIcon(entry.synced_to_qdrant || "not_synced")}</p>
+            <p>{SyncIcon(entry.index_state ?? "not_synced")}</p>
             <Link
               to={`/journal/edit/${entry.id}`}
               className="p-2 rounded-full text-text-light-sub dark:text-text-dark-sub hover:bg-tertiary-light dark:hover:bg-tertiary-dark hover:text-dark1 dark:hover:text-light1 transition-colors"
@@ -325,7 +325,7 @@ export default function JournalList() {
     setSyncStatus("Starting bulk sync...");
 
     try {
-      const result = await qdrantService.bulkSync();
+      const result = await searchService.bulkSync();
       if (result.success) {
         setSyncStatus("Bulk sync started successfully!");
         setTimeout(() => {

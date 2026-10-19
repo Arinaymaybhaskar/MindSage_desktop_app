@@ -74,7 +74,7 @@ Most journaling apps that offer AI features do so by shipping your most private 
 
 ### macOS and Linux
 
-Not yet distributed as an installer. The Electron build targets exist (`dmg` and `AppImage`) and the macOS Qdrant binary is bundled, but the platform has not been through signing, notarisation, or a CI matrix. See [docs/MAC_RELEASE_PLAN.md](docs/MAC_RELEASE_PLAN.md) for the remaining work. Building from source is covered under [Development](#development).
+Not yet distributed as an installer. The Electron build targets exist (`dmg` and `AppImage`) but the platform has not been through signing, notarisation, or a CI matrix. See [docs/MAC_RELEASE_PLAN.md](docs/MAC_RELEASE_PLAN.md) for the remaining work. Building from source is covered under [Development](#development).
 
 ### First run
 
@@ -104,7 +104,7 @@ Saving an entry never waits on a model. The save returns immediately and an even
 
 <kbd>Ctrl</kbd> + <kbd>F</kbd> opens a command palette that searches across journal entries, goals, progress logs, app actions, and settings pages at once. It runs keyword matching and **local semantic search** side by side, so the query above finds an entry titled "The talk went fine" that shares none of its words.
 
-Semantic search works by embedding the query with `nomic-embed-text:v1.5` through Ollama, querying a local Qdrant index for nearest neighbours, and hydrating the resulting IDs back out of SQLite. Nothing about the query leaves the machine.
+Semantic search works by embedding the query with `nomic-embed-text:v1.5` through Ollama, querying a sqlite-vec index in the local database for nearest neighbours, and reading the matching entries back from SQLite. Nothing about the query leaves the machine.
 
 ### Ask
 
@@ -154,13 +154,13 @@ The journal entry is updated with the transcript when it completes, and the deta
 | Shell | Electron 37, Node ESM main process | One installable binary, no services to run |
 | Interface | React 19, TypeScript, Tailwind CSS v4, Vite 7 | HashRouter, React Context for state, Recharts and Chart.js for visuals |
 | Structured store | SQLite via `better-sqlite3` | Journals, goals, categories, progress logs, settings, chat history |
-| Vector store | Qdrant, bundled binary, started on a free port at launch | Embeddings plus a minimal payload; IDs hydrate from SQLite |
+| Vector store | sqlite-vec, a loadable extension in the journal database | One vector per entry; results are read back from the same tables |
 | Text generation | Ollama, `llama3.2` by default | Titles, mood scoring, tags, summaries, goal decomposition, chat, autocomplete |
 | Embeddings | `nomic-embed-text:v1.5` via Ollama, 768 dimensions | Roughly 274 MB, pulled once on first run |
 | Speech to text | whisper.cpp with `ggml-tiny.en.bin` | Roughly 75 MB, bundled, CPU only, no GPU required |
 | Audio conversion | FFmpeg via `ffmpeg-static` | WebM container to 16 kHz mono WAV |
 
-Native binaries for Qdrant and whisper.cpp ship in `resources/` and are resolved differently in development and in a packaged build.
+Native binaries for whisper.cpp ship in `resources/` and are resolved differently in development and in a packaged build.
 
 ---
 
@@ -197,7 +197,7 @@ Three layers, with a strict boundary between them.
 
 **Background AI is event-driven.** Journal handlers emit on the event bus; a `Worker` thread performs enrichment and embedding, and completion is forwarded back to the renderer over `webContents.send`. AI metadata is therefore never available synchronously after a create or update, and the interface is designed around that rather than fighting it.
 
-**Startup ordering** matters and is explicit: splash window, hidden main window, database initialisation, Ollama embedding-model setup, Qdrant launch on a free port, IPC handler registration, event bus wiring, worker spawn, then the main window is revealed on a `services-ready` signal.
+**Startup ordering** matters and is explicit: splash window, hidden main window, database initialisation, Ollama embedding-model setup, IPC handler registration, event bus wiring, the search indexer start, then the main window is revealed on a `services-ready` signal.
 
 ### Saving an entry, end to end
 
@@ -219,7 +219,7 @@ They are collapsed below only to keep this page scannable. **Open any of them.**
 
 <br />
 
-**Update.** What re-runs depends on which fields changed. A mood edit updates the Qdrant payload without re-embedding; a content edit re-embeds and regenerates the summary.
+**Update.** What re-runs depends on which fields changed. A mood edit needs no re-embedding; a content edit re-embeds and regenerates the summary.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/diagrams/update-journal-dark.svg">
@@ -322,8 +322,8 @@ The reasoning behind each significant choice, including the trade-offs accepted 
 | --- | --- |
 | **Electron over Tauri** | The pipeline depends on Node native bindings (`better-sqlite3`, whisper.cpp). A Rust backend would have meant rewriting or bridging both. Chromium also guarantees consistent ContentEditable behaviour for the autocomplete keyboard handling, which system WebViews do not. |
 | **Event bus over async chains** | Awaiting a multi-second transcription inside a React handler froze the interface, and an unavailable model could hang or corrupt an optimistic save. Decoupling intent from processing fixed both. |
-| **Qdrant over ChromaDB or pgvector** | ChromaDB is Python-first with a less reliable local persistence story; pgvector needs a PostgreSQL install, which is an unacceptable burden for an offline desktop app. Qdrant runs as a single bundled binary with no Docker. |
-| **SQLite alongside Qdrant, not one store** | Vector stores are built for nearest-neighbour search, not for "entries this month with mood above 7, ordered by date". Qdrant holds vectors and IDs; SQLite answers the relational questions in microseconds. |
+| **sqlite-vec over a separate vector database** | A second store means a second process, a port, a binary per platform and a second copy of the user's text to keep in step and to delete. sqlite-vec is one loadable file, lives in the journal database (so one file to back up and, later, encrypt), and answers in 12 ms at 5,000 entries in our measurements. |
+| **Vectors beside the rows, not a copy of them** | The index holds only vectors and a state row; every search result is read back from the entry tables, so trash, purge and edits apply to search with no second copy of the text. |
 | **whisper.cpp over cloud speech to text** | Voice journals are among the most sensitive data a person produces. Sending them to any API contradicts the product. The tiny English model is accurate enough on clear speech and needs no GPU. |
 | **Local-only inference** | Earlier plans included a cloud fallback for long synthesis tasks. It is not wired into the desktop app, and the offline guarantee is stronger for its absence. |
 | **No backend server** | Single user, single machine. The Electron main process is the backend. Fewer moving parts, no network-exposed API, no HTTP round trip for local reads. |
@@ -354,7 +354,7 @@ The baseline run surfaced what the audit had only suspected: missing indexes on 
 
 - **Node.js 20 to 24.** The repository pins 20 in `.nvmrc` and enforces the range with `engine-strict`.
 - **[Ollama](https://ollama.com)**, running locally.
-- **Windows** for the fully supported path. Qdrant and whisper.cpp binaries are bundled for Windows and macOS.
+- **Windows** for the fully supported path. The whisper.cpp binaries are bundled for Windows.
 
 ### Setup
 
@@ -403,17 +403,16 @@ MindSage_desktop_app/
 │   ├── preload.js         contextBridge, emitted as preload.cjs
 │   ├── ipcHandlers.js     Channel routing
 │   ├── eventBus.js        Internal event bus
-│   ├── qdrantWorker.js    Enrichment and embedding worker thread
 │   ├── methods/           Business logic per domain
 │   ├── db/                SQLite access; connection.js holds all DDL
-│   └── services/          Qdrant manager, Ollama setup, app setup, auto-updater
+│   └── services/          Search indexer, Ollama setup, app setup, auto-updater
 ├── src/                   Renderer (React 19 + TypeScript)
 │   ├── api/               IPC wrappers, the only path to the main process
 │   ├── pages/             Routed views
 │   ├── components/        UI, grouped by domain
 │   ├── context/           Auth, colour theme, toasts
 │   └── server/            Unreachable legacy sync backend, slated for deletion
-├── resources/             Bundled native binaries (Qdrant, whisper.cpp, models)
+├── resources/             Bundled native binaries (whisper.cpp, models)
 ├── scripts/               Benchmarks, demo seeding, screenshot capture
 ├── docs/                  Audits, plans, benchmarks, and the work queue
 └── assets/                Icons and architecture diagrams

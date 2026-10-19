@@ -86,9 +86,8 @@ export default function QuickCapture() {
         mood_tags: [],
       };
 
-      const res = await journalService.create(mergedEntry);
+      await journalService.create(mergedEntry);
 
-      await window.electron.ipcRenderer.invoke("qdrant:sync-journal", res.id);
       showToast("Journal entry saved.", "success");
 
       localStorage.removeItem(DRAFT_KEY);

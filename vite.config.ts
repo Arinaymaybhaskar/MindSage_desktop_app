@@ -4,7 +4,6 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import electron from "vite-plugin-electron/simple";
 import pkg from "./package.json";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 import { cspPlugin } from "./electron/csp.js";
 
 export default defineConfig({
@@ -23,21 +22,6 @@ export default defineConfig({
               output: { format: "esm" },
             },
           },
-          plugins: [
-            viteStaticCopy({
-              targets: [
-                // Only what qdrantWorker.js needs at runtime. Everything
-                // else under electron/ is bundled into main.js, so copying
-                // it here would ship a second, dead copy. The worker is
-                // spawned from a file path rather than imported, which is
-                // why it and its imports have to exist as real files.
-                { src: "electron/qdrantWorker.js", dest: "." },
-                { src: "electron/eventBus.js", dest: "." },
-                { src: "electron/db/connection.js", dest: "db" },
-                { src: "electron/db/migrations.js", dest: "db" },
-              ],
-            }),
-          ],
         },
       },
 

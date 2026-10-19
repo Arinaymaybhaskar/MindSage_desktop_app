@@ -31,7 +31,6 @@ import {
 import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
 import OllamaTutorialPage from "./pages/OllamaTutorial";
-import QdrantViewer from "./pages/qdrantViewer";
 import { ColorThemeProvider } from "./context/ColorThemeContext";
 import { initializeColors } from "./utils/colorInitializer";
 import GoalDetail from "./pages/goalDetail";
@@ -73,7 +72,7 @@ function AppLayout() {
   }, []);
 
   // Readiness marker for Playwright-driven screenshot and demo-video runs.
-  // Startup is slow and staged (database, Ollama models, the Qdrant binary,
+  // Startup is slow and staged (database, Ollama models, the search index,
   // then IPC and the worker), so automation needs a real signal rather than a
   // fixed sleep - the whole sequence can take 10-30s on a cold start.
   useEffect(() => {
@@ -156,10 +155,6 @@ function AppLayout() {
 
   // CHANGED: Updated the paths for the dock items.
   // "Write" now points to the root "/" and "Dashboard" points to "/dashboard".
-  //
-  // The Qdrant viewer is deliberately absent: it is a developer tool that dumps
-  // raw collections and embedding vectors, and it has no meaning for a user.
-  // The /qdrant route still exists and is reachable by URL for debugging.
   const items = [
     { path: "/dashboard", icon: <HomeIcon size={18} />, label: "Dashboard" },
     { path: "/", icon: <PenIcon size={18} />, label: "Write" },
@@ -255,19 +250,6 @@ function AppLayout() {
                     </PrivateRoute>
                   }
                 />
-                {/* A vector-database inspector for debugging. Nothing links
-                  to it, and it should not reach users, so it exists only in
-                  a dev build. */}
-                {import.meta.env.DEV && (
-                  <Route
-                    path="/qdrant"
-                    element={
-                      <PrivateRoute>
-                        <QdrantViewer />
-                      </PrivateRoute>
-                    }
-                  />
-                )}
                 <Route path="/register" element={<Register />} />
                 <Route path="/profiles" element={<Profiles />} />
                 <Route path="/login" element={<Login />} />

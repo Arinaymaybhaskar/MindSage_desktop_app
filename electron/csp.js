@@ -38,13 +38,8 @@ export function buildCsp({ dev = false } = {}) {
 
   if (dev) {
     // Only the Vite dev server: its hot-reload socket, the inline preamble
-    // @vitejs/plugin-react writes into the page, and the local Qdrant the
-    // dev-only /qdrant inspector queries. Never in a built app.
-    directives["connect-src"].push(
-      "ws://localhost:*",
-      "ws://127.0.0.1:*",
-      "http://127.0.0.1:*",
-    );
+    // @vitejs/plugin-react writes into the page. Never in a built app.
+    directives["connect-src"].push("ws://localhost:*", "ws://127.0.0.1:*");
     directives["script-src"].push("'unsafe-inline'");
   }
 

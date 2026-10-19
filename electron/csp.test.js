@@ -65,13 +65,12 @@ describe("dev policy", () => {
   const prod = parse(buildCsp());
   const dev = parse(buildCsp({ dev: true }));
 
-  it("adds the hot-reload socket, the React preamble and the local Qdrant inspector", () => {
+  it("adds the hot-reload socket, and the React preamble", () => {
     expect(dev["connect-src"]).toEqual(
       expect.arrayContaining([
         "'self'",
         "ws://localhost:*",
         "ws://127.0.0.1:*",
-        "http://127.0.0.1:*",
       ]),
     );
     expect(dev["script-src"]).toEqual(["'self'", "'unsafe-inline'"]);

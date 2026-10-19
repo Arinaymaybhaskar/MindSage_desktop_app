@@ -52,7 +52,7 @@ jobs:
   # Node (scripts/run-db-tests.mjs). `npm ci` here keeps the postinstall step
   # (electron-rebuild) that the job above skips on purpose.
   database:
-    name: Database & worker tests
+    name: Database & index tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,14 +66,15 @@ jobs:
         run: npm ci
 
       # Migrations on real SQLite, journal CRUD, the pre-migration backup, and
-      # the AI worker thread against fake Ollama and Qdrant servers. The worker
-      # tests need port 11434 free, which it is on a runner.
-      - name: Database and worker tests
+      # the sqlite-vec search index and the indexer loop with a fake embedding
+      # model.
+      - name: Database and index tests
         run: npm run test:db
 
   # One pass through the real app: launch, sign up, sign in, write, wait for
   # the AI's own completion events, find the entry through search. Windows
-  # because that is the build that ships (resources/win/qdrant.exe), and a
+  # because that is the build that ships (sqlite-vec-windows-x64 is unpacked
+  # from the asar), and a
   # runner has no GPU, so Ollama runs on the CPU with a 1B chat model.
   e2e:
     name: End-to-end (Windows)

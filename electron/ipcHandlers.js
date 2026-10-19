@@ -86,8 +86,7 @@ import {
   getUserStats,
 } from "./methods/dashboard.js";
 import { modelStore } from "./store.js";
-import { registerQdrantIPC } from "./methods/qdrant.js";
-import { Worker } from "node:worker_threads";
+import { registerSearchIPC } from "./methods/search.js";
 import { fileURLToPath } from "node:url";
 import {
   handleChangeChatTitle,
@@ -102,24 +101,11 @@ import { eventBus } from "./eventBus.js";
 import { db } from "./db/connection.js";
 import { log } from "./log.js";
 
-export function createQdrantWorker() {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-
-  const worker = new Worker(join(__dirname, "qdrantWorker.js"));
-  worker.on("error", (error) => log.error("Qdrant Worker Error:", error));
-  worker.on("exit", (code) => {
-    if (code !== 0) log.error(`Qdrant Worker stopped with exit code ${code}`);
-  });
-  return worker;
-}
-
 // Nothing registered here may wait on the vector index: see
-// services/startServices.js for why, and setQdrantRuntime for how the index
-// is wired in once it is up.
+// services/startServices.js for why.
 export function registerIPCHandlers() {
-  // Qdrant
-  registerQdrantIPC();
+  // Search
+  registerSearchIPC();
 
   // Media
   ipcMain.handle("media:save", handleSaveMedia);

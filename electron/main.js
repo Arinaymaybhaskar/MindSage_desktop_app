@@ -13,18 +13,19 @@ import { createReopener } from "./windowReopen.js";
 import { guardContents, isAppUrl } from "./windowGuard.js";
 import { registerIPCHandlers } from "./ipcHandlers.js";
 import { setupEventBusListeners } from "./events.js";
-import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
 import { startServices } from "./services/startServices.js";
-import { markIndexSettled } from "./services/searchIndex.js";
 import { createServiceAnnouncer } from "./services/serviceAnnouncer.js";
-import { processVectorDeletions, setQdrantRuntime } from "./methods/qdrant.js";
+import { removeLegacyQdrantData } from "./legacyQdrant.js";
+import { isIndexReady, setIndexer } from "./methods/search.js";
+import { createIndexer } from "./services/indexer.js";
+import { generateEmbedding } from "./methods/ollama.js";
+import { vectorSupport } from "./db/connection.js";
 import { registerTrashIPC, startTrashJob } from "./methods/trash.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
 import { registerSetupIPC } from "./services/appSetup.js";
 import { applyLaunchAtStartup, registerAppSettingsIPC } from "./appSettings.js";
 import { registerSessionIPC } from "./methods/auth.js";
 import { initAutoUpdater, registerUpdaterIPC } from "./services/autoUpdater.js";
-import { Worker } from "node:worker_threads";
 import { log as appLog } from "./log.js";
 import { registerLogIPC } from "./logIpc.js";
 
@@ -103,52 +104,13 @@ function openQuickCaptureWindow() {
   });
 }
 
-// ------------------- Qdrant Worker -------------------
-function createQdrantWorker() {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-
-  // Same path in dev and packaged. main.js and qdrantWorker.js are siblings
-  // in dist-electron either way, and when packaged that directory lives
-  // inside app.asar, which __dirname already points into. The packaged
-  // branch used to resolve process.resourcesPath/dist-electron, which does
-  // not exist: dist-electron/**/* is packed into the archive, so the
-  // worker never started in a real install.
-  const workerPath = path.join(__dirname, "qdrantWorker.js");
-
-  const worker = new Worker(workerPath, { type: "module" });
-
-  worker.on("message", (message) => {
-    // Structured progress goes to the renderer's AI activity panel; everything
-    // else the worker posts is debug logging.
-    // The worker found an item purged while it was being indexed.
-    if (message?.type === "vector-cleanup") {
-      processVectorDeletions();
-      return;
-    }
-    if (message?.type === "ai-activity") {
-      const win = BrowserWindow.getAllWindows()[0];
-      if (win && !win.isDestroyed()) {
-        win.webContents.send("ai-status-event", {
-          event: message.event,
-          data: message.data,
-        });
-      }
-      return;
-    }
-    appLog.debug("Qdrant Worker Message:", message);
-  });
-  worker.on("error", (error) => appLog.error("Qdrant Worker Error:", error));
-  worker.on("exit", (code) => {
-    if (code !== 0)
-      appLog.error(`Qdrant Worker stopped with exit code ${code}`);
-    else appLog.info("Qdrant worker exited successfully");
-  });
-  worker.on("online", () => appLog.info("Qdrant worker is online"));
-
-  global.qdrantWorker = worker;
-
-  return worker;
+// ------------------- Search indexer -------------------
+// Progress goes to the renderer's AI activity panel.
+function reportIndexActivity(event, data) {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win && !win.isDestroyed()) {
+    win.webContents.send("ai-status-event", { event, data });
+  }
 }
 
 // ------------------- Navigation guard -------------------
@@ -344,36 +306,30 @@ app.whenReady().then(async () => {
       setupEventBusListeners();
       log("IPC handlers and event bus registered");
     },
+    // The index lives in the journal database, so "starting" it is only
+    // checking that the sqlite-vec extension loaded.
     startIndex: async () => {
-      log("Starting Qdrant");
-      splashStatus("Starting vector database…");
-      const runtime = await startQdrant();
-      log("Qdrant started");
-      return runtime;
-    },
-    onIndexReady: (runtime) => {
-      setQdrantRuntime(runtime);
-      // startQdrant has set QDRANT_HTTP_PORT by now, which the worker
-      // reads; it is never started without one.
-      if (!global.qdrantWorker) createQdrantWorker();
-      // Finish removing anything deleted for good while the index was down.
-      processVectorDeletions();
-      log("Search index and worker initialized");
-    },
-    // Index came up late: embed whatever was saved while it was down. The
-    // bulk syncs only touch entries not yet synced, so this is not a re-index.
-    onCatchUp: () => {
-      for (const type of [
-        "journal:bulk-sync-requested",
-        "goal:bulk-sync-requested",
-        "progress_log:bulk-sync-requested",
-      ]) {
-        global.qdrantWorker?.postMessage({ type });
+      if (!isIndexReady()) {
+        throw new Error(
+          `sqlite-vec did not load: ${vectorSupport.error ?? "unknown"}`,
+        );
       }
-      log("Queued a catch-up sync for items saved while search was down");
+      return {};
     },
+    onIndexReady: () => {
+      const indexer = createIndexer({
+        embed: generateEmbedding,
+        report: reportIndexActivity,
+      });
+      setIndexer(indexer);
+      indexer.start();
+      log("Search index ready");
+      // The old Qdrant folder is only ever the index; the indexer refills the
+      // new one from the journal, so the old data is not needed.
+      removeLegacyQdrantData(app.getPath("userData"), log);
+    },
+    retryDelaysMs: [],
     onStatus: (status) => {
-      markIndexSettled();
       announcer.update(status);
     },
     log,
@@ -456,6 +412,5 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  stopQdrant();
   globalShortcut.unregisterAll(); // Clean up global shortcuts
 });

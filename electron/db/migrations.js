@@ -513,6 +513,32 @@ export const MIGRATIONS = [
           ON search_index(user_id);
       `),
   },
+  {
+    // Qdrant is gone (KAN-192). Its bookkeeping goes with it: the queue of
+    // points to delete (a purge now removes vectors in its own transaction)
+    // and the per-row sync state, which search_index replaced. The two
+    // indexes on that state must be dropped before their columns.
+    version: 8,
+    name: "drop-qdrant-state",
+    up: (d) => {
+      d.exec(`
+        DROP TABLE IF EXISTS vector_deletions;
+        DROP INDEX IF EXISTS idx_goals_synced_to_qdrant;
+        DROP INDEX IF EXISTS idx_progress_logs_synced_to_qdrant;
+      `);
+      for (const table of ["journal_entries", "goals", "progress_logs"]) {
+        const columns = d
+          .prepare(`PRAGMA table_info(${table})`)
+          .all()
+          .map((c) => c.name);
+        for (const column of ["synced_to_qdrant", "qdrant_id"]) {
+          if (columns.includes(column)) {
+            d.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+          }
+        }
+      }
+    },
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

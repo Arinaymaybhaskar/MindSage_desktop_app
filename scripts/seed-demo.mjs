@@ -32,6 +32,7 @@ import Sentiment from "sentiment";
 import bcrypt from "bcryptjs";
 
 import { db, initDatabase } from "../electron/db/connection.js";
+import { removeUserSources } from "../electron/db/searchIndex.js";
 import {
   HERO_ENTRIES,
   FILLER,
@@ -228,34 +229,11 @@ if (RESET) {
   wipe();
   log("Cleared previous demo data.");
 
-  // Drop this user's vectors too. Qdrant lives outside SQLite, so deleting the
-  // journals alone strands their embeddings: semantic search then returns hits
-  // for entries that no longer exist, and each re-seed piles more on (276
-  // vectors for 120 entries after a handful of runs). Best-effort - the seeder
-  // is expected to run with the app closed, in which case Qdrant is not up.
-  const qdrantPort = process.env.QDRANT_HTTP_PORT ?? "6333";
-  try {
-    const res = await fetch(
-      `http://127.0.0.1:${qdrantPort}/collections/mind_entries/points/delete`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filter: { must: [{ key: "user_id", match: { value: USER_ID } }] },
-        }),
-        signal: AbortSignal.timeout(5000),
-      },
-    );
-    log(
-      res.ok
-        ? "Cleared previous demo vectors from Qdrant."
-        : `Qdrant point delete returned ${res.status} - stale vectors may remain.`,
-    );
-  } catch {
-    log(
-      "Qdrant not reachable - skipped vector cleanup (fine if the app is closed).",
-    );
-  }
+  // Drop this user's vectors too. They live in the same database but in a
+  // virtual table that the cascade above does not reach, so deleting the
+  // journals alone would strand their embeddings.
+  removeUserSources(USER_ID);
+  log("Cleared previous demo vectors.");
 }
 
 // ------------------------------------------------------------- day plan ----
@@ -348,11 +326,11 @@ const insertEntry = db.prepare(`
   INSERT INTO journal_entries (
     user_id, title, content, mood_score, sentiment_score, transcription,
     content_summary, created_at, updated_at, is_deleted, synced, sync_action,
-    synced_to_qdrant, ai_metadata_status, ai_summary_status
+    ai_metadata_status, ai_summary_status
   ) VALUES (
     @user_id, @title, @content, @mood_score, @sentiment_score, @transcription,
     @content_summary, @created_at, @updated_at, 0, 0, 'create',
-    'pending', 'completed', 'completed'
+    'completed', 'completed'
   )
 `);
 
@@ -367,11 +345,9 @@ const linkTag = db.prepare(
 );
 
 /**
- * synced_to_qdrant is written as 'pending', not left at its 'not_synced'
- * default, on purpose. The bulk-sync query (electron/qdrantWorker.js:531-533)
- * matches only ('pending','failed') OR NULL, so rows sitting at the column
- * default are invisible to it and would never be embedded - which would leave
- * the semantic-search screenshot returning nothing.
+ * Rows are written without a search_index state row on purpose: the indexer
+ * picks up every live item that has none, so the semantic-search screenshot
+ * has vectors once Ollama is running.
  */
 const featuredEntryIds = [];
 let entryCount = 0;
@@ -446,17 +422,17 @@ const insertGoal = db.prepare(`
   INSERT INTO goals (
     user_id, category_id, title, description, parent_goal_title,
     current_value, target_value, unit, is_pinned, is_completed,
-    created_at, completed_date, target_date, synced_to_qdrant
+    created_at, completed_date, target_date
   ) VALUES (
     @user_id, @category_id, @title, @description, @parent_goal_title,
     @current_value, @target_value, @unit, @is_pinned, @is_completed,
-    @created_at, @completed_date, @target_date, 'pending'
+    @created_at, @completed_date, @target_date
   )
 `);
 
 const insertLog = db.prepare(`
-  INSERT INTO progress_logs (goal_id, value, description, logged_at, synced_to_qdrant)
-  VALUES (?, ?, ?, ?, 'pending')
+  INSERT INTO progress_logs (goal_id, value, description, logged_at)
+  VALUES (?, ?, ?, ?)
 `);
 
 /**
@@ -716,7 +692,7 @@ Next:
   1. npm run dev, then log in as ${PERSONA.email}
   2. In DevTools: localStorage.setItem("setup_complete", "1"); localStorage.setItem("zoom_scale", "100")
   3. With Ollama + nomic-embed-text running, embed for semantic search:
-     await window.electron.ipcRenderer.invoke("qdrant:bulk-sync")
+     await window.electron.ipcRenderer.invoke("search:bulk-sync")
 `);
 
 db.close();

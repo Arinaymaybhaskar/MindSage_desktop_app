@@ -2,8 +2,8 @@
  * Measures cold start, step by step, from the app's own startup log.
  *
  * electron/main.js already writes timestamped markers to
- * `<userData>/main.log` for exactly this purpose ("App ready", "Starting
- * Qdrant", "Sent services-ready to renderer", and so on), so nothing needs
+ * `<userData>/main.log` for exactly this purpose ("App ready", "Search
+ * index ready", "Sent services-ready to renderer", and so on), so nothing needs
  * instrumenting - this launches the packaged build, waits for the run to
  * complete, and turns those timestamps into per-step deltas.
  *
@@ -12,9 +12,9 @@
  * describes a developer's experience and not a user's.
  *
  * **It runs against a copy of the real profile, never the profile itself.** An
- * empty profile would not be the startup path being measured: Qdrant's start
- * time depends on the size of its collections, and the database open on the
- * size of the journal. So the database, qdrant-data and Local Storage are
+ * empty profile would not be the startup path being measured: the database
+ * open depends on the size of the journal, and the index sweep on how many
+ * entries still lack a vector. So the database and Local Storage are
  * copied into a scratch directory, and the app is pointed there with APPDATA
  * and MS_USER_DATA_DIR. Caches and media are not copied; startup does not read
  * them. Launching against the real profile used to be the design, and it meant
@@ -58,7 +58,6 @@ const PROFILE_PARTS = [
   "mind-sage.db",
   "mind-sage.db-wal",
   "mind-sage.db-shm",
-  "qdrant-data",
   "Local Storage",
 ];
 
@@ -94,10 +93,8 @@ const MARKERS = [
   "Initializing localDB",
   "Running OllamaEmbeddingModelSetup",
   "IPC handlers and event bus registered",
-  "Starting Qdrant",
   "Main window created",
-  "Qdrant started",
-  "Search index and worker initialized",
+  "Search index ready",
   "Sent services-ready to renderer",
   "Renderer signaled visually ready",
 ];
@@ -162,7 +159,7 @@ function parseRun(sinceBytes) {
   return events;
 }
 
-/** Kills the whole process tree - Electron spawns helpers and Qdrant. */
+/** Kills the whole process tree - Electron spawns helpers. */
 function killTree(pid) {
   try {
     execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
@@ -225,7 +222,7 @@ for (let i = 0; i < RUNS; i++) {
   if (!log.captured) runsWithoutLog++;
 
   killTree(proc.pid);
-  // Let ports and file locks clear before the next launch, or Qdrant's port
+  // Let ports and file locks clear before the next launch, or a stale port
   // probe and the SQLite open race the dying process and skew the next run.
   await new Promise((r) => setTimeout(r, SETTLE_MS));
 

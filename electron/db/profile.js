@@ -1,9 +1,9 @@
 import { db } from "./connection.js";
+import { removeUserSources } from "./searchIndex.js";
 
 // Deleting a whole profile (KAN-56). The rows go in one transaction (every
 // table that belongs to a user cascades from users), and what has to be
-// removed outside the database (media files, search-index points) is returned
-// or queued for the caller. Nothing here touches another user's rows.
+// removed outside the database (media files) is returned for the caller. Nothing here touches another user's rows.
 
 /** Counts for the "what goes" list, trashed items included: they go too. */
 export function profileSummary(userId) {
@@ -45,14 +45,6 @@ export function deleteProfile(userId) {
         `SELECT id, image_key, audio_key FROM journal_entries WHERE user_id = ?`,
       )
       .all(userId);
-    const goals = db
-      .prepare(`SELECT id FROM goals WHERE user_id = ?`)
-      .all(userId);
-    const logs = db
-      .prepare(
-        `SELECT l.id FROM progress_logs l JOIN goals g ON g.id = l.goal_id WHERE g.user_id = ?`,
-      )
-      .all(userId);
     const chatFiles = db
       .prepare(
         `SELECT f.file_path FROM files f JOIN chats c ON c.id = f.chat_id WHERE c.user_id = ?`,
@@ -63,13 +55,8 @@ export function deleteProfile(userId) {
       .prepare(`SELECT profile_picture FROM users WHERE id = ?`)
       .get(userId)?.profile_picture;
 
-    const queue = db.prepare(
-      `INSERT OR IGNORE INTO vector_deletions (user_id, source_type, source_id)
-       VALUES (?, ?, ?)`,
-    );
-    for (const e of entries) queue.run(userId, "journal", e.id);
-    for (const g of goals) queue.run(userId, "goal", g.id);
-    for (const l of logs) queue.run(userId, "progress_log", l.id);
+    // Vectors and index state of the whole profile go in this transaction.
+    removeUserSources(userId);
 
     db.prepare(`DELETE FROM users WHERE id = ? AND id != 0`).run(userId);
 

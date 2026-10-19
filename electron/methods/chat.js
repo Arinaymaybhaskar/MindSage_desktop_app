@@ -11,7 +11,7 @@ import {
   streamOllamaPrompt,
 } from "./ollama.js";
 import { partialJsonString } from "./jsonStream.js";
-import { SemanticSearch } from "./qdrant.js";
+import { semanticSearch } from "./search.js";
 import { isIndexUnavailable } from "../services/searchIndex.js";
 import z from "zod";
 import { currentUserId } from "../session.js";
@@ -120,23 +120,18 @@ async function aiResponse(
       log.debug("requires context");
       onPhase("searching");
       const vector = await generateEmbedding(content);
-      semanticResult = await SemanticSearch(vector, userId, 5, "mind_entries");
+      semanticResult = semanticSearch(vector, userId, 5);
     } else if (propsRes.requires_time_filter) {
       log.debug("requires context with time filter");
       onPhase("searching");
       // Use base_query and time filter
       const vector = await generateEmbedding(propsRes.base_query);
-      semanticResult = await SemanticSearch(
-        vector,
-        userId,
-        5,
-        "mind_entries",
-        undefined,
-        {
+      semanticResult = semanticSearch(vector, userId, 5, {
+        range: {
           from: propsRes.time_filter_from,
           to: propsRes.time_filter_to,
         },
-      );
+      });
     }
     log.debug("Semantic result", { count: semanticResult.length });
     let mainPrompt;
