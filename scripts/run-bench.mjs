@@ -116,7 +116,7 @@ const RENDER_ONLY = argv.includes("--render");
  * What kind of run this is. The two that matter are kept apart everywhere a
  * run is stored or shown:
  *
- *   full    - every stage, recorded at the end of each MASTER_TODO phase by
+ *   full    - every stage, recorded at the end of each roadmap phase by
  *             `npm run bench:phase`. Committed, and the only runs the
  *             optimisation board reads.
  *   quick   - the db stage at small volumes, run by the pre-commit hook

@@ -29,7 +29,7 @@ See the Commands section of [CLAUDE.md](CLAUDE.md) for the full list and the ben
 - **The database is the user's only copy of their journal.** It is written to `%APPDATA%/MindSage/mind-sage.db` on Windows and the OS equivalents elsewhere. Schema changes go in `electron/db/migrations.js` as a new entry appended to the ordered `MIGRATIONS` list, applied against `PRAGMA user_version` one transaction at a time, with a `VACUUM INTO` snapshot taken into `<userData>/backups/` first. Never edit a migration that has shipped. It is still the user's only copy, so treat schema edits as high risk.
 - **Native binaries live in `resources/`** and ship through `electron-builder` `extraResources`, which is declared per platform so a Windows installer does not carry the macOS Qdrant build. Path resolution differs between dev and packaged; copy the pattern in `electron/methods/whisper.js`.
 - `MS_DISABLE_GPU=1` (Windows) disables GPU for machines with broken drivers. `MS_REMOTE_DEBUG=<port>` opens a loopback debugging endpoint that grants full control of the renderer, so leave it off.
-- **The session lives in the main process; there are no tokens** (since 2026-10-06). `electron/session.js` holds who is signed in and handlers read it with `currentUserId()`; IPC channels take no `token` argument and must never accept a user id from the renderer. The password does not encrypt anything (MASTER_TODO 15, option B). See CLAUDE.md for the channels.
+- **The session lives in the main process; there are no tokens** (since 2026-10-06). `electron/session.js` holds who is signed in and handlers read it with `currentUserId()`; IPC channels take no `token` argument and must never accept a user id from the renderer. The password does not encrypt anything (decision: option B). See CLAUDE.md for the channels.
 - Routes use **HashRouter**, not BrowserRouter, so deep links are `#/path` (for example `#/quick-capture` for the Quick Capture window).
 
 ## Package layout
@@ -53,7 +53,7 @@ See the Commands section of [CLAUDE.md](CLAUDE.md) for the full list and the ben
 - `README.md` — feature and platform overview plus the workflow diagrams under `assets/diagrams/`.
 - `designPatterns.json` — catalog of UI patterns the codebase follows.
 - `docs/` — all audits, plans and debt tracking, indexed in `docs/README.md`.
-  - `docs/MASTER_TODO.md` — the single ordered work queue. Start here.
+  - Work is tracked in Jira (project KAN), not in the repo. Start there.
   - `docs/PRODUCTION_READINESS.md` — the reasoning behind the shipping blockers. Its section 0 is a verified-state table and supersedes older claims elsewhere.
   - `docs/TECHNICAL_DEBT.md`, `docs/TODO.md` — known debts. Consult before introducing a new pattern. Both are partly stale.
   - `docs/AUTH_REVIEW.md`, `docs/CODEBASE_STRUCTURE_AUDIT.md`, `docs/NETWORK_AUDIT.md`, `docs/ONLINE_MODE_REMOVAL.md`, `docs/PERFORMANCE.md` — audits.
