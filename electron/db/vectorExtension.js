@@ -40,6 +40,32 @@ export function loadVectorExtension(db) {
 }
 
 /**
+ * One log line saying why search is down. The logger shortens any string over
+ * 200 characters to its length, which is what hid the reason before, so this
+ * stays under that: the error message is cut first, then the front of the path.
+ * Only the library's path and the loader's message go in, never entry text.
+ */
+export function describeLoadFailure(path, error, limit = 190) {
+  const oneLine = (s) =>
+    String(s ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const prefix = "Search index unavailable: ";
+  let message = oneLine(error);
+  let where = oneLine(path);
+  const build = () => `${prefix}${message} (extension: ${where})`;
+  if (build().length > limit) {
+    const room = Math.max(40, limit - build().length + message.length);
+    if (message.length > room) message = `${message.slice(0, room - 1)}…`;
+  }
+  if (build().length > limit) {
+    const room = Math.max(20, limit - build().length + where.length);
+    if (where.length > room) where = `…${where.slice(-(room - 1))}`;
+  }
+  return build();
+}
+
+/**
  * Creates the vector table if it is missing. It is made here rather than in a
  * numbered migration so a failure to load the extension can never stop the
  * journal's own migrations. user_id is a partition key, so a search reads only

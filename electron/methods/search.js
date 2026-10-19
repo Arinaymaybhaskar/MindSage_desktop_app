@@ -55,6 +55,7 @@ export function registerSearchIPC() {
   // this only matters for an item the renderer knows changed some other way.
   ipcMain.handle("search:sync", async (_e, type, id) => {
     if (!currentUserId()) return { success: false, error: "Not signed in" };
+    if (!index.vectorsAvailable()) return indexUnavailableResult();
     if (!TYPES.has(type) || !Number.isInteger(Number(id))) {
       return { success: false, error: "Unknown item" };
     }
