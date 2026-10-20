@@ -19,7 +19,14 @@ const moods = [
   { value: 5, emoji: face(5), label: "Excellent", color: "#22c55e" },
 ];
 
-export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
+export const DEFAULT_MOOD = 3;
+
+// A value outside 1-5 (unset, 0, legacy 0-100) would pin the thumb to an end
+// while the label fell back to "Good". Show the default for both instead.
+const inRange = (v: number) => (v >= 1 && v <= 5 ? v : DEFAULT_MOOD);
+
+export const MoodSlider: React.FC<Props> = ({ value: rawValue, onChange }) => {
+  const value = inRange(rawValue);
   const [visualValue, setVisualValue] = useState(value);
   // --- NEW: State to track if animation is running ---
   const [isAnimating, setIsAnimating] = useState(false);
