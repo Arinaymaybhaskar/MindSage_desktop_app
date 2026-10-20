@@ -43,6 +43,11 @@ export interface DeleteProfileResult {
    * stay in the database file until MindSage next starts.
    */
   walFolded?: boolean;
+  /**
+   * False when the windows' localStorage could not be wiped: the profile's
+   * name and email (the display cache) may stay in its files on disk.
+   */
+  localStorageErased?: boolean;
 }
 
 export const userService = {

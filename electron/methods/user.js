@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { currentUserId, signOut } from "../session.js";
 import { createAttemptLimiter } from "../attemptLimiter.js";
 import { deleteProfileEverything, describeProfile } from "./profileDelete.js";
+import { eraseLocalStorage } from "../windowStorage.js";
 
 // Wrong passwords on the delete screen and the change-password form share one
 // count; after five the profile is locked for a minute. Checks for one profile
@@ -112,6 +113,10 @@ export const userDeleteAccount = async (event, payload) => {
     const result = await deleteProfileEverything(userId, {
       afterRows: signOut,
     });
-    return { message: "Profile deleted", ...result };
+    // The windows' localStorage held this profile's name and email (the
+    // display cache); removing the key leaves the old value in the file, so
+    // the whole store is wiped and the renderer puts back what stays.
+    const localStorageErased = await eraseLocalStorage();
+    return { message: "Profile deleted", ...result, localStorageErased };
   });
 };

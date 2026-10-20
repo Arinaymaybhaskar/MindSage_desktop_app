@@ -166,6 +166,43 @@ describe("DeleteProfileDialog", () => {
     ).toBeInTheDocument();
   });
 
+  it("puts back the settings the delete wiped, without the display cache, before Choose a profile (KAN-376)", async () => {
+    localStorage.clear();
+    localStorage.setItem("userInfo", '{"username":"meera"}');
+    localStorage.setItem("theme", "dark");
+    deleteAccount.mockImplementation(async () => {
+      localStorage.clear(); // the main process wipes the store
+      return {
+        lastProfile: false,
+        backupsRemoved: false,
+        filesPending: 0,
+        localStorageErased: true,
+      };
+    });
+    await open();
+    typePassword("secret");
+    await hold(screen.getByRole("button", { name: /hold to delete/i }));
+    await screen.findByText("Your profile was deleted");
+    expect(localStorage.getItem("theme")).toBe("dark");
+    expect(localStorage.getItem("userInfo")).toBeNull();
+    expect(screen.queryByText(/could not wipe its window storage/)).toBeNull();
+  });
+
+  it("says the name may stay on disk when the window storage could not be wiped", async () => {
+    deleteAccount.mockResolvedValue({
+      lastProfile: false,
+      backupsRemoved: false,
+      filesPending: 0,
+      localStorageErased: false,
+    });
+    await open();
+    typePassword("secret");
+    await hold(screen.getByRole("button", { name: /hold to delete/i }));
+    expect(
+      await screen.findByText(/name and email may stay readable/),
+    ).toBeInTheDocument();
+  });
+
   it("a wrong password stays in the dialog with the message and clears the field", async () => {
     deleteAccount.mockRejectedValue(
       new Error(
