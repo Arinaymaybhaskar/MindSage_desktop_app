@@ -6,6 +6,8 @@
 // other (government and operator pages where the search reached them, news and
 // council pages otherwise). It was NOT done against each operator's own site;
 // treat a person re-checking these against the sources below as outstanding.
+// 2026-10-20: iCall and Lifeline Australia hours checked on the operators'
+// sites. `VERIFIED_ON` is one date for the file; only these two lines were rechecked.
 
 export type RegionCode = "IN" | "US" | "UK" | "CA" | "AU" | "DE";
 
@@ -33,7 +35,7 @@ export interface SupportRegion {
   lines: SupportLine[];
 }
 
-export const VERIFIED_ON = "2026-10-19";
+export const VERIFIED_ON = "2026-10-20";
 
 export const SUPPORT_REGIONS: SupportRegion[] = [
   {
@@ -56,9 +58,8 @@ export const SUPPORT_REGIONS: SupportRegion[] = [
         name: "iCall",
         voice: "+91 91529 87821",
         voiceDial: "+919152987821",
-        hours: "Trained counsellors · Mon-Sat 10 AM-8 PM · also by email",
+        hours: "Trained counsellors · Mon-Sat 8 AM-9 PM · also by email",
         audience: "everyone",
-        note: "Hours differ between sources (one lists 8 AM-10 PM); check icallhelpline.org.",
         source: "icallhelpline.org",
       },
       {
@@ -163,7 +164,7 @@ export const SUPPORT_REGIONS: SupportRegion[] = [
         voice: "13 11 14",
         voiceDial: "131114",
         text: "0477 13 11 14",
-        hours: "24 hours (text hours: check lifeline.org.au)",
+        hours: "24/7",
         audience: "everyone",
         source: "lifeline.org.au",
       },
