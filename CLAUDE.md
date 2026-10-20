@@ -19,6 +19,8 @@ This file is an index: detail lives in `docs/agent/`, read on demand.
 - The renderer never imports Node APIs; every backend call goes through `src/api/*Service`. -> [architecture.md](docs/agent/architecture.md)
 - IPC handlers register before the window exists; nothing may depend on search being up. -> [architecture.md](docs/agent/architecture.md)
 - New handlers that create or edit entries, goals or progress logs emit the matching event. -> [search-index.md](docs/agent/search-index.md)
+- Write the smallest complete change. -> [ponytail.md](docs/agent/ponytail.md)
+- Reports, owner messages and Jira comments: answer first, no ceremony. -> [terse-output.md](docs/agent/terse-output.md)
 - `npm run typecheck`, `npm run lint`, `npm run format:check` and `npm test` must stay clean. -> [tooling-and-tests.md](docs/agent/tooling-and-tests.md)
 - Commits are Conventional Commits ending with `Refs: KAN-nn`, no Co-Authored-By or Claude-Session trailers, never `--no-verify`. -> [workflow.md](docs/agent/workflow.md)
 - Flow is ticket branch -> phase branch -> dev -> main; never push or edit directly on `main`, `dev` or `phase/*`. -> [workflow.md](docs/agent/workflow.md)
@@ -29,6 +31,8 @@ This file is an index: detail lives in `docs/agent/`, read on demand.
 | Working on | Read |
 |---|---|
 | Orchestrating: delegation, model and effort choice, testing loop, Jira statuses, briefs | [docs/agent/orchestrator.md](docs/agent/orchestrator.md) |
+| Writing or changing code | [docs/agent/ponytail.md](docs/agent/ponytail.md) |
+| Writing any report, owner message or Jira comment | [docs/agent/terse-output.md](docs/agent/terse-output.md) |
 | Branches, commits, PRs, bugs found along the way, hooks that block you | [docs/agent/workflow.md](docs/agent/workflow.md) |
 | Layers, request flow, startup order, migrations, typed IPC bridge, renderer conventions | [docs/agent/architecture.md](docs/agent/architecture.md) |
 | Commands, tests, db tests, e2e, CI, lint and format, benchmarks, demo data | [docs/agent/tooling-and-tests.md](docs/agent/tooling-and-tests.md) |
