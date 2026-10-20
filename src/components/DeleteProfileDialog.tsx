@@ -13,7 +13,7 @@ import {
   clearLocalTraces,
   snapshotLocalStorage,
 } from "../utils/clearLocalTraces";
-import HoldButton from "./HoldButton";
+import HoldButton, { type HoldButtonHandle } from "./HoldButton";
 
 const plural = (n: number, one: string, many = `${one}s`) =>
   `${n} ${n === 1 ? one : many}`;
@@ -35,6 +35,7 @@ export default function DeleteProfileDialog() {
   const [result, setResult] = useState<DeleteProfileResult | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const holdRef = useRef<HoldButtonHandle>(null);
   const opener = useRef<Element | null>(null);
   // Who is being deleted: the session ends with the delete, so ask before it.
   const deletedId = useRef<number | undefined>(undefined);
@@ -287,6 +288,17 @@ export default function DeleteProfileDialog() {
                 setPassword(e.target.value);
                 if (error) setError("");
               }}
+              // Holding Enter here holds the button: it never skips the hold.
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.repeat) {
+                  e.preventDefault();
+                  holdRef.current?.start();
+                }
+              }}
+              onKeyUp={(e) => {
+                if (e.key === "Enter") holdRef.current?.cancel();
+              }}
+              onBlur={() => holdRef.current?.cancel()}
               disabled={isDeleting}
               className={`mt-2 w-full rounded-lg border bg-tertiary-light p-2.5 outline-none focus:ring-2 focus:ring-info dark:bg-tertiary-dark ${
                 error && summary
@@ -310,6 +322,7 @@ export default function DeleteProfileDialog() {
                 Keep my profile
               </button>
               <HoldButton
+                ref={holdRef}
                 label="Hold to delete"
                 holdingLabel="Keep holding…"
                 onComplete={deleteNow}
