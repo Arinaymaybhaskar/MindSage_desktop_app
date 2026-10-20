@@ -1,4 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
+
+/** Lets a field drive the hold, so holding Enter there is holding the button. */
+export interface HoldButtonHandle {
+  start: () => void;
+  cancel: () => void;
+}
 
 interface HoldButtonProps {
   label: string;
@@ -8,6 +21,7 @@ interface HoldButtonProps {
   duration?: number;
   disabled?: boolean;
   className?: string;
+  ref?: Ref<HoldButtonHandle>;
 }
 
 /**
@@ -22,6 +36,7 @@ export default function HoldButton({
   duration = 1500,
   disabled = false,
   className = "",
+  ref,
 }: HoldButtonProps) {
   const [holding, setHolding] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,6 +57,7 @@ export default function HoldButton({
     }, duration);
   }, [disabled, duration, onComplete]);
 
+  useImperativeHandle(ref, () => ({ start, cancel }), [start, cancel]);
   useEffect(() => cancel, [cancel]);
   useEffect(() => {
     if (disabled) cancel();
