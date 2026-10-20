@@ -262,6 +262,24 @@ export function markFailure(type, id, userId, error, now = Date.now()) {
   return { attempts, nextAttemptAt };
 }
 
+/**
+ * Puts rows that gave up (failed, no next attempt, attempts used up) back to
+ * pending with a clean slate. Only the manual sync calls this: the automatic
+ * loop leaves such rows alone until their text changes. Rows still waiting on a
+ * backoff and rows that are indexed are not touched.
+ * @returns {number} how many rows were reset
+ */
+export function retryGaveUp() {
+  return db
+    .prepare(
+      `UPDATE search_index
+          SET state = 'pending', attempts = 0, next_attempt_at = NULL,
+              last_error = NULL
+        WHERE state = 'failed' AND next_attempt_at IS NULL AND attempts >= ?`,
+    )
+    .run(MAX_ATTEMPTS).changes;
+}
+
 // ---------------------------------------------------------------------------
 // Removal (delete for good, delete profile)
 // ---------------------------------------------------------------------------

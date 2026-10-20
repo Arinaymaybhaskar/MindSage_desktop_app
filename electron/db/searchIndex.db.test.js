@@ -270,6 +270,56 @@ describe("retries", () => {
   });
 });
 
+describe("retryGaveUp (KAN-373)", () => {
+  const gaveUp = (content) => {
+    const e = entry(alice, { content });
+    idx.markStale("journal", e.id, alice);
+    for (let i = 0; i < idx.MAX_ATTEMPTS; i++) {
+      idx.markFailure("journal", e.id, alice, new Error("boom"), 1_000);
+    }
+    return e;
+  };
+  const due = (e) =>
+    idx
+      .pendingWork(500, 10 ** 12)
+      .some((w) => w.id === e.id && w.type === "journal");
+
+  it("puts rows that gave up back to pending with no attempts, so they are due again", () => {
+    const e = gaveUp("gave up");
+    expect(idx.getState("journal", e.id)).toMatchObject({
+      state: "failed",
+      next_attempt_at: null,
+    });
+    expect(due(e)).toBe(false);
+    expect(idx.retryGaveUp()).toBeGreaterThanOrEqual(1);
+    expect(idx.getState("journal", e.id)).toMatchObject({
+      state: "pending",
+      attempts: 0,
+      next_attempt_at: null,
+      last_error: null,
+    });
+    expect(due(e)).toBe(true);
+  });
+
+  it("leaves rows on a backoff, indexed rows and pending rows alone", () => {
+    const waiting = entry(alice, { content: "still backing off" });
+    idx.markStale("journal", waiting.id, alice);
+    idx.markFailure("journal", waiting.id, alice, "x", 1_000);
+    const indexed = entry(alice, { content: "indexed already" });
+    idx.markStale("journal", indexed.id, alice);
+    const hash = idx.loadSource("journal", indexed.id).hash;
+    expect(idx.storeVector("journal", indexed.id, vec(11), hash)).toBe("ok");
+    gaveUp("another that gave up");
+    idx.retryGaveUp();
+    expect(idx.getState("journal", waiting.id)).toMatchObject({
+      state: "failed",
+      attempts: 1,
+    });
+    expect(idx.getState("journal", indexed.id).state).toBe("ok");
+    expect(idx.retryGaveUp()).toBe(0);
+  });
+});
+
 describe("finding work", () => {
   it("lists live items that have no state row at all, but not trashed ones", () => {
     const fresh = entry(alice, { content: "never announced" });

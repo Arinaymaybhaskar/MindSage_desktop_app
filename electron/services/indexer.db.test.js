@@ -186,4 +186,27 @@ describe("the indexer", () => {
     await indexer.drain();
     expect(stateOf(e.id)).toBeNull();
   });
+
+  it("indexes an entry trashed mid-embedding and then restored, after the restore's sweep (KAN-372)", async () => {
+    const e = entry({ content: "trashed midway, then restored" });
+    const embed = async () => unit(9);
+    const first = make(async () => {
+      localDB.deleteJournalEntry(alice, e.id);
+      return unit(9);
+    });
+    first.noteChanged("journal", e.id);
+    advance(10_000);
+    await first.drain();
+    first.stop();
+    expect(stateOf(e.id)).toBeNull(); // the "gone" path removed its row
+
+    localDB.restoreItems(alice, { entryIds: [e.id], goalIds: [] });
+    expect(stateOf(e.id)).toBeNull(); // restoring alone indexes nothing
+    const indexer = make(embed);
+    indexer.sweep(); // what trash:restore now calls
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await indexer.idle();
+    indexer.stop();
+    expect(stateOf(e.id).state).toBe("ok");
+  });
 });
