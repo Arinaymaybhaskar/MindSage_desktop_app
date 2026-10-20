@@ -44,7 +44,7 @@ User fixes (nicknames, "wrong person", "not a person", feeling corrections, merg
 | Person merged | Aliases and mentions move; undo is kept in memory for the session. |
 | Person deleted / stop tracking | Mentions and summary go. Stop tracking (and delete with the box ticked) keeps the names as an ignore list. |
 | People turned off | Optionally deletes every People row for the user. |
-| Import, restored backup | Picked up by the once-per-session backfill. Backups are `VACUUM INTO` snapshots, so they carry the People tables. The data export includes them under `people/`. |
+| Import, restored backup | Picked up by the once-per-session backfill. Backups are `VACUUM INTO` snapshots, so they carry the People tables. The data export includes them under `people/`, without ignored people and without anything only trashed entries hold. |
 
 ## Privacy
 

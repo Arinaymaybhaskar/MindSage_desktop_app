@@ -5,6 +5,7 @@ import { db } from "./connection.js";
 import os from "node:os";
 import { log } from "../log.js";
 import { liveSummaryLines } from "../people/insights.js";
+import { normaliseName } from "../people/text.js";
 
 /**
  * Creates a comprehensive ZIP archive of all user data, handling cases where some data tables may be empty.
@@ -106,12 +107,12 @@ export async function exportEverything(userId, destinationPath) {
       "SELECT * FROM message_sources WHERE message_id IN (SELECT id FROM messages WHERE chat_id IN (SELECT id FROM chats WHERE user_id = ?))",
     );
 
-    // People: everything the People section worked out, ignored names
-    // included, so an export holds the user's corrections too. Nothing drawn
-    // only from trashed entries: a suggestion no live entry names, the
-    // mentions of an ignored person, a summary of one, or a summary line
-    // citing a trashed entry (filtered below).
-    const exportedPeople = `SELECT p.id FROM people p WHERE p.user_id = ? AND (p.status != 'suggested' OR EXISTS (
+    // People: confirmed people, and suggestions a live entry names. Ignored
+    // people and everything of theirs stay out. Nothing drawn only from
+    // trashed entries: a suggestion no live entry names, a name the AI added
+    // that only trashed entries hold, or a summary line citing a trashed
+    // entry (both filtered below).
+    const exportedPeople = `SELECT p.id FROM people p WHERE p.user_id = ? AND p.status != 'ignored' AND (p.status != 'suggested' OR EXISTS (
         SELECT 1 FROM person_mentions m JOIN journal_entries j ON j.id = m.entry_id AND j.is_deleted = 0
          WHERE m.person_id = p.id))`;
     const peopleQuery = db.prepare(
@@ -121,11 +122,24 @@ export async function exportEverything(userId, destinationPath) {
       `SELECT * FROM person_aliases WHERE person_id IN (${exportedPeople})`,
     );
     const personMentionsQuery = db.prepare(
-      "SELECT * FROM person_mentions WHERE person_id IN (SELECT id FROM people WHERE user_id = ? AND status != 'ignored') AND entry_id IN (SELECT id FROM journal_entries WHERE is_deleted = 0)",
+      `SELECT * FROM person_mentions WHERE person_id IN (${exportedPeople}) AND entry_id IN (SELECT id FROM journal_entries WHERE is_deleted = 0)`,
     );
     const personSummariesQuery = db.prepare(
-      "SELECT * FROM person_summaries WHERE person_id IN (SELECT id FROM people WHERE user_id = ? AND status != 'ignored')",
+      `SELECT * FROM person_summaries WHERE person_id IN (${exportedPeople})`,
     );
+    // An AI-added name stays only while a live entry still writes it.
+    const liveAliases = (rows, mentions) => {
+      const written = new Set(
+        mentions.map(
+          (m) => `${m.person_id}:${normaliseName(m.name_as_written)}`,
+        ),
+      );
+      return rows.filter(
+        (a) =>
+          a.source !== "ai" ||
+          written.has(`${a.person_id}:${a.alias_normalised}`),
+      );
+    };
     const liveSummaries = (rows, entries) => {
       const live = new Set(entries.map((e) => e.id));
       return rows.flatMap((s) => {
@@ -163,9 +177,12 @@ export async function exportEverything(userId, destinationPath) {
       files: filesQuery.all(userId),
       message_sources: messageSourcesQuery.all(userId),
       people: peopleQuery.all(userId),
-      person_aliases: personAliasesQuery.all(userId),
       person_mentions: personMentionsQuery.all(userId),
     };
+    sourceData.person_aliases = liveAliases(
+      personAliasesQuery.all(userId),
+      sourceData.person_mentions,
+    );
     sourceData.person_summaries = liveSummaries(
       personSummariesQuery.all(userId),
       sourceData.journal_entries,
