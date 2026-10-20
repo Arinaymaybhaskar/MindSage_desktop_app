@@ -31,7 +31,17 @@ Rules that keep the loop honest: a tester reports what it saw, not what the code
 
 ## Who does the work: delegation and model selection
 
-The goal is to spend tokens where a mistake is expensive and nowhere else. **All work goes through agents** (the `Agent` tool, with its `model` parameter set explicitly). The main session only orchestrates: it reads the Jira state, writes each agent's brief, merges and pushes what the agents return, and talks to the owner. It does not write feature code, run the test loop, review diffs or do Jira bookkeeping itself. The only things done inline are single-command facts (a `git status`, one status check) where writing a brief would cost more than the answer.
+The goal is to spend tokens where a mistake is expensive and nowhere else. **Work that needs judgement, tests or its own worktree goes through agents** (the `Agent` tool, with its `model` parameter set explicitly). The main session orchestrates: it reads the Jira state, writes each agent's brief, merges and pushes what the agents return, and talks to the owner. Small jobs are done inline, see the next section.
+
+### Inline vs agent
+
+Every agent costs a fixed ~125-170k tokens before it does any work, so a small job costs more as an agent than inline.
+
+- **Inline (no agent):** edits under ~30 lines, doc edits, one-command checks, filing or moving a Jira ticket, merging and pushing a finished branch.
+- **Agent:** coding that needs tests, real-app testing, diff review, anything over ~30 lines or needing its own worktree.
+- **Batch:** related tickets go to one agent, not one agent each. Cap every agent report at 10 lines.
+
+Inline work still follows the branch rules: use an own worktree, never the shared checkout, and never edit on `main`, `dev` or `phase/*`.
 
 | Work | Model | Effort | Notes |
 |---|---|---|---|
@@ -49,6 +59,7 @@ Rules:
 - **Effort is set explicitly too.** Every agent is launched with the `effort` parameter from the table (`low`, `medium`, `high`, `xhigh`, `max`); this file is the standing instruction that allows setting it. Effort rises before the model does: a failed `sonnet` fix is retried once at `high` before escalating to `opus`, and an `opus` fix that fails is retried at `xhigh`. Use `xhigh` or `max` only for migrations, data-loss risks and security findings, never for routine work.
 - **Brief like a peer.** Each brief names the ticket key and branch, the files that matter, what is already ruled out, the checks to run (`typecheck`, `lint`, `format:check`, `npm test`, `npm run test:db`), the commit rules in [workflow.md](workflow.md) (conventional commit, `Refs: KAN-nn`, no `Co-Authored-By` or session trailers), and asks for a short report: what changed, what was checked, what was not. Agents do not touch Jira statuses unless their step in the loop says so.
 - **Parallel where independent.** Tickets that touch different files run as separate agents in one batch, each in its own worktree (`isolation: "worktree"`) when they could collide. Do not run several agents on the same files.
+- **Inline vs agent.** Decide by the rule above before writing a brief; a brief that would cost more than the job is a sign to do it inline.
 - **Keep the main context small.** Ask for summaries, not file dumps, and do not re-read what an agent already reported. Do not start an agent for something a single grep answers.
 - **Verify before relaying.** An agent's report is a claim: the orchestrator checks the commit exists and the checks it names were run before it moves a ticket or tells the owner it is done, and says plainly what was not verified.
 
