@@ -9,7 +9,10 @@ import {
   type DeleteProfileResult,
   type ProfileSummary,
 } from "../api/userService";
-import { clearLocalTraces } from "../utils/clearLocalTraces";
+import {
+  clearLocalTraces,
+  snapshotLocalStorage,
+} from "../utils/clearLocalTraces";
 import HoldButton from "./HoldButton";
 
 const plural = (n: number, one: string, many = `${one}s`) =>
@@ -84,7 +87,12 @@ export default function DeleteProfileDialog() {
     setIsDeleting(true);
     setError("");
     try {
-      setResult(await userService.deleteAccount({ password }));
+      // The delete wipes localStorage on disk; what should stay is put back
+      // straight away, in case the app is closed on the done screen.
+      const before = snapshotLocalStorage();
+      const deleted = await userService.deleteAccount({ password });
+      clearLocalTraces(Boolean(deleted?.lastProfile), before);
+      setResult(deleted);
     } catch (err) {
       // Nothing was deleted. Stay here, with what went wrong.
       setError(
@@ -155,6 +163,9 @@ export default function DeleteProfileDialog() {
                 : ""}
               {result.walFolded === false
                 ? " The database file was busy, so some of your text may stay readable inside the database file until MindSage next starts."
+                : ""}
+              {result.localStorageErased === false
+                ? " MindSage could not wipe its window storage, so your name and email may stay readable in a file in the MindSage folder."
                 : ""}
             </p>
             <button
