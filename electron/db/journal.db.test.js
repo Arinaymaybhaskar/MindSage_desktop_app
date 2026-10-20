@@ -1,6 +1,23 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import { tempDir } from "./dbTestUtils.js";
+
+// The AI completion is driven through methods/journal.js, as the app does; it
+// reaches electron-store (model settings, session) and Electron, which stand in
+// here.
+vi.mock("electron", () => ({
+  app: { getPath: () => process.env.MS_USER_DATA_DIR },
+  ipcMain: { handle: () => {}, on: () => {} },
+  BrowserWindow: { getAllWindows: () => [] },
+}));
+vi.mock("electron-store", () => ({
+  default: class {
+    get() {
+      return null;
+    }
+    set() {}
+  },
+}));
 
 // Journal CRUD through the real db modules (connection.js opens the database
 // as a side effect, so the folder is chosen before the first import).
@@ -200,6 +217,140 @@ describe("updating", () => {
     expect(() =>
       localDB.updateAIStatus(alice, e.id, { ai_summary_status: "bogus" }),
     ).toThrow(/CHECK constraint/);
+  });
+});
+
+// KAN-377: an entry's date is the user's, and only the user changes it.
+describe("an entry's date", () => {
+  const rawRow = (id) =>
+    localDB.db
+      .prepare(
+        "SELECT created_at, updated_at, transcription FROM journal_entries WHERE id = ?",
+      )
+      .get(id);
+
+  it("is kept by an update that does not carry a date", () => {
+    const e = localDB.createJournalEntry(alice, {
+      content: "back-dated words",
+      created_at: iso(5),
+    });
+    const before = rawRow(e.id);
+    const updated = localDB.updateJournalEntry(alice, e.id, {
+      title: "A title",
+      content: "back-dated words",
+      mood_tags: ["calm"],
+    });
+    expect(updated.created_at).toBe(iso(5));
+    expect(rawRow(e.id).created_at).toBe(iso(5));
+    // updated_at still moves on every update.
+    expect(rawRow(e.id).updated_at >= before.updated_at).toBe(true);
+  });
+
+  it("is kept when the date sent is empty, null or not a date", () => {
+    const e = localDB.createJournalEntry(alice, {
+      content: "words",
+      created_at: iso(6),
+    });
+    for (const created_at of ["", "   ", null, "not a date", 12]) {
+      localDB.updateJournalEntry(alice, e.id, {
+        content: "words",
+        created_at,
+      });
+      expect(rawRow(e.id).created_at).toBe(iso(6));
+    }
+  });
+
+  it("changes when the user edits it (the editor sends the new date)", () => {
+    const e = localDB.createJournalEntry(alice, {
+      content: "words",
+      created_at: iso(7),
+    });
+    const updated = localDB.updateJournalEntry(alice, e.id, {
+      content: "words",
+      created_at: iso(2, 18),
+    });
+    expect(updated.created_at).toBe(iso(2, 18));
+    expect(rawRow(e.id).created_at).toBe(iso(2, 18));
+  });
+
+  it("keeps the transcription when an update does not carry one", () => {
+    const e = localDB.createJournalEntry(alice, {
+      content: "spoken",
+      created_at: iso(8),
+    });
+    localDB.updateJournalEntry(alice, e.id, {
+      content: "spoken",
+      created_at: iso(8),
+      transcription: "what I said",
+    });
+    localDB.updateJournalEntry(alice, e.id, { content: "spoken" });
+    expect(rawRow(e.id).transcription).toBe("what I said");
+    localDB.updateJournalEntry(alice, e.id, {
+      content: "spoken",
+      transcription: null,
+    });
+    expect(rawRow(e.id).transcription).toBeNull();
+  });
+
+  describe("when the AI fills in title, mood and tags", () => {
+    let eventBus;
+    beforeAll(async () => {
+      // Registers the journal:aiCompleted persister, as at app start.
+      await import("../methods/journal.js");
+      ({ eventBus } = await import("../eventBus.js"));
+    });
+
+    const metadata = {
+      title: "AI title",
+      mood_score: 7,
+      mood_tags: ["hopeful", "tired"],
+    };
+
+    it("auto-completion after create keeps the back-dated date", () => {
+      // What journal:create returns and ollama.js hands to the persister.
+      const created = localDB.createJournalEntry(alice, {
+        content: "A back-dated entry with nothing filled in.",
+        created_at: iso(10),
+      });
+      eventBus.emit("journal:aiCompleted", {
+        entry: created,
+        metadata,
+        entryId: created.id,
+      });
+      const after = localDB.getJournalById(alice, created.id);
+      expect(after.created_at).toBe(iso(10));
+      expect(after).toMatchObject({
+        title: "AI title",
+        mood_score: 7,
+        ai_metadata_status: "completed",
+      });
+      expect([...after.mood_tags].sort()).toEqual(["hopeful", "tired"]);
+    });
+
+    it("an explicit regenerate keeps the date and the transcription", () => {
+      const created = localDB.createJournalEntry(alice, {
+        title: "Mine",
+        content: "Spoken entry from last month.",
+        created_at: iso(11),
+      });
+      localDB.updateJournalEntry(alice, created.id, {
+        title: "Mine",
+        content: "Spoken entry from last month.",
+        created_at: iso(11),
+        transcription: "spoken words",
+      });
+      eventBus.emit("journal:aiCompleted", {
+        entry: localDB.getJournalById(alice, created.id),
+        metadata,
+        entryId: created.id,
+        force: true,
+      });
+      expect(rawRow(created.id)).toMatchObject({
+        created_at: iso(11),
+        transcription: "spoken words",
+      });
+      expect(localDB.getJournalById(alice, created.id).title).toBe("AI title");
+    });
   });
 });
 
