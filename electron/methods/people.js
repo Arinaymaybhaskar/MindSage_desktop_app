@@ -45,6 +45,7 @@ import {
   buildSummaryPrompt,
   feelingTrend,
   groundSummary,
+  liveSummaryLines,
   mentionsHash,
   SUMMARY_SCHEMA,
 } from "../people/insights.js";
@@ -522,10 +523,16 @@ export function handleGetPerson(_e, personId) {
   const cached = peopleDb.getSummary(person.id);
   const hash = mentionsHash(rows);
   let summary = null;
-  if (cached) {
+  // Below two live entries no summary is shown or regenerated, so the cached
+  // one (drawn from an entry now in the Trash) goes.
+  if (cached && byEntry.size < 2) peopleDb.deleteSummary(person.id);
+  else if (cached) {
     try {
       summary = {
-        lines: JSON.parse(cached.summary_json),
+        lines: liveSummaryLines(
+          JSON.parse(cached.summary_json),
+          new Set(byEntry.keys()),
+        ),
         stale: cached.mentions_hash !== hash,
         createdAt: cached.created_at,
       };
@@ -560,12 +567,15 @@ export async function handleSummarize(_e, personId) {
   const userId = requireEnabled();
   const person = ownPerson(userId, personId);
   const rows = peopleDb.mentionsForPerson(userId, person.id);
+  if (new Set(rows.map((r) => r.entry_id)).size < 2) {
+    peopleDb.deleteSummary(person.id);
+    return { lines: [], stale: false };
+  }
   const hash = mentionsHash(rows);
   const cached = peopleDb.getSummary(person.id);
   if (cached && cached.mentions_hash === hash) {
     return { lines: JSON.parse(cached.summary_json), stale: false };
   }
-  if (rows.length < 2) return { lines: [], stale: false };
 
   // Most recent first, one excerpt per entry, capped so the prompt stays
   // small on an 8 GB laptop.
@@ -657,8 +667,9 @@ export function handleIgnorePerson(_e, personId) {
   const userId = requireEnabled();
   const person = ownPerson(userId, personId);
   peopleDb.runInTransaction(() => {
-    for (const m of peopleDb.mentionsForPerson(userId, person.id))
-      peopleDb.deleteMention(m.id);
+    // Mentions of trashed entries too, or a restore would bring them back.
+    peopleDb.deleteAllMentionsOfPerson(userId, person.id);
+    peopleDb.deleteSummary(person.id);
     peopleDb.updatePerson(userId, person.id, { status: "ignored" });
   });
   broadcastChanged();
@@ -724,9 +735,7 @@ export function handleMergePeople(_e, keepId, mergeId) {
   if (keep.id === merge.id) throw new Error("Pick two different people");
 
   const keepAliases = new Set(keep.aliases.map(normaliseName));
-  const movedMentions = peopleDb
-    .mentionsForPerson(userId, merge.id)
-    .map((m) => m.id);
+  const movedMentions = peopleDb.allMentionIdsForPerson(userId, merge.id);
   peopleDb.runInTransaction(() => {
     for (const id of movedMentions)
       peopleDb.updateMention(id, { person_id: keep.id });
