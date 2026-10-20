@@ -4,7 +4,7 @@ import { createReadStream, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-const proj = process.cwd().replace(/[\\/:]/g, "-");
+const proj = process.cwd().replace(/[\\/:_]/g, "-");
 const dir = join(homedir(), ".claude", "projects", proj);
 const names = process.argv[2]
   ? []
