@@ -7,7 +7,7 @@
 // council pages otherwise). It was NOT done against each operator's own site;
 // treat a person re-checking these against the sources below as outstanding.
 // 2026-10-20: iCall and Lifeline Australia hours checked on the operators'
-// sites. `VERIFIED_ON` is one date for the file; only these two lines were rechecked.
+// sites. `VERIFIED_ON` stays at the last full check; bump it only after every line is rechecked.
 
 export type RegionCode = "IN" | "US" | "UK" | "CA" | "AU" | "DE";
 
@@ -35,7 +35,7 @@ export interface SupportRegion {
   lines: SupportLine[];
 }
 
-export const VERIFIED_ON = "2026-10-20";
+export const VERIFIED_ON = "2026-10-19";
 
 export const SUPPORT_REGIONS: SupportRegion[] = [
   {
