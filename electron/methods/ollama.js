@@ -412,6 +412,11 @@ export const handleDownloadOllamaModel = (event, modelName) => {
       errorOutput += data.toString();
     });
 
+    // A missing binary emits "error" (never "close"); unhandled, it throws.
+    child.on("error", (err) => {
+      reject({ error: `Download failed: ${err.message}` });
+    });
+
     child.on("close", (code) => {
       if (code === 0) {
         resolve({ success: true, message: `${modelName} downloaded` });
@@ -443,6 +448,10 @@ export const handleDeleteOllamaModel = (event, modelName) => {
 
     child.stderr.on("data", (data) => {
       errorOutput += data.toString();
+    });
+
+    child.on("error", (err) => {
+      reject({ error: `Delete failed: ${err.message}` });
     });
 
     child.on("close", (code) => {
