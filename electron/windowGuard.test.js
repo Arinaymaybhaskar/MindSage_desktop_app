@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { guardContents, isAppUrl, isSafeExternalUrl } from "./windowGuard.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+// path.resolve gives a drive-qualified path on Windows, so these URLs are
+// valid there too (a bare /opt/... would not be).
+const distDir = path.resolve("/opt/MindSage/resources/app/dist");
+const base = pathToFileURL(distDir).href;
 const read = (p) => fs.readFileSync(path.join(here, p), "utf8");
 
 describe("isSafeExternalUrl", () => {
@@ -30,25 +34,20 @@ describe("isSafeExternalUrl", () => {
 
 describe("isAppUrl", () => {
   const dev = { devUrl: "http://localhost:5173/" };
-  const packaged = { distDir: "/opt/MindSage/resources/app/dist" };
+  const packaged = { distDir };
 
   it("accepts only the dev server's origin in development", () => {
     expect(isAppUrl("http://localhost:5173/#/journal", dev)).toBe(true);
     expect(isAppUrl("http://localhost:5174/", dev)).toBe(false);
     expect(isAppUrl("https://localhost:5173/", dev)).toBe(false);
     expect(isAppUrl("https://example.com/", dev)).toBe(false);
-    expect(
-      isAppUrl("file:///opt/MindSage/resources/app/dist/index.html", dev),
-    ).toBe(false);
+    expect(isAppUrl(`${base}/index.html`, dev)).toBe(false);
   });
 
   it("accepts only files inside dist when packaged", () => {
-    const base = "file:///opt/MindSage/resources/app/dist";
     expect(isAppUrl(`${base}/index.html#/quick-capture`, packaged)).toBe(true);
     expect(isAppUrl(`${base}/splash.html`, packaged)).toBe(true);
-    expect(
-      isAppUrl("file:///opt/MindSage/resources/app/dist-evil/x.html", packaged),
-    ).toBe(false);
+    expect(isAppUrl(`${base}-evil/x.html`, packaged)).toBe(false);
     expect(isAppUrl(`${base}/../secrets.html`, packaged)).toBe(false);
     expect(isAppUrl("file:///etc/passwd", packaged)).toBe(false);
     expect(isAppUrl("https://example.com/", packaged)).toBe(false);
@@ -56,21 +55,15 @@ describe("isAppUrl", () => {
   });
 
   it("never throws on a malformed escape, and does not match a path-separator trick", () => {
-    const base = "file:///opt/MindSage/resources/app/dist";
     expect(isAppUrl("file:///etc/passwd?%FF", packaged)).toBe(false);
     expect(isAppUrl(`${base}/index.html?x=%FF`, packaged)).toBe(true);
     expect(isAppUrl(`${base}/..%2F..%2Fx.html`, packaged)).toBe(false);
+    const index = `${base}/index.html`;
     expect(
-      isAppUrl(
-        "file://evilhost/opt/MindSage/resources/app/dist/index.html",
-        packaged,
-      ),
+      isAppUrl(index.replace("file:///", "file://evilhost/"), packaged),
     ).toBe(false);
     expect(
-      isAppUrl(
-        `file://localhost/opt/MindSage/resources/app/dist/index.html`,
-        packaged,
-      ),
+      isAppUrl(index.replace("file:///", "file://localhost/"), packaged),
     ).toBe(true);
   });
 
