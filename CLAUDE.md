@@ -36,6 +36,7 @@ This file is an index: detail lives in `docs/agent/`, read on demand.
 | Branches, commits, PRs, bugs found along the way, hooks that block you | [docs/agent/workflow.md](docs/agent/workflow.md) |
 | Layers, request flow, startup order, migrations, typed IPC bridge, renderer conventions | [docs/agent/architecture.md](docs/agent/architecture.md) |
 | Commands, tests, db tests, e2e, CI, lint and format, benchmarks, demo data | [docs/agent/tooling-and-tests.md](docs/agent/tooling-and-tests.md) |
+| Testing the real app: fake Ollama, launcher, scanner, process rules (testers) | [docs/agent/qa-kit.md](docs/agent/qa-kit.md) |
 | Search, the indexer, embeddings, `vec_entries`, `search_index` | [docs/agent/search-index.md](docs/agent/search-index.md) |
 | Trash, purge, backups, deleting a profile | [docs/agent/trash-and-deletion.md](docs/agent/trash-and-deletion.md) |
 | Sign-in, session, CSP, window sandbox, `windowGuard`, Windows uninstaller | [docs/agent/security-and-session.md](docs/agent/security-and-session.md) |
