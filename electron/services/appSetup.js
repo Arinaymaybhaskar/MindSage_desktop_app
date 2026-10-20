@@ -15,7 +15,8 @@
 //   default they can delete later), because every machine has different specs.
 
 import { app, ipcMain, BrowserWindow, shell } from "electron";
-import { exec, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
+import { runOllamaCli } from "./ollamaCli.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -51,10 +52,8 @@ async function isOllamaRunning() {
   }
 }
 
-function isOllamaOnPath() {
-  return new Promise((resolve) => {
-    exec("ollama --version", { timeout: 5000 }, (error) => resolve(!error));
-  });
+async function isOllamaOnPath() {
+  return (await runOllamaCli(["--version"])).ok;
 }
 
 async function listInstalledModels() {
@@ -245,6 +244,8 @@ async function startOllama() {
       detached: true,
       stdio: "ignore",
     });
+    // A missing binary emits "error" later; without a listener it would throw.
+    proc.on("error", () => {});
     proc.unref();
   } catch {
     // PATH may not include ollama in this process; the service may still be

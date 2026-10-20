@@ -1,5 +1,6 @@
 import { app, ipcMain, BrowserWindow } from "electron";
-import { exec, spawn } from "child_process";
+import { spawn } from "child_process";
+import { runOllamaCli } from "./ollamaCli.js";
 import { EventEmitter } from "events";
 import fs from "fs";
 import path from "path";
@@ -89,25 +90,21 @@ async function isOllamaServiceReachable() {
  * Fallback probe for when HTTP is unreachable. It is what separates "installed
  * but stopped" from "not installed at all", which the two statuses need.
  */
-function probeOllamaCli() {
-  return new Promise((resolve) => {
-    log("Running `ollama --version`...");
-    exec("ollama --version", { timeout: 5000 }, (error, stdout, stderr) => {
-      if (error) {
-        if (stderr) log(stderr);
-        return resolve({ installed: false, running: false, output: "" });
-      }
-      const output = stdout.trim();
-      resolve({
-        installed: true,
-        // The binary exits 0 and prints this warning when the service is down.
-        running: !/could not connect to a running Ollama instance/i.test(
-          output,
-        ),
-        output,
-      });
-    });
-  });
+async function probeOllamaCli() {
+  log("Running `ollama --version`...");
+  const result = await runOllamaCli(["--version"]);
+  if (!result.ok) {
+    if (result.timedOut) log("`ollama --version` timed out.");
+    else if (result.stderr) log(result.stderr);
+    return { installed: false, running: false, output: "" };
+  }
+  const output = result.stdout.trim();
+  return {
+    installed: true,
+    // The binary exits 0 and prints this warning when the service is down.
+    running: !/could not connect to a running Ollama instance/i.test(output),
+    output,
+  };
 }
 
 /**
@@ -128,24 +125,21 @@ async function listInstalledModels(httpReachable) {
     }
   }
 
-  return new Promise((resolve, reject) => {
-    log("Listing Ollama models...");
-    exec("ollama list", (error, stdout, stderr) => {
-      if (error) {
-        log("Ollama command failed.");
-        if (stderr) log(stderr);
-        return reject(new Error("Ollama command failed"));
-      }
-      // Skip the header row; the model name is the first column.
-      resolve(
-        stdout
-          .split("\n")
-          .slice(1)
-          .map((line) => line.trim().split(/\s+/)[0])
-          .filter(Boolean),
-      );
-    });
-  });
+  log("Listing Ollama models...");
+  const result = await runOllamaCli(["list"]);
+  if (!result.ok) {
+    log(
+      result.timedOut ? "Ollama command timed out." : "Ollama command failed.",
+    );
+    if (result.stderr) log(result.stderr);
+    throw new Error("Ollama command failed");
+  }
+  // Skip the header row; the model name is the first column.
+  return result.stdout
+    .split("\n")
+    .slice(1)
+    .map((line) => line.trim().split(/\s+/)[0])
+    .filter(Boolean);
 }
 
 /**
@@ -250,6 +244,13 @@ export function OllamaEmbeddingModelSetup() {
       ollamaProcess.stderr.on("data", (data) => {
         const text = data.toString().trim();
         if (text) log(text);
+      });
+
+      // A missing binary emits "error" (never "close"); unhandled, it throws.
+      ollamaProcess.on("error", (err) => {
+        log(`Model pull could not start: ${err.message}`);
+        sendStatus({ type: "error" });
+        reject(new Error("Model pull failed"));
       });
 
       ollamaProcess.on("close", (code) => {
