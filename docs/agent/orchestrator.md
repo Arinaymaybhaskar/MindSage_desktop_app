@@ -20,7 +20,7 @@ The phase branch lands in `dev` when the phase's gate passes: every ticket in Re
 
 A ticket that is built and merged into its phase branch goes to **Ready for testing**, never straight to Done. Done means verified by a person and merged to `main`. From there:
 
-1. **Test.** A *separate* testing agent (never the one that wrote the code, and given only the ticket and its QA-steps comment) launches the real app (`xvfb-run` and Playwright, `MS_REMOTE_DEBUG` or the dev app for debug mode; `scripts/e2e/run.mjs` is the pattern; on Windows there is no `xvfb-run`, so run the same Playwright flow against the app in a normal window) and works through the ticket's acceptance criteria and QA steps in the UI, thoroughly, including the edge cases the ticket lists. It cannot pass what the sandbox cannot do (no real Ollama, no Windows or macOS packaged build): those parts are reported as not tested, and a ticket labelled `needs-hardware` stays in Ready for testing with the parts that could run recorded in a comment.
+1. **Test.** A *separate* testing agent (never the one that wrote the code, and given only the tickets of one area and their QA-steps comments, plus [qa-kit.md](qa-kit.md)) launches the real app (`xvfb-run` and Playwright, `MS_REMOTE_DEBUG` or the dev app for debug mode; `scripts/e2e/run.mjs` is the pattern; on Windows there is no `xvfb-run`, so run the same Playwright flow against the app in a normal window) and works through the ticket's acceptance criteria and QA steps in the UI, thoroughly, including the edge cases the ticket lists. It cannot pass what the sandbox cannot do (no real Ollama, no Windows or macOS packaged build): those parts are reported as not tested, and a ticket labelled `needs-hardware` stays in Ready for testing with the parts that could run recorded in a comment.
 2. **Pass.** Everything that can be checked passed: move the story to **Ready for release** and comment exactly what was run and seen.
 3. **Fail.** Move the story to **Failed Testing** and file a Jira **Bug** under the same epic with the repro steps, evidence (screenshot, log lines) and what was expected, labelled `release-pN`, `found-in-phase-N` and `phase-N-closeout`, with the phase's release as fix version and linked to the story.
 4. **Fix.** The coding agent reads the bug, fixes it on a branch named for the bug (`fix/KAN-nnn-slug`), merges it into the phase branch, and moves **both the bug and the story back to Ready for testing**, with a comment saying what changed and what to retest.
@@ -37,13 +37,13 @@ The goal is to spend tokens where a mistake is expensive and nowhere else. **All
 |---|---|---|---|
 | High-risk coding: migrations, the search indexer, anything touching the journal database or its backups, security, the AI pipeline (tickets labelled `opus-review`) | `opus` (`fable` when the owner asks for the strongest) | `high` | A mistake loses or leaks journal text. |
 | Everyday coding: UI behaviour, handlers, tests, bug fixes | `sonnet` | `medium` | The default coding agent. |
-| Testing agents (the loop above) | `sonnet`; `opus` for `opus-review` tickets | `medium`; `high` for `opus-review` tickets | Reports what it saw, never what the code intends. |
-| Diff review before a phase branch merges | `opus` | `high` | Never the model session that wrote the code. |
+| Testing agents (the loop above) | `sonnet`, for every ticket including `opus-review` ones | `high` | One agent per AREA of several tickets, not one per ticket. Reports what it saw, never what the code intends. |
+| Diff review before a phase branch merges | `opus` | `high` | Never the model session that wrote the code. Opus stays for risky coding, diff review and planning. |
 | Planning, re-planning phases, moving tickets between releases | `opus` | `high` | A wrong call multiplies across tickets. |
 | Mechanical chores: Jira status moves, comments, filing bugs from the template, reformatting, grep-and-report | `haiku` | `low` | Nothing subtle to get wrong. |
 
 Rules:
-- **Risk decides the tier, not size.** A one-line migration change goes to `opus`; a large UI change can go to `sonnet`.
+- **Risk decides the tier, not size**, except testing: testers are `sonnet` at `high` always. A one-line migration change goes to `opus`; a large UI change can go to `sonnet`.
 - **Author and judge are different agents.** The agent that wrote a change never tests or reviews it.
 - **Escalate on failure.** If a `sonnet` fix fails retest twice, the bug goes to `opus` instead of a third try (see the effort rule below for the order).
 - **Effort is set explicitly too.** Every agent is launched with the `effort` parameter from the table (`low`, `medium`, `high`, `xhigh`, `max`); this file is the standing instruction that allows setting it. Effort rises before the model does: a failed `sonnet` fix is retried once at `high` before escalating to `opus`, and an `opus` fix that fails is retried at `xhigh`. Use `xhigh` or `max` only for migrations, data-loss risks and security findings, never for routine work.
@@ -57,6 +57,9 @@ Rules:
 - The orchestrator's own messages to the owner follow [terse-output.md](terse-output.md). Tell the owner at most 2-3 short lines after any action. Never recap tables or per-ticket detail unless the owner asks for progress.
 - Briefs ask agents for reports of at most 10 lines in the [terse-output.md](terse-output.md) style: verdict, commit hash, what was NOT verified. Agents give evidence as pass/fail plus the one number that matters, not narration.
 - No agent re-reads files already reported. No agent starts for a single grep. Batch related tickets per agent.
+- Output caps for every agent: `grep -m`, `head`, `tail`, no whole-file dumps, no re-reading a file already read, logs via `tail -n 50`, script output to a file first.
+- Testers: every brief says "read docs/agent/qa-kit.md and use scripts/qa, do not write your own fake Ollama or launcher". One tester per area of several tickets.
+- Process rules for every agent: never `pkill`, `killall` or kill by name; kill only pids you started (pid files, see [qa-kit.md](qa-kit.md)); script output goes to files; do not kill what holds a port you need.
 
 ## Jira conventions
 
@@ -92,6 +95,6 @@ Every brief states:
 | Sign-in, session, CSP, windows, installer | [security-and-session.md](security-and-session.md) |
 | Import/export, updates, support lines, env flags, packaging | [features.md](features.md) |
 | Logging | [logging.md](logging.md) |
-| Testing agent | the ticket and its QA-steps comment only, plus [tooling-and-tests.md](tooling-and-tests.md) (e2e) |
+| Testing agent | the ticket(s) and QA-steps comment(s) only, plus [qa-kit.md](qa-kit.md) and [tooling-and-tests.md](tooling-and-tests.md) (e2e) |
 | Diff review | [workflow.md](workflow.md) plus the file for the area changed |
 | Migrations or anything in `electron/db/` | [architecture.md](architecture.md) (schema rules), [trash-and-deletion.md](trash-and-deletion.md), [search-index.md](search-index.md) |
