@@ -297,7 +297,23 @@ export function getMoodScores(userId, range) {
 }
 
 /**
+ * The date an update may move an entry to: a non-empty string that parses as a
+ * date, or null for "leave the entry's date alone". Only the user changes an
+ * entry's date (the editor sends it); internal writers such as the AI
+ * completion send none (KAN-377).
+ * @param {unknown} value
+ * @returns {string|null}
+ */
+function requestedCreatedAt(value) {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  return Number.isNaN(Date.parse(value)) ? null : value;
+}
+
+/**
  * Updates an existing journal entry and its tags in a transaction.
+ * `created_at` changes only when the payload carries a valid date, and
+ * `transcription` only when the payload sets it (null clears it); a
+ * writer that leaves either out keeps what is stored.
  * @param {number} userId - The user's ID.
  * @param {number} journalId - The ID of the journal entry to update.
  * @param {object} entry - The updated journal entry data.
@@ -326,10 +342,12 @@ export function updateJournalEntry(userId, journalId, entry) {
                 mood_score = @mood_score,
                 sentiment_score = @sentiment_score,
                 updated_at = @updated_at,
-                created_at = @created_at,
+                created_at = COALESCE(@created_at, created_at),
                 synced = 0,
                 sync_action = 'update',
-                transcription = @transcription
+                transcription = CASE WHEN @set_transcription = 1
+                                     THEN @transcription
+                                     ELSE transcription END
             WHERE
                 id = @journalId AND user_id = @userId AND is_deleted = 0
         `);
@@ -340,10 +358,11 @@ export function updateJournalEntry(userId, journalId, entry) {
       mood_score: mood_score || null,
       sentiment_score,
       updated_at,
-      created_at: created_at || new Date().toISOString(),
+      created_at: requestedCreatedAt(created_at),
       journalId,
       userId,
-      transcription,
+      set_transcription: transcription === undefined ? 0 : 1,
+      transcription: transcription ?? null,
     });
 
     if (result.changes === 0) {
