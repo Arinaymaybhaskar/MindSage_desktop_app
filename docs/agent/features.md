@@ -10,6 +10,15 @@ Imports go through `electron/methods/portability.js`, which writes with `localDB
 
 App logos come from Simple Icons via [AppLogo.tsx](../../src/components/settings/AppLogo.tsx); apps it does not carry get a lettered tile, not a logo copied from their site.
 
+## People is opt-in and the AI only suggests
+
+[docs/PEOPLE.md](../PEOPLE.md) is the plan and what is still missing. Pure logic lives in [electron/people/](../../electron/people/) (no `electron` or database imports, tested in `people.test.js`); SQL in `electron/db/people.js`; the queue and `people:*` IPC in `electron/methods/people.js`. Its tables come from migration 9 and cascade from the user, the entry or the person, so deleting a profile or purging an entry removes them in the same statement.
+
+- Keep every model claim grounded in code (the name is in the entry, the sentence numbers exist, a relationship word is present) and never auto-merge anything but an exact alias.
+- When you change the prompt, schema or checks, bump `EXTRACTOR_VERSION` in `extract.js`.
+- Mentions store offsets into `journal_entries.content`, never a copy of the text, and nothing from People goes into the search index.
+- Summary copy describes what was written and never judges the person or relationship.
+
 ## Updates are quiet and opt-in
 
 `electron/services/autoUpdater.js` checks only when the user turned on automatic checks or pressed "Check now"; `updateRelay.js` remembers where the download stands (`update:get-state`) and `UpdateBar` shows it. "Restart to update" goes through `prepareToRestart()` in [src/utils/unsavedWork.ts](../../src/utils/unsavedWork.ts): a screen holding text a restart would lose registers a guard there (the entry form does), and the restart is refused while one is dirty. Notices that sit above the page (`UpdateBar`, `AIReadinessBanner`) go in the wrapper in `App.tsx`, because the title bar is `fixed` over the top 40px.

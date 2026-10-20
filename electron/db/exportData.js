@@ -105,6 +105,19 @@ export async function exportEverything(userId, destinationPath) {
       "SELECT * FROM message_sources WHERE message_id IN (SELECT id FROM messages WHERE chat_id IN (SELECT id FROM chats WHERE user_id = ?))",
     );
 
+    // People: everything the People section worked out, ignored names
+    // included, so an export holds the user's corrections too.
+    const peopleQuery = db.prepare("SELECT * FROM people WHERE user_id = ?");
+    const personAliasesQuery = db.prepare(
+      "SELECT * FROM person_aliases WHERE person_id IN (SELECT id FROM people WHERE user_id = ?)",
+    );
+    const personMentionsQuery = db.prepare(
+      "SELECT * FROM person_mentions WHERE person_id IN (SELECT id FROM people WHERE user_id = ?) AND entry_id IN (SELECT id FROM journal_entries WHERE is_deleted = 0)",
+    );
+    const personSummariesQuery = db.prepare(
+      "SELECT * FROM person_summaries WHERE person_id IN (SELECT id FROM people WHERE user_id = ?)",
+    );
+
     // -- 2. Collect all data from the database into a single object --
     const sourceData = {
       user: userQuery.get(userId),
@@ -126,6 +139,10 @@ export async function exportEverything(userId, destinationPath) {
       messages: messagesQuery.all(userId),
       files: filesQuery.all(userId),
       message_sources: messageSourcesQuery.all(userId),
+      people: peopleQuery.all(userId),
+      person_aliases: personAliasesQuery.all(userId),
+      person_mentions: personMentionsQuery.all(userId),
+      person_summaries: personSummariesQuery.all(userId),
     };
 
     const flatData = JSON.parse(JSON.stringify(sourceData));
@@ -208,7 +225,7 @@ export async function exportEverything(userId, destinationPath) {
     const metadata = {
       exported_at: new Date().toISOString(),
       app_version: "1.0.0",
-      data_schema_version: "1.3.0-combined",
+      data_schema_version: "1.4.0-combined",
     };
 
     flatData.metadata = metadata;
@@ -235,6 +252,10 @@ export async function exportEverything(userId, destinationPath) {
       "ai/interventions.json": structuredData.ai_interventions,
       "ai/nudges.json": structuredData.ai_nudges,
       "ai/emotion_patterns.json": structuredData.user_emotion_patterns,
+      "people/people.json": structuredData.people,
+      "people/aliases.json": structuredData.person_aliases,
+      "people/mentions.json": structuredData.person_mentions,
+      "people/summaries.json": structuredData.person_summaries,
     };
 
     for (const [filename, data] of Object.entries(dataMap)) {

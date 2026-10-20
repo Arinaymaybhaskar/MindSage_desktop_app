@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import { useToast } from "../hooks/useToast";
 import { errorMessage } from "../utils/errors";
 import MoodOrb from "../components/ui/MoodOrb";
+import EntryContentWithPeople from "../components/people/EntryContentWithPeople";
 
 // --- Helper: Export Journal to Markdown ---
 function exportJournalToMarkdown(entry: JournalEntry) {
@@ -443,7 +444,14 @@ export default function JournalDetail() {
               )}
 
               <div className="prose prose-lg dark:prose-invert text-text-light-sub dark:text-text-dark-sub max-w-none leading-relaxed whitespace-pre-wrap">
-                {entry.content}
+                {entry.id ? (
+                  <EntryContentWithPeople
+                    entryId={entry.id}
+                    content={entry.content}
+                  />
+                ) : (
+                  entry.content
+                )}
               </div>
             </article>
 

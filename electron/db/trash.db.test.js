@@ -418,6 +418,59 @@ describe("deleting for good", () => {
       .get(msg);
     expect(src.source_title).toBe("Removed entry");
   });
+
+  it("takes the People summaries and lone suggestions the entry gave rise to", () => {
+    const e = entry(alice, { content: "Saw Priya. Lunch with Sam." });
+    const keep = entry(alice, { content: "Sam again." });
+    const person = (name, status) =>
+      Number(
+        db
+          .prepare(
+            "INSERT INTO people (user_id, display_name, status) VALUES (?, ?, ?)",
+          )
+          .run(alice, name, status).lastInsertRowid,
+      );
+    const priya = person("Priya", "suggested");
+    const sam = person("Sam", "confirmed");
+    const mention = (entryId, personId, name) =>
+      db
+        .prepare(
+          "INSERT INTO person_mentions (entry_id, person_id, name_as_written, sentence_start, sentence_end, extractor_version) VALUES (?, ?, ?, 0, 5, 1)",
+        )
+        .run(entryId, personId, name);
+    mention(e.id, priya, "Priya");
+    mention(e.id, sam, "Sam");
+    mention(keep.id, sam, "Sam");
+    db.prepare(
+      "INSERT INTO person_summaries (person_id, summary_json, mentions_hash) VALUES (?, '[\"Lunch with Sam\"]', 'h')",
+    ).run(sam);
+    db.prepare("INSERT INTO people_jobs (entry_id, user_id) VALUES (?, ?)").run(
+      e.id,
+      alice,
+    );
+
+    localDB.deleteJournalEntry(alice, e.id);
+    localDB.deleteForever(alice, { entryIds: [e.id], goalIds: [] });
+
+    const count = (sql, ...args) => db.prepare(sql).get(...args).n;
+    expect(
+      count("SELECT COUNT(*) n FROM person_mentions WHERE entry_id = ?", e.id),
+    ).toBe(0);
+    expect(
+      count("SELECT COUNT(*) n FROM people_jobs WHERE entry_id = ?", e.id),
+    ).toBe(0);
+    expect(
+      count("SELECT COUNT(*) n FROM person_summaries WHERE person_id = ?", sam),
+    ).toBe(0);
+    expect(count("SELECT COUNT(*) n FROM people WHERE id = ?", priya)).toBe(0);
+    expect(count("SELECT COUNT(*) n FROM people WHERE id = ?", sam)).toBe(1);
+    expect(
+      count(
+        "SELECT COUNT(*) n FROM person_mentions WHERE entry_id = ?",
+        keep.id,
+      ),
+    ).toBe(1);
+  });
 });
 
 describe("Empty trash", () => {
