@@ -2,18 +2,13 @@ import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
 import {
   AISummaryPrompt,
-  generateContextTimeAndBaseQueryPrompt,
   getAutoPopulateValues,
   isSummarizable,
   parseJournalMetadata,
   sanitizeSummary,
-  respondWithContext,
-  respondWithoutContext,
 } from "./AIPrompts.js";
 import { modelStore } from "../store.js";
-import { semanticSearch } from "./search.js";
 import { currentUserId } from "../session.js";
-import z from "zod";
 import { db } from "../db/connection.js";
 import { log } from "../log.js";
 import { listOllamaModels } from "./ollamaList.js";
@@ -351,116 +346,6 @@ eventBus.on("journal:created", async ({ entry }) => {
     });
   }
 });
-
-// Schemas
-const propsResSchema = z.object({
-  requires_context: z.boolean(),
-  requires_time_filter: z.boolean().optional().default(false),
-  time_filter_from: z.string().nullish().default(null),
-  time_filter_to: z.string().nullish().default(null),
-  base_query: z.string().optional().default(""),
-  notes: z.string().optional().default(""),
-});
-
-const chatResponseSchema = z.object({
-  response: z.string(),
-  // Matches the key the prompt actually asks for and the renderer consumes.
-  suggested_user_prompt: z.string(),
-});
-
-// Helper: parse and retry AI JSON
-async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      log.debug("calling ai");
-      const raw = await rawFn();
-      log.debug("ai response", { chars: raw?.length });
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON found");
-
-      return schema.parse(JSON.parse(jsonMatch[0]));
-    } catch (err) {
-      log.warn(`AI attempt ${attempt} failed`, { reason: err?.name });
-      if (attempt === maxRetries)
-        throw new Error(`Failed after ${maxRetries} attempts`);
-    }
-  }
-}
-
-eventBus.on(
-  "chat:new-message",
-  async ({ content, chatId, messageId, model, userId }) => {
-    try {
-      const now = new Date();
-      const currentTimeISO = now.toISOString();
-
-      // 1️⃣ Generate propsRes
-      const queryPropsPrompt = generateContextTimeAndBaseQueryPrompt(
-        content,
-        currentTimeISO,
-      );
-      const propsRes = await parseAIWithRetries(
-        () => handleOllamaPrompt("", "", model, queryPropsPrompt, true),
-        propsResSchema,
-        3,
-      );
-      log.debug("Validated propsRes", {
-        requiresContext: propsRes.requires_context,
-        requiresTimeFilter: propsRes.requires_time_filter,
-      });
-
-      let semanticResult = [];
-
-      // 2️⃣ Semantic search logic
-      if (propsRes.requires_context) {
-        // Use original user content
-        log.debug("requires context");
-        const vector = await generateEmbedding(content);
-        semanticResult = semanticSearch(vector, userId, 5);
-      } else if (propsRes.requires_time_filter) {
-        log.debug("requires context with time filter");
-        // Use base_query and time filter
-        const vector = await generateEmbedding(propsRes.base_query);
-        semanticResult = semanticSearch(vector, userId, 5, {
-          range: {
-            from: propsRes.time_filter_from,
-            to: propsRes.time_filter_to,
-          },
-        });
-      }
-
-      let mainPrompt;
-
-      if (!propsRes.requires_context && semanticResult.length == 0) {
-        log.debug("No context needed");
-        mainPrompt = respondWithoutContext(content);
-      } else {
-        // 3️⃣ Generate prompt for main AI response
-        mainPrompt = respondWithContext(content, semanticResult);
-      }
-
-      // 4️⃣ Get final chat response
-      const chatResponse = await parseAIWithRetries(
-        () => handleOllamaPrompt("", "", model, mainPrompt, true),
-        chatResponseSchema,
-        3,
-      );
-      log.debug("ai chat response ready", {
-        chars: JSON.stringify(chatResponse ?? "").length,
-      });
-      // 5️⃣ Emit validated response
-      eventBus.emit("chat:response-generated", {
-        response: chatResponse,
-        chatId,
-        messageId,
-        semanticResult,
-      });
-    } catch (error) {
-      log.error("Ask failed", error);
-      eventBus.emit("chat:error", error);
-    }
-  },
-);
 
 // Update generateSuggestion to use selected model
 export async function generateSuggestion(prompt, maxTokens = 20) {
