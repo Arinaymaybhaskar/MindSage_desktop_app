@@ -6,7 +6,7 @@ import { prepareToRestart } from "../utils/unsavedWork";
 import journalService from "../api/journalService";
 
 // A stable object: the form re-loads its entry whenever the user changes.
-const session = { user: { username: "ada" }, checking: false };
+const session = { user: { id: 1, username: "ada" }, checking: false };
 vi.mock("../hooks/useAuth", () => ({ useAuth: () => session }));
 vi.mock("../api/journalService", () => ({
   default: {
@@ -28,6 +28,7 @@ vi.mock("../api/ollamaService", () => ({ ollamaService: {} }));
 
 beforeEach(() => {
   localStorage.clear();
+  session.user = { id: 1, username: "ada" };
   window.electron = {
     ipcRenderer: { invoke: vi.fn().mockResolvedValue(undefined) },
   } as unknown as typeof window.electron;
@@ -58,11 +59,30 @@ describe("JournalForm and restarting to update", () => {
       target: { value: "half a thought" },
     });
     // Well inside the 1.5 s autosave delay: only the flush can have saved it.
-    expect(localStorage.getItem("draft-journal") ?? "").not.toContain(
+    expect(localStorage.getItem("draft:1:journal") ?? "").not.toContain(
       "half a thought",
     );
     expect(prepareToRestart()).toEqual({ ok: true });
-    expect(localStorage.getItem("draft-journal")).toContain("half a thought");
+    expect(localStorage.getItem("draft:1:journal")).toContain("half a thought");
+  });
+
+  it("keeps a new entry's draft per profile, so another profile never sees it (KAN-380)", async () => {
+    const first = await open("/journal/new");
+    fireEvent.change(editor(first.container), {
+      target: { value: "ada's private thought" },
+    });
+    expect(prepareToRestart()).toEqual({ ok: true });
+    first.unmount();
+    expect(localStorage.getItem("draft-journal")).toBeNull();
+
+    session.user = { id: 2, username: "bo" };
+    const second = await open("/journal/new");
+    expect(editor(second.container).value).toBe("");
+    second.unmount();
+
+    session.user = { id: 1, username: "ada" };
+    const again = await open("/journal/new");
+    expect(editor(again.container).value).toBe("ada's private thought");
   });
 
   it("allows a restart on an entry that has not been changed", async () => {

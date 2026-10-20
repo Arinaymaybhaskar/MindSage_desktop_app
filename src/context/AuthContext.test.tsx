@@ -4,6 +4,7 @@ import { AuthProvider } from "./AuthContext";
 import { useAuth } from "../hooks/useAuth";
 
 const USER = {
+  id: 1,
   username: "ada",
   email: "ada@example.com",
   created_at: "2026-01-01",
@@ -87,6 +88,21 @@ describe("AuthProvider session", () => {
     );
   });
 
+  it("drops unscoped drafts of older versions, keeps scoped ones (KAN-380)", async () => {
+    fakeMain(USER);
+    localStorage.setItem("draft-journal", "old");
+    localStorage.setItem("draft-journal-4", "old edit");
+    localStorage.setItem("draft-quick-capture", "old quick");
+    localStorage.setItem("draft:1:journal", "scoped");
+    renderProvider();
+    await waitFor(() =>
+      expect(screen.getByTestId("user").textContent).toBe("ada"),
+    );
+    expect(
+      Object.keys(localStorage).filter((k) => k.startsWith("draft")),
+    ).toEqual(["draft:1:journal"]);
+  });
+
   it("hands a token from an older version over once, then deletes it", async () => {
     const main = fakeMain(null);
     localStorage.setItem("accessToken", "legacy-jwt");
@@ -124,7 +140,7 @@ describe("AuthProvider logout", () => {
     localStorage.setItem("zoom_scale", "1.25");
     localStorage.setItem("setup_complete", "true");
     localStorage.setItem("path_on_titlebar", "false");
-    localStorage.setItem("draft-journal", "an unsaved entry");
+    localStorage.setItem("draft:1:journal", "an unsaved entry");
 
     renderProvider();
     await waitFor(() =>
@@ -137,7 +153,7 @@ describe("AuthProvider logout", () => {
     expect(localStorage.getItem("zoom_scale")).toBe("1.25");
     expect(localStorage.getItem("setup_complete")).toBe("true");
     expect(localStorage.getItem("path_on_titlebar")).toBe("false");
-    expect(localStorage.getItem("draft-journal")).toBe("an unsaved entry");
+    expect(localStorage.getItem("draft:1:journal")).toBe("an unsaved entry");
   });
 
   it("keeps a stable logout identity across renders", async () => {
