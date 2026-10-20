@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { EventEmitter } from "node:events";
+import { execFile } from "node:child_process";
 import {
   runOllamaCli,
   CLI_TIMEOUT_MS,
   CLI_PIPE_GRACE_MS,
   CLI_MAX_BUFFER,
+  killOllamaCliChildren,
 } from "./ollamaCli.js";
 
 afterEach(() => vi.useRealTimers());
@@ -126,5 +128,48 @@ describe.skipIf(process.platform === "win32")("with a hung ollama", () => {
       process.env.PATH = oldPath;
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+// KAN-378: quitting while a probe runs must not leave the child behind.
+describe.skipIf(process.platform === "win32")("killOllamaCliChildren", () => {
+  it("kills a probe that is still running and settles it", async () => {
+    const fs = await import("node:fs");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fake-ollama-"));
+    fs.writeFileSync(path.join(dir, "ollama"), "#!/bin/sh\nexec sleep 600\n", {
+      mode: 0o755,
+    });
+    const oldPath = process.env.PATH;
+    process.env.PATH = `${dir}${path.delimiter}${oldPath}`;
+    let pid;
+    const spy = (file, args, options, cb) => {
+      const child = execFile(file, args, options, cb);
+      pid = child.pid;
+      return child;
+    };
+    try {
+      const pending = runOllamaCli(["list"], { execFileImpl: spy });
+      expect(() => process.kill(pid, 0)).not.toThrow();
+      killOllamaCliChildren();
+      const result = await pending;
+      expect(result.ok).toBe(false);
+      await vi.waitFor(() =>
+        expect(() => process.kill(pid, 0)).toThrow(/ESRCH/),
+      );
+    } finally {
+      process.env.PATH = oldPath;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not touch a probe that already finished", async () => {
+    const fake = fakeExecFile();
+    const pending = runOllamaCli(["--version"], { execFileImpl: fake.impl });
+    fake.finish(null, "ollama version 0.1.0", "");
+    await pending;
+    killOllamaCliChildren();
+    expect(fake.child.kill).not.toHaveBeenCalled();
   });
 });
