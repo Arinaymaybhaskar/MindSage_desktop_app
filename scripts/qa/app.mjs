@@ -1,5 +1,5 @@
 // Launch the real app for QA (same recipe as scripts/e2e/run.mjs) and drive it.
-// Needs `npx vite build` first, and a display: `xvfb-run -a node your-script.mjs`.
+// Needs `npx vite build` first, and a display: `xvfb-run -a node your-script.mjs` (Linux only).
 // As root set E2E_NO_SANDBOX=1 (or pass noSandbox: true).
 import { _electron as electron } from "playwright-core";
 import { createRequire } from "node:module";
@@ -12,6 +12,11 @@ const defaultRoot = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
+// The electron package exports its binary path (electron.exe on Windows);
+// node_modules/.bin/electron is a shell shim there. Resolve from `root` so a
+// worktree uses its own install.
+const electronBin = (root) =>
+  createRequire(path.join(root, "package.json"))("electron");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** @returns {{app, page, root, profileDir}} once the app says it is ready */
@@ -22,7 +27,7 @@ export async function launchApp({
   noSandbox = process.env.E2E_NO_SANDBOX === "1",
 }) {
   const app = await electron.launch({
-    executablePath: path.join(root, "node_modules/.bin/electron"),
+    executablePath: electronBin(root),
     args: [root, ...(noSandbox ? ["--no-sandbox"] : [])],
     env: { ...process.env, ...env, MS_USER_DATA_DIR: profileDir },
   });
@@ -102,7 +107,7 @@ export async function writeEntry(page, { title, body }) {
 /** Rows of a read-only query against <profileDir>/mind-sage.db (plain JSON). */
 export function dbRows(root, profileDir, sql) {
   const out = execFileSync(
-    path.join(root, "node_modules/.bin/electron"),
+    electronBin(root),
     [
       path.join(root, "scripts/qa/db.cjs"),
       path.join(profileDir, "mind-sage.db"),
