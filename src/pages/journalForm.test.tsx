@@ -124,3 +124,15 @@ describe("JournalForm saving a new entry", () => {
     expect(journalService.update).not.toHaveBeenCalled();
   });
 });
+
+describe("mood slider default", () => {
+  it.each(["/journal/new", "/journal/edit/5"])(
+    "starts at 3 and Good on %s",
+    async (path) => {
+      const view = await open(path);
+      const slider = view.getByTestId("mood-slider") as HTMLInputElement;
+      expect(Number(slider.value)).toBe(3);
+      expect(view.getByText("Good", { selector: "span" })).toBeTruthy();
+    },
+  );
+});
