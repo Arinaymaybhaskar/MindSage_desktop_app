@@ -6,7 +6,7 @@ export interface JournalEntry {
   id?: number;
   title: string;
   content: string;
-  mood_score?: number;
+  mood_score?: number | null;
   sentiment_score?: number;
   mood_tags?: string[];
   created_at?: string;

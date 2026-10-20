@@ -124,3 +124,76 @@ describe("JournalForm saving a new entry", () => {
     expect(journalService.update).not.toHaveBeenCalled();
   });
 });
+
+describe("mood slider default (KAN-383)", () => {
+  const save = async (view: Awaited<ReturnType<typeof open>>) => {
+    fireEvent.change(editor(view.container), { target: { value: "text" } });
+    await act(async () => {
+      fireEvent.submit(view.container.querySelector("form") as HTMLFormElement);
+    });
+  };
+  const saved = () =>
+    [
+      ...vi.mocked(journalService.create).mock.calls,
+      ...vi.mocked(journalService.update).mock.calls,
+    ].at(-1)!;
+
+  beforeEach(() => {
+    vi.mocked(journalService.create)
+      .mockReset()
+      .mockResolvedValue({
+        id: 9,
+      } as never);
+    vi.mocked(journalService.update)
+      .mockReset()
+      .mockResolvedValue({
+        id: 5,
+      } as never);
+    vi.mocked(journalService.getOne).mockResolvedValue({
+      id: 5,
+      title: "Walk",
+      content: "A saved entry",
+      mood_tags: [],
+      mood_score: null,
+    } as never);
+  });
+
+  it.each(["/journal/new", "/journal/edit/5"])(
+    "shows Not set and saves null when untouched on %s",
+    async (path) => {
+      const view = await open(path);
+      expect(view.getByText("Not set", { selector: "span" })).toBeTruthy();
+      await save(view);
+      expect(saved().at(-1)).toMatchObject({ mood_score: null });
+    },
+  );
+
+  it("saves the mood the person picks", async () => {
+    const view = await open("/journal/new");
+    fireEvent.change(view.getByTestId("mood-slider"), {
+      target: { value: "4" },
+    });
+    expect(view.getByText("Great", { selector: "span" })).toBeTruthy();
+    await save(view);
+    expect(journalService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ mood_score: 4 }),
+    );
+  });
+
+  it("shows and keeps an existing mood on edit", async () => {
+    vi.mocked(journalService.getOne).mockResolvedValue({
+      id: 5,
+      title: "Walk",
+      content: "A saved entry",
+      mood_tags: [],
+      mood_score: 5,
+    } as never);
+    const view = await open("/journal/edit/5");
+    expect(view.getByText("Excellent", { selector: "span" })).toBeTruthy();
+    await save(view);
+    expect(journalService.update).toHaveBeenCalledWith(
+      5,
+      expect.objectContaining({ mood_score: 5 }),
+    );
+  });
+});
