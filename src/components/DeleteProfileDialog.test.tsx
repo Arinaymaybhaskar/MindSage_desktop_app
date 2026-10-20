@@ -147,6 +147,23 @@ describe("DeleteProfileDialog", () => {
     expect(
       screen.getByText(/2 files are in use by another program/),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/may stay readable/)).toBeNull();
+  });
+
+  it("says the text may stay in the database file when the WAL could not be folded back", async () => {
+    deleteAccount.mockResolvedValue({
+      lastProfile: false,
+      backupsRemoved: false,
+      backupsReplaced: true,
+      filesPending: 0,
+      walFolded: false,
+    });
+    await open();
+    typePassword("secret");
+    await hold(screen.getByRole("button", { name: /hold to delete/i }));
+    expect(
+      await screen.findByText(/may stay readable inside the database file/),
+    ).toBeInTheDocument();
   });
 
   it("a wrong password stays in the dialog with the message and clears the field", async () => {

@@ -1,6 +1,24 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
+import path from "node:path";
 import { tempDir } from "./dbTestUtils.js";
+
+// The delete runs through methods/profileDelete.js, as the app's handler does,
+// which reaches Electron for the userData folder and electron-store for the
+// session. Both stand in here; userData is this test's temp folder.
+vi.mock("electron", () => ({
+  app: { getPath: () => process.env.MS_USER_DATA_DIR },
+  ipcMain: { handle: () => {}, on: () => {} },
+  BrowserWindow: { getAllWindows: () => [] },
+}));
+vi.mock("electron-store", () => ({
+  default: class {
+    get() {
+      return null;
+    }
+    set() {}
+  },
+}));
 
 // Deleting a whole profile against the real database: everything of theirs is
 // gone, nothing of anyone else's is touched, and what has to be removed
@@ -240,5 +258,86 @@ describe("deleting a profile", () => {
     const u = makeUser("bystander");
     localDB.deleteProfile(987654);
     expect(db.prepare("SELECT 1 FROM users WHERE id = ?").get(u)).toBeTruthy();
+  });
+});
+
+describe("after a profile is deleted, no file holds its text (KAN-371)", () => {
+  // Every file under the profile folder, read as raw bytes: the database, its
+  // -wal and -shm, the backups, logs and the pending-deletions list.
+  const filesUnder = (root) =>
+    fs.readdirSync(root, { withFileTypes: true }).flatMap((e) => {
+      const full = path.join(root, e.name);
+      return e.isDirectory() ? filesUnder(full) : [full];
+    });
+  const filesHolding = (word) =>
+    filesUnder(dir)
+      .filter((f) => fs.readFileSync(f).includes(Buffer.from(word, "utf8")))
+      .map((f) => path.relative(dir, f));
+
+  it("the database file, its WAL and shm, and the fresh backup hold none of it", async () => {
+    const gone = "zebrafinchgone";
+    const kept = "otterkeptstays";
+    const u = makeUser(gone);
+    const other = makeUser(kept);
+    const writeAll = async (userId, word, n) => {
+      const entry = localDB.createJournalEntry(userId, {
+        title: `${word} title ${n}`,
+        content: `Today the ${word} note number ${n} was written. `.repeat(20),
+        mood_tags: [`${word}-tag-${n}`],
+      });
+      await localDB.AddGoal(userId, {
+        title: `${word} goal ${n}`,
+        target_value: 3,
+        unit: "km",
+      });
+      const chat = Number(
+        db
+          .prepare("INSERT INTO chats (user_id, title) VALUES (?, ?)")
+          .run(userId, `${word} chat ${n}`).lastInsertRowid,
+      );
+      const msg = Number(
+        db
+          .prepare(
+            "INSERT INTO messages (chat_id, sender, content) VALUES (?, 'user', ?)",
+          )
+          .run(chat, `What did the ${word} say ${n}?`).lastInsertRowid,
+      );
+      db.prepare(
+        "INSERT INTO files (chat_id, message_id, file_type, file_path) VALUES (?, ?, 'image', ?)",
+      ).run(chat, msg, `/media/chat/${word}-${n}.png`);
+      return entry.id;
+    };
+    // The first batch reaches the main file (as the automatic checkpoint at
+    // 1000 pages would have done), the second is only in the WAL.
+    await writeAll(u, gone, 1);
+    await writeAll(other, kept, 1);
+    db.pragma("wal_checkpoint(TRUNCATE)");
+    await writeAll(u, gone, 2);
+    await writeAll(other, kept, 2);
+    expect(filesHolding(gone)).toContain("mind-sage.db");
+    expect(filesHolding(gone).some((f) => f.endsWith("-wal"))).toBe(true);
+
+    // The app's own path: the handler calls deleteProfileEverything. A fresh
+    // backup is made after the rows go, as with other profiles left.
+    delete process.env.MS_SKIP_DB_BACKUP;
+    let result;
+    try {
+      const { deleteProfileEverything } =
+        await import("../methods/profileDelete.js");
+      result = await deleteProfileEverything(u);
+    } finally {
+      process.env.MS_SKIP_DB_BACKUP = "1";
+    }
+
+    expect(filesHolding(gone)).toEqual([]);
+    expect(result.lastProfile).toBe(false);
+    expect(result.walFolded).toBe(true);
+    // The scan does find text that is still there: the other profile's.
+    expect(filesHolding(kept)).toContain("mind-sage.db");
+    expect(
+      filesHolding(kept).some((f) => f.startsWith(`backups${path.sep}`)),
+    ).toBe(true);
+    const wal = path.join(dir, "mind-sage.db-wal");
+    if (fs.existsSync(wal)) expect(fs.statSync(wal).size).toBe(0);
   });
 });
