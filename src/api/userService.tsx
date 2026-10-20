@@ -37,6 +37,12 @@ export interface DeleteProfileResult {
   backupsReplaced: boolean;
   /** Files another program was holding open; retried on the next start. */
   filesPending: number;
+  /**
+   * False when the database's write-ahead log could not be folded back
+   * (another program held the file): old copies of the profile's pages may
+   * stay in the database file until MindSage next starts.
+   */
+  walFolded?: boolean;
 }
 
 export const userService = {

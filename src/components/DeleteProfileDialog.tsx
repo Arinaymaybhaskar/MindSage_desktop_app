@@ -153,6 +153,9 @@ export default function DeleteProfileDialog() {
               {result.filesPending
                 ? ` ${result.filesPending} file${result.filesPending === 1 ? " is" : "s are"} in use by another program and will be removed the next time MindSage starts.`
                 : ""}
+              {result.walFolded === false
+                ? " The database file was busy, so some of your text may stay readable inside the database file until MindSage next starts."
+                : ""}
             </p>
             <button
               onClick={finish}
