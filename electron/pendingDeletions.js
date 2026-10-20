@@ -65,8 +65,33 @@ export function retryPending(listFile, mediaDir, remove) {
   return { removed, remaining: still.length };
 }
 
-/** Number of paths waiting. */
-export const pendingCount = (listFile) => readPending(listFile).length;
+/**
+ * Number of files waiting. A listed folder counts the files left in it, so a
+ * locked photo listed with its entry folder counts once (KAN-384); a path
+ * already gone counts as none.
+ */
+export function pendingCount(listFile) {
+  const files = new Set();
+  const walk = (target) => {
+    let stat;
+    try {
+      stat = fs.lstatSync(target);
+    } catch (err) {
+      if (err?.code !== "ENOENT") files.add(path.resolve(target));
+      return;
+    }
+    if (!stat.isDirectory()) return files.add(path.resolve(target));
+    for (const name of fs.readdirSync(target)) walk(path.join(target, name));
+  };
+  for (const target of readPending(listFile)) {
+    try {
+      walk(target);
+    } catch {
+      files.add(path.resolve(target)); // an unreadable folder counts as one
+    }
+  }
+  return files.size;
+}
 
 /** Default remover: a file or a folder with everything in it. */
 export const removePath = (target) =>
