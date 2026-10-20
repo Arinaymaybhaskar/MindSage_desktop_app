@@ -1,5 +1,5 @@
 import { Loader2, Download, CheckCircle, Info, X, Trash2 } from "lucide-react";
-import { ollamaService } from "../../api/ollamaService";
+import { ollamaService, OllamaListError } from "../../api/ollamaService";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
@@ -275,7 +275,12 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
         setInstalledModels(rawModels.map(parseModelData));
       } catch (err) {
         console.error(err);
-        showToast("Could not fetch the installed models.", "danger");
+        showToast(
+          err instanceof OllamaListError
+            ? `Could not fetch the installed models. ${err.message}`
+            : "Could not fetch the installed models.",
+          "danger",
+        );
       } finally {
         setIsInitializing(false); // Set loading to false after fetch completes
       }
