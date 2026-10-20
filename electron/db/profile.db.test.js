@@ -97,7 +97,27 @@ async function populate(userId, tag) {
   db.prepare(
     "INSERT INTO files (chat_id, message_id, file_type, file_path) VALUES (?, ?, 'image', ?)",
   ).run(chat, msg, `/media/chat/${tag}.png`);
-  return { live: live.id, trashed: trashed.id, goal, log, chat };
+  const person = Number(
+    db
+      .prepare(
+        "INSERT INTO people (user_id, display_name, status) VALUES (?, ?, 'confirmed')",
+      )
+      .run(userId, `${tag} friend`).lastInsertRowid,
+  );
+  db.prepare(
+    "INSERT INTO person_aliases (person_id, alias, alias_normalised) VALUES (?, ?, ?)",
+  ).run(person, `${tag} friend`, `${tag} friend`);
+  db.prepare(
+    "INSERT INTO person_mentions (entry_id, person_id, name_as_written, sentence_start, sentence_end, extractor_version) VALUES (?, ?, ?, 0, 4, 1)",
+  ).run(live.id, person, `${tag} friend`);
+  db.prepare(
+    "INSERT INTO person_summaries (person_id, summary_json, mentions_hash) VALUES (?, ?, 'h')",
+  ).run(person, JSON.stringify([`${tag} summary`]));
+  db.prepare("INSERT INTO people_jobs (entry_id, user_id) VALUES (?, ?)").run(
+    live.id,
+    userId,
+  );
+  return { live: live.id, trashed: trashed.id, goal, log, chat, person };
 }
 
 const rowsFor = (userId) => {
@@ -173,6 +193,9 @@ describe("deleting a profile", () => {
       ["journal_entry_tags", "journal_entry_id", g.live],
       ["message_sources", "source_id", String(g.live)],
       ["files", "chat_id", g.chat],
+      ["person_aliases", "person_id", g.person],
+      ["person_mentions", "person_id", g.person],
+      ["person_summaries", "person_id", g.person],
     ]) {
       expect(
         db.prepare(`SELECT COUNT(*) n FROM ${table} WHERE ${col} = ?`).get(id)
