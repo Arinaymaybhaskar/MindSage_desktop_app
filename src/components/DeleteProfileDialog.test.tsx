@@ -70,6 +70,7 @@ describe("DeleteProfileDialog", () => {
     logout.mockReset();
   });
   afterEach(() => {
+    vi.useRealTimers();
     cleanup();
     act(() => deleteProfileDialog.close());
   });
@@ -130,6 +131,34 @@ describe("DeleteProfileDialog", () => {
     fireEvent.click(holdButton);
     await hold(holdButton, 800);
     expect(deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it("holding Enter in the password field holds the button; a short press deletes nothing (KAN-384)", async () => {
+    deleteAccount.mockResolvedValue({ lastProfile: false, filesPending: 0 });
+    await open();
+    const field = screen.getByLabelText(/password to confirm/i);
+    fireEvent.keyDown(field, { key: "Enter" }); // empty password: nothing
+    fireEvent.keyUp(field, { key: "Enter" });
+    typePassword("secret");
+    vi.useFakeTimers();
+    fireEvent.keyDown(field, { key: "Enter" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    fireEvent.keyUp(field, { key: "Enter" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1600);
+    });
+    expect(deleteAccount).not.toHaveBeenCalled();
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(
+      screen.getByRole("button", { name: /keep holding/i }),
+    ).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1600);
+    });
+    vi.useRealTimers();
+    expect(deleteAccount).toHaveBeenCalledWith({ password: "secret" });
   });
 
   it("deletes after the hold, sending the password, and shows the done screen", async () => {
