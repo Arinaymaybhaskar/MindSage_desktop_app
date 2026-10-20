@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import { tempDir } from "./dbTestUtils.js";
+import { MMAP_BYTES } from "./vectorExtension.js";
 
 // The search index against the real database and the real sqlite-vec
 // extension: storing, searching, trash and purge, the stale-text race, and the
@@ -67,6 +68,10 @@ describe("the vector extension", () => {
         .prepare("SELECT name FROM sqlite_master WHERE name = 'vec_entries'")
         .get(),
     ).toBeTruthy();
+  });
+
+  it("maps the database file for the vector scan (KAN-381)", () => {
+    expect(db.pragma("mmap_size", { simple: true })).toBe(MMAP_BYTES);
   });
 });
 
