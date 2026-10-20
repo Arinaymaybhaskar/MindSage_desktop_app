@@ -1,4 +1,3 @@
-import { execSync, exec } from "child_process";
 import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
 import {
@@ -17,57 +16,28 @@ import { currentUserId } from "../session.js";
 import z from "zod";
 import { db } from "../db/connection.js";
 import { log } from "../log.js";
+import { listOllamaModels } from "./ollamaList.js";
 
-export const handleGetOllamaModels = async (event) => {
+/**
+ * `ollama:models`: the installed models for Settings > Models.
+ *
+ * Asynchronous and bounded (see `ollamaList.js`): a hung Ollama answers
+ * `{ error, reason: "timeout" }` after a few seconds instead of freezing the
+ * main process (KAN-369), and one that is not running answers
+ * `{ error, reason: "unreachable" }`.
+ */
+export const handleGetOllamaModels = async () => {
   const userId = currentUserId();
   if (!userId) return { error: "Not signed in" };
 
-  try {
-    // 1️⃣ Get the basic list of models
-    const listOutput = execSync("ollama list", { encoding: "utf-8" });
-    const lines = listOutput.trim().split("\n").slice(1);
-    const models = lines.map((line) => {
-      const parts = line.trim().split(/\s{2,}/);
-      return {
-        name: parts[0],
-        size: parts[1],
-        modified: parts[2],
-      };
-    });
-
-    // 2️⃣ Enrich with API show info in parallel
-    const enrichedModels = await Promise.all(
-      models.map(async (model) => {
-        try {
-          const res = await fetch("http://localhost:11434/api/show", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model: model.name, verbose: true }),
-          });
-          const info = await res.json();
-
-          if (info && info.model_info) {
-            delete info.model_info["tokenizer.ggml.merges"];
-            delete info.model_info["tokenizer.ggml.scores"];
-            delete info.model_info["tokenizer.ggml.token_type"];
-            delete info.model_info["tokenizer.ggml.tokens"];
-            delete info["tensors"];
-            delete info["modelfile"];
-            delete info["license"];
-          }
-          return { ...model, info };
-        } catch (err) {
-          log.error(`Error fetching info for ${model.name}`, err);
-          return model; // fallback to basic info
-        }
-      }),
-    );
-
-    return enrichedModels;
-  } catch (err) {
-    log.error("Error fetching Ollama models:", err);
-    return [];
+  const result = await listOllamaModels({
+    onShowError: (name, err) =>
+      log.error(`Error fetching info for ${name}`, err),
+  });
+  if (!Array.isArray(result)) {
+    log.warn("Could not list Ollama models", { reason: result.reason });
   }
+  return result;
 };
 
 /**
