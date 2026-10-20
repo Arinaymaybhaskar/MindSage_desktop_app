@@ -72,6 +72,19 @@ Rules:
 - Testers: every brief says "read docs/agent/qa-kit.md and use scripts/qa, do not write your own fake Ollama or launcher". One tester per area of several tickets.
 - Process rules for every agent: never `pkill`, `killall` or kill by name; kill only pids you started (pid files, see [qa-kit.md](qa-kit.md)); script output goes to files; do not kill what holds a port you need.
 
+## Context cap and handoff
+
+A long session degrades and costs more. The UserPromptSubmit hook `.claude/hooks/context-cap.mjs` adds a warning to your context when the last reply shows ~150k tokens (a stronger one at ~250k; limits are constants at the top of the file).
+
+When it warns:
+1. Tell the owner in one line to start a new session.
+2. Update `docs/HANDOFF.md`: state, next steps, open decisions, rules that bit us. Commit it on a `docs/` ticket branch and merge that into the phase branch by PR; hooks block direct edits on `phase/*`.
+3. Give the owner the exact first prompt for the new session.
+
+Once per session, run `node scripts/token-report.mjs` after every ~10 agent completions and watch the main-session total.
+
+A hook can warn the model; it cannot stop a session. This rule only works if you follow it.
+
 ## Jira conventions
 
 Work is tracked in Jira, project **KAN** (MindSage) at arinaymaybhaskar7500.atlassian.net. Every branch, commit and PR that does a ticket names its key. One ticket per branch and per PR.
