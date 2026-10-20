@@ -32,9 +32,25 @@ describe("pending deletions", () => {
 
   it("remembers paths inside the media folder, once each, and refuses others", () => {
     const a = path.join(media, "journals", "1", "a.png");
+    fs.mkdirSync(path.dirname(a), { recursive: true });
+    fs.writeFileSync(a, "x");
     addPending(list, media, [a, a, path.join(root, "elsewhere.txt")]);
     expect(readPending(list)).toEqual([a]);
     expect(pendingCount(list)).toBe(1);
+  });
+
+  it("counts files, not the folders they sit in (KAN-384)", () => {
+    // A locked photo leaves both the photo and its entry folder listed.
+    const dir = path.join(media, "journals", "5");
+    const photo = path.join(dir, "photo.png");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(photo, "x");
+    addPending(list, media, [photo, dir]);
+    expect(pendingCount(list)).toBe(1);
+    fs.writeFileSync(path.join(dir, "voice.wav"), "x");
+    expect(pendingCount(list)).toBe(2);
+    fs.rmSync(dir, { recursive: true });
+    expect(pendingCount(list)).toBe(0);
   });
 
   it("drops a path once it is removed, keeps one that still fails", () => {
