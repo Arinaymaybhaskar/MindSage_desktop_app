@@ -141,6 +141,22 @@ export function groundSummary(raw, excerpts) {
   return out.slice(0, 6);
 }
 
+/**
+ * Summary lines that cite only live entries. A line that cites an entry in
+ * the Trash paraphrases it, so it is hidden until the entry is restored.
+ *
+ * @param {Array<{text:string, entryIds:number[]}>} lines
+ * @param {Set<number>} liveEntryIds
+ */
+export function liveSummaryLines(lines, liveEntryIds) {
+  return (Array.isArray(lines) ? lines : []).filter(
+    (l) =>
+      Array.isArray(l?.entryIds) &&
+      l.entryIds.length > 0 &&
+      l.entryIds.every((id) => liveEntryIds.has(id)),
+  );
+}
+
 /** Changes whenever any mention of the person is added, moved or edited. */
 export function mentionsHash(rows) {
   const key = rows

@@ -198,6 +198,32 @@ export function mentionsForPerson(userId, personId) {
     .all(personId, userId);
 }
 
+/**
+ * Every mention id of a person, trashed entries included, for a merge: a
+ * mention left behind would be cascade-deleted with the merged person and
+ * lost when its entry is restored.
+ */
+export function allMentionIdsForPerson(userId, personId) {
+  return db
+    .prepare(
+      `SELECT m.id FROM person_mentions m
+         JOIN people p ON p.id = m.person_id
+        WHERE m.person_id = ? AND p.user_id = ?`,
+    )
+    .all(personId, userId)
+    .map((r) => r.id);
+}
+
+/** Every mention of a person, trashed entries included ("Ignore"). */
+export function deleteAllMentionsOfPerson(userId, personId) {
+  return db
+    .prepare(
+      `DELETE FROM person_mentions
+        WHERE person_id = (SELECT id FROM people WHERE id = ? AND user_id = ?)`,
+    )
+    .run(personId, userId).changes;
+}
+
 export function mentionsForEntry(userId, entryId) {
   return db
     .prepare(
@@ -328,6 +354,12 @@ export function saveSummary(personId, summaryJson, hash, model) {
        model = excluded.model,
        created_at = excluded.created_at`,
   ).run(personId, summaryJson, hash, model);
+}
+
+export function deleteSummary(personId) {
+  return db
+    .prepare(`DELETE FROM person_summaries WHERE person_id = ?`)
+    .run(personId).changes;
 }
 
 // ---------- Jobs ----------
