@@ -79,7 +79,7 @@ jobs:
   e2e:
     name: End-to-end (Windows)
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -98,25 +98,58 @@ jobs:
           path: ~\.ollama\models
           key: ollama-models-nomic-embed-text-v1.5-llama3.2-1b
 
+      # Not OllamaSetup.exe: the installer starts "ollama app" (tray) when it
+      # finishes, and Start-Process -Wait waits for that whole process tree, so
+      # the step hung until the job timeout (every run since the job was added).
       - name: Install Ollama
+        timeout-minutes: 5
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri https://ollama.com/download/OllamaSetup.exe -OutFile OllamaSetup.exe
-          Start-Process -FilePath .\OllamaSetup.exe -ArgumentList '/VERYSILENT','/NORESTART' -Wait
+          Invoke-WebRequest -Uri https://github.com/ollama/ollama/releases/latest/download/ollama-windows-amd64.zip -OutFile ollama.zip
+          Expand-Archive ollama.zip -DestinationPath "$env:RUNNER_TEMP\ollama"
+          "$env:RUNNER_TEMP\ollama" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
-      - name: Start Ollama and pull the models
+      # One step on purpose: a process started with Start-Process dies when its
+      # step ends on the Windows runner, so serve, pulls, check and e2e share it.
+      - name: Run Ollama and the end-to-end test
+        timeout-minutes: 25
         shell: pwsh
+        env:
+          OLLAMA_HOST: 127.0.0.1:11434
         run: |
-          $ollama = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe'
-          Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden
-          for ($i = 0; $i -lt 60; $i++) {
-            try { Invoke-RestMethod http://127.0.0.1:11434/api/tags | Out-Null; break } catch { Start-Sleep 2 }
+          $ollama = Join-Path $env:RUNNER_TEMP 'ollama\ollama.exe'
+          $out = Join-Path $env:RUNNER_TEMP 'ollama-serve.log'
+          $err = Join-Path $env:RUNNER_TEMP 'ollama-serve.err.log'
+          $serve = Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+          try {
+            $up = $false
+            for ($i = 0; $i -lt 30 -and -not $up; $i++) {
+              try { Invoke-RestMethod http://127.0.0.1:11434/api/tags | Out-Null; $up = $true } catch { Start-Sleep 2 }
+            }
+            if (-not $up) {
+              Get-Content $out, $err -Tail 50 -ErrorAction SilentlyContinue
+              throw 'Ollama did not answer on 127.0.0.1:11434 within 60 s'
+            }
+            foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
+              & $ollama pull $model
+              if ($LASTEXITCODE -ne 0) { throw "ollama pull $model failed with exit code $LASTEXITCODE" }
+            }
+
+            # Same probe the app makes (Node fetch), so a failure here names the cause.
+            & $ollama list
+            $tags = Invoke-WebRequest http://127.0.0.1:11434/api/tags -UseBasicParsing
+            "GET /api/tags -> $($tags.StatusCode)"
+            foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
+              if ($tags.Content -notmatch [regex]::Escape($model)) { throw "$model is not in /api/tags" }
+            }
+            node -e "fetch('http://127.0.0.1:11434/api/tags').then(r => console.log('node fetch ->', r.status), e => { console.error('node fetch failed:', e.cause || e); process.exit(1) })"
+            if ($LASTEXITCODE -ne 0) { throw 'node fetch of /api/tags failed' }
+
+            npm run test:e2e
+            if ($LASTEXITCODE -ne 0) { throw "npm run test:e2e failed with exit code $LASTEXITCODE" }
+          } finally {
+            Stop-Process -Id $serve.Id -Force -ErrorAction SilentlyContinue
           }
-          & $ollama pull nomic-embed-text:v1.5
-          & $ollama pull llama3.2:1b
-
-      - name: End-to-end run
-        run: npm run test:e2e
 
       - name: Keep the failure screenshot
         if: failure()
@@ -124,3 +157,11 @@ jobs:
         with:
           name: e2e-failure
           path: e2e-artifacts
+
+      - name: Keep the Ollama serve log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollama-serve-log
+          path: ${{ runner.temp }}/ollama-serve*.log
+          if-no-files-found: ignore
