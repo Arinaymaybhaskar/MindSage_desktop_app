@@ -183,6 +183,9 @@ the price of the flat line, and it is worth stating alongside it.
 Latency only. This says nothing about whether the results are *relevant* —
 recall against a labelled query set remains unmeasured (COVERAGE.md 3.4).
 
+These figures are Qdrant's. KAN-192 replaced it with sqlite-vec, which has no
+index and scans every vector; section 9 has its numbers.
+
 ## 7. Whisper is fast; its overhead is not
 
 | Clip | Audio | p50 | RTF |
@@ -228,6 +231,83 @@ two thirds of startup, against 268ms for the renderer to paint.
 1.34s is a good startup time and is not a priority to optimise. It is worth
 recording precisely because it is *not* a problem — it bounds where the
 remaining work should go.
+
+## 9. Search at 50,000 vectors with sqlite-vec (KAN-381)
+
+Target from KAN-192: search p95 under 100 ms at 50,000 vectors. Before this
+work the owner's Windows 11 machine measured 182 ms p50 / 192 ms p95 with real
+Ollama, and 23 ms at 5,000 vectors.
+
+Measured 2026-10-20 on a 4-core Linux sandbox (Xeon 2.8 GHz, 15 GB) with
+`bench-vector.mjs`: random 768-dimension vectors, k = 15, one user. Ranges are
+three bench runs of 100 samples; single figures are one run of 30-50 samples of
+the same query on the same data, from a scratch script.
+
+| Change, at 50,000 vectors | p50 | p95 | Kept |
+| --- | --- | --- | --- |
+| Before | 104-108 ms | 118-133 ms | |
+| `cache_size` 256 MB (default 16 MB) | 104 ms | 123 ms | no: no effect |
+| `mmap_size` 1 GiB | **78-81 ms** | **96-117 ms** | yes |
+| k = 10 / 50 / 200, file mapped | 83 / 79 / 87 ms | 108 / 101 / 107 ms | no: no effect |
+| int8 vectors, file mapped | 74 ms | 116 ms | no (below) |
+| Float32, in memory: no file I/O at all | 81 ms | 94 ms | the floor |
+
+Interleaved on one file, 200 samples each, the mapping measured 81 / 115 ms
+against 106 / 140 ms. At 5,000 vectors it measured 9-11 ms p50 (11-12 before).
+
+**Where the time went.** About 25 ms was I/O. vec0 keeps vectors in chunk
+blobs of about 3 MB, and SQLite reads their overflow pages straight into the
+caller's buffer, one `read()` per 4 KB page (about 37,500 per search), past the
+page cache: hence no effect from `cache_size`. With the file mapped each read is
+a memory copy. The other 80 ms is the distance loop. The prebuilt vec0 reports
+no SIMD build flags (`vec_debug()`), and float32 cosine, float32 L2 and int8
+cosine all measured 81-83 ms p50 in memory: the loop costs the same whatever the
+element type. Not the query shape: k changes nothing, and `searchSimilar` end to
+end (joins back to the base tables, payloads, a statement prepared per call)
+costs about 3 ms over the bare query, inside run-to-run noise.
+
+**int8 is not adopted.** Once the I/O is mapped it saves nothing (74 / 116 ms
+against 75-77 / 89-90 ms for float32 in the same run), and it would need a new
+table, a backfill, and scaling of the app's unnormalised vectors, because
+`vec_quantize_int8(..., 'unit')` clips values outside [-1, 1]. Its recall@10
+against exact float32 was 0.998 on the bench's random vectors and 0.998 on
+synthetic clustered vectors (a shared direction plus 300 topics, not real
+embeddings), with the scale calibrated to the data.
+
+**Binary quantisation plus an exact rerank** is the only variant measured that
+is clearly faster: the bit scan is 2.6 ms at 50,000. The rerank through vec0
+point reads costs about 0.25 ms per candidate, so 100 candidates took 28-29 ms
+p50 and 46-49 ms p95 in memory, recall@10 0.940 (random) and 0.998
+(clustered); 400 candidates reached 0.970 / 1.000 at 64 ms p50. Recall on real
+nomic-embed-text vectors is unmeasured (needs Ollama and `bench-quality.mjs`).
+
+**Side effects of the mapping.** The db stage at 50,000 entries got faster too
+(one run each, p50): `dashboard.stats` 1,002 to 663 ms, `gallery.random` 531 to
+150 ms, `dashboard.data` 107 to 37 ms, `dashboard.allTimeScores` 155 to 86 ms;
+no scenario got slower at p50. Resident memory after a search at 50,000 vectors
+rose from 185 to 330 MB in the bench, because mapped pages count in Linux RSS.
+They are file pages the OS can drop, and Windows Task Manager's default column
+(private working set) leaves them out, but `bench-app` memory figures will
+move. An I/O error on the mapped file (a failing disk, AppData redirected to a
+network share) ends the process instead of returning an error. The mapping is
+read-only, so writes, and the journal, are not at risk from it.
+
+**Verdict: the target is not met.** After the change p95 at 50,000 is 96-117 ms
+here, and the floor is the 80 ms distance loop, which no pragma or query shape
+moves. With the Windows factor of about 1.7x seen before the change (192 /
+113 ms), the owner's machine would land near 135-150 ms p50 and 165-200 ms p95,
+unless Windows gains more from the mapping than Linux did. Not measured on
+Windows.
+
+**Recommendation: revise the target** to p95 under 100 ms at 5,000 vectors
+(about four years of daily entries) and under 200 ms at 50,000 on the owner's
+Windows machine (about 120 ms on this sandbox). A search follows an embedding
+call of about 100 ms and, in chat, comes before seconds of generation, so it is
+not the step a user waits on. If 100 ms at 50,000 must hold, that is its own
+ticket: a bit prefilter plus an exact rerank from float32 vectors stored where a
+point read is cheap, with recall@10 measured on real embeddings and a migration
+that keeps the float vectors until the new index verifies; or a SIMD build of
+vec0 for three platforms.
 
 ## Revised priority after the full baseline
 

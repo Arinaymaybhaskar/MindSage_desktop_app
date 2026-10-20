@@ -25,6 +25,15 @@ export function extensionPath() {
 }
 
 /**
+ * A search reads every vector of the user, through one read() per 4 KB page.
+ * With the file mapped SQLite copies those pages from memory instead: about a
+ * quarter off a search at 50,000 vectors (KAN-381). The mapping is read-only,
+ * so writes take the normal path. A file larger than this falls back to read()
+ * for the rest.
+ */
+export const MMAP_BYTES = 1024 ** 3;
+
+/**
  * @returns {{ ok: true, version: string } | { ok: false, error: string }}
  *   Never throws: a machine that cannot load the extension still opens its
  *   journal, and only search is unavailable.
@@ -33,6 +42,7 @@ export function loadVectorExtension(db) {
   try {
     db.loadExtension(extensionPath());
     const { v } = db.prepare("SELECT vec_version() AS v").get();
+    db.pragma(`mmap_size = ${MMAP_BYTES}`);
     return { ok: true, version: v };
   } catch (error) {
     return { ok: false, error: String(error?.message ?? error) };
