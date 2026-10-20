@@ -312,22 +312,17 @@ function requestedCreatedAt(value) {
 /**
  * Updates an existing journal entry and its tags in a transaction.
  * `created_at` changes only when the payload carries a valid date, and
- * `transcription` only when the payload sets it (null clears it); a
- * writer that leaves either out keeps what is stored.
+ * `transcription`, `title`, `mood_score` and `mood_tags` only when the payload
+ * has the key (null, "" or [] clears it); a writer that leaves one out keeps
+ * what is stored.
  * @param {number} userId - The user's ID.
  * @param {number} journalId - The ID of the journal entry to update.
  * @param {object} entry - The updated journal entry data.
  * @returns {object|null} The updated journal entry or null if not found.
  */
 export function updateJournalEntry(userId, journalId, entry) {
-  const {
-    title,
-    content,
-    mood_score,
-    mood_tags = [],
-    transcription,
-    created_at,
-  } = entry;
+  const { title, content, mood_score, mood_tags, transcription, created_at } =
+    entry;
 
   const sentiment_score = analyzeSentimentLocal(content || "");
   const updated_at = new Date().toISOString();
@@ -337,9 +332,10 @@ export function updateJournalEntry(userId, journalId, entry) {
     const updateStmt = db.prepare(`
             UPDATE journal_entries
             SET
-                title = @title,
+                title = CASE WHEN @set_title = 1 THEN @title ELSE title END,
                 content = @content,
-                mood_score = @mood_score,
+                mood_score = CASE WHEN @set_mood_score = 1
+                                  THEN @mood_score ELSE mood_score END,
                 sentiment_score = @sentiment_score,
                 updated_at = @updated_at,
                 created_at = COALESCE(@created_at, created_at),
@@ -356,6 +352,8 @@ export function updateJournalEntry(userId, journalId, entry) {
       title: title || null,
       content: content || "",
       mood_score: mood_score || null,
+      set_title: title === undefined ? 0 : 1,
+      set_mood_score: mood_score === undefined ? 0 : 1,
       sentiment_score,
       updated_at,
       created_at: requestedCreatedAt(created_at),
@@ -368,6 +366,9 @@ export function updateJournalEntry(userId, journalId, entry) {
     if (result.changes === 0) {
       return null; // Entry didn't exist or wasn't updated.
     }
+
+    // Tags absent from the payload stay as they are; [] clears them.
+    if (mood_tags === undefined) return getJournalById(userId, journalId);
 
     // Step 2: Clear existing tag links for this entry.
     db.prepare("DELETE FROM journal_entry_tags WHERE journal_entry_id = ?").run(
