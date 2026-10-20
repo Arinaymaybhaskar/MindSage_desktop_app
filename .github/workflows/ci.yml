@@ -112,6 +112,8 @@ jobs:
       - name: Start Ollama and pull the models
         timeout-minutes: 20
         shell: pwsh
+        env:
+          OLLAMA_HOST: 127.0.0.1:11434
         run: |
           $ollama = Join-Path $env:RUNNER_TEMP 'ollama\ollama.exe'
           Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden -RedirectStandardOutput ollama.log -RedirectStandardError ollama.err.log
@@ -124,6 +126,20 @@ jobs:
             & $ollama pull $model
             if ($LASTEXITCODE -ne 0) { throw "ollama pull $model failed with exit code $LASTEXITCODE" }
           }
+
+      # Same probe the app makes (Node fetch), so a failure here names the cause.
+      - name: Check Ollama is reachable and has the models
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          Get-Process ollama -ErrorAction SilentlyContinue | Format-Table Id, ProcessName
+          & (Join-Path $env:RUNNER_TEMP 'ollama\ollama.exe') list
+          $tags = Invoke-WebRequest http://127.0.0.1:11434/api/tags -UseBasicParsing
+          "GET /api/tags -> $($tags.StatusCode)"
+          foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
+            if ($tags.Content -notmatch [regex]::Escape($model)) { throw "$model is not in /api/tags" }
+          }
+          node -e "fetch('http://127.0.0.1:11434/api/tags').then(r => console.log('node fetch ->', r.status), e => { console.error('node fetch failed:', e.cause || e); process.exit(1) })"
 
       - name: End-to-end run
         timeout-minutes: 20
