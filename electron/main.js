@@ -23,6 +23,7 @@ import { vectorSupport } from "./db/connection.js";
 import { registerTrashIPC, startTrashJob } from "./methods/trash.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
 import { registerSetupIPC } from "./services/appSetup.js";
+import { killOllamaCliChildren } from "./services/ollamaCli.js";
 import { applyLaunchAtStartup, registerAppSettingsIPC } from "./appSettings.js";
 import { registerSessionIPC } from "./methods/auth.js";
 import { initAutoUpdater, registerUpdaterIPC } from "./services/autoUpdater.js";
@@ -414,3 +415,8 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   globalShortcut.unregisterAll(); // Clean up global shortcuts
 });
+
+// A status probe still running at quit would outlive the app (KAN-378). Kill
+// them at both events: a probe started between them is caught by will-quit.
+app.on("before-quit", killOllamaCliChildren);
+app.on("will-quit", killOllamaCliChildren);

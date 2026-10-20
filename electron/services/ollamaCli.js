@@ -21,6 +21,25 @@ export const CLI_PIPE_GRACE_MS = 1000;
 /** Output cap; a status probe prints a few lines. */
 export const CLI_MAX_BUFFER = 1024 * 1024;
 
+/** Probe children still running, so quitting can kill them (KAN-378). */
+const live = new Set();
+
+/**
+ * Kills every probe still running. Called when the app quits: a child that
+ * outlives the app is an orphan holding Electron's pipes, and the window
+ * close never finishes.
+ */
+export function killOllamaCliChildren() {
+  for (const child of live) {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // Already gone.
+    }
+  }
+  live.clear();
+}
+
 /**
  * Runs `ollama <args>` and always resolves (never rejects) with
  * `{ ok, stdout, stderr, timedOut, error }`. `ok` is false for a missing
@@ -43,6 +62,7 @@ export function runOllamaCli(
       if (settled) return;
       settled = true;
       clearTimeout(backstop);
+      live.delete(child);
       resolve(result);
     };
 
@@ -76,6 +96,8 @@ export function runOllamaCli(
         error,
       });
     }
+
+    if (child) live.add(child);
 
     // execFile's own timeout kills the child; this covers a child that is
     // gone but whose pipes something else still holds, so no callback comes.
