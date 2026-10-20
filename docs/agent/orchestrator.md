@@ -52,6 +52,12 @@ Rules:
 - **Keep the main context small.** Ask for summaries, not file dumps, and do not re-read what an agent already reported. Do not start an agent for something a single grep answers.
 - **Verify before relaying.** An agent's report is a claim: the orchestrator checks the commit exists and the checks it names were run before it moves a ticket or tells the owner it is done, and says plainly what was not verified.
 
+## Reporting and token rules
+
+- The orchestrator's own messages to the owner follow [terse-output.md](terse-output.md). Tell the owner at most 2-3 short lines after any action. Never recap tables or per-ticket detail unless the owner asks for progress.
+- Briefs ask agents for reports of at most 10 lines in the [terse-output.md](terse-output.md) style: verdict, commit hash, what was NOT verified. Agents give evidence as pass/fail plus the one number that matters, not narration.
+- No agent re-reads files already reported. No agent starts for a single grep. Batch related tickets per agent.
+
 ## Jira conventions
 
 Work is tracked in Jira, project **KAN** (MindSage) at arinaymaybhaskar7500.atlassian.net. Every branch, commit and PR that does a ticket names its key. One ticket per branch and per PR.
@@ -69,17 +75,17 @@ Hooks cannot tell the main session from a subagent and cannot see which model is
 Every brief states:
 
 1. Ticket key and branch (`<type>/<KEY>-<slug>`, cut from the phase branch), and the phase branch it merges back into.
-2. Which `docs/agent/` files to read (use the table below) and which to skip. Subagents read only those plus `CLAUDE.md`.
+2. Which `docs/agent/` files to read (use the table below; every agent cites [terse-output.md](terse-output.md); coding agents also cite [ponytail.md](ponytail.md)) and which to skip. Subagents read only those plus `CLAUDE.md`.
 3. The files that matter, and what is already ruled out.
 4. The checks to run: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, and `npm run test:db` when the database or indexer is touched.
 5. Commit rules: Conventional Commits, `Refs: KAN-nn` as the last line before trailers, no `Co-Authored-By` or `Claude-Session` text, no `--no-verify`, no model names.
-6. Report format: what changed, what was checked, what was not checked, commit hash. Whether the agent may touch Jira statuses (only if its step in the testing loop says so).
+6. Report format: at most 10 lines: verdict, commit hash, what was NOT verified; evidence as pass/fail plus the one number that matters. Whether the agent may touch Jira statuses (only if its step in the testing loop says so).
 
 ## Which docs/agent files to cite in a brief
 
 | Kind of work | Cite |
 |---|---|
-| Any coding ticket | [workflow.md](workflow.md), [tooling-and-tests.md](tooling-and-tests.md) |
+| Any coding ticket | [ponytail.md](ponytail.md), [workflow.md](workflow.md), [tooling-and-tests.md](tooling-and-tests.md) |
 | Renderer or IPC handler work | [architecture.md](architecture.md) |
 | Search, indexer, embeddings, Ask | [search-index.md](search-index.md), [architecture.md](architecture.md) |
 | Trash, purge, delete profile, backups | [trash-and-deletion.md](trash-and-deletion.md), [search-index.md](search-index.md) |
