@@ -61,7 +61,7 @@ export const streamOllamaPrompt = async (
   const requestBody = { model, prompt, stream: true, num_predict: numPredict };
   if (jsonMode) requestBody.format = "json";
 
-  const res = await fetch("http://localhost:11434/api/generate", {
+  const res = await fetch("http://127.0.0.1:11434/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(requestBody),
@@ -151,7 +151,7 @@ export const handleOllamaPrompt = async (
       requestBody.format = "json";
     }
 
-    const res = await fetch("http://localhost:11434/api/generate", {
+    const res = await fetch("http://127.0.0.1:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
@@ -192,7 +192,7 @@ export const handleOllamaImagePrompt = async (
       num_predict: 300,
     };
 
-    const res = await fetch("http://localhost:11434/api/generate", {
+    const res = await fetch("http://127.0.0.1:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
@@ -236,7 +236,7 @@ eventBus.on("journal:created", async ({ entry }) => {
     const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
     log.debug("Filling in missing details", { model });
     try {
-      const res2 = await fetch("http://localhost:11434/api/generate", {
+      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -299,7 +299,7 @@ eventBus.on("journal:created", async ({ entry }) => {
   const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
 
   try {
-    const res2 = await fetch("http://localhost:11434/api/generate", {
+    const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -354,7 +354,7 @@ export async function generateSuggestion(prompt, maxTokens = 20) {
     const selectedModels = modelStore.get("selectedModels");
     const model = selectedModels?.decision || "llama3.2:latest"; // Fallback model
 
-    const response = await fetch("http://localhost:11434/api/generate", {
+    const response = await fetch("http://127.0.0.1:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -466,7 +466,7 @@ export const handleDeleteOllamaModel = (event, modelName) => {
 
 export async function generateEmbedding(text) {
   try {
-    const response = await fetch("http://localhost:11434/api/embeddings", {
+    const response = await fetch("http://127.0.0.1:11434/api/embeddings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
