@@ -112,6 +112,24 @@ async function summarise(personId, lines) {
   }));
   return people.handleSummarize(null, personId);
 }
+/** Exports; returns data.json and the text of every People part of the zip. */
+let exportCount = 0;
+async function exportPeople() {
+  const out = path.join(dir, `export-${exportCount++}.zip`);
+  await exportEverything(alice, out);
+  const files = unzipSync(new Uint8Array(fs.readFileSync(out)));
+  const data = JSON.parse(strFromU8(files["data.json"]));
+  const text = JSON.stringify([
+    data.people,
+    data.person_aliases,
+    data.person_summaries,
+    data.person_mentions,
+    ...Object.keys(files)
+      .filter((f) => f.includes("people/"))
+      .map((f) => strFromU8(files[f])),
+  ]);
+  return { data, text };
+}
 const mentionRows = (personId) =>
   db.prepare(`SELECT * FROM person_mentions WHERE person_id = ?`).all(personId);
 
@@ -199,22 +217,34 @@ describe("export and the trash", () => {
     trash(c);
     trash(secret);
 
-    const out = path.join(dir, "export.zip");
-    await exportEverything(alice, out);
-    const files = unzipSync(new Uint8Array(fs.readFileSync(out)));
-    const data = JSON.parse(strFromU8(files["data.json"]));
-    const text = JSON.stringify({
-      people: data.people,
-      person_aliases: data.person_aliases,
-      person_summaries: data.person_summaries,
-      person_mentions: data.person_mentions,
-    });
+    const { data, text } = await exportPeople();
     expect(text).toContain("lena kept");
     expect(text).not.toContain("lena trashed");
     expect(text).not.toContain("omar line");
     expect(text).not.toContain("Zephyrine");
-    // The ignore list itself is the user's correction and stays.
-    expect(data.people.map((x) => x.display_name)).toContain("Omar");
+    // An ignored person and their names stay out entirely.
+    expect(text).not.toMatch(/omar/i);
+    expect(data.person_aliases.some((x) => x.person_id === ig)).toBe(false);
+  });
+
+  it("leaves out a name the AI added that only trashed entries hold, until restore", async () => {
+    const p = person("Bartholomew");
+    peopleDb.addAlias(p, "Barty", "ai");
+    const [a, t] = [entry("Bartholomew A."), entry("Barty T.")];
+    mention(p, a, { name_as_written: "Bartholomew" });
+    mention(p, t, { name_as_written: "Barty" });
+    trash(t);
+
+    const trashed = await exportPeople();
+    expect(trashed.text).toContain("Bartholomew");
+    expect(trashed.text).not.toMatch(/barty/i);
+
+    restore(t);
+    const back = await exportPeople();
+    const names = back.data.person_aliases
+      .filter((x) => x.person_id === p)
+      .map((x) => x.alias);
+    expect(names.sort()).toEqual(["Bartholomew", "Barty"]);
   });
 
   it("ignoring a person deletes their summary", async () => {
