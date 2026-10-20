@@ -96,7 +96,11 @@ export function MoodTagSelector({ onChange, selected }: Props) {
     onChangeRef.current = onChange;
   });
 
+  // Skip the untouched initial selection: it is built from `selected`, and emitting it
+  // would add the parent mood (Happy) of a saved sub-mood the user never picked.
+  const initialSelection = useRef(selection);
   useEffect(() => {
+    if (selection === initialSelection.current) return;
     const uniqueTags = new Set([...selection.level1, ...selection.level2]);
     onChangeRef.current(Array.from(uniqueTags));
   }, [selection]);
