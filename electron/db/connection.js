@@ -2,7 +2,13 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 import { MIGRATIONS, runMigrations } from "./migrations.js";
-import { ensureVectorTable, loadVectorExtension } from "./vectorExtension.js";
+import {
+  describeLoadFailure,
+  ensureVectorTable,
+  extensionPath,
+  loadVectorExtension,
+  removeOrphanVectors,
+} from "./vectorExtension.js";
 import { log } from "../log.js";
 
 // Where the database used to be resolved: next to Electron's userData on
@@ -71,7 +77,13 @@ db.pragma("secure_delete = ON");
 // unavailable; callers check this before using the index.
 export const vectorSupport = loadVectorExtension(db);
 if (!vectorSupport.ok) {
-  log.error("Search index unavailable:", vectorSupport.error);
+  let where = "";
+  try {
+    where = extensionPath();
+  } catch (error) {
+    where = `unresolved: ${error?.message ?? error}`;
+  }
+  log.error(describeLoadFailure(where, vectorSupport.error));
 }
 
 // A pre-migration snapshot is the user's only insurance: the database is the
@@ -186,7 +198,19 @@ export function initDatabase() {
 
   // After the numbered migrations, and outside them on purpose: a machine that
   // cannot load the extension must still migrate its journal.
-  if (vectorSupport.ok) ensureVectorTable(db);
+  if (vectorSupport.ok) {
+    ensureVectorTable(db);
+    // A purge made while the extension could not load left its vectors
+    // behind; they go now, before anything can search or index (KAN-368).
+    try {
+      const removed = removeOrphanVectors(db);
+      if (removed) {
+        log.info(`Search index: removed ${removed} orphaned vector(s)`);
+      }
+    } catch (err) {
+      log.error("Could not remove orphaned vectors:", err);
+    }
+  }
 
   if (applied.length) {
     log.info(

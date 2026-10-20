@@ -424,7 +424,9 @@ export default function Trash() {
       <p className="mt-6 max-w-3xl text-xs text-text-light-sub dark:text-text-dark-sub">
         Delete forever and Empty trash can&apos;t be undone, so they ask you to
         hold for a moment. Enter works too. Deleting forever also clears the
-        entry from the search index on this PC.
+        entry from the search index on this PC. If search isn&apos;t working at
+        the time, that part finishes the next time MindSage starts with search
+        working.
       </p>
     </main>
   );
