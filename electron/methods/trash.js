@@ -18,6 +18,7 @@ import {
 } from "../pendingDeletions.js";
 import { thumbnailDir } from "./media.js";
 import { getIndexer } from "./search.js";
+import { foldWal } from "../db/walCheckpoint.js";
 import { log } from "../log.js";
 
 // IPC for the trash, and the job that empties it once items are 30 days old.
@@ -122,12 +123,10 @@ export async function purge(
   for (let i = 0; i < goalIds.length; i += CHUNK) {
     await step([], goalIds.slice(i, i + CHUNK));
   }
-  // Fold the write-ahead log back in so removed text is not left in it.
-  try {
-    localDB.db.pragma("wal_checkpoint(TRUNCATE)");
-  } catch {
-    // A busy checkpoint only delays the cleanup.
-  }
+  // Fold the write-ahead log back in so removed text is not left in it or in
+  // the old page images of the database file. A busy one is logged and the
+  // next start finishes it.
+  await foldWal(localDB.db);
   return {
     ...result,
     filesPending: pendingFileCount(),

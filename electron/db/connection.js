@@ -10,6 +10,7 @@ import {
   removeOrphanVectors,
 } from "./vectorExtension.js";
 import { log } from "../log.js";
+import { checkpointOnce } from "./walCheckpoint.js";
 
 // Where the database used to be resolved: next to Electron's userData on
 // Windows, but ~/Library/Preferences on macOS and ~/.local/share on Linux,
@@ -210,6 +211,14 @@ export function initDatabase() {
     } catch (err) {
       log.error("Could not remove orphaned vectors:", err);
     }
+  }
+
+  // Finishes a fold that a delete could not complete last time (another
+  // program held the file, or the app was killed before closing it): until
+  // then the database file can keep old page images of deleted rows. One
+  // short try, never blocking startup for long (KAN-371).
+  if (!checkpointOnce(db).ok) {
+    log.warn("Startup WAL checkpoint was busy; it will run again later");
   }
 
   if (applied.length) {

@@ -3,6 +3,7 @@ import path from "node:path";
 import { app } from "electron";
 import localDB from "../db/index.js";
 import { journalMediaDir } from "../mediaPaths.js";
+import { foldWal } from "../db/walCheckpoint.js";
 import { pendingFileCount, removeFiles } from "./trash.js";
 import { log } from "../log.js";
 
@@ -12,7 +13,9 @@ import { log } from "../log.js";
 // profile). With other profiles present the old backups are replaced by one
 // taken after the delete: they are whole-database snapshots, so they still
 // hold the deleted journal, but they also protect those people. Files that
-// are locked right now are retried later (pendingDeletions.js).
+// are locked right now are retried later (pendingDeletions.js). Last, the
+// write-ahead log is folded back, so the old page images that still hold the
+// profile's text are overwritten in the database file (KAN-371).
 
 const userData = () => app.getPath("userData");
 
@@ -70,6 +73,7 @@ export async function deleteProfileEverything(userId, { afterRows } = {}) {
       log.error("Could not delete the database backups:", err?.message ?? err);
     }
   }
+  const wal = await foldWal(localDB.db);
   return {
     entries: removed.entryIds.length,
     filesRemoved,
@@ -77,5 +81,8 @@ export async function deleteProfileEverything(userId, { afterRows } = {}) {
     backupsRemoved,
     backupsReplaced,
     filesPending: pendingFileCount(),
+    // False when the database stayed busy (another program had it open):
+    // until the next start the file may hold old copies of its pages.
+    walFolded: wal.ok,
   };
 }
