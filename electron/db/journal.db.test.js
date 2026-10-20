@@ -413,3 +413,52 @@ describe("startup seeding", () => {
     ).toEqual({ username: "System" });
   });
 });
+
+// KAN-379: a writer that leaves title, mood or tags out keeps what is stored;
+// an explicit empty value still clears.
+describe("an update that omits title, mood and tags", () => {
+  const ai = { title: "AI title", mood_score: 7, mood_tags: ["Peaceful"] };
+
+  it("keeps the AI values when the follow-up lands after the AI write", () => {
+    const e = localDB.createJournalEntry(alice, { content: "after order" });
+    localDB.updateJournalEntry(alice, e.id, { content: "after order", ...ai });
+    const after = localDB.updateJournalEntry(alice, e.id, {
+      content: "after order",
+      transcription: "spoken",
+    });
+    expect(after).toMatchObject({ title: "AI title", mood_score: 7 });
+    expect(after.mood_tags).toEqual(["Peaceful"]);
+  });
+
+  it("keeps the AI values when the follow-up lands before the AI write", () => {
+    const e = localDB.createJournalEntry(alice, { content: "before order" });
+    localDB.updateJournalEntry(alice, e.id, {
+      content: "before order",
+      transcription: "spoken",
+    });
+    const after = localDB.updateJournalEntry(alice, e.id, {
+      content: "before order",
+      ...ai,
+    });
+    expect(after).toMatchObject({ title: "AI title", mood_score: 7 });
+    expect(after.mood_tags).toEqual(["Peaceful"]);
+  });
+
+  it("an explicit empty title, mood and tag list still clears them", () => {
+    const e = localDB.createJournalEntry(alice, {
+      title: "Mine",
+      content: "clear me",
+      mood_score: 4,
+      mood_tags: ["Content"],
+    });
+    const after = localDB.updateJournalEntry(alice, e.id, {
+      title: "",
+      content: "clear me",
+      mood_score: 0,
+      mood_tags: [],
+    });
+    expect(after.title).toBeNull();
+    expect(after.mood_score).toBeNull();
+    expect(after.mood_tags).toEqual([]);
+  });
+});

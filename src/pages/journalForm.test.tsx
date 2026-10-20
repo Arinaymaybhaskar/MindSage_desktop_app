@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import JournalForm from "./journalForm";
 import { prepareToRestart } from "../utils/unsavedWork";
+import journalService from "../api/journalService";
 
 // A stable object: the form re-loads its entry whenever the user changes.
 const session = { user: { username: "ada" }, checking: false };
@@ -83,5 +84,23 @@ describe("JournalForm and restarting to update", () => {
     expect(prepareToRestart().ok).toBe(false);
     unmount();
     expect(prepareToRestart()).toEqual({ ok: true });
+  });
+});
+
+describe("JournalForm saving a new entry", () => {
+  it("sends one create and no follow-up update that could wipe AI title and tags", async () => {
+    vi.mocked(journalService.create).mockResolvedValue({
+      id: 9,
+      image_key: null,
+      audio_key: null,
+    } as never);
+    vi.mocked(journalService.update).mockClear();
+    const { container } = await open("/journal/new");
+    fireEvent.change(editor(container), { target: { value: "a new entry" } });
+    await act(async () => {
+      fireEvent.submit(container.querySelector("form") as HTMLFormElement);
+    });
+    expect(journalService.create).toHaveBeenCalledTimes(1);
+    expect(journalService.update).not.toHaveBeenCalled();
   });
 });
