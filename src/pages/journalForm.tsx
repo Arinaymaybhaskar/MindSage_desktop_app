@@ -346,18 +346,16 @@ export default function JournalForm() {
       }
 
       const journalId = isEdit ? Number(id) : Number(res.id);
-      let imageKey = entry.image_key;
       let audioKey = entry.audio_key;
 
       if (imageFile) {
         const arrayBuffer = await imageFile.arrayBuffer();
-        const result = await mediaService.saveFileForJournal(
+        await mediaService.saveFileForJournal(
           journalId,
           "image",
           arrayBuffer,
           imageFile.name,
         );
-        if (result.success) imageKey = result.key;
       }
 
       if (recordingBlob) {
@@ -378,29 +376,17 @@ export default function JournalForm() {
               string | null
             >("whisper:transcribe-journal-audio", audioKey, journalId);
             if (transcription) {
-              // Update the entry with the transcription
-              const entryWithTranscription = {
-                ...mergedEntry,
-                transcription: transcription,
-              };
-              await journalService.update(journalId, entryWithTranscription);
+              // Only the fields it sets: title and tags may be AI-filled by now.
+              await journalService.update(journalId, {
+                content: mergedEntry.content,
+                transcription,
+              } as JournalEntry);
             }
           } catch (err) {
             console.error("Failed to transcribe audio:", err);
           }
           resetRecording();
         }
-      }
-
-      const needsMediaUpdate =
-        imageKey !== res.image_key || audioKey !== res.audio_key;
-
-      if (needsMediaUpdate) {
-        await journalService.update(journalId, {
-          ...mergedEntry,
-          image_key: imageKey,
-          audio_key: audioKey,
-        });
       }
 
       localStorage.removeItem(DRAFT_KEY);
