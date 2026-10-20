@@ -539,6 +539,92 @@ export const MIGRATIONS = [
       }
     },
   },
+  {
+    // The People section (docs/PEOPLE.md). Everything here is derived from
+    // journal entries, so every row hangs off an entry or a person by a
+    // cascading foreign key: deleting either removes what was worked out from
+    // it in the same statement. Mentions keep sentence offsets rather than a
+    // copy of the text, so the journal is never stored twice.
+    version: 9,
+    name: "people-tables",
+    up: (d) =>
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS people (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            display_name TEXT NOT NULL,
+            relationship TEXT,
+            relationship_suggested TEXT,
+            status TEXT NOT NULL DEFAULT 'suggested'
+              CHECK(status IN ('suggested', 'confirmed', 'ignored')),
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_people_user_status
+          ON people(user_id, status);
+
+        CREATE TABLE IF NOT EXISTS person_aliases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            alias TEXT NOT NULL,
+            alias_normalised TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'ai' CHECK(source IN ('user', 'ai')),
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE,
+            UNIQUE(person_id, alias_normalised)
+        );
+        CREATE INDEX IF NOT EXISTS idx_person_aliases_normalised
+          ON person_aliases(alias_normalised);
+
+        CREATE TABLE IF NOT EXISTS person_mentions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id INTEGER NOT NULL,
+            person_id INTEGER NOT NULL,
+            name_as_written TEXT NOT NULL,
+            sentence_start INTEGER NOT NULL,
+            sentence_end INTEGER NOT NULL,
+            valence INTEGER CHECK(valence BETWEEN -2 AND 2),
+            feeling_tags TEXT,
+            confidence REAL,
+            user_verified INTEGER NOT NULL DEFAULT 0,
+            extractor_version INTEGER NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+            FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_person_mentions_person
+          ON person_mentions(person_id);
+        CREATE INDEX IF NOT EXISTS idx_person_mentions_entry
+          ON person_mentions(entry_id);
+
+        CREATE TABLE IF NOT EXISTS person_summaries (
+            person_id INTEGER PRIMARY KEY,
+            summary_json TEXT NOT NULL,
+            mentions_hash TEXT NOT NULL,
+            model TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS people_jobs (
+            entry_id INTEGER PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            content_hash TEXT,
+            status TEXT NOT NULL DEFAULT 'queued'
+              CHECK(status IN ('queued', 'running', 'done', 'skipped', 'failed')),
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            extractor_version INTEGER,
+            priority INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_people_jobs_user_status
+          ON people_jobs(user_id, status);
+      `),
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

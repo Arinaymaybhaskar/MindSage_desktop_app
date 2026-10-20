@@ -41,7 +41,7 @@ This file is an index: detail lives in `docs/agent/`, read on demand.
 | Trash, purge, backups, deleting a profile | [docs/agent/trash-and-deletion.md](docs/agent/trash-and-deletion.md) |
 | Sign-in, session, CSP, window sandbox, `windowGuard`, Windows uninstaller | [docs/agent/security-and-session.md](docs/agent/security-and-session.md) |
 | Logging | [docs/agent/logging.md](docs/agent/logging.md) |
-| Import/export, updates, support lines, env flags, native binaries, packaging | [docs/agent/features.md](docs/agent/features.md) |
+| Import/export, People, updates, support lines, env flags, native binaries, packaging | [docs/agent/features.md](docs/agent/features.md) |
 | Why a technical choice was made, what is verified true today | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) (§0 is a verified-state table: trust it over older docs) |
 | Known debt: consult before introducing a new pattern (both partly stale) | [docs/TECHNICAL_DEBT.md](docs/TECHNICAL_DEBT.md), [docs/TODO.md](docs/TODO.md) |
 | Audits | [AUTH_REVIEW](docs/AUTH_REVIEW.md), [CODEBASE_STRUCTURE_AUDIT](docs/CODEBASE_STRUCTURE_AUDIT.md), [NETWORK_AUDIT](docs/NETWORK_AUDIT.md), [ONLINE_MODE_REMOVAL](docs/ONLINE_MODE_REMOVAL.md), [PERFORMANCE](docs/PERFORMANCE.md) |

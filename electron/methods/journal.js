@@ -62,6 +62,9 @@ export async function handleUpdateJournal(event, journalId, payload) {
   updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
   // The indexer re-embeds it if the words changed.
   eventBus.emit("journal:updated", { entry: updatedJournal });
+  // People re-reads the entry only if its text actually changed.
+  if (updatedJournal)
+    eventBus.emit("journal:edited", { userId, entry: updatedJournal });
   if (updatedJournal.audio_key) {
     eventBus.emit("journal:audio-saved", { entry: updatedJournal, event });
   }
