@@ -193,7 +193,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     const model = selectedModels?.chat || "llama3.2:latest";
 
     try {
-      const res2 = await fetch("http://localhost:11434/api/generate", {
+      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -255,7 +255,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     const model = selectedModels?.chat || "llama3.2:latest";
 
     try {
-      const res2 = await fetch("http://localhost:11434/api/generate", {
+      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
