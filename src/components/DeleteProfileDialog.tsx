@@ -26,7 +26,7 @@ const plural = (n: number, one: string, many = `${one}s`) =>
  */
 export default function DeleteProfileDialog() {
   const { open, name, backupPath } = useDeleteProfileDialog();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [summary, setSummary] = useState<ProfileSummary | null>(null);
   const [password, setPassword] = useState("");
@@ -36,6 +36,8 @@ export default function DeleteProfileDialog() {
   const dialogRef = useRef<HTMLDivElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const opener = useRef<Element | null>(null);
+  // Who is being deleted: the session ends with the delete, so ask before it.
+  const deletedId = useRef<number | undefined>(undefined);
 
   // Each time it opens: a clean slate, and what this profile holds.
   useEffect(() => {
@@ -90,8 +92,13 @@ export default function DeleteProfileDialog() {
       // The delete wipes localStorage on disk; what should stay is put back
       // straight away, in case the app is closed on the done screen.
       const before = snapshotLocalStorage();
+      deletedId.current = user?.id;
       const deleted = await userService.deleteAccount({ password });
-      clearLocalTraces(Boolean(deleted?.lastProfile), before);
+      clearLocalTraces(
+        Boolean(deleted?.lastProfile),
+        deletedId.current,
+        before,
+      );
       setResult(deleted);
     } catch (err) {
       // Nothing was deleted. Stay here, with what went wrong.
@@ -111,7 +118,7 @@ export default function DeleteProfileDialog() {
   };
 
   const finish = () => {
-    clearLocalTraces(Boolean(result?.lastProfile));
+    clearLocalTraces(Boolean(result?.lastProfile), deletedId.current);
     deleteProfileDialog.close();
     logout();
     navigate(result?.lastProfile ? "/setup" : "/profiles");

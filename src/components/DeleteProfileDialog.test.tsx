@@ -31,7 +31,10 @@ vi.mock("../api/userService", () => ({
   },
 }));
 const logout = vi.fn();
-vi.mock("../hooks/useAuth", () => ({ useAuth: () => ({ logout }) }));
+const USER = { id: 1, username: "meera" };
+vi.mock("../hooks/useAuth", () => ({
+  useAuth: () => ({ user: USER, logout }),
+}));
 
 const renderDialog = () =>
   render(
@@ -186,6 +189,28 @@ describe("DeleteProfileDialog", () => {
     expect(localStorage.getItem("theme")).toBe("dark");
     expect(localStorage.getItem("userInfo")).toBeNull();
     expect(screen.queryByText(/could not wipe its window storage/)).toBeNull();
+  });
+
+  it("never puts back the deleted profile's drafts, keeps another profile's (KAN-380)", async () => {
+    localStorage.clear();
+    localStorage.setItem("draft:1:journal", "deleted profile text");
+    localStorage.setItem("draft:1:quick-capture", "deleted profile quick");
+    localStorage.setItem("draft:2:journal", "other profile text");
+    localStorage.setItem("draft-journal", "old unscoped draft");
+    deleteAccount.mockImplementation(async () => {
+      localStorage.clear(); // the main process wipes the store
+      return {
+        lastProfile: false,
+        backupsRemoved: false,
+        filesPending: 0,
+        localStorageErased: true,
+      };
+    });
+    await open();
+    typePassword("secret");
+    await hold(screen.getByRole("button", { name: /hold to delete/i }));
+    await screen.findByText("Your profile was deleted");
+    expect(Object.keys(localStorage)).toEqual(["draft:2:journal"]);
   });
 
   it("says the name may stay on disk when the window storage could not be wiped", async () => {

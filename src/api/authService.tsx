@@ -4,6 +4,7 @@
  * Describes the structure of the user information object.
  */
 interface UserInfo {
+  id: number;
   username: string;
   email: string;
   full_name: string;
