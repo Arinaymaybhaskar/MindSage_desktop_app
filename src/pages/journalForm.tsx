@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoodTagSelector } from "../components/moodOptions";
-import { MoodSlider, DEFAULT_MOOD } from "../components/moodSlider";
+import { MoodSlider } from "../components/moodSlider";
 import { FollowUpQuestions } from "../components/followUpQuestions";
 import { useAuth } from "../hooks/useAuth";
 import { mediaService } from "../api/mediaService";
@@ -34,7 +34,6 @@ import { draftKey } from "../utils/draftKeys";
 const emptyJournal: JournalEntry = {
   title: "",
   content: "",
-  mood_score: DEFAULT_MOOD,
   sentiment_score: 0,
   mood_tags: [],
 };
@@ -334,7 +333,7 @@ export default function JournalForm() {
       const mergedEntry: JournalEntry = {
         ...entry,
         title: entry.title?.trim() ? entry.title : "",
-        mood_score: entry.mood_score ?? 0,
+        mood_score: entry.mood_score ?? null,
         mood_tags: entry.mood_tags ?? [],
         created_at: editedDate
           ? new Date(editedDate).toISOString()
@@ -654,7 +653,7 @@ export default function JournalForm() {
           <aside className="w-96 overflow-y-auto flex-shrink-0 no-scrollbar border-l border-border-light dark:border-border-dark p-6 space-y-6">
             <SidebarPanel title="Mood & Sentiment" icon={Smile}>
               <MoodSlider
-                value={entry.mood_score ?? DEFAULT_MOOD}
+                value={entry.mood_score}
                 onChange={(score) => setEntry({ ...entry, mood_score: score })}
               />
               <MoodTagSelector
