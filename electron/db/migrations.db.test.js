@@ -262,7 +262,9 @@ describe("the drop-qdrant-state migration", () => {
     ).run();
     const before = db.prepare("SELECT COUNT(*) n FROM journal_entries").get().n;
 
-    expect(runMigrations(db).applied).toEqual(["drop-qdrant-state"]);
+    expect(runMigrations(db, MIGRATIONS.slice(0, 8)).applied).toEqual([
+      "drop-qdrant-state",
+    ]);
 
     expect(tableNames(db)).not.toContain("vector_deletions");
     for (const table of ["journal_entries", "goals", "progress_logs"]) {
@@ -278,6 +280,68 @@ describe("the drop-qdrant-state migration", () => {
     expect(db.prepare("SELECT description FROM progress_logs").get()).toEqual({
       description: "d",
     });
+    integrityOk(db);
+  });
+});
+
+describe("the people-tables migration", () => {
+  it("adds the People tables, all cascading from the user, entry or person", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 8));
+    const seeded = seedJournal(db, { users: 1, entriesPerUser: 2 });
+    const before = db.prepare("SELECT COUNT(*) n FROM journal_entries").get().n;
+
+    expect(runMigrations(db).applied).toEqual(["people-tables"]);
+    expect(tableNames(db)).toEqual(
+      expect.arrayContaining([
+        "people",
+        "person_aliases",
+        "person_mentions",
+        "person_summaries",
+        "people_jobs",
+      ]),
+    );
+    expect(db.prepare("SELECT COUNT(*) n FROM journal_entries").get().n).toBe(
+      before,
+    );
+
+    const { userId } = seeded[0];
+    const [e1, e2] = db
+      .prepare("SELECT id FROM journal_entries WHERE user_id = ? ORDER BY id")
+      .all(userId)
+      .map((r) => r.id);
+    const person = Number(
+      db
+        .prepare(
+          "INSERT INTO people (user_id, display_name, status) VALUES (?, 'Sam', 'confirmed')",
+        )
+        .run(userId).lastInsertRowid,
+    );
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO people (user_id, display_name, status) VALUES (?, 'X', 'maybe')",
+        )
+        .run(userId),
+    ).toThrow(/CHECK/);
+    const mention = db.prepare(
+      "INSERT INTO person_mentions (entry_id, person_id, name_as_written, sentence_start, sentence_end, extractor_version) VALUES (?, ?, 'Sam', 0, 3, 1)",
+    );
+    mention.run(e1, person);
+    mention.run(e2, person);
+    db.prepare("INSERT INTO people_jobs (entry_id, user_id) VALUES (?, ?)").run(
+      e1,
+      userId,
+    );
+
+    db.prepare("DELETE FROM journal_entries WHERE id = ?").run(e1);
+    const n = (sql) => db.prepare(sql).get().n;
+    expect(n("SELECT COUNT(*) n FROM person_mentions")).toBe(1);
+    expect(n("SELECT COUNT(*) n FROM people_jobs")).toBe(0);
+
+    db.prepare("DELETE FROM users WHERE id = ?").run(userId);
+    expect(n("SELECT COUNT(*) n FROM people")).toBe(0);
+    expect(n("SELECT COUNT(*) n FROM person_mentions")).toBe(0);
     integrityOk(db);
   });
 });

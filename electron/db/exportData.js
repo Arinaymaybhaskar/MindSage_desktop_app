@@ -4,6 +4,7 @@ import { zip } from "zip-a-folder";
 import { db } from "./connection.js";
 import os from "node:os";
 import { log } from "../log.js";
+import { liveSummaryLines } from "../people/insights.js";
 
 /**
  * Creates a comprehensive ZIP archive of all user data, handling cases where some data tables may be empty.
@@ -105,6 +106,41 @@ export async function exportEverything(userId, destinationPath) {
       "SELECT * FROM message_sources WHERE message_id IN (SELECT id FROM messages WHERE chat_id IN (SELECT id FROM chats WHERE user_id = ?))",
     );
 
+    // People: everything the People section worked out, ignored names
+    // included, so an export holds the user's corrections too. Nothing drawn
+    // only from trashed entries: a suggestion no live entry names, the
+    // mentions of an ignored person, a summary of one, or a summary line
+    // citing a trashed entry (filtered below).
+    const exportedPeople = `SELECT p.id FROM people p WHERE p.user_id = ? AND (p.status != 'suggested' OR EXISTS (
+        SELECT 1 FROM person_mentions m JOIN journal_entries j ON j.id = m.entry_id AND j.is_deleted = 0
+         WHERE m.person_id = p.id))`;
+    const peopleQuery = db.prepare(
+      `SELECT * FROM people WHERE id IN (${exportedPeople})`,
+    );
+    const personAliasesQuery = db.prepare(
+      `SELECT * FROM person_aliases WHERE person_id IN (${exportedPeople})`,
+    );
+    const personMentionsQuery = db.prepare(
+      "SELECT * FROM person_mentions WHERE person_id IN (SELECT id FROM people WHERE user_id = ? AND status != 'ignored') AND entry_id IN (SELECT id FROM journal_entries WHERE is_deleted = 0)",
+    );
+    const personSummariesQuery = db.prepare(
+      "SELECT * FROM person_summaries WHERE person_id IN (SELECT id FROM people WHERE user_id = ? AND status != 'ignored')",
+    );
+    const liveSummaries = (rows, entries) => {
+      const live = new Set(entries.map((e) => e.id));
+      return rows.flatMap((s) => {
+        let lines;
+        try {
+          lines = liveSummaryLines(JSON.parse(s.summary_json), live);
+        } catch {
+          return [];
+        }
+        return lines.length
+          ? [{ ...s, summary_json: JSON.stringify(lines) }]
+          : [];
+      });
+    };
+
     // -- 2. Collect all data from the database into a single object --
     const sourceData = {
       user: userQuery.get(userId),
@@ -126,7 +162,14 @@ export async function exportEverything(userId, destinationPath) {
       messages: messagesQuery.all(userId),
       files: filesQuery.all(userId),
       message_sources: messageSourcesQuery.all(userId),
+      people: peopleQuery.all(userId),
+      person_aliases: personAliasesQuery.all(userId),
+      person_mentions: personMentionsQuery.all(userId),
     };
+    sourceData.person_summaries = liveSummaries(
+      personSummariesQuery.all(userId),
+      sourceData.journal_entries,
+    );
 
     const flatData = JSON.parse(JSON.stringify(sourceData));
     const structuredData = JSON.parse(JSON.stringify(sourceData));
@@ -208,7 +251,7 @@ export async function exportEverything(userId, destinationPath) {
     const metadata = {
       exported_at: new Date().toISOString(),
       app_version: "1.0.0",
-      data_schema_version: "1.3.0-combined",
+      data_schema_version: "1.4.0-combined",
     };
 
     flatData.metadata = metadata;
@@ -235,6 +278,10 @@ export async function exportEverything(userId, destinationPath) {
       "ai/interventions.json": structuredData.ai_interventions,
       "ai/nudges.json": structuredData.ai_nudges,
       "ai/emotion_patterns.json": structuredData.user_emotion_patterns,
+      "people/people.json": structuredData.people,
+      "people/aliases.json": structuredData.person_aliases,
+      "people/mentions.json": structuredData.person_mentions,
+      "people/summaries.json": structuredData.person_summaries,
     };
 
     for (const [filename, data] of Object.entries(dataMap)) {

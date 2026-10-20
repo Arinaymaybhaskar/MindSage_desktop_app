@@ -1,6 +1,7 @@
 import { db } from "./connection.js";
 import { redactQuotes } from "../redactQuotes.js";
 import { removeSources } from "./searchIndex.js";
+import { pruneEmptySuggestions } from "./people.js";
 
 // The trash (KAN-52). Deleting an entry or a goal only marks it; this module
 // lists, restores and finally removes what is marked. Every function takes the
@@ -166,6 +167,12 @@ export function deleteForever(userId, { entryIds, goalIds }) {
           `UPDATE message_sources SET source_title = 'Removed entry'
             WHERE source_type = 'journal' AND source_id IN (${placeholders(ids)})`,
         ).run(...ids.map(String));
+        // A People summary is written from the entry's words, so it goes and
+        // is made again from what is left; mentions and jobs cascade below.
+        db.prepare(
+          `DELETE FROM person_summaries WHERE person_id IN
+             (SELECT person_id FROM person_mentions WHERE entry_id IN (${placeholders(ids)}))`,
+        ).run(...ids);
         removedEntries = db
           .prepare(
             `DELETE FROM journal_entries WHERE user_id = ? AND id IN (${placeholders(ids)})`,
@@ -177,6 +184,8 @@ export function deleteForever(userId, { entryIds, goalIds }) {
           `DELETE FROM tags WHERE user_id = ?
              AND id NOT IN (SELECT tag_id FROM journal_entry_tags)`,
         ).run(userId);
+        // Same for a suggested name that only the removed entries held.
+        pruneEmptySuggestions(userId);
       }
     }
 
