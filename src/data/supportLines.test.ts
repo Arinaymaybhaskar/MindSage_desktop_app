@@ -39,6 +39,13 @@ describe("bundled support lines", () => {
       }
   });
 
+  it("matches the operators' own hours for iCall and Lifeline Australia", () => {
+    const hours = (id: string) =>
+      SUPPORT_REGIONS.flatMap((r) => r.lines).find((l) => l.id === id)?.hours;
+    expect(hours("in-icall")).toContain("Mon-Sat 8 AM-9 PM");
+    expect(hours("au-lifeline")).toBe("24/7");
+  });
+
   it("records when the numbers were checked", () => {
     expect(VERIFIED_ON).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
