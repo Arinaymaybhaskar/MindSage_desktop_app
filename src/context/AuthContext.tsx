@@ -1,3 +1,4 @@
+import { dropLegacyDrafts } from "../utils/draftKeys";
 import {
   createContext,
   useState,
@@ -16,6 +17,7 @@ export interface AuthContextType {
 }
 
 interface UserInfo {
+  id: number;
   username: string;
   email: string;
   created_at: string;
@@ -90,6 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // The main window and Quick Capture share one session in the main process,
   // which announces every sign-in and sign-out to both.
   useEffect(() => {
+    dropLegacyDrafts();
     void refresh();
     return window.electron.ipcRenderer.on("auth:changed", () => {
       void refresh();
