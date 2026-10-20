@@ -50,6 +50,6 @@ What they **block** (exit 2, with the rule in the message):
 - `git commit` whose `-m`, heredoc or `-F` file text contains `Co-Authored-By` or `Claude-Session`, and `git commit --no-verify` / `-n`.
 - Edit, Write and NotebookEdit on a file inside the repo while the checked-out branch is `main`, `dev` or `phase/*`: create a `<type>/<KEY>-<slug>` branch first. Files outside the repo (scratchpads) are not affected.
 
-What they only **report**: the SessionStart hook injects the branch, its ahead/behind count and a short reminder of the rules.
+What they only **report**: the SessionStart hook injects the branch, its ahead/behind count and a short reminder of the rules. The UserPromptSubmit hook `context-cap.mjs` injects a handoff warning when the context passes ~150k tokens (see [orchestrator.md](orchestrator.md)).
 
 What stays **instruction-only**, because a hook cannot tell the main session from a subagent and cannot see which model is running: "all work goes through agents", the model choice in the table in [orchestrator.md](orchestrator.md), the testing loop and its Jira statuses, and the commit-message conventions beyond the trailers above. Do not assume a hook will catch a slip there.
