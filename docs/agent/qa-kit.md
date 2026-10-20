@@ -2,7 +2,7 @@
 
 Read this if you test the real app (testing agents, anyone running `scripts/e2e`-style flows). Use `scripts/qa/`. Do not write your own fake Ollama, launcher, byte scanner or process counter.
 
-Setup: `npx vite build` in your worktree, then run scripts under `xvfb-run -a`. As root set `E2E_NO_SANDBOX=1`. Write script output to a file and read it with `tail -n 50`.
+Setup: `npx vite build` in your worktree, then run scripts under `xvfb-run -a`. As root set `E2E_NO_SANDBOX=1`. On Windows skip `xvfb-run`: run `node your-script.mjs` from a desktop session (the window opens on screen). The kit resolves the electron binary through `require("electron")`, so no path changes are needed; fake-ollama and the process tools are untested there. Write script output to a file and read it with `tail -n 50`.
 
 ## Tools (all in `scripts/qa/`)
 
