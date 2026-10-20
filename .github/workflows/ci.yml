@@ -109,41 +109,47 @@ jobs:
           Expand-Archive ollama.zip -DestinationPath "$env:RUNNER_TEMP\ollama"
           "$env:RUNNER_TEMP\ollama" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
-      - name: Start Ollama and pull the models
-        timeout-minutes: 20
+      # One step on purpose: a process started with Start-Process dies when its
+      # step ends on the Windows runner, so serve, pulls, check and e2e share it.
+      - name: Run Ollama and the end-to-end test
+        timeout-minutes: 25
         shell: pwsh
         env:
           OLLAMA_HOST: 127.0.0.1:11434
         run: |
           $ollama = Join-Path $env:RUNNER_TEMP 'ollama\ollama.exe'
-          Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden -RedirectStandardOutput ollama.log -RedirectStandardError ollama.err.log
-          $up = $false
-          for ($i = 0; $i -lt 30 -and -not $up; $i++) {
-            try { Invoke-RestMethod http://127.0.0.1:11434/api/tags | Out-Null; $up = $true } catch { Start-Sleep 2 }
-          }
-          if (-not $up) { Get-Content ollama.err.log -ErrorAction SilentlyContinue; throw 'Ollama did not answer on 127.0.0.1:11434 within 60 s' }
-          foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
-            & $ollama pull $model
-            if ($LASTEXITCODE -ne 0) { throw "ollama pull $model failed with exit code $LASTEXITCODE" }
-          }
+          $out = Join-Path $env:RUNNER_TEMP 'ollama-serve.log'
+          $err = Join-Path $env:RUNNER_TEMP 'ollama-serve.err.log'
+          $serve = Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+          try {
+            $up = $false
+            for ($i = 0; $i -lt 30 -and -not $up; $i++) {
+              try { Invoke-RestMethod http://127.0.0.1:11434/api/tags | Out-Null; $up = $true } catch { Start-Sleep 2 }
+            }
+            if (-not $up) {
+              Get-Content $out, $err -Tail 50 -ErrorAction SilentlyContinue
+              throw 'Ollama did not answer on 127.0.0.1:11434 within 60 s'
+            }
+            foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
+              & $ollama pull $model
+              if ($LASTEXITCODE -ne 0) { throw "ollama pull $model failed with exit code $LASTEXITCODE" }
+            }
 
-      # Same probe the app makes (Node fetch), so a failure here names the cause.
-      - name: Check Ollama is reachable and has the models
-        timeout-minutes: 2
-        shell: pwsh
-        run: |
-          Get-Process ollama -ErrorAction SilentlyContinue | Format-Table Id, ProcessName
-          & (Join-Path $env:RUNNER_TEMP 'ollama\ollama.exe') list
-          $tags = Invoke-WebRequest http://127.0.0.1:11434/api/tags -UseBasicParsing
-          "GET /api/tags -> $($tags.StatusCode)"
-          foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
-            if ($tags.Content -notmatch [regex]::Escape($model)) { throw "$model is not in /api/tags" }
-          }
-          node -e "fetch('http://127.0.0.1:11434/api/tags').then(r => console.log('node fetch ->', r.status), e => { console.error('node fetch failed:', e.cause || e); process.exit(1) })"
+            # Same probe the app makes (Node fetch), so a failure here names the cause.
+            & $ollama list
+            $tags = Invoke-WebRequest http://127.0.0.1:11434/api/tags -UseBasicParsing
+            "GET /api/tags -> $($tags.StatusCode)"
+            foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
+              if ($tags.Content -notmatch [regex]::Escape($model)) { throw "$model is not in /api/tags" }
+            }
+            node -e "fetch('http://127.0.0.1:11434/api/tags').then(r => console.log('node fetch ->', r.status), e => { console.error('node fetch failed:', e.cause || e); process.exit(1) })"
+            if ($LASTEXITCODE -ne 0) { throw 'node fetch of /api/tags failed' }
 
-      - name: End-to-end run
-        timeout-minutes: 20
-        run: npm run test:e2e
+            npm run test:e2e
+            if ($LASTEXITCODE -ne 0) { throw "npm run test:e2e failed with exit code $LASTEXITCODE" }
+          } finally {
+            Stop-Process -Id $serve.Id -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Keep the failure screenshot
         if: failure()
@@ -151,3 +157,11 @@ jobs:
         with:
           name: e2e-failure
           path: e2e-artifacts
+
+      - name: Keep the Ollama serve log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollama-serve-log
+          path: ${{ runner.temp }}/ollama-serve*.log
+          if-no-files-found: ignore
