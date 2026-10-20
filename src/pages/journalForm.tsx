@@ -29,6 +29,7 @@ import { getFollowUpQuestionsPrompt } from "../utils/prompts/Journal";
 import { SidebarPanel } from "../components/journal/SidebarPanel";
 import type { SelectedModels } from "../types/Ollama";
 import { registerUnsavedWork } from "../utils/unsavedWork";
+import { draftKey } from "../utils/draftKeys";
 
 const emptyJournal: JournalEntry = {
   title: "",
@@ -44,7 +45,6 @@ export default function JournalForm() {
   const navigate = useNavigate();
   const [showSaved, setShowSaved] = useState(false);
   const isEdit = Boolean(id);
-  const DRAFT_KEY = id ? `draft-journal-${id}` : "draft-journal";
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [existingAudioUrl, setExistingAudioUrl] = useState<string | null>(null); // State for existing audio
@@ -53,6 +53,11 @@ export default function JournalForm() {
   const voiceRecorderState = useVoiceRecorder();
   const { recordingBlob, resetRecording } = voiceRecorderState;
   const { user: sessionUser } = useAuth();
+  // Drafts belong to the signed-in profile; with nobody signed in there is none.
+  const DRAFT_KEY =
+    sessionUser?.id === undefined
+      ? null
+      : draftKey(sessionUser.id, id ? `journal-${id}` : "journal");
   const [selectedModel, setSelectedModel] = useState<string>("");
 
   useEffect(() => {
@@ -175,7 +180,7 @@ export default function JournalForm() {
           }
         }
       } else {
-        const savedDraft = localStorage.getItem(DRAFT_KEY);
+        const savedDraft = DRAFT_KEY ? localStorage.getItem(DRAFT_KEY) : null;
         if (savedDraft) {
           const draft = JSON.parse(savedDraft);
           const draftToSet = { ...draft, mood_tags: draft.mood_tags || [] };
@@ -210,7 +215,7 @@ export default function JournalForm() {
   useEffect(() => {
     return registerUnsavedWork({
       flush: () => {
-        if (!isEdit) {
+        if (!isEdit && DRAFT_KEY) {
           localStorage.setItem(DRAFT_KEY, JSON.stringify(entryRef.current));
         }
       },
@@ -224,7 +229,7 @@ export default function JournalForm() {
 
   // Auto-save draft
   useEffect(() => {
-    if (isEdit) return; // Don't auto-save for existing entries
+    if (isEdit || !DRAFT_KEY) return; // Don't auto-save for existing entries
     const timer = setTimeout(() => {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(entry));
       setShowSaved(true);
@@ -240,7 +245,7 @@ export default function JournalForm() {
       const isSave = (e.ctrlKey || e.metaKey) && key === "s";
       if (!isSave) return;
       e.preventDefault();
-      if (isEdit) return; // don't save drafts for existing entries
+      if (isEdit || !DRAFT_KEY) return; // don't save drafts for existing entries
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(entry));
         setShowSaved(true);
@@ -389,7 +394,7 @@ export default function JournalForm() {
         }
       }
 
-      localStorage.removeItem(DRAFT_KEY);
+      if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY);
       navigate("/dashboard");
     } catch (error) {
       console.error("❌ [handleSubmit] Submission error:", error);

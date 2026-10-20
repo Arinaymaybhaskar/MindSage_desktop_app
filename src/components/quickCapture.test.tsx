@@ -5,7 +5,7 @@ import QuickCapture from "./quickCapture";
 
 const showToast = vi.fn();
 const create = vi.fn();
-const USER = { username: "ada" };
+const USER = { id: 1, username: "ada" };
 let signedInUser: typeof USER | null = USER;
 
 vi.mock("../hooks/useAuth", () => ({
@@ -16,7 +16,7 @@ vi.mock("../api/journalService", () => ({
   default: { create: (...args: unknown[]) => create(...args) },
 }));
 
-const DRAFT_KEY = "draft-quick-capture";
+const DRAFT_KEY = "draft:1:quick-capture";
 
 beforeEach(() => {
   signedInUser = USER;
@@ -50,6 +50,25 @@ describe("QuickCapture when signed out", () => {
 });
 
 describe("QuickCapture drafts", () => {
+  it("does not show another profile's draft (KAN-380)", () => {
+    localStorage.setItem(
+      "draft:2:quick-capture",
+      JSON.stringify({ title: "", content: "bo's private words" }),
+    );
+    localStorage.setItem(
+      "draft-quick-capture",
+      JSON.stringify({ title: "", content: "old unscoped words" }),
+    );
+    render(<QuickCapture />);
+    expect(
+      (
+        screen.getByPlaceholderText(
+          "Write your quick thought...",
+        ) as HTMLTextAreaElement
+      ).value,
+    ).toBe("");
+  });
+
   it("keeps a draft after the debounce", () => {
     vi.useFakeTimers();
     try {
