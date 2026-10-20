@@ -117,27 +117,27 @@ so the status board never shows them as an "after".
 _Generated from `results/` by `npm run bench:board` — every figure below is
 read out of a stored run, so none of them can go stale. Before = `baseline`
 (2026-08-25).
-After = the most recent run that measured each metric. 18 runs on record._
+After = the most recent run that measured each metric. 19 runs on record._
 
 | ID | Issue | Key metric | Before | Target | After | Change | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **DB-1** | No indexes on `journal_entries` | `list.page1` p95 @ 50k | **586ms** | < 20ms | **0.28ms** _(phase-1-2026-10-06)_ | 2063.3× faster | ✅ fixed and verified |
-| **DB-2** | No WAL — writers block readers | read p95 under worker writes @ 150 | **174ms** | < 10ms | **0.32ms** _(phase-1-2026-10-06)_ | 540.6× faster | ✅ fixed and verified |
-| **DB-3** | `getUserStats` does 18 table scans | `dashboard.stats` p95 @ 50k | **2.02s** | < 100ms | **891ms** _(phase-1-2026-10-06)_ | 2.3× faster | 🔴 improved, target not met |
-| **DB-4** | `DATE()`/`DATETIME()` defeat the index | `list.dateFiltered` p95 @ 50k | **186ms** | < 20ms | **0.31ms** _(phase-1-2026-10-06)_ | 591.6× faster | ✅ fixed and verified |
-| **DB-5** | `ORDER BY RANDOM()` in the gallery | `gallery.random` p95 @ 50k | **1.07s** | < 50ms | **1.25s** _(phase-1-2026-10-06)_ | 1.2× slower | 🔴 regressed |
-| **AI-1** | Metadata + summary are two serial calls | `enrich.endToEnd` p50 | **6.85s** | < 5.00s | **6.87s** _(phase-1-2026-10-06)_ | unchanged | 🔴 re-measured, no change |
-| **AI-2** | Unbounded backfill sweep | projected backfill @ 5k entries | **8.5 min** | — | **7.9 min** _(phase-1-2026-10-06)_ | — | 🔴 re-measured, no change |
-| **AI-3** | No model pre-warm | first generation after launch | **6.40s** | < 1.00s | **5.60s** _(phase-1-2026-10-06)_ | 1.1× faster | 🟠 improved, target not met |
-| **AI-4** | Ghost text slower than its budget | `ghostText` p95 | **670ms** | < 300ms | **560ms** _(phase-1-2026-10-06)_ | 1.2× faster | 🟠 improved, target not met |
-| **STT-1** | Whisper respawns per transcription | fixed overhead per call | **1.40s** | < 200ms | **1.16s** _(phase-1-2026-10-06)_ | 1.2× faster | 🟠 improved, target not met |
-| **STT-2** | ffmpeg conversion on the critical path | per voice note | **92ms** | eliminate | **93ms** _(phase-1-2026-10-06)_ | unchanged | 🟡 re-measured, no change |
-| **PKG-1** | mac binaries inside the Windows build | installer size | **248.3 MB** | < 180.0 MB | **198.4 MB** _(phase-1-2026-10-06)_ | 1.3× faster | 🟠 improved, target not met |
-| **CHAT-1** | RAG runs two serial generations | chat reply p50 | **14.00s** | < 6.00s | **10.57s** _(phase-1-2026-10-06)_ | 1.3× faster | 🔴 improved, target not met |
-| **SEARCH-1** | Retrieval ranks the wrong entry first | precision@1 | **0.467** | > 0.750 | **0.467** _(phase-1-2026-10-06)_ | unchanged | 🔴 re-measured, no change |
-| **UI-1** | Journal list drops frames while scrolling | frames over 16.7ms | **2.4%** | < 2.0% | **2.3%** _(after-main-process-session)_ | −4% | 🟠 improved, target not met |
-| **PKG-2** | zxcvbn dominates the JS bundle | share of JS | **42.2%** | < 5.0% | **43.2%** _(phase-1-2026-10-06)_ | +2% worse | 🟠 regressed |
-| **MEDIA-1** | base64 media over IPC | `media.getImage` round-trip | **1.30ms** | — | **1.40ms** _(after-main-process-session)_ | 1.1× slower | ✅ closed, no action |
+| **DB-1** | No indexes on `journal_entries` | `list.page1` p95 @ 50k | **586ms** | < 20ms | **0.32ms** _(phase-1-2026-10-20)_ | 1808.5× faster | ✅ fixed and verified |
+| **DB-2** | No WAL — writers block readers | read p95 under worker writes @ 150 | **174ms** | < 10ms | **0.44ms** _(phase-1-2026-10-20)_ | 390.8× faster | ✅ fixed and verified |
+| **DB-3** | `getUserStats` does 18 table scans | `dashboard.stats` p95 @ 50k | **2.02s** | < 100ms | **1.34s** _(phase-1-2026-10-20)_ | 1.5× faster | 🔴 improved, target not met |
+| **DB-4** | `DATE()`/`DATETIME()` defeat the index | `list.dateFiltered` p95 @ 50k | **186ms** | < 20ms | **0.41ms** _(phase-1-2026-10-20)_ | 447.6× faster | ✅ fixed and verified |
+| **DB-5** | `ORDER BY RANDOM()` in the gallery | `gallery.random` p95 @ 50k | **1.07s** | < 50ms | **1.11s** _(phase-1-2026-10-20)_ | 1.0× slower | 🔴 regressed |
+| **AI-1** | Metadata + summary are two serial calls | `enrich.endToEnd` p50 | **6.85s** | < 5.00s | **7.43s** _(phase-1-2026-10-20)_ | 1.1× slower | 🔴 regressed |
+| **AI-2** | Unbounded backfill sweep | projected backfill @ 5k entries | **8.5 min** | — | **8 min** _(phase-1-2026-10-20)_ | — | 🔴 re-measured, no change |
+| **AI-3** | No model pre-warm | first generation after launch | **6.40s** | < 1.00s | **8.40s** _(phase-1-2026-10-20)_ | 1.3× slower | 🟠 regressed |
+| **AI-4** | Ghost text slower than its budget | `ghostText` p95 | **670ms** | < 300ms | **695ms** _(phase-1-2026-10-20)_ | 1.0× slower | 🟠 regressed |
+| **STT-1** | Whisper respawns per transcription | fixed overhead per call | **1.40s** | < 200ms | **1.23s** _(phase-1-2026-10-20)_ | 1.1× faster | 🟠 improved, target not met |
+| **STT-2** | ffmpeg conversion on the critical path | per voice note | **92ms** | eliminate | **93ms** _(phase-1-2026-10-20)_ | unchanged | 🟡 re-measured, no change |
+| **PKG-1** | mac binaries inside the Windows build | installer size | **248.3 MB** | < 180.0 MB | **185.3 MB** _(phase-1-2026-10-20)_ | 1.3× faster | 🟠 improved, target not met |
+| **CHAT-1** | RAG runs two serial generations | chat reply p50 | **14.00s** | < 6.00s | **10.48s** _(phase-1-2026-10-20)_ | 1.3× faster | 🔴 improved, target not met |
+| **SEARCH-1** | Retrieval ranks the wrong entry first | precision@1 | **0.467** | > 0.750 | **0.467** _(phase-1-2026-10-20)_ | unchanged | 🔴 re-measured, no change |
+| **UI-1** | Journal list drops frames while scrolling | frames over 16.7ms | **2.4%** | < 2.0% | **2.4%** _(phase-1-2026-10-20)_ | unchanged | 🟠 re-measured, no change |
+| **PKG-2** | zxcvbn dominates the JS bundle | share of JS | **42.2%** | < 5.0% | **41.3%** _(phase-1-2026-10-20)_ | −2% | 🟠 improved, target not met |
+| **MEDIA-1** | base64 media over IPC | `media.getImage` round-trip | **1.30ms** | — | **1.50ms** _(phase-1-2026-10-20)_ | 1.2× slower | ✅ closed, no action |
 
 Legend: 🔴 high · 🟠 moderate · 🟡 low · ✅ done and verified
 
@@ -653,6 +653,26 @@ Also worth noting: `chart.js` at 194.8 KB sits alongside `recharts`, which
 duplicate charting dependency. This measurement puts a number on it.
 
 **After** — _not yet measured._
+
+---
+
+## Phase 1 re-run (2026-10-20) vs 2026-10-06: accepted regressions
+
+The comparison flags 37 slower measurements. Most are sub-millisecond database
+timings on a laptop (noise). Three need a decision:
+
+- **Vector search 5k and 50k** (2.4 to 23 ms, 5.4 to 192 ms p95). Not a code
+  regression: the 10-06 run measured Qdrant (HNSW, approximate); this run
+  measures sqlite-vec (exact, brute force). Accepted trade: disk at 50k fell
+  from 995 MB to 155 MB, RSS from 594 MB to 148 MB, upsert rate rose about 3x,
+  and there is no second process. Against the 100 ms p95 target at 50k it still
+  misses (192 ms here, 109 to 113 ms on the sandbox); the int8 option (73 ms p50)
+  is open pending a quality measurement.
+- **`ffmpeg.conversion`** (296 ms to 2.97 s). Did not reproduce: three re-runs
+  gave p95 740, 81 and 78 ms (p50 52 to 80 ms). The 740 ms looks like a cold
+  start. No action.
+- **`media.getThumbnail`, `embed.title`**: single-run outliers, no code change
+  in the area. Re-check on the next run.
 
 ---
 
