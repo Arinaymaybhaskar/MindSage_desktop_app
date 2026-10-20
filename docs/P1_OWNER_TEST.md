@@ -87,4 +87,4 @@ Automated: 5 of 5 load from `file://dist/index.html`; a test blocks absolute `pu
 
 ## Whole-phase checks
 1. `npm run bench:phase -- 1` (needs Ollama; builds first). Commit the results with a run-index row.
-2. Target: search p95 under 100 ms at 50,000 vectors. Measured 109-113 ms on a 4-core Linux sandbox (p50 95-98 ms); re-measure here.
+2. Target: search p95 under 100 ms at 50,000 vectors. After KAN-381 (database file mapped) a 4-core Linux sandbox measures 96-117 ms p95, 78-81 ms p50 (was 118-133 / 104-108); this machine measured 192 / 182 ms before it. Re-measure here with `npm run bench -- --stages vector --label kan-381`. A revised target is proposed in `docs/benchmarks/FINDINGS.md` §9.
