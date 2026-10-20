@@ -41,8 +41,11 @@ export function loadVectorExtension(db) {
 
 /**
  * One log line saying why search is down. The logger shortens any string over
- * 200 characters to its length, which is what hid the reason before, so this
- * stays under that: the error message is cut first, then the front of the path.
+ * 200 characters to its length (electron/logRedact.js), so the line stays
+ * under that. SQLite starts its message with the library's full path, so the
+ * path is taken out of the message first (that is the reason, not the path,
+ * and the path is shown once, at the end), the reason is kept, and only the
+ * last two segments of the path follow it. Works for POSIX and Windows paths.
  * Only the library's path and the loader's message go in, never entry text.
  */
 export function describeLoadFailure(path, error, limit = 190) {
@@ -51,15 +54,50 @@ export function describeLoadFailure(path, error, limit = 190) {
       .replace(/\s+/g, " ")
       .trim();
   const prefix = "Search index unavailable: ";
-  let message = oneLine(error);
-  let where = oneLine(path);
-  const build = () => `${prefix}${message} (extension: ${where})`;
+  const fullPath = oneLine(path);
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  let reason = oneLine(error);
+  if (fullPath) {
+    // The path as written, and with the other slash style or a \\?\ prefix.
+    const forms = new Set([
+      fullPath,
+      fullPath.replace(/\\/g, "/"),
+      fullPath.replace(/\//g, "\\"),
+    ]);
+    for (const form of forms) {
+      reason = reason.replace(
+        new RegExp(`(?:\\\\\\?\\\\)?${escape(form)}`, "gi"),
+        " ",
+      );
+    }
+  }
+  // A path the message names that is not the one we know: drop what leads up
+  // to its last ": ".
+  const leadingPath = /^(?:[A-Za-z]:)?[\\/][^\n]*?:\s+(?=\S)/;
+  // SQLite retries a failed load with the platform suffix added, so its
+  // message can name the path plus ".so", ".dll" or ".dylib".
+  reason = oneLine(reason.replace(/^\s*\.(?:so|dll|dylib)(?=:|\s|$)/i, ""));
+  reason = oneLine(reason.replace(leadingPath, ""))
+    .replace(/^[:\s-]+/, "")
+    .replace(/[:\s]+$/, "");
+  if (!reason) reason = "unknown error";
+
+  const segments = fullPath.split(/[\\/]+/).filter(Boolean);
+  const sep = fullPath.includes("\\") && !fullPath.includes("/") ? "\\" : "/";
+  let where =
+    segments.length > 2
+      ? `…${sep}${segments.slice(-2).join(sep)}`
+      : fullPath || "unknown path";
+
+  const build = () => `${prefix}${reason} (extension: ${where})`;
+  if (reason.length > 100) reason = `${reason.slice(0, 99)}…`;
   if (build().length > limit) {
-    const room = Math.max(40, limit - build().length + message.length);
-    if (message.length > room) message = `${message.slice(0, room - 1)}…`;
+    const room = Math.max(20, limit - build().length + reason.length);
+    if (reason.length > room) reason = `${reason.slice(0, room - 1)}…`;
   }
   if (build().length > limit) {
-    const room = Math.max(20, limit - build().length + where.length);
+    const room = Math.max(12, limit - build().length + where.length);
     if (where.length > room) where = `…${where.slice(-(room - 1))}`;
   }
   return build();
