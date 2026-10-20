@@ -17,6 +17,7 @@ npm run test:watch     # vitest
 npm run typecheck      # tsc -p tsconfig.app.json --noEmit  (renderer only)
 npm run lint           # eslint .
 npm run format         # prettier --write .    (format:check for CI-style verification)
+npm run tokens -- <session.jsonl>   # token totals, turns and subagent usage by model for a Claude Code transcript (default: newest session)
 npm run bench          # SQLite/media/size benchmark suite → docs/benchmarks/results/
 npm run bench:ipc      # IPC-boundary benchmark; needs the running app
 npm run bench:quick    # db stage, ~25s; the pre-commit hook runs it when runtime code is staged

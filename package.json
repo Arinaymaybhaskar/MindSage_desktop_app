@@ -24,6 +24,7 @@
     "bench:full": "node scripts/run-bench.mjs --stages all",
     "capture": "node scripts/capture-shots.mjs",
     "gen:images": "node scripts/gen-demo-images.mjs",
+    "tokens": "node scripts/token-report.mjs",
     "postinstall": "npm run rebuild",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
