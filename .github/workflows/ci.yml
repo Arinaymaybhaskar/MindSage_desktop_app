@@ -79,7 +79,7 @@ jobs:
   e2e:
     name: End-to-end (Windows)
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -98,24 +98,35 @@ jobs:
           path: ~\.ollama\models
           key: ollama-models-nomic-embed-text-v1.5-llama3.2-1b
 
+      # Not OllamaSetup.exe: the installer starts "ollama app" (tray) when it
+      # finishes, and Start-Process -Wait waits for that whole process tree, so
+      # the step hung until the job timeout (every run since the job was added).
       - name: Install Ollama
+        timeout-minutes: 5
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri https://ollama.com/download/OllamaSetup.exe -OutFile OllamaSetup.exe
-          Start-Process -FilePath .\OllamaSetup.exe -ArgumentList '/VERYSILENT','/NORESTART' -Wait
+          Invoke-WebRequest -Uri https://github.com/ollama/ollama/releases/latest/download/ollama-windows-amd64.zip -OutFile ollama.zip
+          Expand-Archive ollama.zip -DestinationPath "$env:RUNNER_TEMP\ollama"
+          "$env:RUNNER_TEMP\ollama" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - name: Start Ollama and pull the models
+        timeout-minutes: 20
         shell: pwsh
         run: |
-          $ollama = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe'
-          Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden
-          for ($i = 0; $i -lt 60; $i++) {
-            try { Invoke-RestMethod http://127.0.0.1:11434/api/tags | Out-Null; break } catch { Start-Sleep 2 }
+          $ollama = Join-Path $env:RUNNER_TEMP 'ollama\ollama.exe'
+          Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden -RedirectStandardOutput ollama.log -RedirectStandardError ollama.err.log
+          $up = $false
+          for ($i = 0; $i -lt 30 -and -not $up; $i++) {
+            try { Invoke-RestMethod http://127.0.0.1:11434/api/tags | Out-Null; $up = $true } catch { Start-Sleep 2 }
           }
-          & $ollama pull nomic-embed-text:v1.5
-          & $ollama pull llama3.2:1b
+          if (-not $up) { Get-Content ollama.err.log -ErrorAction SilentlyContinue; throw 'Ollama did not answer on 127.0.0.1:11434 within 60 s' }
+          foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
+            & $ollama pull $model
+            if ($LASTEXITCODE -ne 0) { throw "ollama pull $model failed with exit code $LASTEXITCODE" }
+          }
 
       - name: End-to-end run
+        timeout-minutes: 20
         run: npm run test:e2e
 
       - name: Keep the failure screenshot
