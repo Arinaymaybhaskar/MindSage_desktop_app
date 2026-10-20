@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 import { motion, animate } from "framer-motion";
 
 type Props = {
-  value: number;
+  /** null/undefined/out of 1-5 means no mood chosen. */
+  value: number | null | undefined;
   onChange: (val: number) => void;
 };
 
@@ -19,7 +20,15 @@ const moods = [
   { value: 5, emoji: face(5), label: "Excellent", color: "#22c55e" },
 ];
 
-export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
+// Where the thumb rests while no mood is chosen; it is greyed out and labelled.
+const REST = 3;
+const unset = { label: "Not set", color: "#9ca3af" };
+
+const isMood = (v: number | null | undefined): v is number =>
+  typeof v === "number" && v >= 1 && v <= 5;
+
+export const MoodSlider: React.FC<Props> = ({ value: rawValue, onChange }) => {
+  const value = isMood(rawValue) ? rawValue : REST;
   const [visualValue, setVisualValue] = useState(value);
   // --- NEW: State to track if animation is running ---
   const [isAnimating, setIsAnimating] = useState(false);
@@ -46,13 +55,20 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
     });
   };
 
-  const roundedVisualValue = Math.round(visualValue);
-  const selectedMood =
-    moods.find((m) => m.value === roundedVisualValue) || moods[2];
-  const progress = ((visualValue - 1) / (moods.length - 1)) * 100;
+  // Clicking a face animates from REST before the parent holds the value.
+  const isSet = isMood(rawValue) || isAnimating;
+  const roundedVisualValue = isSet ? Math.round(visualValue) : 0;
+  const selectedMood = isSet
+    ? moods.find((m) => m.value === roundedVisualValue) || moods[2]
+    : unset;
+  const progress = isSet ? ((visualValue - 1) / (moods.length - 1)) * 100 : 0;
 
-  const gradient = `linear-gradient(to right, ${moods[0].color}, ${selectedMood.color} ${progress}%, #e5e7eb ${progress}%)`;
-  const darkGradient = `linear-gradient(to right, ${moods[0].color}, ${selectedMood.color} ${progress}%, #4b5563 ${progress}%)`;
+  const gradient = isSet
+    ? `linear-gradient(to right, ${moods[0].color}, ${selectedMood.color} ${progress}%, #e5e7eb ${progress}%)`
+    : "#e5e7eb";
+  const darkGradient = isSet
+    ? `linear-gradient(to right, ${moods[0].color}, ${selectedMood.color} ${progress}%, #4b5563 ${progress}%)`
+    : "#4b5563";
 
   return (
     <div className="w-full mb-5">
@@ -86,7 +102,7 @@ export const MoodSlider: React.FC<Props> = ({ value, onChange }) => {
             setVisualValue(roundedValue);
 
             // 2. FOR PERFORMANCE: Only notify the parent if the integer changes
-            if (value !== roundedValue) {
+            if (!isMood(rawValue) || value !== roundedValue) {
               onChange(roundedValue);
             }
           }}
