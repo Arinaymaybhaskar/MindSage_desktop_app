@@ -84,6 +84,40 @@ describe("NSIS uninstall cleanup (assets/installer.nsh)", () => {
     expect(pkg.build.productName).toBe("MindSage");
   });
 
+  // KAN-384: what holds no user data goes on every uninstall, /S included,
+  // but never during an update, and nothing recursive outside $APPDATA.
+  const store = 'Delete "$LOCALAPPDATA\\${APP_INSTALLER_STORE_FILE}"';
+
+  it("removes the installer copy electron-builder keeps for the updater, except during an update", () => {
+    expect(enclosing(body, store)).toEqual(["${ifNot} ${isUpdated}"]);
+    // electron-builder defines it as <package name>-updater\installer.exe.
+    expect(`${pkg.name.toLowerCase()}-updater`).toBe(
+      "mindsage-desktop-app-updater",
+    );
+    // In the current user's context, where the installer wrote it.
+    const at = body.indexOf(store);
+    expect(body.lastIndexOf("SetShellVarContext current")).toBeLessThan(at);
+    expect(body.lastIndexOf("SetShellVarContext all")).toBeGreaterThan(at);
+  });
+
+  it("removes the updater folder and the install folder only when empty", () => {
+    expect(body).toMatch(
+      /\$\{GetParent\} "\$LOCALAPPDATA\\\$\{APP_INSTALLER_STORE_FILE\}" \$R0\s+RMDir "\$R0"/,
+    );
+    expect(enclosing(body, 'RMDir "$R0"')).toEqual(["${ifNot} ${isUpdated}"]);
+    // The uninstaller runs in $INSTDIR (un.onInit), which Windows will not
+    // remove; leaving it lets electron-builder's own RMDir take the folder.
+    expect(enclosing(body, "SetOutPath $TEMP")).toEqual([
+      "${ifNot} ${isUpdated}",
+    ]);
+    expect(body).not.toMatch(/^\s*[^;\s].*\$INSTDIR/m); // only comments name it
+    expect(body.match(/^\s*(RMDir|Delete)\b.*$/gm)).toEqual([
+      '        RMDir /r "$APPDATA\\${APP_FILENAME}"',
+      '      Delete "$LOCALAPPDATA\\${APP_INSTALLER_STORE_FILE}"',
+      '      RMDir "$R0"',
+    ]);
+  });
+
   const hasMakensis = spawnSync("makensis", ["-VERSION"]).status === 0;
   it.skipIf(!hasMakensis)("compiles under makensis", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nsh-"));
@@ -95,6 +129,7 @@ describe("NSIS uninstall cleanup (assets/installer.nsh)", () => {
         '!include "LogicLib.nsh"',
         '!include "FileFunc.nsh"',
         '!define APP_FILENAME "MindSage"',
+        '!define APP_INSTALLER_STORE_FILE "mindsage-desktop-app-updater\\installer.exe"',
         "Var installMode",
         "Unicode true",
         `OutFile "${path.join(dir, "stub.exe")}"`,
@@ -104,6 +139,9 @@ describe("NSIS uninstall cleanup (assets/installer.nsh)", () => {
         '!define isUpdated `"" isUpdated ""`',
         `!include "${path.join(root, "assets/installer.nsh")}"`,
         "Section",
+        `  WriteUninstaller "${path.join(dir, "un.exe")}"`,
+        "SectionEnd",
+        'Section "un.install"',
         "  StrCpy $installMode all",
         "  !insertmacro customUnInstall",
         "SectionEnd",

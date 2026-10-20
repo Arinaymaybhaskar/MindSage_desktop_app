@@ -11,6 +11,8 @@
 ;     (${isUpdated}); the user must never be asked, or lose data, there.
 ;   - a silent uninstall (/S): nobody can answer, so the data stays.
 ;   - --delete-app-data: electron-builder handles that flag itself.
+; Outside an update, the updater's copy of the installer and the empty install
+; folder go on every uninstall, /S included: neither holds user data.
 ; Per-user data only: it removes the current user's folder, never another
 ; Windows user's. (If a standard user elevates with an administrator's
 ; credentials to uninstall an all-users install, "current" is that
@@ -42,5 +44,24 @@
         ${endif}
       ${endIf}
     ${endIf}
+
+    ; No user data below, so it goes on every uninstall, /S included (KAN-384).
+    ; un.onInit made $INSTDIR the working folder, which Windows will not
+    ; remove: step out so electron-builder's RMDir /r $INSTDIR, which runs
+    ; after this macro, takes the emptied folder too.
+    SetOutPath $TEMP
+    ; The copy of the installer electron-builder keeps for the updater, then
+    ; its folder, only if nothing else is in it.
+    !ifdef APP_INSTALLER_STORE_FILE
+      ${if} $installMode == "all"
+        SetShellVarContext current
+      ${endif}
+      Delete "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
+      ${GetParent} "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}" $R0
+      RMDir "$R0"
+      ${if} $installMode == "all"
+        SetShellVarContext all
+      ${endif}
+    !endif
   ${endIf}
 !macroend
