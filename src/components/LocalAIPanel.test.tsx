@@ -107,7 +107,7 @@ describe("LocalAIPanel", () => {
     await act(async () => {
       fireEvent.click(within(panel).getByRole("button", { name: "Install" }));
     });
-    expect(navigate).toHaveBeenCalledWith("/ollama-tutorial");
+    expect(navigate).toHaveBeenCalledWith("/settings/models");
   });
 
   it("falls back to the engine state once work is done", () => {
