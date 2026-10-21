@@ -54,7 +54,10 @@ const RUNS = Number(flag("--runs", "3"));
 
 const whisperDir = path.join(repoRoot, "resources", "whisper-bin-x64");
 const exePath = path.join(whisperDir, "Release", "whisper-cli.exe");
-const modelPath = path.join(whisperDir, "models", "ggml-tiny.en.bin");
+// The model is no longer bundled (KAN-91): point this at any downloaded ggml file.
+const modelPath =
+  process.env.WHISPER_BENCH_MODEL ??
+  path.join(whisperDir, "models", "ggml-tiny.en.bin");
 
 if (process.platform !== "win32") {
   console.error(

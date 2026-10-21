@@ -44,7 +44,29 @@ export const BUILTIN_MODELS = {
     bytes: 274290560,
     sha256: "f7af6f66802f4df86eda10fe9bbcfc75c39562bed48ef6ace719a251cf1c2fdb",
   },
+  // Voice (dictation) models, fetched on first use instead of bundled (KAN-91).
+  // Revision and SHA-256 are Hugging Face's own: X-Repo-Commit and X-Linked-ETag
+  // of ggerganov/whisper.cpp, read 2026-10-22.
+  "whisper-base-en": {
+    label: "Voice model: English (base.en)",
+    role: "voice",
+    file: "ggml-base.en.bin",
+    url: `${HF}/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.en.bin`,
+    bytes: 147964211,
+    sha256: "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002",
+  },
+  "whisper-small": {
+    label: "Voice model: Hindi and other languages (small)",
+    role: "voice",
+    file: "ggml-small.bin",
+    url: `${HF}/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin`,
+    bytes: 487601967,
+    sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+  },
 };
+
+/** Voice models, best first: the multilingual small one wins when both are here. */
+export const VOICE_MODELS = ["whisper-small", "whisper-base-en"];
 
 export const EMBED_MODEL = "nomic-embed-text-v1.5";
 

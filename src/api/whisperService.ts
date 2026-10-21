@@ -10,8 +10,8 @@ const whisperService = {
   /**
    * Start live transcription (streaming).
    */
-  async startLive(): Promise<void> {
-    return window.electron.ipcRenderer.invoke(
+  async startLive(): Promise<{ needsModel?: boolean } | void> {
+    return window.electron.ipcRenderer.invoke<{ needsModel?: boolean } | void>(
       "whisper:start-live-transcription",
     );
   },

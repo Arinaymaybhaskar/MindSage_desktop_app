@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { BUILTIN_MODELS, defaultChatModel, fitsInMemory } from "./models.js";
+import {
+  BUILTIN_MODELS,
+  VOICE_MODELS,
+  defaultChatModel,
+  fitsInMemory,
+} from "./models.js";
 
 const GiB = 2 ** 30;
 
@@ -20,5 +25,16 @@ describe("built-in model choice by memory", () => {
       expect(spec.url).toMatch(/\/resolve\/[0-9a-f]{40}\//);
       expect(spec.sha256).toMatch(/^[0-9a-f]{64}$/);
     }
+  });
+});
+
+describe("voice models (KAN-91)", () => {
+  it("offers base.en and small with the sizes the prompt shows", () => {
+    expect(Math.round(BUILTIN_MODELS["whisper-base-en"].bytes / 1e6)).toBe(148);
+    expect(Math.round(BUILTIN_MODELS["whisper-small"].bytes / 1e6)).toBe(488);
+    expect(VOICE_MODELS.map((id) => BUILTIN_MODELS[id].role)).toEqual([
+      "voice",
+      "voice",
+    ]);
   });
 });
