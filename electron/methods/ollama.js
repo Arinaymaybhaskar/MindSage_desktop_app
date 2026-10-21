@@ -359,11 +359,9 @@ export const handleDownloadOllamaModel = (event, modelName) => {
   return new Promise((resolve, reject) => {
     const child = spawn("ollama", ["pull", modelName]);
 
-    let output = "";
     let errorOutput = "";
 
     child.stdout.on("data", (data) => {
-      output += data.toString();
       // 🔹 You can also stream progress to renderer:
       // eventBus.emit("ollama:download-progress", { model: modelName, chunk: data.toString() });
     });

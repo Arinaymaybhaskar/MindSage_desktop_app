@@ -46,7 +46,11 @@
       "prettier --write",
       "eslint --fix --max-warnings=0"
     ],
-    "*.{js,jsx,mjs,cjs,json,css,html,yml,yaml}": [
+    "*.{js,mjs}": [
+      "prettier --write",
+      "eslint --fix --max-warnings=0"
+    ],
+    "*.{jsx,cjs,json,css,html,yml,yaml}": [
       "prettier --write"
     ]
   },

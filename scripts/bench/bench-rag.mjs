@@ -26,7 +26,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { summarise, fmt } from "./lib/stats.mjs";
 import * as ollama from "./lib/ollama.mjs";
@@ -40,9 +39,6 @@ import {
   CHAT_QUERIES,
   JOURNAL_MEDIUM,
 } from "./fixtures/corpus.mjs";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, "..", "..");
 
 const argv = process.argv.slice(2);
 const flag = (name, fallback = null) => {

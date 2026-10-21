@@ -20,4 +20,37 @@ export default tseslint.config([
       globals: globals.browser,
     },
   },
+  {
+    // Main process and tooling: plain Node, ESM unless named .cjs.
+    files: ["electron/**/*.js", "scripts/**/*.{js,mjs}"],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: globals.node,
+    },
+    rules: {
+      // IPC and event handlers keep their full signature for readability.
+      "no-unused-vars": ["error", { args: "none", ignoreRestSiblings: true }],
+      "no-empty": ["error", { allowEmptyCatch: true }],
+    },
+  },
+  {
+    // These run snippets inside the page via CDP, so they use browser globals.
+    files: [
+      "scripts/capture-setup.js",
+      "scripts/e2e/run.mjs",
+      "scripts/qa/app.mjs",
+    ],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
+  {
+    files: ["scripts/**/*.cjs"],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "commonjs",
+      globals: globals.node,
+    },
+  },
 ]);

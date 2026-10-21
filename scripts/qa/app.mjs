@@ -7,7 +7,6 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const require = createRequire(import.meta.url);
 const defaultRoot = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",

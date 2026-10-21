@@ -3,7 +3,7 @@
 import "./userDataOverride.js";
 import "./logSetup.js";
 import { app, BrowserWindow, globalShortcut, ipcMain, shell } from "electron";
-import path, { dirname, join } from "node:path";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import localDB from "./db/index.js";

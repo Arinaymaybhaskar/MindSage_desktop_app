@@ -1,6 +1,5 @@
 import { db } from "./connection.js";
 import path from "node:path";
-import fs from "node:fs";
 
 /**
  * Main dashboard data
