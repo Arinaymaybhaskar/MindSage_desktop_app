@@ -85,6 +85,8 @@ import {
   handleGetAIStatus,
   handleRestartAI,
   handleSetAIProvider,
+  handleGetAIFeatures,
+  handleSetAIFeature,
 } from "./methods/ai.js";
 import {
   startLiveTranscription,
@@ -238,6 +240,8 @@ export function registerIPCHandlers() {
   ipcMain.handle("ai:probe-speed", handleProbeAISpeed);
   ipcMain.handle("ai:select-model", handleSelectAIModel);
   ipcMain.handle("ai:delete-model", handleDeleteAIModel);
+  ipcMain.handle("ai:get-features", handleGetAIFeatures);
+  ipcMain.handle("ai:set-feature", handleSetAIFeature);
   ipcMain.handle("ai:get-model-dialog", handleGetModelDialog);
 
   // Whisper

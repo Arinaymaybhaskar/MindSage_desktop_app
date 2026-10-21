@@ -5,6 +5,7 @@ import { updateJournalEntry } from "../db/journal.js";
 import { isSummarizable } from "./AIPrompts.js";
 import { generateMetadata, generateSummary } from "./ollama.js";
 import { background } from "../ai/queue.js";
+import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
@@ -177,7 +178,11 @@ export async function handleRetryAIMetadata(event, journalId, type) {
   const entry = localDB.getJournalById(userId, journalId);
   if (!entry) throw new Error("Journal entry not found");
 
+  const features = getFeatures(userId);
+  const off = { success: false, error: "This AI feature is turned off" };
+
   if (type === "metadata") {
+    if (!metadataOn(features)) return off;
     // Reset status to pending
     db.prepare(
       `UPDATE journal_entries SET ai_metadata_status = 'pending', ai_metadata_error = NULL WHERE id = ?`,
@@ -187,7 +192,11 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     eventBus.emit("journal:aiStarted", { entryId: entry.id });
 
     try {
-      const metadata = await background(() => generateMetadata(entry.content));
+      const metadata = maskMetadata(
+        await background(() => generateMetadata(entry.content)),
+        entry,
+        features,
+      );
       // The journal:aiCompleted persister writes the fields and flips the
       // status to 'completed'. force:true because this is an explicit user
       // retry/regenerate: overwrite the existing AI fields.
@@ -210,6 +219,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
       return { success: false, error: err.message };
     }
   } else if (type === "summary") {
+    if (!features.summary) return off;
     // Too short to summarize: skip consistently with the create path
     // instead of feeding a 1-sentence entry to a "3-5 sentence" prompt.
     if (!isSummarizable(entry.content)) {
