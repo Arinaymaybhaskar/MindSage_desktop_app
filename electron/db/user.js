@@ -53,7 +53,8 @@ export function updateUserProfile(
   const stmt = db.prepare(
     "UPDATE users SET username = ?, email = ?, full_name = ?, profile_picture = ? WHERE id = ?",
   );
-  stmt.run(username, email, full_name, profile_picture ?? null, userId);
+  // A blank email is stored as NULL: UNIQUE allows many NULLs, not many "".
+  stmt.run(username, email || null, full_name, profile_picture ?? null, userId);
   const user = db
     .prepare(
       "SELECT id, username, email, created_at, full_name, timezone, profile_picture FROM users WHERE id = ?",

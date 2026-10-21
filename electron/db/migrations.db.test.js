@@ -291,7 +291,9 @@ describe("the people-tables migration", () => {
     const seeded = seedJournal(db, { users: 1, entriesPerUser: 2 });
     const before = db.prepare("SELECT COUNT(*) n FROM journal_entries").get().n;
 
-    expect(runMigrations(db).applied).toEqual(["people-tables"]);
+    expect(runMigrations(db, MIGRATIONS.slice(0, 9)).applied).toEqual([
+      "people-tables",
+    ]);
     expect(tableNames(db)).toEqual(
       expect.arrayContaining([
         "people",
@@ -342,6 +344,50 @@ describe("the people-tables migration", () => {
     db.prepare("DELETE FROM users WHERE id = ?").run(userId);
     expect(n("SELECT COUNT(*) n FROM people")).toBe(0);
     expect(n("SELECT COUNT(*) n FROM person_mentions")).toBe(0);
+    integrityOk(db);
+  });
+});
+
+describe("the users-email-optional migration", () => {
+  it("lets email be empty and keeps every user, entry, id and cascade", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 9));
+    const seeded = seedJournal(db, { users: 2, entriesPerUser: 3 });
+    // The newest profile was deleted: its id must not be handed out again.
+    const gone = Number(
+      db
+        .prepare(
+          "INSERT INTO users (username, email, password_hash) VALUES ('gone', 'g@example.com', 'x')",
+        )
+        .run().lastInsertRowid,
+    );
+    db.prepare("DELETE FROM users WHERE id = ?").run(gone);
+    const users = db.prepare("SELECT * FROM users ORDER BY id").all();
+    const entries = db.prepare("SELECT * FROM journal_entries").all().length;
+
+    expect(runMigrations(db).applied).toEqual(["users-email-optional"]);
+
+    expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
+    expect(db.prepare("SELECT * FROM users ORDER BY id").all()).toEqual(users);
+    expect(db.prepare("SELECT * FROM journal_entries").all()).toHaveLength(
+      entries,
+    );
+    const add = db.prepare(
+      "INSERT INTO users (username, email, password_hash) VALUES (?, ?, 'x')",
+    );
+    const a = Number(add.run("nomail1", null).lastInsertRowid);
+    add.run("nomail2", null);
+    expect(a).toBeGreaterThan(gone);
+    expect(() => add.run("nomail1", null)).toThrow(/UNIQUE/);
+    expect(() => add.run("dup", "user1@example.com")).toThrow(/UNIQUE/);
+
+    // Child tables still point at users and still cascade.
+    db.prepare("DELETE FROM users WHERE id = ?").run(seeded[0].userId);
+    expect(
+      db
+        .prepare("SELECT count(*) n FROM journal_entries WHERE user_id = ?")
+        .get(seeded[0].userId).n,
+    ).toBe(0);
     integrityOk(db);
   });
 });
