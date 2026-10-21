@@ -12,6 +12,7 @@ import { modelStore } from "../store.js";
 import {
   BUILTIN_MODELS,
   EMBED_MODEL,
+  TASK_MODELS,
   defaultChatModel,
   fitsInMemory,
 } from "./models.js";
@@ -53,6 +54,16 @@ export function chatModelId() {
   return BUILTIN_MODELS[chosen]?.role === "chat"
     ? chosen
     : defaultChatModel(os.totalmem());
+}
+
+/** The model for an enrichment task (models.js), or the chat model when it is not here. */
+export function taskModelId(task) {
+  const id = TASK_MODELS[task];
+  return id &&
+    isDownloaded(id) &&
+    fitsInMemory(BUILTIN_MODELS[id].bytes, os.totalmem())
+    ? id
+    : chatModelId();
 }
 
 /** Whether the chat and embedding models are both on disk. */

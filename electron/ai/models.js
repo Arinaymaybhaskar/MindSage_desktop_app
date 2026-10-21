@@ -39,6 +39,16 @@ export const BUILTIN_MODELS = {
 
 export const EMBED_MODEL = "nomic-embed-text-v1.5";
 
+/**
+ * The model each entry-enrichment call runs on, when it is downloaded (KAN-89).
+ * Measured: the 3B gets the feeling group right more often, Qwen 2.5 1.5B
+ * writes the more faithful summaries, and two calls take as long as one merged.
+ */
+export const TASK_MODELS = {
+  metadata: "llama-3.2-3b",
+  summary: "qwen-2.5-1.5b",
+};
+
 /** The chat model a machine gets unless one was chosen: 8 GB PCs get the lighter one. */
 export function defaultChatModel(totalMemBytes) {
   return totalMemBytes < 10 * GiB ? "qwen-2.5-1.5b" : "llama-3.2-3b";

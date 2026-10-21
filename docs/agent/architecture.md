@@ -16,7 +16,7 @@ UI component → `src/api/xService.tsx` → IPC channel → [electron/ipcHandler
 
 ## Background AI is event-driven
 
-Journal handlers emit on the `eventBus` ([electron/eventBus.js](../../electron/eventBus.js)); [electron/events.js](../../electron/events.js) forwards `journal:aiStarted` / `journal:aiCompleted` to the renderer via `webContents.send`, while the main process does the enrichment — title/tags/mood/summary generation through Ollama, and the search indexer ([search-index.md](search-index.md)) for embeddings. **AI metadata is never ready synchronously after a journal create/update.**
+Journal handlers emit on the `eventBus` ([electron/eventBus.js](../../electron/eventBus.js)); [electron/events.js](../../electron/events.js) forwards `journal:aiStarted` / `journal:aiCompleted` to the renderer via `webContents.send`, while the main process does the enrichment — title/tags/mood in one JSON-schema call, then the summary in its own call (built-in engine: Llama 3.2 3B and Qwen 2.5 1.5B when downloaded, `TASK_MODELS` in `ai/models.js`), run one job at a time through the shared AI queue ([electron/ai/queue.js](../../electron/ai/queue.js)), which holds background jobs while Ask answers (KAN-89) — and the search indexer ([search-index.md](search-index.md)) for embeddings. **AI metadata is never ready synchronously after a journal create/update.**
 
 ## Startup ordering matters
 

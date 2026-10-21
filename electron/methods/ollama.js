@@ -9,10 +9,12 @@ import {
   parseJournalMetadata,
   sanitizeSummary,
 } from "./AIPrompts.js";
-import { generate } from "../ai/client.js";
+import { generate, taskModel } from "../ai/client.js";
+import { background } from "../ai/queue.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { db } from "../db/connection.js";
+import localDB from "../db/index.js";
 import { log } from "../log.js";
 import { listOllamaModels } from "./ollamaList.js";
 
@@ -107,16 +109,38 @@ export const handleOllamaImagePrompt = async (
   }
 };
 
-// Define a TypeScript type for the journal:created event payload
-/**
- * @typedef {Object} JournalCreatedEvent
- * @property {string} userId
- * @property {any} entry
- * @property {string} mode
- */
+// One stuck call would hold up every entry queued behind it.
+const ENRICH_TIMEOUT_MS = 5 * 60_000;
 
-// Only destructure 'entry' since 'userId' and 'mode' are unused
-eventBus.on("journal:created", async ({ entry }) => {
+/** Title, mood and tags: one JSON-schema call (KAN-89). Throws when unusable. */
+export async function generateMetadata(content) {
+  const metadata = parseJournalMetadata(
+    await generate(getAutoPopulateValues(content), {
+      schema: JOURNAL_METADATA_SCHEMA,
+      maxTokens: MAX_OUTPUT_TOKENS,
+      model: taskModel("metadata"),
+      signal: AbortSignal.timeout(ENRICH_TIMEOUT_MS),
+    }),
+  );
+  if (!metadata) throw new Error("AI returned incomplete or invalid metadata");
+  return metadata;
+}
+
+/** The summary, its own call (KAN-89); null when the model gave no usable one. */
+export async function generateSummary(content) {
+  return sanitizeSummary(
+    await generate(AISummaryPrompt(content), {
+      maxTokens: MAX_OUTPUT_TOKENS,
+      model: taskModel("summary"),
+      signal: AbortSignal.timeout(ENRICH_TIMEOUT_MS),
+    }),
+  );
+}
+
+// Title, mood and tags first, then the summary, as one job in the shared AI
+// queue: the two calls never overlap, so a PC with room for one model swaps
+// between them instead of loading both, and Ask goes first.
+eventBus.on("journal:created", ({ entry }) => {
   const needsAiCompletion =
     !entry?.title?.trim() ||
     entry?.mood_score === undefined ||
@@ -126,62 +150,63 @@ eventBus.on("journal:created", async ({ entry }) => {
     db.prepare(
       `UPDATE journal_entries SET ai_metadata_status = 'pending' WHERE id = ?`,
     ).run(entry.id);
-    const prompt = getAutoPopulateValues(entry.content);
-    log.debug("Filling in missing details", { entryId: entry.id });
-    try {
-      const metadata = parseJournalMetadata(
-        await generate(prompt, {
-          schema: JOURNAL_METADATA_SCHEMA,
-          maxTokens: MAX_OUTPUT_TOKENS,
-        }),
-      );
-      if (!metadata) {
-        throw new Error("AI returned incomplete or invalid metadata");
-      }
-      // Status is set to 'completed' by the journal:aiCompleted persister
-      // once the sanitized metadata is written, so it can't be marked
-      // completed with empty fields.
-      eventBus.emit("journal:aiCompleted", {
-        entry,
-        metadata,
-        entryId: entry.id,
-      });
-    } catch (err) {
-      log.error("AI metadata generation failed:", err);
-      db.prepare(
-        `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`,
-      ).run(err.message, entry.id);
-      eventBus.emit("journal:aiFailed", {
-        entryId: entry.id,
-        error: err.message,
-      });
-    }
   } else {
     db.prepare(
       `UPDATE journal_entries SET ai_metadata_status = 'completed' WHERE id = ?`,
     ).run(entry.id);
   }
-});
 
-// Update the journal:created event handler for summary generation
-eventBus.on("journal:created", async ({ entry }) => {
   eventBus.emit("ollama:summary-started", { entryId: entry.id });
   db.prepare(
     `UPDATE journal_entries SET ai_summary_status = 'pending' WHERE id = ?`,
   ).run(entry.id);
-  const prompt = AISummaryPrompt(entry.content);
-  if (!isSummarizable(entry.content)) {
+  const summarizable = isSummarizable(entry.content);
+  if (!summarizable) {
     db.prepare(
       `UPDATE journal_entries SET ai_summary_status = 'skipped' WHERE id = ?`,
     ).run(entry.id);
     eventBus.emit("ollama:summary-skipped", { entryId: entry.id });
-    return; // Too few words to produce a meaningful summary
   }
 
+  if (needsAiCompletion || summarizable) {
+    background(async () => {
+      // The job may have waited: work on the entry as it is now, and not at
+      // all if it went to the Trash.
+      const current = localDB.getJournalById(entry.user_id, entry.id);
+      if (!current) return;
+      if (needsAiCompletion) await fillMetadata(current);
+      if (summarizable) await fillSummary(current);
+    }).catch((err) => log.error("AI enrichment failed:", err));
+  }
+});
+
+async function fillMetadata(entry) {
+  log.debug("Filling in missing details", { entryId: entry.id });
   try {
-    const summary = sanitizeSummary(
-      await generate(prompt, { maxTokens: MAX_OUTPUT_TOKENS }),
-    );
+    const metadata = await generateMetadata(entry.content);
+    // Status is set to 'completed' by the journal:aiCompleted persister
+    // once the sanitized metadata is written, so it can't be marked
+    // completed with empty fields.
+    eventBus.emit("journal:aiCompleted", {
+      entry,
+      metadata,
+      entryId: entry.id,
+    });
+  } catch (err) {
+    log.error("AI metadata generation failed:", err);
+    db.prepare(
+      `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`,
+    ).run(err.message, entry.id);
+    eventBus.emit("journal:aiFailed", {
+      entryId: entry.id,
+      error: err.message,
+    });
+  }
+}
+
+async function fillSummary(entry) {
+  try {
+    const summary = await generateSummary(entry.content);
     if (!summary) {
       const error = "AI could not produce a valid summary";
       db.prepare(
@@ -212,7 +237,7 @@ eventBus.on("journal:created", async ({ entry }) => {
       error: err.message,
     });
   }
-});
+}
 
 // Update generateSuggestion to use selected model
 export async function generateSuggestion(prompt, maxTokens = 20) {
