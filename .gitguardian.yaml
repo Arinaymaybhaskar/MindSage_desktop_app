@@ -1,0 +1,6 @@
+version: 2
+secret:
+  ignored-paths:
+    - "**/*.test.js"
+    - "**/*.db.test.js"
+    - "scripts/qa/**"
