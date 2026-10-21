@@ -13,6 +13,7 @@ import { AuthLayout } from "../../layouts/AuthLayout";
 import { authService, type Profile } from "../../api/authService";
 import { useAuth } from "../../hooks/useAuth";
 import { errorMessage } from "../../utils/errors";
+import Welcome from "./welcome";
 
 /** Two initials from the full name, or the first letter of the username. */
 function initials(p: Profile) {
@@ -63,7 +64,12 @@ export default function Profiles() {
 
   // Registration sends people back here with the new username, so the
   // picker can open straight on their password.
-  const preselect = (location.state as { select?: string } | null)?.select;
+  const navState = location.state as {
+    select?: string;
+    restore?: boolean;
+  } | null;
+  const preselect = navState?.select;
+  const restore = navState?.restore;
 
   useEffect(() => {
     authService
@@ -103,7 +109,8 @@ export default function Profiles() {
         rememberMe,
       });
       login(res.userInfo);
-      navigate("/");
+      // A restore starts from a new profile; its import lives in Settings.
+      navigate(restore ? "/settings/export" : "/");
     } catch (err) {
       setError(
         /Incorrect password/i.test(errorMessage(err, ""))
@@ -119,6 +126,10 @@ export default function Profiles() {
 
   const inputClasses =
     "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg text-text-light dark:text-text-dark focus:ring-2 focus:ring-info focus:border-info outline-none transition";
+
+  // No profile on this install yet: the first-run welcome. Once any profile
+  // exists (including a second one added later) this never shows again.
+  if (profiles?.length === 0) return <Welcome />;
 
   return (
     <AuthLayout
@@ -187,11 +198,6 @@ export default function Profiles() {
                   </Link>
                 </li>
               </ul>
-            )}
-            {profiles?.length === 0 && (
-              <p className="mt-4 text-center text-sm text-text-light-sub dark:text-text-dark-sub">
-                No profiles yet. Add one to start your journal.
-              </p>
             )}
           </motion.div>
         ) : (

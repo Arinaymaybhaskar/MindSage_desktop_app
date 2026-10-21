@@ -118,14 +118,49 @@ describe("Profiles picker", () => {
     expect(await screen.findByText("Welcome back, grace")).toBeTruthy();
   });
 
-  it("offers only the add tile when there are no profiles", async () => {
+  it("shows the welcome with the 18+ line when there are no profiles", async () => {
     listProfiles.mockResolvedValue([]);
     renderAt();
-    expect(
-      await screen.findByText(
-        "No profiles yet. Add one to start your journal.",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText("Add new user")).toBeTruthy();
+    expect(await screen.findByText("Welcome to MindSage")).toBeTruthy();
+    expect(screen.getByText(/adults aged 18 and over/)).toBeTruthy();
+    expect(screen.getByText(/not\s+therapy or medical care/)).toBeTruthy();
+    expect(screen.queryByText("Who's journaling?")).toBeNull();
+
+    fireEvent.click(screen.getByText("Get started"));
+    expect(await screen.findByText("register page")).toBeTruthy();
+  });
+
+  it("offers restore quietly, and skips the welcome once a profile exists", async () => {
+    listProfiles.mockResolvedValue([]);
+    const first = renderAt();
+    fireEvent.click(await screen.findByText("Restore from a backup"));
+    expect(await screen.findByText("register page")).toBeTruthy();
+    first.unmount();
+
+    listProfiles.mockResolvedValue([PROFILES[0]]);
+    renderAt();
+    expect(await screen.findByText("Who's journaling?")).toBeTruthy();
+    expect(screen.queryByText("Welcome to MindSage")).toBeNull();
+  });
+
+  it("opens Import & Export after signing in from a restore", async () => {
+    loginCall.mockResolvedValue({ userInfo: { username: "grace" } });
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: "/profiles", state: { select: "grace", restore: true } },
+        ]}
+      >
+        <Routes>
+          <Route path="/profiles" element={<Profiles />} />
+          <Route path="/settings/export" element={<div>import page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.change(await screen.findByPlaceholderText("Password"), {
+      target: { value: "pw" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByText("import page")).toBeTruthy();
   });
 });
