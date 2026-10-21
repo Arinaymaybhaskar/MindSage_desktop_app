@@ -119,6 +119,18 @@ export async function handleExportJournal(event, { format, destinationPath }) {
 
 // ------------------------------------------------------------------ import --
 
+/** A message a person can act on, for the ways reading or writing a file fails. */
+export function importErrorText(err, name) {
+  const who = name ? `${name} ` : "That file ";
+  if (["EBUSY", "EPERM", "EACCES", "EAGAIN"].includes(err?.code))
+    return `${who}is locked or open in another program. Close it and try again.`;
+  if (err?.code === "ENOENT")
+    return `${who}can't be found. It may have been moved or deleted.`;
+  if (err?.code === "ENOSPC")
+    return "Your disk is full. Free some space and try again; nothing was imported.";
+  return null;
+}
+
 let pending = null; // { userId, format, entries, duplicates }
 let lastImport = null; // { userId, ids, at }
 
@@ -181,10 +193,16 @@ export async function handleReadImport(event, paths) {
 
 function previewImport(filePaths) {
   const userId = requireUser();
-  const inputs = filePaths.map((p) => ({
-    name: path.basename(p),
-    data: fs.readFileSync(p),
-  }));
+  const inputs = filePaths.map((p) => {
+    try {
+      return { name: path.basename(p), data: fs.readFileSync(p) };
+    } catch (err) {
+      throw new Error(
+        importErrorText(err, path.basename(p)) ??
+          `${path.basename(p)} couldn't be read: ${err.message}`,
+      );
+    }
+  });
   const { format, entries, warnings } = readAny(inputs);
 
   const existing = new Set(
@@ -258,6 +276,7 @@ export async function handleCommitImport() {
   if (!entries.length) return { imported: 0 };
 
   const mediaRoot = path.join(app.getPath("userData"), "media", "journals");
+  const savedFiles = [];
   const saveMedia = (journalId, item) => {
     const dir = path.join(mediaRoot, String(journalId));
     fs.mkdirSync(dir, { recursive: true });
@@ -266,6 +285,7 @@ export async function handleCommitImport() {
       `${Date.now()}-${item.name.replace(/[^\w.-]/g, "_")}`,
     );
     fs.writeFileSync(dest, item.data);
+    savedFiles.push(dest);
     return dest;
   };
 
@@ -323,6 +343,18 @@ export async function handleCommitImport() {
       report("import:bulkProgress", { kind, done: ids.length, total });
       await new Promise((resolve) => setImmediate(resolve));
     }
+  } catch (err) {
+    // No partial import: take back what was written and keep the preview so
+    // the person can try again once the cause is fixed.
+    const written = ids.splice(0);
+    await removeEntries(userId, written).catch(() => undefined);
+    for (const f of savedFiles) fs.rmSync(f, { force: true });
+    lastImport = null;
+    pending = { userId, format, entries };
+    throw new Error(
+      importErrorText(err) ??
+        `The import stopped and was undone: ${err.message}`,
+    );
   } finally {
     importing = false;
     report("import:bulkCompleted", {
@@ -345,12 +377,16 @@ export async function handleUndoImport() {
   if (importing) throw new Error("Wait for the import to finish");
   if (!lastImport || lastImport.userId !== userId)
     throw new Error("No import to undo");
-  // Undoing an import removes the entries outright rather than filling the
-  // Trash with every one of them: the user just chose to take them back.
-  let removed = 0;
-  for (const id of lastImport.ids)
-    removed += localDB.deleteJournalEntry(userId, id);
-  await purge(userId, { entryIds: lastImport.ids, goalIds: [] });
+  const removed = await removeEntries(userId, lastImport.ids);
   lastImport = null;
   return { removed };
+}
+
+// Removes entries outright rather than filling the Trash with every one of
+// them: the user just chose to take them back.
+async function removeEntries(userId, ids) {
+  let removed = 0;
+  for (const id of ids) removed += localDB.deleteJournalEntry(userId, id);
+  await purge(userId, { entryIds: ids, goalIds: [] });
+  return removed;
 }
