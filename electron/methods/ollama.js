@@ -37,7 +37,7 @@ export const clearModelListCache = () => {
 /** Built-in engine mode: the models on disk, in the row shape Settings reads. */
 const builtinRows = () =>
   Object.entries(BUILTIN_MODELS)
-    .filter(([id]) => isDownloaded(id))
+    .filter(([id, m]) => m.role !== "voice" && isDownloaded(id))
     .map(([id, m]) => ({ name: id, size: "", modified: humanBytes(m.bytes) }));
 
 const fetchModelList = () => {

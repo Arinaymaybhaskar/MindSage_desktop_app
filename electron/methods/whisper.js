@@ -5,6 +5,8 @@ import { fileURLToPath } from "url";
 import { eventBus } from "../eventBus.js";
 import fs from "fs";
 import { log } from "../log.js";
+import { VOICE_MODELS } from "../ai/models.js";
+import { isDownloaded, modelPath } from "../ai/llama.js";
 
 let liveProcess = null;
 
@@ -22,11 +24,25 @@ function safeSend(event, channel, payload) {
   }
 }
 
+/** The best downloaded voice model as whisper arguments, or null before the first download. */
+export function voiceModelArgs() {
+  const id = VOICE_MODELS.find(isDownloaded);
+  if (!id) return null;
+  // Only the English-only base model cannot take a language.
+  return [
+    "--model",
+    modelPath(id),
+    ...(id === "whisper-base-en" ? [] : ["-l", "auto"]),
+  ];
+}
+
 export function startLiveTranscription(event) {
   if (liveProcess) {
     log.warn("⚠️ Live transcription already running, skipping start");
     return;
   }
+  const modelArgs = voiceModelArgs();
+  if (!modelArgs) return { needsModel: true };
 
   const isDev = !app.isPackaged;
 
@@ -35,9 +51,8 @@ export function startLiveTranscription(event) {
     : path.join(process.resourcesPath, "whisper-bin-x64"); // packaged
 
   const exePath = path.join(basePath, "Release", "whisper-stream.exe");
-  const modelPath = path.join(basePath, "models", "ggml-tiny.en.bin");
 
-  liveProcess = spawn(exePath, ["--model", modelPath, "--capture", "-1"]);
+  liveProcess = spawn(exePath, [...modelArgs, "--capture", "-1"]);
 
   liveProcess.stdout.on("data", (data) => {
     const msg = data.toString();
@@ -80,6 +95,9 @@ export function stopLiveTranscription() {
 // -------------------
 export function transcribeAudioBlob(filePath, event) {
   return new Promise((resolve, reject) => {
+    const modelArgs = voiceModelArgs();
+    if (!modelArgs)
+      return reject(new Error("The voice model is not downloaded"));
     const isDev = !app.isPackaged;
 
     const basePath = isDev
@@ -87,11 +105,9 @@ export function transcribeAudioBlob(filePath, event) {
       : path.join(process.resourcesPath, "whisper-bin-x64"); // packaged
 
     const exePath = path.join(basePath, "Release", "whisper-cli.exe");
-    const modelPath = path.join(basePath, "models", "ggml-tiny.en.bin");
 
     const whisperProcess = spawn(exePath, [
-      "--model",
-      modelPath,
+      ...modelArgs,
       "--file",
       filePath,
       "--output-json",

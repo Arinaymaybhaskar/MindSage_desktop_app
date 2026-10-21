@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
 import whisperService from "../api/whisperService";
+import VoiceModelPrompt from "../components/VoiceModelPrompt";
 import {
   ArrowLeft,
   BrainCircuit,
@@ -83,6 +84,7 @@ export default function JournalForm() {
   const [isDragging, setIsDragging] = useState(false);
 
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [askVoiceModel, setAskVoiceModel] = useState(false);
   const [editedDate, setEditedDate] = useState<string>("");
 
   // START: Added state for inline autocomplete suggestions
@@ -318,7 +320,8 @@ export default function JournalForm() {
       await whisperService.stopLive();
       setIsTranscribing(false);
     } else {
-      await whisperService.startLive();
+      const res = await whisperService.startLive();
+      if (res && res.needsModel) return setAskVoiceModel(true);
       setIsTranscribing(true);
     }
   };
@@ -549,6 +552,9 @@ export default function JournalForm() {
                 </motion.div>
               )}
             </AnimatePresence>
+            {askVoiceModel && (
+              <VoiceModelPrompt onClose={() => setAskVoiceModel(false)} />
+            )}
             <button
               type="button"
               onClick={toggleLiveTranscription}
