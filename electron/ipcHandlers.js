@@ -83,6 +83,7 @@ import {
   handleGetModelDialog,
   handleDownloadAIModel,
   handleGetAIStatus,
+  handleRestartAI,
   handleSetAIProvider,
 } from "./methods/ai.js";
 import {
@@ -229,6 +230,7 @@ export function registerIPCHandlers() {
 
   // AI client: provider choice and the built-in engine's models
   ipcMain.handle("ai:get-status", handleGetAIStatus);
+  ipcMain.handle("ai:restart", handleRestartAI);
   ipcMain.handle("ai:set-provider", handleSetAIProvider);
   ipcMain.handle("ai:download-model", handleDownloadAIModel);
   ipcMain.handle("ai:cancel-download", handleCancelAIDownload);

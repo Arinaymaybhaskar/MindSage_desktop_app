@@ -74,7 +74,20 @@ const hasElectron = () => !!window.electron?.ipcRenderer;
 const invoke = <T>(channel: string, ...args: unknown[]) =>
   window.electron.ipcRenderer.invoke<T>(channel, ...args);
 
+export interface RestartStatus {
+  state: "starting" | "ready" | "error";
+  provider: "builtin" | "ollama" | null;
+  /** false for Ollama: the app does not own that process, so nothing was restarted. */
+  managed: boolean;
+  /** Why it failed, or the note for an unmanaged Ollama. Never entry or chat text. */
+  details?: string;
+}
+
 export const aiModelService = {
+  /** Debounced: a call while a restart runs returns the current status. */
+  restart: async (): Promise<RestartStatus | null> =>
+    hasElectron() ? invoke<RestartStatus>("ai:restart") : null,
+
   getPicker: async (): Promise<ModelPicker | null> =>
     hasElectron() ? invoke<ModelPicker>("ai:get-model-picker") : null,
 

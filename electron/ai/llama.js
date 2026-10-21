@@ -137,6 +137,15 @@ export async function unloadAll() {
 
 export const isStarted = () => engine !== null;
 
+/** Disposes every model and the engine, then loads the chat model again. */
+export async function restart() {
+  await unloadAll();
+  await (await engine?.catch(() => null))?.dispose();
+  engine = null;
+  const id = chatModelId();
+  if (isDownloaded(id)) await generate("Hi", { model: id, maxTokens: 1 });
+}
+
 /** On quit: frees the engine. A clean exit is not a GPU crash. */
 export async function shutdown() {
   modelStore.delete(GPU_PENDING);

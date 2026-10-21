@@ -19,16 +19,21 @@ import {
   recommend,
 } from "../ai/picker.js";
 import { downloadFile } from "../ai/download.js";
+import * as queue from "../ai/queue.js";
+import { createRestarter } from "../ai/restart.js";
 
 const PROGRESS_EVERY_MS = 250;
 let downloading = null; // { id, done, total }
 let cancelDownload = null;
+let downloadEnded = null; // resolves when the running download's handler returns
+let pausedId = null; // set while a restart holds the download
 
 export async function handleGetAIStatus() {
   return {
     provider: activeProvider(),
     ...(await builtin.status()),
     downloading,
+    restart: restarter.getStatus(),
   };
 }
 
@@ -65,6 +70,8 @@ export async function handleDownloadAIModel(_event, id, confirmed = false) {
   }
   if (downloading) return { error: "Another model is downloading" };
   downloading = { id, done: 0, total: spec.bytes };
+  let endDownload;
+  downloadEnded = new Promise((resolve) => (endDownload = resolve));
   const controller = new AbortController();
   cancelDownload = () => controller.abort();
   let sentAt = 0;
@@ -85,6 +92,15 @@ export async function handleDownloadAIModel(_event, id, confirmed = false) {
     broadcast({ id, done: spec.bytes, total: spec.bytes, finished: true });
     return { success: true };
   } catch (err) {
+    if (pausedId === id) {
+      broadcast({
+        id,
+        paused: true,
+        done: downloading.done,
+        total: spec.bytes,
+      });
+      return { paused: true };
+    }
     const cancelled = controller.signal.aborted;
     const error = cancelled ? "Download cancelled" : err.message;
     log.warn("Built-in AI model download stopped", { id, error });
@@ -93,8 +109,43 @@ export async function handleDownloadAIModel(_event, id, confirmed = false) {
   } finally {
     downloading = null;
     cancelDownload = null;
+    endDownload();
   }
 }
+
+const restarter = createRestarter({
+  provider: activeProvider,
+  reloadBuiltin: builtin.restart,
+  ollamaRunning: () =>
+    fetch("http://127.0.0.1:11434/api/version", {
+      signal: AbortSignal.timeout(2000),
+    }).then(
+      (res) => res.ok,
+      () => false,
+    ),
+  queue,
+  // The .part stays, so the download picks up where it stopped.
+  async pauseDownload() {
+    if (!downloading) return null;
+    pausedId = downloading.id;
+    cancelDownload();
+    await downloadEnded;
+    return pausedId;
+  },
+  resumeDownload(id) {
+    pausedId = null;
+    handleDownloadAIModel(null, id, true);
+  },
+  onChange: (status) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send("ai:restart-status", status);
+    }
+  },
+  log,
+});
+
+/** Restarts the local AI; a press while it restarts returns the current status. */
+export const handleRestartAI = () => restarter.restart();
 
 /** Stops the running download; its .part stays, so the next try resumes. */
 export function handleCancelAIDownload() {
