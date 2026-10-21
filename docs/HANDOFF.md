@@ -1,4 +1,4 @@
-# MindSage handoff (2026-10-22 b, P2 wave 2 nearly done)
+# MindSage handoff (2026-10-22 c, P2 waves 2 and 3 built, wave 4 started)
 
 You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin` and `git pull` (merge, never rebase), then read this file again if the pull changed it.
 
@@ -6,12 +6,12 @@ You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and do
 - Repo: Arinaymaybhaskar/MindSage_desktop_app. Jira KAN, cloudId 5ff5bb5a-94c3-42d4-ae17-384d856cb56f. P2 fix version id 10001 ("P2 Remove the setup wall", release 2026-11-23, gate: 7 of 10 testers install and get their first AI reflection without help).
 - Flow: ticket branch -> phase/p2-remove-the-setup-wall -> dev -> main. Never merge the phase branch to dev until the owner says so.
 - Owner instruction (2026-10-22): no testing and no reviewing for now. Built tickets carry the Jira label `not-reviewed`; Jira statuses are NOT moved.
-- Merged into the P2 phase, built, unreviewed and untested: KAN-90, 69, 72, 71, 91, 70, 82, 64, 78, 87, 75, 79 (#67), 76 (#69), 80 (#70), plus CI fix #71. KAN-90..75 and 76, 80 carry `not-reviewed`; KAN-79 label was set this session too. CI (typecheck/lint, db, Windows e2e) was green on #69, #70, #71 before merge. Reviewed earlier by Opus: KAN-68, KAN-89.
+- Merged into the P2 phase, built, unreviewed and untested: KAN-90, 69, 72, 71, 91, 70, 82, 64, 78, 87, 75, 79 (#67), 76 (#69), 80 (#70), 81 (#73), 65 (#74), 66 (#75), 73 (#76), 86 (#77), plus CI fix #71. All carry the `not-reviewed` label and the Jira status "Not reviewed" (checked in Jira 2026-10-22). CI (typecheck/lint, db, Windows e2e) was green on every PR before merge, including #73 to #77; the phase branch itself has no push-triggered CI run, so its tip after the merges is only covered by those PR runs. Reviewed earlier by Opus: KAN-68, KAN-89.
 - Open: #51 KAN-193 binaries out of git, blocked on the owner.
-- KAN-81 (You're-set screen) is BLOCKED: needs KAN-162 (daily nudge) and KAN-313 (Windows Hello), both To Do and unbuilt. Next: build those two first, then KAN-81.
+- KAN-81 was built WITHOUT its blockers: KAN-162 (daily nudge, fix version P3) and KAN-313 (Windows Hello, release-later) are still To Do and unbuilt. The screen's reminder toggle only stores `journal_reminder` and `reminder_time` and fires nothing; Windows Hello is hidden behind `helloAvailable()`, which returns false. Do not build 162/313 in P2 unless the owner says so.
 
 ## Next
-1. Build KAN-162 and KAN-313, then KAN-81 (no review/test per the owner). Then wave 3 polish, wave 4 housekeeping.
+1. Wave 4 housekeeping, in progress: KAN-169 (lint electron/ and scripts/, branch chore/KAN-169-lint-main-process, agent launched; check for its PR). Candidates after it: remove the unused packages listed under KAN-86 below (no ticket yet; file one first), KAN-388, bugs 386/387/390/392/393. No review or test per the owner.
 2. Review first, when the owner lifts the pause: KAN-76 migration 10 (rebuilds `users`, email nullable; the migration runner now turns foreign keys off around migrations marked `rebuildsTables` and runs foreign_key_check; a mistake would delete journal entries via cascade). Never run on a real profile yet.
 3. KAN-80 placement conflict: first-run /setup runs before sign-up, so its import step only works with a signed-in profile (new installs see a pointer to Settings). The design changes list (2026-10-20) moved WIN-145 to after the first saved entry. Owner decides where the screen goes.
 4. Bugs filed this phase (P2, phase-2-closeout): KAN-386, 387, 390, 392, 393; KAN-391 by someone else. Confirm the fix version on KAN-392 and KAN-393. The two CI fixes in #71 were committed under Refs KAN-70/KAN-75 with no bug ticket.
@@ -29,6 +29,11 @@ You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and do
 - KAN-79: openai-compatible URLs loopback-only, no redirects; .gguf path from a main-process dialog, header check only; a .gguf provider still needs the built-in embedding model; OpenAI server must serve 768-dim nomic embeddings; settings live in the global modelStore, not per user.
 - KAN-70: "feelings" was read as the mood tags (owner has not confirmed); suggestions switch only blocks generateSuggestion (not queued).
 - KAN-75: welcome only while no profile exists; restore goes sign-up first, then Settings > Import & Export. The first-run /setup page still comes before the welcome.
+- KAN-81: migration 11 adds `users.reminder_time`; each toggle saves at once; Continue opens Today. App.tsx routes to the screen from Onboarding.
+- KAN-65: Sync All button, `search:bulk-sync` handler, preload entry and `searchService.bulkSync` are gone; indexing is automatic only. `retryGaveUp` in searchIndex.js is now unused by any handler (dead code, remove later).
+- KAN-66: GlobalSearch empty state polls `search:status` every 3 s while shown ("Still reading n entries", write-first message, index-unavailable notice). No component test (GlobalSearch has none).
+- KAN-73: damaged zip is named and skipped, the rest imports with a warning (all damaged: one error); locked file and disk full have own messages; commit failure rolls back entries and media and keeps the preview. Commit rollback and locked-file paths have no test (db tests cannot run on Windows). Files of another format in a mixed set are ignored silently.
+- KAN-86: 15 renderer-only packages moved to devDependencies (list in PR #77). Packages imported nowhere look removable: @google/genai, axios, buffer, dotenv, google-auth-library, lottie-react, react-hot-toast, react-speech-recognition, recharts, uuid, zod-to-json-schema. Installer size, app.asar contents and a packaged smoke test are NOT verified.
 - Not verified anywhere in this wave: the real app was launched for none of these tickets; no real GPU, Ollama, LM Studio, network drop, packaged build or Mac. gitleaks and lint-staged are not installed in worktrees (hooks skip them).
 
 ## Needs the owner
