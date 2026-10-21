@@ -6,7 +6,7 @@
 interface UserInfo {
   id: number;
   username: string;
-  email: string;
+  email: string | null;
   full_name: string;
   timezone: string;
   created_at: string;
@@ -41,14 +41,14 @@ export interface Profile {
 }
 
 /**
- * Describes the details required for user registration.
+ * Describes the details required for user registration. `username` is the
+ * profile name; sign-up asks for no email and no full name.
  */
 interface RegistrationDetails {
   username: string;
-  email: string;
   password: string;
-  full_name: string;
   timezone: string;
+  photo?: { arrayBuffer: ArrayBuffer; filename: string };
 }
 
 // --- Type Definition for the Electron Preload API ---
@@ -75,7 +75,7 @@ export const authService = {
   },
 
   /**
-   * @param details - { username, email, password, ... }
+   * @param details - { username, password, timezone, photo? }
    */
   register: async (
     details: RegistrationDetails,

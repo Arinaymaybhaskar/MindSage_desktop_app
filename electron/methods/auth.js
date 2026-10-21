@@ -1,7 +1,8 @@
+import fs from "node:fs";
 import Store from "electron-store";
 import { ipcMain } from "electron";
 import localDB from "../db/index.js";
-import { getThumbnailBase64 } from "./media.js";
+import { getThumbnailBase64, writeProfileImage } from "./media.js";
 import bcrypt from "bcryptjs";
 import {
   currentUserId,
@@ -118,18 +119,42 @@ export function markLegacySessionChecked() {
   migration.set("legacyTokenChecked", true);
 }
 
+/**
+ * Creates a profile from a profile name (the username column), a password and
+ * an optional photo. No email and no full name: sign-up asks for neither.
+ */
 export const handleRegister = async (event, details) => {
+  let picture = null;
   try {
-    const existingUser = localDB.findUserForCheck(
-      details.email,
-      details.username,
-    );
-    if (existingUser) {
-      throw new Error("Username or email already exists");
+    const username =
+      typeof details?.username === "string" ? details.username.trim() : "";
+    if (!/^\w{3,}$/.test(username)) {
+      throw new Error(
+        "Profile name must be 3 or more letters, numbers or underscores",
+      );
     }
-    const newUser = localDB.createUser(details);
+    if (typeof details.password !== "string" || !details.password) {
+      throw new Error("A password is required");
+    }
+    if (localDB.findUserForCheck(null, username)) {
+      throw new Error("Profile name already exists");
+    }
+    if (details.photo?.arrayBuffer) {
+      picture = writeProfileImage(
+        details.photo.arrayBuffer,
+        details.photo.filename || "photo",
+      );
+    }
+    const newUser = localDB.createUser({
+      username,
+      password: details.password,
+      timezone: details.timezone,
+      profile_picture: picture,
+    });
     return { user: newUser };
   } catch (error) {
+    // A photo saved for a profile that was never made would linger on disk.
+    if (picture) fs.rmSync(picture, { force: true });
     log.error("Offline registration error:", error);
     throw error;
   }

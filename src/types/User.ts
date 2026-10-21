@@ -13,7 +13,7 @@ export type { SqliteBoolean };
 export interface UserInfo {
   id: number;
   username: string;
-  email: string;
+  email: string | null;
   full_name?: string | null;
   timezone?: string | null;
   profile_picture?: string | null;

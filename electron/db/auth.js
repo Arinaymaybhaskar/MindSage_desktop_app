@@ -47,12 +47,19 @@ export function findUserForCheck(email, username) {
  * Creates a new user in the local SQLite database.
  */
 export function createUser(details) {
-  const { username, email, password, full_name, timezone } = details;
+  const {
+    username,
+    email = null,
+    password,
+    full_name = null,
+    timezone,
+    profile_picture = null,
+  } = details;
   const hashedPassword = bcrypt.hashSync(password, 10);
 
   const userStmt = db.prepare(`
-        INSERT INTO users (username, email, password_hash, full_name, timezone)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (username, email, password_hash, full_name, timezone, profile_picture)
+        VALUES (?, ?, ?, ?, ?, ?)
     `);
   const settingsStmt = db.prepare(
     "INSERT INTO user_settings (user_id) VALUES (?)",
@@ -65,6 +72,7 @@ export function createUser(details) {
       user.hashedPassword,
       user.full_name,
       user.timezone,
+      user.profile_picture,
     );
     const userId = result.lastInsertRowid;
     settingsStmt.run(userId);
@@ -77,5 +85,6 @@ export function createUser(details) {
     hashedPassword,
     full_name,
     timezone,
+    profile_picture,
   });
 }
