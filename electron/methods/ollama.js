@@ -216,7 +216,7 @@ eventBus.on("journal:created", ({ entry }) => {
       // The job may have waited: work on the entry as it is now, and not at
       // all if it went to the Trash.
       const current = localDB.getJournalById(entry.user_id, entry.id);
-      if (!current) return;
+      if (!current) return markTrashedNotRun(entry.id);
       // A switch turned off while the job waited stops it (KAN-70).
       const now = getFeatures(entry.user_id);
       if (needsAiCompletion && metadataOn(now))
@@ -225,6 +225,21 @@ eventBus.on("journal:created", ({ entry }) => {
     }).catch((err) => log.error("AI enrichment failed:", err));
   }
 });
+
+// A job skipped because its entry went to the Trash leaves nothing 'pending':
+// after a restore the entry offers Retry, and the next backfill picks it up
+// (KAN-393).
+const TRASHED_ERROR = "Moved to the Trash before the AI ran";
+function markTrashedNotRun(id) {
+  db.prepare(
+    `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ?
+     WHERE id = ? AND ai_metadata_status = 'pending'`,
+  ).run(TRASHED_ERROR, id);
+  db.prepare(
+    `UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ?
+     WHERE id = ? AND ai_summary_status = 'pending'`,
+  ).run(TRASHED_ERROR, id);
+}
 
 /**
  * Runs the fill-in again, once, in the queue, for the newest entries whose
