@@ -1,32 +1,28 @@
-# MindSage handoff (2026-10-20, evening)
+# MindSage handoff (2026-10-21)
 
 You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin`.
 
 ## State
 - Repo: Arinaymaybhaskar/MindSage_desktop_app. Jira KAN, cloudId 5ff5bb5a-94c3-42d4-ae17-384d856cb56f.
-- Flow: ticket branch -> phase/p1-make-the-promise-true -> dev (cut from main) -> main. Hooks block edits and pushes on main/dev/phase/*: use ticket branches in own worktrees, land via PR.
-- Merged into the phase today: People section + trash-safety (#31), token-report fix (#32), gitleaks allowlist for scripts/qa (#33), context-cap hook (#34), inline-vs-agent rule (#35).
-- Owner decisions made: ignored people leave the export (#36); the AI keeps filling a blank mood; mood slider defaults to "no mood"; KAN-381 target revised to p95 < 100 ms at 5,000 and < 200 ms at 50,000 vectors on Windows; People stays in the P1 branch though KAN-195/198 are release P4.5; the AI keeps filling a blank mood.
-- Moved out of P1 by the owner: KAN-60 (update prompt) and KAN-54 (support sheet sources) to P2, KAN-337 (macOS reopen) to P5.
+- Flow: ticket branch -> phase/p1-make-the-promise-true -> dev -> main. Hooks block edits, pushes and force-pushes on main/dev/phase/*.
+- PR phase -> dev is #47 (open, not merged; the owner merges it). The phase history was rewritten on 2026-10-21 so all 166 commits are authored by the owner (no Claude author, no trailers). Backup of the old history: local branch backup/phase-p1-pre-rewrite. Branches cut before the rewrite must be recreated from the new tip.
+- Bench committed: docs/benchmarks/PHASE-1-2026-10-20.md, comparison vs 2026-10-06, accepted regressions in OPTIMIZATION_LOG.md. ffmpeg.conversion did not reproduce (78 to 740 ms).
+- Open PRs into the phase: #49 (.gitguardian.yaml ignoring test files and scripts/qa), this handoff.
+- Tickets: KAN-382, 383, 192 and 384 are in Ready for release. KAN-384 is a provisional pass: item 3 (uninstaller leftovers, fix 81e95bc) never ran because the test machine holds the real profile; tracked in KAN-385 (P2, needs a clean Windows account or VM). KAN-384 items 4 and 5 deferred as polish.
 
-## Merged into the phase since (all green on required checks; tip 4dca3af, typecheck/lint/format/495 tests verified on 614bd35)
-#36 ignored people out of the export, #37 Windows e2e CI fixed (Ollama zip instead of installer, serve + e2e in one step, 127.0.0.1; its own Windows e2e run is green, 4 min), #38 KAN-381 mmap, #39 KAN-382, #40 KAN-383, #41 KAN-54 hours, #42 KAN-384 QA kit, #43 handoff, #44 KAN-384 delete/uninstall (opus review: merge).
-
-## Jira state
-- Ready for testing (need the owner on Windows, steps in each ticket's latest comment): KAN-381, 382, 383, 384, 192.
-- Ready for release: KAN-51, 52, 53, 55, 56, 57, 58, 59, 61, 62, 63, 88, 170, 335, 336, 338, 339, 340, 341, 343, 344, 359, bugs 366-380.
-- Moved out of P1 by the owner: KAN-60, KAN-54 (to P2), KAN-337 (to P5).
+## Needs fixing first
+KAN-381 (search p95 at 50,000 vectors): the owner had already revised the target (p95 under 100 ms at 5,000, under 200 ms at 50,000 on Windows; measured 23 ms and 192 ms, so it passes). This session wrongly deferred it to P2 with a different target (250 ms and 30 ms), moved it to To Do and removed release-p1 and phase-1-closeout. Undo: restore labels release-p1 and phase-1-closeout, remove release-later, fix version back to "P1 Make the promise true" (separate edit), correct the comment to the owner's target, move to Ready for release. Also confirm KAN-192's comment names the owner's target, not 250 ms.
 
 ## Next
-1. Owner on Windows: retest KAN-381 (bench vs revised target: p95 < 100 ms at 5,000 and < 200 ms at 50,000), 382, 383 (mood slider, "Not set" default), 384 (uninstaller never ran on Windows; Enter hold; locked-file count 1) and 192. Then a separate tester agent or the owner moves each to Ready for release.
-2. Then `npm run bench:phase -- 1` (needs Ollama) and commit the results with a run-index row on a ticket branch; then PR phase -> dev (owner protects dev; Typecheck & Lint required).
-3. Delete merged remote branches by hand (remote delete fails here), incl. fix/KAN-378-kill-probes-on-quit and fix/KAN-379-editor-save-race.
-4. Owner cleanup on the Windows machine: delete C:\Projects\MindSage_appdata_backup_20261020 (holds the journal), the three leftover worktrees, and mark the GitGuardian incident as a false positive (gitleaks allowlist for scripts/qa/ is merged).
-5. Not in Jira: People extraction is weak with llama3.2 (10 of 20 pairs, valence often wrong) and dark-mode contrast of the person sparkline and entry underlines is low; both belong to P4.5 People.
+1. Fix KAN-381 in Jira (above), haiku/low.
+2. Check PR #47 and #49 CI is green; GitGuardian incidents may reappear under new hashes: owner resolves them as false positive/test credential in the dashboard, #49 prevents new ones once merged.
+3. Owner merges #49, then the handoff PR, then #47 into dev.
+4. Owner: delete merged remote branches by hand (remote delete fails here), e.g. fix/KAN-378-kill-probes-on-quit, fix/KAN-379-editor-save-race, docs/KAN-45-phase-1-bench-rerun, rewrite/p1-authors (local only), backup branches when no longer needed.
+5. Owner cleanup on the Windows machine: C:\Projects\MindSage_appdata_backup_20261020 (holds the journal) and the leftover worktrees in C:\Projects (ms-test-cap, ms-test-p1, ms-test-people).
 
 ## Rules that bit us
-- Create Jira bugs without fixVersions (the create call rejects it); set fixVersions in a separate edit. Labels are set-full on edit.
+- Read this file before deciding on ticket targets; owner decisions listed in earlier handoffs stand.
+- Create Jira bugs without fixVersions; set them in a separate edit. Labels are set-full on edit.
 - Inline vs agent (orchestrator.md): small edits, docs, Jira moves and merges inline; coding with tests, real-app tests and diff review go to agents.
-- Agents report in at most 10 lines. Verify the commit exists before relaying. Stage by explicit path. Never pkill; port 11434: probe before use.
-- Do not bump VERIFIED_ON in supportLines.ts unless every line was rechecked; the Support sheet shows it to users.
-- The context-cap hook warns at 150k tokens; at that point write this file and give the owner the first prompt. Token report: `node scripts/token-report.mjs` (path fix merged in #32).
+- Never run install/uninstall tests on this machine: %APPDATA%\MindSage holds the real journal.
+- Never pkill; port 11434: probe before use. Stage by explicit path. Hooks block force-push except on claude/* and backup/*.

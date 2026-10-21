@@ -665,9 +665,10 @@ timings on a laptop (noise). Three need a decision:
   regression: the 10-06 run measured Qdrant (HNSW, approximate); this run
   measures sqlite-vec (exact, brute force). Accepted trade: disk at 50k fell
   from 995 MB to 155 MB, RSS from 594 MB to 148 MB, upsert rate rose about 3x,
-  and there is no second process. Against the 100 ms p95 target at 50k it still
-  misses (192 ms here, 109 to 113 ms on the sandbox); the int8 option (73 ms p50)
-  is open pending a quality measurement.
+  and there is no second process. The owner's revised Windows target
+  (p95 under 100 ms at 5,000, under 200 ms at 50,000) is met (23 ms and 192 ms);
+  the int8 option (73 ms p50 on the sandbox) stays open pending a quality
+  measurement.
 - **`ffmpeg.conversion`** (296 ms to 2.97 s). Did not reproduce: three re-runs
   gave p95 740, 81 and 78 ms (p50 52 to 80 ms). The 740 ms looks like a cold
   start. No action.
