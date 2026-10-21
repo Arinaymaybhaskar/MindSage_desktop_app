@@ -13,6 +13,7 @@ vi.mock("child_process", () => {
 });
 const storeGet = vi.fn();
 vi.mock("../store.js", () => ({ modelStore: { get: storeGet } }));
+vi.mock("electron-store", () => ({ default: class {} }));
 vi.mock("../ai/llama.js", () => ({
   isDownloaded: (id) => id === "qwen-2.5-1.5b",
 }));
