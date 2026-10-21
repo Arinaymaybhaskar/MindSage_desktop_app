@@ -1,6 +1,6 @@
 # MindSage handoff (2026-10-21, P2 wave 1 in progress)
 
-You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin`.
+You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin` and `git pull` (merge, never rebase), then read this file again if the pull changed it.
 
 ## State
 - Repo: Arinaymaybhaskar/MindSage_desktop_app. Jira KAN, cloudId 5ff5bb5a-94c3-42d4-ae17-384d856cb56f. P2 fix version id 10001 ("P2 Remove the setup wall", release 2026-11-23, gate: 7 of 10 testers install and get their first AI reflection without help).
