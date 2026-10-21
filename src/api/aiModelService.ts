@@ -116,3 +116,46 @@ export const aiModelService = {
       ? invoke<ModelResult>("ai:delete-model", id, confirmed)
       : { error: "Not available" },
 };
+
+/** One `ai:download-progress` message. */
+export interface DownloadProgress {
+  id: string;
+  done?: number;
+  total?: number;
+  finished?: boolean;
+  paused?: boolean;
+  error?: string;
+  cancelled?: boolean;
+}
+
+/** What `ai:get-status` returns (the part the status card reads). */
+export interface AIStatus {
+  provider: "builtin" | "ollama";
+  chatModel: string;
+  models: { id: string; label: string; role: string; downloaded: boolean }[];
+  downloading: { id: string; done: number; total: number } | null;
+  restart: RestartStatus;
+}
+
+const subscribe = <T extends unknown[]>(
+  channel: string,
+  cb: (...args: T) => void,
+): (() => void) =>
+  hasElectron()
+    ? window.electron.ipcRenderer.on<T>(channel, cb)
+    : () => undefined;
+
+export const aiStatusService = {
+  get: async (): Promise<AIStatus | null> =>
+    hasElectron() ? invoke<AIStatus>("ai:get-status") : null,
+
+  onDownloadProgress: (cb: (p: DownloadProgress) => void) =>
+    subscribe<[DownloadProgress]>("ai:download-progress", cb),
+
+  onRestartStatus: (cb: (s: RestartStatus) => void) =>
+    subscribe<[RestartStatus]>("ai:restart-status", cb),
+
+  /** Entry jobs (title, summary, index) start and stop on this channel. */
+  onJobEvent: (cb: (p: { event: string }) => void) =>
+    subscribe<[{ event: string }]>("ai-status-event", cb),
+};

@@ -45,6 +45,7 @@ import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
 import Onboarding, { SETUP_COMPLETE_KEY } from "./pages/Onboarding";
 import AIReadinessBanner from "./components/AIReadinessBanner";
+import AIStatusCard from "./components/AIStatusCard";
 import UpdateBar from "./components/UpdateBar";
 import { ToastProvider } from "./context/ToastContext";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -203,6 +204,11 @@ function AppLayout() {
             {!isQuickCapturePage && !isAuthPage && <UpdateBar />}
             {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
           </div>
+          {!isQuickCapturePage && !isAuthPage && (
+            <div className="fixed bottom-3 left-3 z-40 max-w-60">
+              <AIStatusCard />
+            </div>
+          )}
           {/* Outside the routes: deleting a profile signs the person out, and
               its "deleted" screen has to survive that. */}
           {!isQuickCapturePage && <DeleteProfileDialog />}

@@ -21,6 +21,12 @@ import journalService from "../api/journalService";
 import { searchService } from "../api/searchService";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
+import {
+  JOB_EVENTS,
+  JOB_LABEL,
+  type JobKind,
+  type JobState,
+} from "../utils/aiJobs";
 
 /**
  * The Local AI panel in the title bar: one place for everything the local
@@ -36,29 +42,6 @@ import { useToast } from "../hooks/useToast";
  * The trigger is always mounted, so the engine state is readable at a glance
  * even when nothing is running.
  */
-
-type JobKind = "metadata" | "summary" | "index";
-type JobState = "running" | "done" | "failed" | "skipped";
-
-/** Which job each main-process event belongs to, and what it does to it. */
-const JOB_EVENTS: Record<string, { job: JobKind; state: JobState }> = {
-  "journal:aiStarted": { job: "metadata", state: "running" },
-  "journal:aiCompleted": { job: "metadata", state: "done" },
-  "journal:aiFailed": { job: "metadata", state: "failed" },
-  "ollama:summary-started": { job: "summary", state: "running" },
-  "ollama:summary-generated": { job: "summary", state: "done" },
-  "ollama:summary-failed": { job: "summary", state: "failed" },
-  "ollama:summary-skipped": { job: "summary", state: "skipped" },
-  "journal:indexStarted": { job: "index", state: "running" },
-  "journal:indexCompleted": { job: "index", state: "done" },
-  "journal:indexFailed": { job: "index", state: "failed" },
-};
-
-const JOB_LABEL: Record<JobKind, string> = {
-  metadata: "Title & mood",
-  summary: "Summary",
-  index: "Search index",
-};
 
 const JOB_ORDER: JobKind[] = ["metadata", "summary", "index"];
 
