@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthLayout } from "../../layouts/AuthLayout";
 import { Shield, Info, X, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import zxcvbn from "zxcvbn";
@@ -126,6 +126,8 @@ export default function Register() {
   const [usernameChecking, setUsernameChecking] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const restore = (useLocation().state as { restore?: boolean } | null)
+    ?.restore;
   const [, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [infoBadge, setInfoBadge] = useState<boolean>(true);
@@ -172,7 +174,7 @@ export default function Register() {
       };
       await authService.register(payload);
       // Straight to the new profile's password, not back to the full grid.
-      navigate("/profiles", { state: { select: form.username } });
+      navigate("/profiles", { state: { select: form.username, restore } });
     } catch (err) {
       console.log(err);
       setError("Registration failed. Try a different username or email.");
