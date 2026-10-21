@@ -93,9 +93,9 @@ async function main() {
       localStorage.setItem("setup_complete", "1"); // what "Skip for now" does
       location.hash = "#/profiles";
     });
-    // A fresh install has no profiles: the picker offers to add one.
-    await page.getByText("No profiles yet").waitFor();
-    await page.getByText("Add new user").click();
+    // A fresh install has no profiles: the picker shows the welcome.
+    await page.getByText("Welcome to MindSage").waitFor();
+    await page.getByText("Get started").click();
     await page.getByText("Choose your username").waitFor();
   });
 
