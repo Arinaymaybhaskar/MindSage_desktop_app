@@ -44,6 +44,7 @@ You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and do
 - Reviews run as fresh Opus agents, never the author (paused by the owner for now).
 
 ## Rules that bit us
+- When you write the next handoff and the first prompt for the following session, the prompt must tell that session to run `git fetch origin` and `git pull` (merge any open handoff PR first) before reading this file.
 - Read this file before deciding on ticket targets; owner decisions listed in earlier handoffs stand.
 - The auto-mode classifier denies `gh pr merge` as "merge without review"; the owner has approved merging finished ticket PRs into the phase branch, never the phase branch into dev. If denied, report and stop, do not work around it.
 - The Jira connector is flaky (searches time out, some calls hang 300 s). After a timeout, read the issue to see whether the write applied before retrying. Use `issueType` and `additional_fields` on createJiraIssue. Create bugs without fixVersions; set them in a separate edit (`fields: {"fixVersions":[{"id":"10001"}]}`). Labels are set-full on edit. transitionJiraIssue needs `transitionName`, not `transition`.
