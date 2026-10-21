@@ -21,6 +21,8 @@ import {
 import { downloadFile } from "../ai/download.js";
 import * as queue from "../ai/queue.js";
 import { createRestarter } from "../ai/restart.js";
+import { getFeatures, setFeature } from "../ai/features.js";
+import { currentUserId } from "../session.js";
 
 const PROGRESS_EVERY_MS = 250;
 let downloading = null; // { id, done, total }
@@ -42,6 +44,19 @@ export async function handleSetAIProvider(_event, provider) {
   modelStore.set("aiProvider", provider);
   if (provider === "ollama") await builtin.unloadAll();
   return { success: true };
+}
+
+/** The signed-in profile's AI feature switches (KAN-70). */
+export function handleGetAIFeatures() {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
+  return getFeatures(userId);
+}
+
+export function handleSetAIFeature(_event, key, enabled) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
+  return setFeature(userId, key, enabled);
 }
 
 function broadcast(progress) {

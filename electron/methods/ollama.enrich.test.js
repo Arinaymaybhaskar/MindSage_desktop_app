@@ -14,6 +14,19 @@ vi.mock("../db/connection.js", () => ({
 vi.mock("../db/index.js", () => ({ default: { getJournalById } }));
 vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
+const ALL_ON = {
+  title: true,
+  summary: true,
+  mood: true,
+  feelings: true,
+  suggestions: true,
+};
+const getFeatures = vi.hoisted(() => vi.fn());
+vi.mock("../ai/features.js", async (orig) => ({
+  ...(await orig()),
+  getFeatures,
+}));
+vi.mock("electron-store", () => ({ default: class {} }));
 vi.mock("../log.js", () => ({
   log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -35,6 +48,69 @@ const drained = () => background(() => {});
 beforeEach(() => {
   generate.mockReset();
   getJournalById.mockReset().mockReturnValue(entry);
+  getFeatures.mockReset().mockReturnValue(ALL_ON);
+});
+
+describe("AI feature switches (KAN-70)", () => {
+  it("enqueues no summary job when summary is off", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, summary: false });
+    generate.mockResolvedValueOnce(METADATA);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate.mock.calls[0][1].schema).toBeDefined();
+  });
+
+  it("enqueues no title/mood/feelings job when all three are off", async () => {
+    getFeatures.mockReturnValue({
+      ...ALL_ON,
+      title: false,
+      mood: false,
+      feelings: false,
+    });
+    generate.mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate.mock.calls[0][1].schema).toBeUndefined();
+  });
+
+  it("enqueues nothing with every feature off", async () => {
+    getFeatures.mockReturnValue({
+      title: false,
+      summary: false,
+      mood: false,
+      feelings: false,
+      suggestions: false,
+    });
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it("skips a queued job whose switch went off while it waited", async () => {
+    let endAsk;
+    const ask = foreground(() => new Promise((r) => (endAsk = r)));
+    eventBus.emit("journal:created", { entry });
+    getFeatures.mockReturnValue({
+      ...ALL_ON,
+      title: false,
+      mood: false,
+      feelings: false,
+      summary: false,
+    });
+    endAsk();
+    await ask;
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it("gives no ghost-text suggestion when suggestions are off", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, suggestions: false });
+    const { generateSuggestion } = await import("./ollama.js");
+    expect(await generateSuggestion("Today I")).toBe("");
+    expect(generate).not.toHaveBeenCalled();
+  });
 });
 
 describe("enrichment on save", () => {

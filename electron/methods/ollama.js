@@ -11,6 +11,7 @@ import {
 } from "./AIPrompts.js";
 import { generate, taskModel } from "../ai/client.js";
 import { background } from "../ai/queue.js";
+import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { db } from "../db/connection.js";
@@ -181,10 +182,11 @@ export async function generateSummary(content) {
 // queue: the two calls never overlap, so a PC with room for one model swaps
 // between them instead of loading both, and Ask goes first.
 eventBus.on("journal:created", ({ entry }) => {
+  const features = getFeatures(entry.user_id);
   const needsAiCompletion =
-    !entry?.title?.trim() ||
-    entry?.mood_score === undefined ||
-    !entry?.mood_tags?.length;
+    (features.title && !entry?.title?.trim()) ||
+    (features.mood && entry?.mood_score === undefined) ||
+    (features.feelings && !entry?.mood_tags?.length);
   if (needsAiCompletion) {
     eventBus.emit("journal:aiStarted", { entryId: entry.id });
     db.prepare(
@@ -200,7 +202,7 @@ eventBus.on("journal:created", ({ entry }) => {
   db.prepare(
     `UPDATE journal_entries SET ai_summary_status = 'pending' WHERE id = ?`,
   ).run(entry.id);
-  const summarizable = isSummarizable(entry.content);
+  const summarizable = features.summary && isSummarizable(entry.content);
   if (!summarizable) {
     db.prepare(
       `UPDATE journal_entries SET ai_summary_status = 'skipped' WHERE id = ?`,
@@ -214,16 +216,23 @@ eventBus.on("journal:created", ({ entry }) => {
       // all if it went to the Trash.
       const current = localDB.getJournalById(entry.user_id, entry.id);
       if (!current) return;
-      if (needsAiCompletion) await fillMetadata(current);
-      if (summarizable) await fillSummary(current);
+      // A switch turned off while the job waited stops it (KAN-70).
+      const now = getFeatures(entry.user_id);
+      if (needsAiCompletion && metadataOn(now))
+        await fillMetadata(current, now);
+      if (summarizable && now.summary) await fillSummary(current);
     }).catch((err) => log.error("AI enrichment failed:", err));
   }
 });
 
-async function fillMetadata(entry) {
+async function fillMetadata(entry, features) {
   log.debug("Filling in missing details", { entryId: entry.id });
   try {
-    const metadata = await generateMetadata(entry.content);
+    const metadata = maskMetadata(
+      await generateMetadata(entry.content),
+      entry,
+      features,
+    );
     // Status is set to 'completed' by the journal:aiCompleted persister
     // once the sanitized metadata is written, so it can't be marked
     // completed with empty fields.
@@ -281,6 +290,8 @@ async function fillSummary(entry) {
 
 // Update generateSuggestion to use selected model
 export async function generateSuggestion(prompt, maxTokens = 20) {
+  const userId = currentUserId();
+  if (userId && !getFeatures(userId).suggestions) return "";
   try {
     // Get the selected chat model from settings
     const selectedModels = modelStore.get("selectedModels");
