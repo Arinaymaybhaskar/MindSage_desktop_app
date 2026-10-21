@@ -35,7 +35,7 @@ export const text = {
       if (OWN_HEADER.test(s)) {
         const parts = s.split(new RegExp(`^${RULE}\\r?\\n`, "m")).slice(1);
         for (let i = 0; i + 1 < parts.length; i += 2) {
-          const head = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?:  (.*))?/.exec(
+          const head = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?: {2}(.*))?/.exec(
             parts[i].trim(),
           );
           if (!head) continue;

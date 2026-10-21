@@ -1,5 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
-import path, { dirname, join } from "node:path";
+import { BrowserWindow, dialog, ipcMain } from "electron";
 import {
   handleCommitImport,
   handleExportJournal,
@@ -114,7 +113,6 @@ import {
 } from "./methods/dashboard.js";
 import { modelStore } from "./store.js";
 import { registerSearchIPC } from "./methods/search.js";
-import { fileURLToPath } from "node:url";
 import {
   handleChangeChatTitle,
   handleDeleteChat,

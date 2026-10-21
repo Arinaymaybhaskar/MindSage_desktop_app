@@ -113,16 +113,9 @@ export function transcribeAudioBlob(filePath, event) {
       "--output-json",
     ]);
 
-    let output = "";
-    let error = "";
+    whisperProcess.stdout.on("data", () => {});
 
-    whisperProcess.stdout.on("data", (data) => {
-      output += data.toString();
-    });
-
-    whisperProcess.stderr.on("data", (data) => {
-      error += data.toString();
-    });
+    whisperProcess.stderr.on("data", () => {});
 
     whisperProcess.on("close", (code) => {
       const jsonPath = `${filePath}.json`;

@@ -26,14 +26,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import * as ollama from "./lib/ollama.mjs";
 import { openVecStore } from "./lib/vecstore.mjs";
 import { ENTRIES, QUERIES } from "./fixtures/retrieval.mjs";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, "..", "..");
 
 const argv = process.argv.slice(2);
 const flag = (name, fallback = null) => {

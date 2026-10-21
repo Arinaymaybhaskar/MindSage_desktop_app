@@ -1,7 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs";
-import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { tempDir } from "./dbTestUtils.js";
 
 // The trash against the real database: what deleting does, what is hidden

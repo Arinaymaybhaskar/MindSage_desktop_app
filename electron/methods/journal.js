@@ -6,7 +6,6 @@ import { isSummarizable } from "./AIPrompts.js";
 import { generateMetadata, generateSummary } from "./ollama.js";
 import { background } from "../ai/queue.js";
 import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
-import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
 
