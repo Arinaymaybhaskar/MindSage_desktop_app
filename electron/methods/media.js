@@ -210,20 +210,26 @@ export async function handleOpenMedia(event, filePath) {
   }
 }
 
+/** Writes a profile picture into media/profile and returns its path. */
+export function writeProfileImage(arrayBuffer, filename) {
+  const mediaDir = path.join(app.getPath("userData"), "media", "profile");
+  fs.mkdirSync(mediaDir, { recursive: true });
+  // basename: the name comes from the renderer and must not climb out.
+  const destPath = path.join(
+    mediaDir,
+    `${Date.now()}-${path.basename(String(filename))}`,
+  );
+  fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
+  return destPath;
+}
+
 // NEW: save profile image without attempting to link to journal DB
 export async function handleSaveProfileImage(event, { arrayBuffer, filename }) {
   // The picture belongs to whoever is signed in. The renderer used to name the
   // user id itself, which let any caller set any account's picture.
   const userId = currentUserId();
   try {
-    const buffer = Buffer.from(arrayBuffer);
-    const mediaDir = path.join(app.getPath("userData"), "media", "profile");
-    fs.mkdirSync(mediaDir, { recursive: true });
-
-    const uniqueFilename = `${Date.now()}-${filename}`;
-    const destPath = path.join(mediaDir, uniqueFilename);
-
-    fs.writeFileSync(destPath, buffer);
+    const destPath = writeProfileImage(arrayBuffer, filename);
 
     // Persist the profile_picture path to the signed-in user's row.
     if (userId) {

@@ -19,7 +19,7 @@ export interface AuthContextType {
 interface UserInfo {
   id: number;
   username: string;
-  email: string;
+  email: string | null;
   created_at: string;
   full_name: string;
   timezone: string;

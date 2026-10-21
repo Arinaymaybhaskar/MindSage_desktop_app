@@ -14,7 +14,7 @@ import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
 
 interface User {
   username: string;
-  email: string;
+  email: string | null;
   created_at: string;
   full_name: string | null;
   timezone: string;

@@ -96,22 +96,14 @@ async function main() {
     // A fresh install has no profiles: the picker shows the welcome.
     await page.getByText("Welcome to MindSage").waitFor();
     await page.getByText("Get started").click();
-    await page.getByText("Choose your username").waitFor();
+    await page.getByText("Create your profile").waitFor();
   });
 
-  await step("sign up (four steps)", async () => {
+  await step("sign up", async () => {
     await page.locator("#username").fill(username);
-    await page
-      .getByText(/available/i)
-      .first()
-      .waitFor({ timeout: 15_000 });
-    await page.getByRole("button", { name: "Continue" }).click();
-    await page.locator("#email").fill(`${username}@example.com`);
-    await page.getByRole("button", { name: "Continue" }).click();
-    await page.locator("#full_name").fill("E2E Tester");
-    await page.getByRole("button", { name: "Continue" }).click();
-    await page.getByLabel("Enter password").fill(password);
-    await page.getByRole("button", { name: "Complete" }).click();
+    await page.getByText("This name is free.").waitFor({ timeout: 15_000 });
+    await page.locator("#password").fill(password);
+    await page.getByRole("button", { name: "Create profile" }).click();
     await page.waitForFunction(
       () => location.hash.startsWith("#/profiles"),
       null,
