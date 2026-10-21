@@ -24,6 +24,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { actionsCommands, settingsCommands } from "../utils/SearchActions";
 import { MindSageMark } from "./ui/MindSageMark";
 import { searchService } from "../api/searchService";
+import type { SearchStatus } from "../types/Search";
 import journalService from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
 import clsx from "clsx";
@@ -309,6 +310,8 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   const [semanticResults, setSemanticResults] = useState<SearchableItem[]>([]);
   const [recents, setRecents] = useState<SearchableItem[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [indexUnavailable, setIndexUnavailable] = useState(false);
+  const [indexStatus, setIndexStatus] = useState<SearchStatus | null>(null);
   /**
    * The query the current `semanticResults` were produced for. Loading is
    * derived from this rather than from a boolean flag set inside an effect:
@@ -519,6 +522,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
     if (!hasQuery || isSlash) {
       setSemanticResults([]);
       setSearchError(null);
+      setIndexUnavailable(false);
       setSettledQuery(trimmed);
       return;
     }
@@ -534,10 +538,10 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
         // Ollama is not running. Treating that as an empty result set is why
         // the palette used to sit there claiming "No results".
         if (!Array.isArray(results)) {
-          const message =
-            (results as { error?: string })?.error ??
-            "Semantic search is unavailable.";
+          const failure = results as { error?: string; code?: string };
+          const message = failure?.error ?? "Semantic search is unavailable.";
           if (!cancelled) {
+            setIndexUnavailable(failure?.code === "index-unavailable");
             setSearchError(message);
             setSemanticResults([]);
           }
@@ -546,6 +550,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
 
         if (cancelled) return;
         setSearchError(null);
+        setIndexUnavailable(false);
         setSemanticResults(
           (results as SearchResultHit[]).map((res): SearchableItem => {
             const p = res.payload ?? {};
@@ -615,6 +620,29 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
 
   const busy = hasQuery && !isSlash && settledQuery !== trimmed;
   const showEmptyState = hasQuery && flatResults.length === 0 && !busy;
+
+  // While nothing matched, say why: still indexing, empty journal, or no
+  // vector store. Polled so the count falls as indexing finishes.
+  useEffect(() => {
+    if (!showEmptyState) return;
+    let cancelled = false;
+    const load = () =>
+      searchService
+        .status()
+        .then((s) => !cancelled && setIndexStatus(s))
+        .catch(() => undefined);
+    load();
+    const timer = setInterval(load, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [showEmptyState]);
+  const stillReading =
+    indexStatus?.success && indexStatus.available
+      ? indexStatus.pending + indexStatus.missing
+      : 0;
+  const journalEmpty = indexStatus?.success === true && indexStatus.total === 0;
   const activeId =
     flatResults.length > 0
       ? `global-search-option-${highlightedIndex}`
@@ -703,7 +731,14 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
           aria-label="Search results"
           className="overflow-y-auto overscroll-contain p-2 flex-1 min-h-0"
         >
-          {searchError && (
+          {searchError && indexUnavailable && (
+            <div className="mx-1 mb-2 p-3 text-xs text-text-light-sub dark:text-text-dark-sub">
+              Search by meaning is unavailable on this device. Exact words still
+              work.
+            </div>
+          )}
+
+          {searchError && !indexUnavailable && (
             <div className="mx-1 mb-2 flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-3">
               <AlertTriangle
                 size={16}
@@ -862,12 +897,16 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
                 aria-hidden
               />
               <p className="text-sm font-medium text-text-light dark:text-text-dark">
-                No matches for “{trimmed}”
+                {journalEmpty
+                  ? "Nothing to search yet"
+                  : `No matches for “${trimmed}”`}
               </p>
               <p className="text-xs text-text-light-sub dark:text-text-dark-sub max-w-sm leading-relaxed">
-                Only entries that have been indexed are searchable. Try
-                describing the feeling or situation rather than the exact words
-                you wrote.
+                {journalEmpty
+                  ? "Write your first entry and it will show up here."
+                  : stillReading > 0
+                    ? `Still reading ${stillReading} ${stillReading === 1 ? "entry" : "entries"}. Exact words match now; the rest will be found as they finish.`
+                    : "Try describing the feeling or situation rather than the exact words you wrote, or a shorter phrase."}
               </p>
             </div>
           )}
