@@ -185,6 +185,21 @@ describe("LocalAIPanel", () => {
     expect(within(panel).getByText("12/40")).toBeInTheDocument();
   });
 
+  it("names a running import and its source app (KAN-80)", async () => {
+    send("import:bulkStarted", { kind: "Day One entries", total: 5000 });
+    send("import:bulkProgress", {
+      kind: "Day One entries",
+      done: 1250,
+      total: 5000,
+    });
+    expect(pill()).toHaveTextContent("Importing 1250/5000");
+
+    const panel = await openPanel();
+    expect(
+      within(panel).getByText(/Importing Day One entries/),
+    ).toBeInTheDocument();
+  });
+
   it("retries a failed job from the panel", async () => {
     send("journal:aiStarted", { entryId: 9, preview: "Something" });
     send("journal:aiFailed", { entryId: 9, error: "boom" });

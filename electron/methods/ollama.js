@@ -20,6 +20,7 @@ import { log } from "../log.js";
 import { humanBytes, listOllamaModels } from "./ollamaList.js";
 import { BUILTIN_MODELS } from "../ai/models.js";
 import { isDownloaded } from "../ai/llama.js";
+import { BACKFILL_LIMIT } from "./importBackfill.js";
 
 /** How long a good list is reused; a pull or delete drops it sooner. */
 export const MODEL_LIST_TTL_MS = 45_000;
@@ -225,31 +226,39 @@ eventBus.on("journal:created", ({ entry }) => {
   }
 });
 
-// The models just arrived (setup finished after an offline start): entries saved
-// meanwhile failed enrichment, so run the same fill-in again, once, in the queue.
-eventBus.on("ai:models-ready", () => {
+/**
+ * Runs the fill-in again, once, in the queue, for the newest entries whose
+ * enrichment failed: saved while the models were missing, or imported (KAN-80,
+ * see importBackfill.js). Bounded by BACKFILL_LIMIT; safe to call twice.
+ */
+export function backfillEnrichment() {
   const rows = db
     .prepare(
-      `SELECT id, user_id, ai_metadata_status, ai_summary_status FROM journal_entries
-       WHERE is_deleted = 0 AND (ai_metadata_status = 'failed' OR ai_summary_status = 'failed')`,
+      `SELECT id, user_id FROM journal_entries
+       WHERE is_deleted = 0 AND (ai_metadata_status = 'failed' OR ai_summary_status = 'failed')
+       ORDER BY created_at DESC LIMIT ?`,
     )
-    .all();
+    .all(BACKFILL_LIMIT);
   for (const row of rows) {
     background(async () => {
       const current = localDB.getJournalById(row.user_id, row.id);
       if (!current) return;
       const now = getFeatures(row.user_id);
-      if (row.ai_metadata_status === "failed" && metadataOn(now))
+      // Statuses as they are now: an earlier backfill or a retry may have filled them.
+      if (current.ai_metadata_status === "failed" && metadataOn(now))
         await fillMetadata(current, now);
       if (
-        row.ai_summary_status === "failed" &&
+        current.ai_summary_status === "failed" &&
         now.summary &&
         isSummarizable(current.content)
       )
         await fillSummary(current);
     }).catch((err) => log.error("AI backfill failed:", err));
   }
-});
+}
+
+// The models just arrived (setup finished after an offline start).
+eventBus.on("ai:models-ready", backfillEnrichment);
 
 async function fillMetadata(entry, features) {
   log.debug("Filling in missing details", { entryId: entry.id });
