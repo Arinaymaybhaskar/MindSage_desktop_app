@@ -351,6 +351,21 @@ describe("an entry's date", () => {
       });
       expect(localDB.getJournalById(alice, created.id).title).toBe("AI title");
     });
+
+    it("keeps an edit made while the AI call waited", () => {
+      const created = localDB.createJournalEntry(alice, { content: "before" });
+      localDB.updateJournalEntry(alice, created.id, { content: "after" });
+      eventBus.emit("journal:aiCompleted", {
+        entry: created,
+        metadata,
+        entryId: created.id,
+        force: true,
+      });
+      expect(localDB.getJournalById(alice, created.id)).toMatchObject({
+        content: "after",
+        title: "AI title",
+      });
+    });
   });
 });
 

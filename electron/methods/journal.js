@@ -107,7 +107,11 @@ const addContentSummary = (summary, journalId, userId) => {
 // final 'completed' status transition so the entry is never marked completed
 // with empty fields. `force` (set by an explicit user regenerate) overwrites
 // the AI fields; auto-generation on create only fills blanks.
-eventBus.on("journal:aiCompleted", ({ entry, metadata, force }) => {
+eventBus.on("journal:aiCompleted", ({ entry: queued, metadata, force }) => {
+  // The call may have waited in the AI queue (KAN-89): write over the entry as
+  // it is now, so an edit made meanwhile is kept, and leave a Trashed one be.
+  const entry = localDB.getJournalById(queued.user_id, queued.id);
+  if (!entry) return;
   if (!metadata) {
     const error = "AI returned incomplete or invalid metadata";
     db.prepare(
