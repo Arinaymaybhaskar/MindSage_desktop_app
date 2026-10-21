@@ -42,7 +42,7 @@ export async function checkReachable(url, fetchImpl = fetch) {
 
 /**
  * @param {{
- *   provider: () => "builtin" | "ollama",
+ *   provider: () => "builtin" | "ollama" | "external", external: nothing to download
  *   plan: () => string[],            built-in model ids still to download, in order
  *   chatId: () => string,
  *   totalMem: () => number,
@@ -179,8 +179,10 @@ export function createSetup(deps) {
       const mine = ++ticket;
       try {
         set({ state: "starting" });
-        if (deps.provider() === "ollama") await runOllama(mine);
-        else if (!deps.plan().length) set({ state: "ready" });
+        const kind = deps.provider();
+        if (kind === "ollama") await runOllama(mine);
+        else if (kind === "external" || !deps.plan().length)
+          set({ state: "ready" });
         else await runBuiltin(opts, mine);
       } catch (err) {
         // The message is the downloader's or the engine's; never entry text.

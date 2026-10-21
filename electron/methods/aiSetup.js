@@ -20,16 +20,23 @@ import {
 
 const ASKED = "aiSetupMeteredWaitForWifi";
 const WANTED = "aiSetupWanted";
-// Only an explicit choice of Ollama keeps setup on Ollama.
+// Only an explicit choice of Ollama keeps setup on Ollama; an AI server on this
+// PC ("external") has nothing to download; a .gguf still needs the embedding model.
+const chosen = () => modelStore.get("aiProvider");
 const provider = () =>
-  modelStore.get("aiProvider") === "ollama" ? "ollama" : "builtin";
+  chosen() === "ollama"
+    ? "ollama"
+    : chosen() === "openai"
+      ? "external"
+      : "builtin";
 
 const setup = createSetup({
   provider,
   plan: () =>
-    [EMBED_MODEL, builtin.chatModelId()].filter(
-      (id) => !builtin.isDownloaded(id),
-    ),
+    [
+      EMBED_MODEL,
+      ...(chosen() === "gguf" ? [] : [builtin.chatModelId()]),
+    ].filter((id) => !builtin.isDownloaded(id)),
   chatId: builtin.chatModelId,
   totalMem: os.totalmem,
   freeDisk: freeDiskBytes,

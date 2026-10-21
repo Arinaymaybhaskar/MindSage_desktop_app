@@ -34,7 +34,22 @@ let modelsRoot = null;
 export function setModelsDir(dir) {
   modelsRoot = dir;
 }
+
+/** The id the user's own .gguf (KAN-79) runs under; a chat model checked by gguf.js. */
+export const CUSTOM_MODEL = "custom-gguf";
+let customSpec = null;
+export function setCustomModel(checked) {
+  customSpec = checked && {
+    label: checked.name,
+    role: "chat",
+    bytes: checked.bytes,
+    path: checked.path,
+  };
+}
+const specOf = (id) => (id === CUSTOM_MODEL ? customSpec : BUILTIN_MODELS[id]);
+
 export const modelPath = (id) => {
+  if (id === CUSTOM_MODEL) return customSpec.path;
   if (!modelsRoot) throw new Error("The models folder is not set");
   return path.join(modelsRoot, BUILTIN_MODELS[id].file);
 };
@@ -42,7 +57,7 @@ export const modelPath = (id) => {
 /** Downloads are renamed into place only after their SHA-256 matched. */
 export function isDownloaded(id) {
   try {
-    return fs.statSync(modelPath(id)).size === BUILTIN_MODELS[id].bytes;
+    return fs.statSync(modelPath(id)).size === specOf(id).bytes;
   } catch {
     return false;
   }
@@ -166,7 +181,7 @@ async function fallBackToCpu(reason) {
 }
 
 async function open(id) {
-  const spec = BUILTIN_MODELS[id];
+  const spec = specOf(id);
   const file = modelPath(id);
   if (!isDownloaded(id)) throw unavailable(`${spec.label} is not downloaded`);
   if (!fitsInMemory(spec.bytes, os.totalmem())) {
@@ -177,7 +192,7 @@ async function open(id) {
   // which would swap the two models on every call.
   const othersBytes = [...ready.keys()]
     .filter((other) => other !== id)
-    .reduce((sum, other) => sum + BUILTIN_MODELS[other].bytes, 0);
+    .reduce((sum, other) => sum + specOf(other).bytes, 0);
   if (othersBytes && !fitsInMemory(othersBytes + spec.bytes, os.totalmem())) {
     await disposeOthers(id);
   }
