@@ -100,8 +100,14 @@ describe("built-in engine", () => {
     // The 3B is not downloaded here.
     expect(llama.taskModelId("metadata")).toBe("qwen-2.5-1.5b");
     fake.totalmem = 2 * 2 ** 30; // Qwen no longer fits either
-    store.set("builtinModels", { chat: "llama-3.2-3b" });
-    expect(llama.taskModelId("summary")).toBe("llama-3.2-3b");
+    store.set("builtinModels", { chat: "qwen-2.5-1.5b" });
+    expect(llama.taskModelId("summary")).toBe("qwen-2.5-1.5b");
+  });
+
+  it("falls back to the recommendation when the chosen model is not on disk", async () => {
+    store.set("builtinModels", { chat: "llama-3.1-8b" }); // deleted or never downloaded
+    const llama = await freshEngine();
+    expect(llama.chatModelId()).toBe("llama-3.2-3b"); // 64 GB default
   });
 
   it("streams on the GPU and clears the crash marker once a call worked", async () => {

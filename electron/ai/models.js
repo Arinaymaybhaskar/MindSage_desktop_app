@@ -27,6 +27,15 @@ export const BUILTIN_MODELS = {
     bytes: 1117320736,
     sha256: "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
   },
+  // Offered only on request, never recommended (picker.js ON_REQUEST).
+  "llama-3.1-8b": {
+    label: "Llama 3.1 8B",
+    role: "chat",
+    file: "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+    url: `${HF}/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/bf5b95e96dac0462e2a09145ec66cae9a3f12067/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf`,
+    bytes: 4920739232,
+    sha256: "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c",
+  },
   "nomic-embed-text-v1.5": {
     label: "nomic-embed-text v1.5",
     role: "embed",
