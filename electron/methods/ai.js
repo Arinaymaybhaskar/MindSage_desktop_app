@@ -128,6 +128,20 @@ export async function handleDownloadAIModel(_event, id, confirmed = false) {
   }
 }
 
+/** Stops the running download but keeps its .part and the id to resume; null when none runs. */
+export async function pauseDownload() {
+  if (!downloading) return null;
+  pausedId = downloading.id;
+  cancelDownload();
+  await downloadEnded;
+  return pausedId;
+}
+
+/** Ends a user pause, so the next download is not reported as paused. */
+export const clearPause = () => {
+  pausedId = null;
+};
+
 const restarter = createRestarter({
   provider: activeProvider,
   reloadBuiltin: builtin.restart,
@@ -140,13 +154,7 @@ const restarter = createRestarter({
     ),
   queue,
   // The .part stays, so the download picks up where it stopped.
-  async pauseDownload() {
-    if (!downloading) return null;
-    pausedId = downloading.id;
-    cancelDownload();
-    await downloadEnded;
-    return pausedId;
-  },
+  pauseDownload,
   resumeDownload(id) {
     pausedId = null;
     handleDownloadAIModel(null, id, true);
@@ -235,7 +243,7 @@ export function handleSelectAIModel(_event, id) {
   return { success: true };
 }
 
-function partBytes(id) {
+export function partBytes(id) {
   try {
     return fs.statSync(`${builtin.modelPath(id)}.part`).size;
   } catch {
@@ -244,7 +252,7 @@ function partBytes(id) {
 }
 
 /** Free bytes on the disk the models live on; Infinity when it cannot be read. */
-function freeDiskBytes(id) {
+export function freeDiskBytes(id) {
   try {
     const dir = path.dirname(builtin.modelPath(id));
     fs.mkdirSync(dir, { recursive: true });

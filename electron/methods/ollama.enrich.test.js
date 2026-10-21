@@ -8,8 +8,9 @@ vi.mock("../ai/client.js", () => ({
   generate,
   taskModel: (task) => `model-for-${task}`,
 }));
+const failedRows = vi.hoisted(() => ({ rows: [] }));
 vi.mock("../db/connection.js", () => ({
-  db: { prepare: () => ({ run: () => {} }) },
+  db: { prepare: () => ({ run: () => {}, all: () => failedRows.rows }) },
 }));
 vi.mock("../db/index.js", () => ({ default: { getJournalById } }));
 vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
@@ -159,5 +160,23 @@ describe("enrichment on save", () => {
     eventBus.emit("journal:created", { entry });
     await drained();
     expect(generate).not.toHaveBeenCalled();
+  });
+});
+
+describe("backfill after setup (KAN-87)", () => {
+  it("re-runs enrichment once for entries that failed while models were missing", async () => {
+    failedRows.rows = [
+      {
+        id: 1,
+        user_id: 7,
+        ai_metadata_status: "failed",
+        ai_summary_status: "failed",
+      },
+    ];
+    generate.mockResolvedValueOnce(METADATA).mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("ai:models-ready");
+    await drained();
+    expect(generate).toHaveBeenCalledTimes(2);
+    failedRows.rows = [];
   });
 });

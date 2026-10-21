@@ -89,6 +89,13 @@ import {
   handleSetAIFeature,
 } from "./methods/ai.js";
 import {
+  handleAnswerMetered,
+  handleGetSetupState,
+  handlePauseSetup,
+  handleSetupOnline,
+  handleStartSetup,
+} from "./methods/aiSetup.js";
+import {
   startLiveTranscription,
   stopLiveTranscription,
   transcribeAudioBlob,
@@ -243,6 +250,11 @@ export function registerIPCHandlers() {
   ipcMain.handle("ai:get-features", handleGetAIFeatures);
   ipcMain.handle("ai:set-feature", handleSetAIFeature);
   ipcMain.handle("ai:get-model-dialog", handleGetModelDialog);
+  ipcMain.handle("ai:setup-get-state", handleGetSetupState);
+  ipcMain.handle("ai:setup-start", handleStartSetup);
+  ipcMain.handle("ai:setup-pause", handlePauseSetup);
+  ipcMain.handle("ai:setup-answer-metered", handleAnswerMetered);
+  ipcMain.handle("ai:setup-online", handleSetupOnline);
 
   // Whisper
   ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);

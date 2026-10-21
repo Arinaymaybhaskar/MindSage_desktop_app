@@ -225,6 +225,32 @@ eventBus.on("journal:created", ({ entry }) => {
   }
 });
 
+// The models just arrived (setup finished after an offline start): entries saved
+// meanwhile failed enrichment, so run the same fill-in again, once, in the queue.
+eventBus.on("ai:models-ready", () => {
+  const rows = db
+    .prepare(
+      `SELECT id, user_id, ai_metadata_status, ai_summary_status FROM journal_entries
+       WHERE is_deleted = 0 AND (ai_metadata_status = 'failed' OR ai_summary_status = 'failed')`,
+    )
+    .all();
+  for (const row of rows) {
+    background(async () => {
+      const current = localDB.getJournalById(row.user_id, row.id);
+      if (!current) return;
+      const now = getFeatures(row.user_id);
+      if (row.ai_metadata_status === "failed" && metadataOn(now))
+        await fillMetadata(current, now);
+      if (
+        row.ai_summary_status === "failed" &&
+        now.summary &&
+        isSummarizable(current.content)
+      )
+        await fillSummary(current);
+    }).catch((err) => log.error("AI backfill failed:", err));
+  }
+});
+
 async function fillMetadata(entry, features) {
   log.debug("Filling in missing details", { entryId: entry.id });
   try {
