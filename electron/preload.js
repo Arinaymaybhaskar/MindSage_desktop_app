@@ -95,6 +95,7 @@ contextBridge.exposeInMainWorld("electron", {
         "ollama:download-model",
         "ollama:delete-model",
         "ai:get-status",
+        "ai:restart",
         "ai:set-provider",
         "ai:download-model",
         "ai:cancel-download",
@@ -186,6 +187,7 @@ contextBridge.exposeInMainWorld("electron", {
         "chat:stream", // token-by-token chat generation
         "setup:progress",
         "ai:download-progress",
+        "ai:restart-status",
         "update:available",
         "update:progress",
         "update:downloaded",

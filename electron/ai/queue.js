@@ -7,6 +7,19 @@ let asking = 0;
 let askDone = Promise.resolve();
 let endAsk = () => {};
 let tail = Promise.resolve();
+let gate = null; // set while paused (a restart): no background job starts
+let openGate = () => {};
+
+/** Holds background jobs back; running and queued ones are kept, not dropped. */
+export function pause() {
+  gate ??= new Promise((resolve) => (openGate = resolve));
+}
+
+/** Lets the queued background jobs run again. */
+export function resume() {
+  openGate();
+  gate = null;
+}
 
 /** Runs an Ask; background jobs wait until no Ask is running. */
 export async function foreground(task) {
@@ -21,7 +34,7 @@ export async function foreground(task) {
 /** Queues a background job behind every earlier one and behind Ask. */
 export function background(task) {
   const run = tail.then(async () => {
-    while (asking) await askDone;
+    while (gate || asking) await (gate ?? askDone);
     return task();
   });
   tail = run.catch(() => {});
