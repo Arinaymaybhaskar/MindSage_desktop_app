@@ -1,6 +1,7 @@
 // IPC for the AI client: which provider runs, how the built-in engine stands,
 // and downloading its models. The setup and settings screens build on these.
 import fs from "node:fs";
+import path from "node:path";
 import os from "node:os";
 import { BrowserWindow } from "electron";
 import { modelStore } from "../store.js";
@@ -8,7 +9,15 @@ import { log } from "../log.js";
 import { PROVIDERS, activeProvider } from "../ai/client.js";
 import * as builtin from "../ai/llama.js";
 import { BUILTIN_MODELS } from "../ai/models.js";
-import { downloadWarning, modelBars, recommend } from "../ai/picker.js";
+import {
+  deleteImpact,
+  downloadSpace,
+  downloadWarning,
+  formatGB,
+  isLockedError,
+  modelBars,
+  recommend,
+} from "../ai/picker.js";
 import { downloadFile } from "../ai/download.js";
 
 const PROGRESS_EVERY_MS = 250;
@@ -47,6 +56,13 @@ export async function handleDownloadAIModel(_event, id, confirmed = false) {
     return { error: warning, needsConfirm: true };
   }
   const spec = BUILTIN_MODELS[id];
+  const space = downloadSpace(id, freeDiskBytes(id), partBytes(id));
+  if (space.short > 0) {
+    return {
+      error: `Not enough disk space: free ${formatGB(space.short)} more.`,
+      notEnoughSpace: true,
+    };
+  }
   if (downloading) return { error: "Another model is downloading" };
   downloading = { id, done: 0, total: spec.bytes };
   const controller = new AbortController();
@@ -153,12 +169,65 @@ export function handleSelectAIModel(_event, id) {
   return { success: true };
 }
 
-/** Deletes a downloaded model; if it was the chosen one, the recommendation takes over. */
-export async function handleDeleteAIModel(_event, id) {
+function partBytes(id) {
+  try {
+    return fs.statSync(`${builtin.modelPath(id)}.part`).size;
+  } catch {
+    return 0;
+  }
+}
+
+/** Free bytes on the disk the models live on; Infinity when it cannot be read. */
+function freeDiskBytes(id) {
+  try {
+    const dir = path.dirname(builtin.modelPath(id));
+    fs.mkdirSync(dir, { recursive: true });
+    const st = fs.statfsSync(dir);
+    return st.bavail * st.bsize;
+  } catch (err) {
+    log.warn("Free disk space could not be read", { error: err.message });
+    return Infinity;
+  }
+}
+
+/**
+ * Everything a download or delete dialog shows, read fresh each call so the
+ * dialog can poll: disk space changes while it is open.
+ * shortcut: no metered-connection check, Electron has no cheap API for it.
+ */
+export function handleGetModelDialog(_event, id) {
+  if (typeof id !== "string" || !Object.hasOwn(BUILTIN_MODELS, id)) {
+    return { error: "Unknown model" };
+  }
+  const spec = BUILTIN_MODELS[id];
+  const space = downloadSpace(id, freeDiskBytes(id), partBytes(id));
+  return {
+    id,
+    label: spec.label,
+    size: formatGB(spec.bytes),
+    downloaded: builtin.isDownloaded(id),
+    needSize: formatGB(space.need),
+    freeSize: Number.isFinite(space.free) ? formatGB(space.free) : null,
+    shortSize: space.short > 0 ? formatGB(space.short) : null,
+    enoughSpace: space.short === 0,
+    memoryWarning: downloadWarning(id, os.totalmem()),
+    impact: deleteImpact(id, builtin.chatModelId(), builtin.isDownloaded),
+  };
+}
+
+/**
+ * Deletes a downloaded model. One in use needs `confirmed`; chat then moves
+ * to another downloaded chat model, or is left off (chatModel null).
+ */
+export async function handleDeleteAIModel(_event, id, confirmed = false) {
   if (typeof id !== "string" || !Object.hasOwn(BUILTIN_MODELS, id)) {
     return { error: "Unknown model" };
   }
   if (downloading?.id === id) return { error: "That model is downloading" };
+  const impact = deleteImpact(id, builtin.chatModelId(), builtin.isDownloaded);
+  if (impact.inUse && confirmed !== true) {
+    return { error: impact.warning, needsConfirm: true };
+  }
   await builtin.unloadAll();
   try {
     fs.rmSync(builtin.modelPath(id), { force: true });
@@ -167,11 +236,19 @@ export async function handleDeleteAIModel(_event, id) {
       id,
       error: err.message,
     });
-    return { error: err.message };
+    return isLockedError(err)
+      ? { error: "The file is in use by another program.", retryLater: true }
+      : { error: err.message };
   }
-  const chosen = modelStore.get("builtinModels");
-  if (chosen?.chat === id)
-    modelStore.set("builtinModels", { ...chosen, chat: null });
+  if (BUILTIN_MODELS[id].role === "chat" && impact.inUse)
+    modelStore.set("builtinModels", {
+      ...modelStore.get("builtinModels"),
+      chat: impact.alternative,
+    });
   lastProbe = lastProbe?.id === id ? null : lastProbe;
-  return { success: true, chatModel: builtin.chatModelId() };
+  return {
+    success: true,
+    chatModel:
+      BUILTIN_MODELS[id].role === "chat" ? impact.alternative : undefined,
+  };
 }

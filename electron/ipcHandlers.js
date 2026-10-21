@@ -80,6 +80,7 @@ import {
   handleProbeAISpeed,
   handleSelectAIModel,
   handleDeleteAIModel,
+  handleGetModelDialog,
   handleDownloadAIModel,
   handleGetAIStatus,
   handleSetAIProvider,
@@ -235,6 +236,7 @@ export function registerIPCHandlers() {
   ipcMain.handle("ai:probe-speed", handleProbeAISpeed);
   ipcMain.handle("ai:select-model", handleSelectAIModel);
   ipcMain.handle("ai:delete-model", handleDeleteAIModel);
+  ipcMain.handle("ai:get-model-dialog", handleGetModelDialog);
 
   // Whisper
   ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);

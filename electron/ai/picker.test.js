@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { BUILTIN_MODELS } from "./models.js";
-import { downloadWarning, modelBars, recommend } from "./picker.js";
+import {
+  deleteImpact,
+  downloadSpace,
+  downloadWarning,
+  formatGB,
+  isLockedError,
+  modelBars,
+  recommend,
+} from "./picker.js";
 
 const GiB = 2 ** 30;
 
@@ -63,5 +71,51 @@ describe("model bars", () => {
     expect(by["llama-3.1-8b"].onRequest).toBe(true);
     expect(by["llama-3.1-8b"].bytes).toBe(BUILTIN_MODELS["llama-3.1-8b"].bytes);
     expect(by["llama-3.2-3b"].recommendedFor).toEqual(["chat", "metadata"]);
+  });
+});
+
+describe("download and delete dialogs", () => {
+  it("formats sizes in GB with one decimal", () => {
+    expect(formatGB(2019377696)).toBe("1.9 GB");
+    expect(formatGB(4920739232)).toBe("4.6 GB");
+  });
+
+  it("a cut download only needs the rest of the file", () => {
+    const { bytes } = BUILTIN_MODELS["llama-3.2-3b"];
+    expect(downloadSpace("llama-3.2-3b", bytes, 0).short).toBe(0);
+    expect(downloadSpace("llama-3.2-3b", bytes - 10, 0).short).toBe(10);
+    expect(downloadSpace("llama-3.2-3b", 100, bytes - 100).short).toBe(0);
+  });
+
+  it("deleting the chat model in use names the stand-in, or turns chat off", () => {
+    const both = (m) => m === "llama-3.2-3b" || m === "qwen-2.5-1.5b";
+    expect(deleteImpact("llama-3.2-3b", "llama-3.2-3b", both)).toMatchObject({
+      inUse: true,
+      alternative: "qwen-2.5-1.5b",
+    });
+    const alone = deleteImpact(
+      "llama-3.2-3b",
+      "llama-3.2-3b",
+      (m) => m === "llama-3.2-3b",
+    );
+    expect(alone).toMatchObject({ inUse: true, alternative: null });
+    expect(alone.warning).toMatch(/turn off/);
+  });
+
+  it("a model not in use deletes without a warning", () => {
+    expect(deleteImpact("qwen-2.5-1.5b", "llama-3.2-3b", () => true)).toEqual({
+      inUse: false,
+    });
+  });
+
+  it("the embedding model is always in use: search depends on it", () => {
+    expect(deleteImpact("nomic-embed-text-v1.5", "x", () => true).inUse).toBe(
+      true,
+    );
+  });
+
+  it("a locked file is a retry-later error", () => {
+    expect(isLockedError({ code: "EBUSY" })).toBe(true);
+    expect(isLockedError({ code: "ENOENT" })).toBe(false);
   });
 });
