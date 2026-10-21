@@ -12,6 +12,7 @@ import {
 import Modal from "../Modal";
 import { AppLogoRow, type AppId } from "./AppLogo";
 import {
+  errorText,
   portabilityService,
   type ExportFormat,
   type ImportPreview,
@@ -95,12 +96,6 @@ const fmtDate = (iso?: string | null) =>
         day: "numeric",
       })
     : "";
-
-const errorText = (err: unknown) =>
-  (err instanceof Error ? err.message : String(err)).replace(
-    /^Error invoking remote method '[^']+': (Error: )?/,
-    "",
-  );
 
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;

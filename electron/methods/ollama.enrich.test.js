@@ -164,19 +164,34 @@ describe("enrichment on save", () => {
 });
 
 describe("backfill after setup (KAN-87)", () => {
+  const failed = {
+    ...entry,
+    ai_metadata_status: "failed",
+    ai_summary_status: "failed",
+  };
+
   it("re-runs enrichment once for entries that failed while models were missing", async () => {
-    failedRows.rows = [
-      {
-        id: 1,
-        user_id: 7,
-        ai_metadata_status: "failed",
-        ai_summary_status: "failed",
-      },
-    ];
+    failedRows.rows = [{ id: 1, user_id: 7 }];
+    getJournalById.mockReturnValue(failed);
     generate.mockResolvedValueOnce(METADATA).mockResolvedValueOnce(SUMMARY);
     eventBus.emit("ai:models-ready");
     await drained();
     expect(generate).toHaveBeenCalledTimes(2);
+    failedRows.rows = [];
+  });
+
+  // An import calls the backfill too (KAN-80); a job queued twice runs once.
+  it("does nothing for an entry a previous backfill already filled", async () => {
+    failedRows.rows = [{ id: 1, user_id: 7 }];
+    getJournalById.mockReturnValue({
+      ...failed,
+      ai_metadata_status: "completed",
+      ai_summary_status: "completed",
+    });
+    const { backfillEnrichment } = await import("./ollama.js");
+    backfillEnrichment();
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
     failedRows.rows = [];
   });
 });

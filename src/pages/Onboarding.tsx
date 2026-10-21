@@ -8,8 +8,15 @@ import {
   AlertCircle,
   ArrowRight,
   RefreshCw,
+  FileUp,
 } from "lucide-react";
 import { MindSageMark } from "../components/ui/MindSageMark";
+import { useAuth } from "../hooks/useAuth";
+import {
+  errorText,
+  portabilityService,
+  type ImportPreview,
+} from "../api/portabilityService";
 import {
   setupService,
   appPrefsService,
@@ -82,6 +89,150 @@ function ProgressBar({ percent }: { percent: number }) {
         style={{ width: `${Math.max(0, Math.min(100, percent))}%` }}
       />
     </div>
+  );
+}
+
+type ImportStage = "idle" | "reading" | "preview" | "importing" | "done";
+
+/**
+ * Optional "Your entries" step (KAN-80): bring a journal from another app.
+ * The import runs in the main process; finishing setup never waits for it,
+ * and its progress shows in the Local AI panel.
+ */
+function YourEntriesStep() {
+  const { user } = useAuth();
+  const [stage, setStage] = useState<ImportStage>("idle");
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [imported, setImported] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const read = async (load: () => Promise<ImportPreview>) => {
+    setError(null);
+    setStage("reading");
+    try {
+      const p = await load();
+      // An unsupported file comes back with no format and the supported list.
+      if (!p.canceled && !p.format)
+        setError(p.warnings?.[0] ?? "MindSage can't read that file.");
+      if (p.canceled || !p.format) return setStage("idle");
+      setPreview(p);
+      setStage("preview");
+    } catch (err) {
+      setError(`Couldn't read that: ${errorText(err)}`);
+      setStage("idle");
+    }
+  };
+
+  const commit = () => {
+    setStage("importing");
+    portabilityService.commitImport().then(
+      (r) => {
+        setImported(r.imported);
+        setStage("done");
+      },
+      (err) => {
+        setError(`Import stopped: ${errorText(err)}`);
+        setStage("idle");
+      },
+    );
+  };
+
+  const onDrop = (files: FileList) => {
+    const paths = Array.from(files)
+      .map((f) => window.electron.getPathForFile(f))
+      .filter(Boolean);
+    if (paths.length) void read(() => portabilityService.readImport(paths));
+  };
+
+  const busy = stage === "reading" || stage === "importing";
+  const btn =
+    "inline-flex items-center gap-2 rounded-lg bg-dark1 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-light1 dark:text-dark1";
+
+  return (
+    <StepRow
+      state={
+        stage === "done"
+          ? "done"
+          : busy
+            ? "active"
+            : error
+              ? "error"
+              : "pending"
+      }
+      title="Your entries (optional)"
+      detail={
+        user
+          ? "Bring your journal from Day One, Journey, Daylio, Evernote, Obsidian, Notion, Markdown, CSV, plain text or a MindSage backup."
+          : "Once your profile exists, you can bring entries from another app in Settings, Import & Export."
+      }
+    >
+      {user && (
+        <div
+          className="mt-3 space-y-2"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (!busy && stage !== "done") onDrop(e.dataTransfer.files);
+          }}
+        >
+          {error && (
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
+          )}
+          {(stage === "idle" || stage === "reading") && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void read(portabilityService.pickImport)}
+              className={btn}
+            >
+              <FileUp size={15} />
+              {stage === "reading"
+                ? "Reading…"
+                : "Choose a file or drop it here"}
+            </button>
+          )}
+          {stage === "preview" && preview && (
+            <>
+              <p className="text-sm text-text-light dark:text-text-dark">
+                {preview.formatName} export: {preview.toImport ?? 0} entries to
+                import
+                {preview.duplicates
+                  ? `, ${preview.duplicates} already here`
+                  : ""}
+                .
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={commit} className={btn}>
+                  Import
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStage("idle")}
+                  className="rounded-lg border border-border-light px-4 py-2 text-sm font-semibold text-text-light-sub dark:border-border-dark dark:text-text-dark-sub"
+                >
+                  Choose another file
+                </button>
+              </div>
+            </>
+          )}
+          {stage === "importing" && (
+            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+              Importing {preview?.toImport ?? 0} {preview?.formatName} entries
+              in the background. You can finish setup now; the Local AI panel
+              shows how far it has got.
+            </p>
+          )}
+          {stage === "done" && (
+            <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
+              Imported {imported} entries. The newest get titles and summaries
+              once the local AI is ready.
+            </p>
+          )}
+        </div>
+      )}
+    </StepRow>
   );
 }
 
@@ -378,6 +529,9 @@ export default function Onboarding() {
               </>
             )}
           </StepRow>
+
+          {/* Step 4: Your entries (optional, KAN-80) */}
+          <YourEntriesStep />
         </div>
 
         {/* Launch-at-startup opt-in */}

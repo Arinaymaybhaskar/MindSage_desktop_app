@@ -80,6 +80,7 @@ interface EntryActivity {
 
 interface BulkActivity {
   kind: string;
+  importing: boolean;
   done: number;
   total: number;
   failed: number;
@@ -203,21 +204,26 @@ export default function LocalAIPanel() {
       const { event, data } = payload ?? {};
       if (!data) return;
 
-      if (event?.startsWith("index:bulk")) {
+      // A journal import (KAN-80) reports the same way as a bulk re-index.
+      const bulkEvent = event?.match(
+        /^(index|import):bulk(Started|Progress|Completed)$/,
+      );
+      if (bulkEvent) {
         const kind = data.kind ?? "entries";
         const total = data.total ?? 0;
-        if (event === "index:bulkStarted" && total === 0) return;
+        if (bulkEvent[2] === "Started" && total === 0) return;
+        const completed = bulkEvent[2] === "Completed";
         setBulks((previous) => {
           const current = previous.find((bulk) => bulk.kind === kind);
           const updated: BulkActivity = {
             kind,
+            importing: bulkEvent[1] === "import",
             total: total || current?.total || 0,
-            done:
-              event === "index:bulkCompleted"
-                ? total || current?.total || 0
-                : (data.done ?? current?.done ?? 0),
+            done: completed
+              ? (data.done ?? (total || current?.total || 0))
+              : (data.done ?? current?.done ?? 0),
             failed: data.failed ?? current?.failed ?? 0,
-            settledAt: event === "index:bulkCompleted" ? Date.now() : null,
+            settledAt: completed ? Date.now() : null,
           };
           // Update in place: re-appending made the rows reshuffle under the
           // cursor on every progress tick.
@@ -383,7 +389,7 @@ export default function LocalAIPanel() {
       return {
         icon: <Loader2 size={13} className="animate-spin" />,
         tone: "text-dark1 dark:text-light1",
-        text: `Indexing ${done}/${total}`,
+        text: `${runningBulks.some((bulk) => bulk.importing) ? "Importing" : "Indexing"} ${done}/${total}`,
       };
     }
     if (runningEntries.length === 1) {
@@ -549,7 +555,13 @@ export default function LocalAIPanel() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
                         <p className="truncate text-sm font-medium text-text-light dark:text-text-dark">
-                          {bulk.settledAt ? "Re-indexed" : "Re-indexing"}{" "}
+                          {
+                            (bulk.importing
+                              ? ["Importing", "Imported"]
+                              : ["Re-indexing", "Re-indexed"])[
+                              bulk.settledAt ? 1 : 0
+                            ]
+                          }{" "}
                           {bulk.kind}
                         </p>
                         <span className="shrink-0 text-xs tabular-nums text-text-light-sub dark:text-text-dark-sub">

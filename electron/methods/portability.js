@@ -25,6 +25,10 @@ import {
   writeAny,
 } from "../portability/index.js";
 import { basename } from "../portability/common.js";
+import { modelStore } from "../store.js";
+import { modelsReady } from "../ai/llama.js";
+import { importStatuses } from "./importBackfill.js";
+import { backfillEnrichment } from "./ollama.js";
 
 const requireUser = () => {
   const id = currentUserId();
@@ -227,12 +231,31 @@ function previewImport(filePaths) {
   };
 }
 
+// Entries written per transaction; the main process yields between chunks so
+// a 5,000-entry import never freezes the app or holds up finishing setup.
+const CHUNK = 250;
+let importing = false;
+
+// Progress goes to the Local AI panel, named by the app it came from.
+const report = (event, data) => {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win && !win.isDestroyed())
+    win.webContents.send("ai-status-event", { event, data });
+};
+
+// Models here or a provider chosen: enrich now. Otherwise ai:models-ready does.
+const aiReady = () =>
+  modelsReady() ||
+  ["ollama", "openai", "gguf"].includes(modelStore.get("aiProvider"));
+
 export async function handleCommitImport() {
   const userId = requireUser();
+  if (importing) throw new Error("An import is already running");
   if (!pending || pending.userId !== userId)
     throw new Error("Nothing to import; pick a file first");
-  const { entries } = pending;
+  const { entries, format } = pending;
   pending = null;
+  if (!entries.length) return { imported: 0 };
 
   const mediaRoot = path.join(app.getPath("userData"), "media", "journals");
   const saveMedia = (journalId, item) => {
@@ -246,12 +269,22 @@ export async function handleCommitImport() {
     return dest;
   };
 
+  // Set first: if a later chunk fails, the chunks already written can be undone.
   const ids = [];
+  lastImport = { userId, ids, at: new Date().toISOString() };
+  const statuses = importStatuses(entries);
   const fixUp = db.prepare(
     "UPDATE journal_entries SET mood_score = ?, updated_at = ? WHERE id = ?",
   );
-  const run = db.transaction(() => {
-    for (const e of entries) {
+  const markForBackfill = db.prepare(
+    `UPDATE journal_entries SET ai_metadata_status = @ai_metadata_status,
+       ai_metadata_error = @ai_metadata_error, ai_summary_status = @ai_summary_status,
+       ai_summary_error = @ai_summary_error WHERE id = @id`,
+  );
+  const writeChunk = db.transaction((from) => {
+    const written = [];
+    for (let i = from; i < Math.min(from + CHUNK, entries.length); i++) {
+      const e = entries[i];
       const created = localDB.createJournalEntry(userId, {
         title: e.title,
         content: e.content,
@@ -262,6 +295,7 @@ export async function handleCommitImport() {
       // createJournalEntry reads a mood of 0 as "none" and stamps updated_at
       // now; keep what the source said.
       fixUp.run(e.mood, e.updatedAt ?? e.createdAt, created.id);
+      if (statuses[i]) markForBackfill.run({ ...statuses[i], id: created.id });
       if (e.images[0])
         localDB.linkMediaToJournal(
           created.id,
@@ -274,20 +308,41 @@ export async function handleCommitImport() {
           saveMedia(created.id, e.audio[0]),
           "audio",
         );
-      ids.push(created.id);
+      written.push(created.id);
     }
+    return written;
   });
-  run();
 
-  lastImport = { userId, ids, at: new Date().toISOString() };
-  // Index the new entries for search in one sweep, rather than queueing AI
-  // title and summary generation for every one of them.
-  getIndexer()?.sweep();
+  const kind = `${FORMAT_NAMES[format] ?? "imported"} entries`;
+  const total = entries.length;
+  importing = true;
+  try {
+    report("import:bulkStarted", { kind, total });
+    for (let from = 0; from < total; from += CHUNK) {
+      ids.push(...writeChunk(from));
+      report("import:bulkProgress", { kind, done: ids.length, total });
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+  } finally {
+    importing = false;
+    report("import:bulkCompleted", {
+      kind,
+      total,
+      done: ids.length,
+      failed: total - ids.length,
+    });
+    // Index the new entries for search in one sweep, rather than queueing AI
+    // title and summary generation for every one of them.
+    if (ids.length) getIndexer()?.sweep();
+  }
+  // One bounded backfill instead of per-entry AI (KAN-80).
+  if (aiReady()) backfillEnrichment();
   return { imported: ids.length };
 }
 
 export async function handleUndoImport() {
   const userId = requireUser();
+  if (importing) throw new Error("Wait for the import to finish");
   if (!lastImport || lastImport.userId !== userId)
     throw new Error("No import to undo");
   // Undoing an import removes the entries outright rather than filling the

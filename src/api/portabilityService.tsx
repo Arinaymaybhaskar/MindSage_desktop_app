@@ -30,6 +30,13 @@ export interface ImportPreview {
 const invoke = <T,>(channel: string, ...args: unknown[]) =>
   window.electron.ipcRenderer.invoke<T>(channel, ...args);
 
+/** A handler's own message, without Electron's "Error invoking remote method" prefix. */
+export const errorText = (err: unknown) =>
+  (err instanceof Error ? err.message : String(err)).replace(
+    /^Error invoking remote method '[^']+': (Error: )?/,
+    "",
+  );
+
 export const portabilityService = {
   /** Asks where to save; resolves with the chosen path or null. */
   pickExportPath: async (format: ExportFormat): Promise<string | null> => {
@@ -46,6 +53,7 @@ export const portabilityService = {
   /** Reads files dropped onto the Import panel, and previews them. */
   readImport: (paths: string[]) =>
     invoke<ImportPreview>("data:import-read", paths),
+  /** Resolves when every entry is written; progress arrives on ai-status-event. */
   commitImport: () => invoke<{ imported: number }>("data:import-commit"),
   undoImport: () => invoke<{ removed: number }>("data:import-undo"),
 };
