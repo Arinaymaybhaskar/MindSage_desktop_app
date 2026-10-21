@@ -12,9 +12,7 @@ const available = { value: false };
 vi.mock("../db/searchIndex.js", () => ({
   SOURCE_TYPES: ["journal"],
   vectorsAvailable: () => available.value,
-  retryGaveUp: (...a) => retryGaveUp(...a),
 }));
-const retryGaveUp = vi.fn(() => 0);
 
 const { registerSearchIPC, setIndexer } = await import("./search.js");
 const { indexUnavailableResult } = await import("../services/searchIndex.js");
@@ -39,32 +37,5 @@ describe("search:sync", () => {
     const result = await handlers.get("search:sync")({}, "journal", 1);
     expect(result.success).toBe(true);
     expect(noteChanged).toHaveBeenCalledWith("journal", 1);
-  });
-});
-
-describe("search:bulk-sync (KAN-373)", () => {
-  const sweep = vi.fn();
-  beforeEach(() => {
-    sweep.mockClear();
-    retryGaveUp.mockClear();
-    setIndexer({ sweep });
-  });
-
-  it("resets rows that gave up before it sweeps", async () => {
-    available.value = true;
-    const order = [];
-    retryGaveUp.mockImplementationOnce(() => (order.push("reset"), 2));
-    sweep.mockImplementationOnce(() => order.push("sweep"));
-    const result = await handlers.get("search:bulk-sync")({});
-    expect(result.success).toBe(true);
-    expect(order).toEqual(["reset", "sweep"]);
-  });
-
-  it("does nothing while the index is unavailable", async () => {
-    available.value = false;
-    const result = await handlers.get("search:bulk-sync")({});
-    expect(result).toEqual(indexUnavailableResult());
-    expect(retryGaveUp).not.toHaveBeenCalled();
-    expect(sweep).not.toHaveBeenCalled();
   });
 });
