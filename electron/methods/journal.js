@@ -4,11 +4,13 @@ import { eventBus } from "../eventBus.js";
 import { updateJournalEntry } from "../db/journal.js";
 import {
   AISummaryPrompt,
+  JOURNAL_METADATA_SCHEMA,
   getAutoPopulateValues,
   isSummarizable,
   parseJournalMetadata,
   sanitizeSummary,
 } from "./AIPrompts.js";
+import { generate } from "../ai/client.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
@@ -187,26 +189,11 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     eventBus.emit("journal:aiStarted", { entryId: entry.id });
 
     const prompt = getAutoPopulateValues(entry.content);
-    const selectedModels = (await import("../store.js")).modelStore.get(
-      "selectedModels",
-    );
-    const model = selectedModels?.chat || "llama3.2:latest";
 
     try {
-      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          prompt,
-          stream: false,
-          format: "json",
-          num_predict: 300,
-        }),
-      });
-      if (!res2.ok) throw new Error(`Ollama HTTP error: ${res2.status}`);
-      const aiRes = await res2.json();
-      const metadata = parseJournalMetadata(aiRes.response);
+      const metadata = parseJournalMetadata(
+        await generate(prompt, { schema: JOURNAL_METADATA_SCHEMA }),
+      );
       if (!metadata)
         throw new Error("AI returned incomplete or invalid metadata");
       // The journal:aiCompleted persister writes the fields and flips the
@@ -249,25 +236,9 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     eventBus.emit("ollama:summary-started", { entryId: entry.id });
 
     const prompt = AISummaryPrompt(entry.content);
-    const selectedModels = (await import("../store.js")).modelStore.get(
-      "selectedModels",
-    );
-    const model = selectedModels?.chat || "llama3.2:latest";
 
     try {
-      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          prompt,
-          stream: false,
-          num_predict: 300,
-        }),
-      });
-      if (!res2.ok) throw new Error(`Ollama HTTP error: ${res2.status}`);
-      const aiRes = await res2.json();
-      const summary = sanitizeSummary(aiRes.response);
+      const summary = sanitizeSummary(await generate(prompt));
       if (!summary) {
         const error = "AI could not produce a valid summary";
         db.prepare(

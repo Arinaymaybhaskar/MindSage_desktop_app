@@ -2,11 +2,13 @@ import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
 import {
   AISummaryPrompt,
+  JOURNAL_METADATA_SCHEMA,
   getAutoPopulateValues,
   isSummarizable,
   parseJournalMetadata,
   sanitizeSummary,
 } from "./AIPrompts.js";
+import { generate } from "../ai/client.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { db } from "../db/connection.js";
@@ -35,94 +37,7 @@ export const handleGetOllamaModels = async () => {
   return result;
 };
 
-/**
- * Streaming counterpart to `handleOllamaPrompt`.
- *
- * `/api/generate` with `stream: true` answers NDJSON - one JSON object per
- * line, each carrying the next fragment in its `response` field - so the body
- * has to be read incrementally and split on newlines with a carry buffer; a
- * single chunk from the socket routinely ends mid-line.
- *
- * `onToken` receives each fragment as it arrives. The full concatenated text is
- * returned at the end, so a caller that also needs to parse the finished output
- * (JSON mode, retries) can use this as a drop-in for the non-streaming call.
- *
- * Deliberately not an IPC handler: the renderer must not be able to open a
- * generation stream directly, and callers need the per-token callback, which
- * cannot cross the IPC boundary as a function.
- */
-export const streamOllamaPrompt = async (
-  model,
-  prompt,
-  { jsonMode = false, numPredict = 300, onToken, signal } = {},
-) => {
-  if (!model || !prompt) throw new Error("Model name and prompt are required.");
-
-  const requestBody = { model, prompt, stream: true, num_predict: numPredict };
-  if (jsonMode) requestBody.format = "json";
-
-  const res = await fetch("http://127.0.0.1:11434/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(requestBody),
-    signal,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Ollama HTTP error: ${res.status} ${res.statusText}`);
-  }
-  if (!res.body) throw new Error("Ollama returned no response body.");
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let carry = "";
-  let full = "";
-
-  /** Handles one complete NDJSON line. */
-  const consumeLine = (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    let parsed;
-    try {
-      parsed = JSON.parse(trimmed);
-    } catch {
-      // A malformed line is not worth aborting a whole generation over.
-      return;
-    }
-    if (parsed.error) throw new Error(`Ollama error: ${parsed.error}`);
-    if (typeof parsed.response === "string" && parsed.response.length > 0) {
-      full += parsed.response;
-      onToken?.(parsed.response, full);
-    }
-  };
-
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      carry += decoder.decode(value, { stream: true });
-
-      let newlineAt;
-      while ((newlineAt = carry.indexOf("\n")) !== -1) {
-        consumeLine(carry.slice(0, newlineAt));
-        carry = carry.slice(newlineAt + 1);
-      }
-    }
-    // The final line may arrive without a trailing newline.
-    consumeLine(carry + decoder.decode());
-  } finally {
-    // Releasing matters on the abort path: an unreleased reader keeps the
-    // socket open and the model loaded.
-    try {
-      reader.releaseLock();
-    } catch {
-      /* already released */
-    }
-  }
-
-  return full;
-};
-
+/** `ollama:get-response`: one generation through the AI client. */
 export const handleOllamaPrompt = async (
   event,
   model,
@@ -133,38 +48,15 @@ export const handleOllamaPrompt = async (
   // if (!userId) {
   //     return { error: "Not signed in" };
   // }
-  log.debug("Ollama prompt", { model, promptChars: prompt?.length });
-  if (!model || !prompt) {
-    return { error: "Model name and prompt are required." };
-  }
+  log.debug("AI prompt", { model, promptChars: prompt?.length });
+  // No model is fine: the built-in engine picks its own, and Ollama falls
+  // back to the selected chat model.
+  if (!prompt) return { error: "A prompt is required." };
 
   try {
-    const requestBody = {
-      model,
-      prompt,
-      stream: false, // full output as one JSON
-      num_predict: 300, // limit tokens for speed
-    };
-
-    // Enable JSON mode if requested
-    if (jsonMode) {
-      requestBody.format = "json";
-    }
-
-    const res = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Ollama HTTP error: ${res.status} ${res.statusText}`);
-    }
-
-    const data = await res.json();
-    return data.response;
+    return await generate(prompt, { json: jsonMode, ollamaModel: model });
   } catch (err) {
-    log.error("Ollama error:", err);
+    log.error("AI prompt error:", err);
     return { error: err.message };
   }
 };
@@ -230,28 +122,11 @@ eventBus.on("journal:created", async ({ entry }) => {
       `UPDATE journal_entries SET ai_metadata_status = 'pending' WHERE id = ?`,
     ).run(entry.id);
     const prompt = getAutoPopulateValues(entry.content);
-
-    // Get the selected chat model from settings
-    const selectedModels = modelStore.get("selectedModels");
-    const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
-    log.debug("Filling in missing details", { model });
+    log.debug("Filling in missing details", { entryId: entry.id });
     try {
-      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          prompt,
-          stream: false,
-          format: "json", // constrain the model to valid JSON
-          num_predict: 300,
-        }),
-      });
-      if (!res2.ok) {
-        throw new Error(`Ollama HTTP error: ${res2.status} ${res2.statusText}`);
-      }
-      const aiRes = await res2.json();
-      const metadata = parseJournalMetadata(aiRes.response);
+      const metadata = parseJournalMetadata(
+        await generate(prompt, { schema: JOURNAL_METADATA_SCHEMA }),
+      );
       if (!metadata) {
         throw new Error("AI returned incomplete or invalid metadata");
       }
@@ -294,27 +169,9 @@ eventBus.on("journal:created", async ({ entry }) => {
     eventBus.emit("ollama:summary-skipped", { entryId: entry.id });
     return; // Too few words to produce a meaningful summary
   }
-  // Get the selected chat model from settings
-  const selectedModels = modelStore.get("selectedModels");
-  const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
 
   try {
-    const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        prompt,
-        stream: false,
-        num_predict: 300,
-      }),
-    });
-    if (!res2.ok) {
-      throw new Error(`Ollama HTTP error: ${res2.status} ${res2.statusText}`);
-    }
-
-    const aiRes = await res2.json();
-    const summary = sanitizeSummary(aiRes.response);
+    const summary = sanitizeSummary(await generate(prompt));
     if (!summary) {
       const error = "AI could not produce a valid summary";
       db.prepare(
@@ -352,34 +209,16 @@ export async function generateSuggestion(prompt, maxTokens = 20) {
   try {
     // Get the selected chat model from settings
     const selectedModels = modelStore.get("selectedModels");
-    const model = selectedModels?.decision || "llama3.2:latest"; // Fallback model
+    const ollamaModel = selectedModels?.decision || "llama3.2:latest"; // Fallback model
 
-    const response = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        prompt,
-        options: {
-          num_predict: maxTokens,
-        },
-        system:
-          "You are a raw text completion model. Your only job is to continue the user's text. Do not add any commentary, greetings, or conversational filler. Directly output the next sequence of words.",
-        temperature: 0.2,
-        stream: false,
-      }),
+    const text = await generate(prompt, {
+      ollamaModel,
+      maxTokens,
+      system:
+        "You are a raw text completion model. Your only job is to continue the user's text. Do not add any commentary, greetings, or conversational filler. Directly output the next sequence of words.",
+      temperature: 0.2,
     });
-
-    // Handle non-successful HTTP responses
-    if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
-    }
-
-    // Since stream is false, parse the entire JSON body at once
-    const data = await response.json();
-
-    // The generated text is in the 'response' property
-    return data.response.trim();
+    return text.trim();
   } catch (error) {
     log.error("[generateSuggestion] Error fetching suggestion:", error);
     // Return an empty string on failure so the frontend doesn't break
@@ -463,28 +302,3 @@ export const handleDeleteOllamaModel = (event, modelName) => {
     });
   });
 };
-
-export async function generateEmbedding(text) {
-  try {
-    const response = await fetch("http://127.0.0.1:11434/api/embeddings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "nomic-embed-text:v1.5",
-        prompt: text,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Ollama embedding API error: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    const data = await response.json();
-    return data.embedding;
-  } catch (error) {
-    log.error("Error generating embedding:", error);
-    throw error;
-  }
-}

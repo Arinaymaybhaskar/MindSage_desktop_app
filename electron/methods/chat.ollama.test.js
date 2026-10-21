@@ -4,7 +4,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // argument is seen as it would be at run time. Only the network edge (fetch)
 // and the modules that need Electron or the native database are replaced.
 vi.mock("../db/connection.js", () => ({ db: { prepare: vi.fn() } }));
-vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
+// Ollama is the provider here; the built-in engine has its own tests.
+vi.mock("../store.js", () => ({
+  modelStore: { get: (key) => (key === "aiProvider" ? "ollama" : undefined) },
+}));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 const db = {
   AddChat: vi.fn(async () => ({ id: 11 })),
@@ -80,7 +83,7 @@ describe("Ask through the real Ollama client (KAN-367)", () => {
     for (const { body } of generate) {
       expect(body.model).toBe(MODEL);
       expect(body.prompt).toContain(QUESTION);
-      expect(body.format).toBe("json");
+      expect(body.format).toMatchObject({ type: "object" });
     }
     expect(generate[0].body.stream).toBe(false);
     expect(generate[1].body.stream).toBe(true);

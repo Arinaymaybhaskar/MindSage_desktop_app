@@ -22,8 +22,9 @@ const TYPE_LABEL = {
   progress_log: "progress logs",
 };
 
-/** Ollama is not running or has no embedding model: not the item's fault. */
+/** Ollama or the built-in engine cannot embed right now: not the item's fault. */
 export function isUnavailable(error) {
+  if (error?.code === "AI_UNAVAILABLE") return true;
   const text = `${error?.message ?? ""} ${error?.cause?.code ?? ""}`;
   return /fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|ETIMEDOUT|socket|\b404\b|\b503\b/i.test(
     text,

@@ -18,7 +18,8 @@ import { createServiceAnnouncer } from "./services/serviceAnnouncer.js";
 import { removeLegacyQdrantData } from "./legacyQdrant.js";
 import { isIndexReady, setIndexer } from "./methods/search.js";
 import { createIndexer } from "./services/indexer.js";
-import { generateEmbedding } from "./methods/ollama.js";
+import { activeProvider, embed } from "./ai/client.js";
+import { warmUp as warmUpBuiltinAI } from "./ai/llama.js";
 import { vectorSupport } from "./db/connection.js";
 import { registerTrashIPC, startTrashJob } from "./methods/trash.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
@@ -264,12 +265,19 @@ app.whenReady().then(async () => {
     log(`localDB init error: ${e?.stack || e}`);
   }
 
-  try {
-    log("Running OllamaEmbeddingModelSetup");
-    splashStatus("Preparing AI models…");
-    OllamaEmbeddingModelSetup();
-  } catch (e) {
-    log(`Ollama setup error: ${e?.stack || e}`);
+  // Ollama is the advanced option: it is only set up when it is the provider.
+  // The built-in engine loads its chat model once startup has settled, so the
+  // first AI call does not pay the load.
+  if (activeProvider() === "ollama") {
+    try {
+      log("Running OllamaEmbeddingModelSetup");
+      splashStatus("Preparing AI models…");
+      OllamaEmbeddingModelSetup();
+    } catch (e) {
+      log(`Ollama setup error: ${e?.stack || e}`);
+    }
+  } else {
+    setTimeout(warmUpBuiltinAI, 10_000);
   }
 
   // The renderer pings this once it has actually painted (see App.tsx),
@@ -319,7 +327,7 @@ app.whenReady().then(async () => {
     },
     onIndexReady: () => {
       const indexer = createIndexer({
-        embed: generateEmbedding,
+        embed,
         report: reportIndexActivity,
       });
       setIndexer(indexer);

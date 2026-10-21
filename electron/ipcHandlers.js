@@ -75,6 +75,11 @@ import {
   handleDeleteOllamaModel,
 } from "./methods/ollama.js";
 import {
+  handleDownloadAIModel,
+  handleGetAIStatus,
+  handleSetAIProvider,
+} from "./methods/ai.js";
+import {
   startLiveTranscription,
   stopLiveTranscription,
   transcribeAudioBlob,
@@ -215,6 +220,11 @@ export function registerIPCHandlers() {
   );
   ipcMain.handle("ollama:download-model", handleDownloadOllamaModel);
   ipcMain.handle("ollama:delete-model", handleDeleteOllamaModel);
+
+  // AI client: provider choice and the built-in engine's models
+  ipcMain.handle("ai:get-status", handleGetAIStatus);
+  ipcMain.handle("ai:set-provider", handleSetAIProvider);
+  ipcMain.handle("ai:download-model", handleDownloadAIModel);
 
   // Whisper
   ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);

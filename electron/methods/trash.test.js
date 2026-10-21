@@ -9,7 +9,7 @@ const restoreItems = vi.fn();
 vi.mock("../db/index.js", () => ({ default: { restoreItems } }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 vi.mock("./media.js", () => ({ thumbnailDir: () => "/tmp/none/thumbs" }));
-vi.mock("./ollama.js", () => ({ generateEmbedding: vi.fn() }));
+vi.mock("../ai/client.js", () => ({ embed: vi.fn() }));
 vi.mock("../db/searchIndex.js", () => ({
   SOURCE_TYPES: ["journal"],
   vectorsAvailable: () => true,

@@ -102,7 +102,10 @@
       "icon": "assets/icon2.png"
     },
     "asarUnpack": [
-      "node_modules/sqlite-vec-*/**"
+      "node_modules/sqlite-vec-*/**",
+      "node_modules/node-llama-cpp/bins/**/*",
+      "node_modules/node-llama-cpp/llama/localBuilds/**/*",
+      "node_modules/@node-llama-cpp/*/bins/**/*"
     ]
   },
   "dependencies": {
@@ -126,6 +129,7 @@
     "gsap": "^3.13.0",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.525.0",
+    "node-llama-cpp": "3.22.1",
     "qrcode-generator": "^1.4.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
