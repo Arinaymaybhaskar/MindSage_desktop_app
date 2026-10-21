@@ -365,7 +365,9 @@ describe("the users-email-optional migration", () => {
     const users = db.prepare("SELECT * FROM users ORDER BY id").all();
     const entries = db.prepare("SELECT * FROM journal_entries").all().length;
 
-    expect(runMigrations(db).applied).toEqual(["users-email-optional"]);
+    expect(runMigrations(db, MIGRATIONS.slice(0, 10)).applied).toEqual([
+      "users-email-optional",
+    ]);
 
     expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
     expect(db.prepare("SELECT * FROM users ORDER BY id").all()).toEqual(users);
@@ -389,6 +391,23 @@ describe("the users-email-optional migration", () => {
         .get(seeded[0].userId).n,
     ).toBe(0);
     integrityOk(db);
+  });
+});
+
+describe("the reminder-time migration", () => {
+  it("adds reminder_time, defaulting to 20:00 for existing profiles", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 10));
+    const { userId } = seedJournal(db, { users: 1, entriesPerUser: 1 })[0];
+    db.prepare("INSERT INTO user_settings (user_id) VALUES (?)").run(userId);
+
+    expect(runMigrations(db).applied).toEqual(["reminder-time"]);
+
+    expect(
+      db
+        .prepare("SELECT reminder_time FROM user_settings WHERE user_id = ?")
+        .get(userId).reminder_time,
+    ).toBe("20:00");
   });
 });
 

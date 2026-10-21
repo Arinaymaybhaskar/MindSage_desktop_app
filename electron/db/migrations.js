@@ -665,6 +665,16 @@ export const MIGRATIONS = [
       }
     },
   },
+  {
+    // The "You're set" screen (KAN-81) stores the daily reminder time next to
+    // journal_reminder. Nothing fires it yet.
+    version: 11,
+    name: "reminder-time",
+    up: (d) =>
+      d.exec(
+        `ALTER TABLE user_settings ADD COLUMN reminder_time TEXT DEFAULT '20:00'`,
+      ),
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
