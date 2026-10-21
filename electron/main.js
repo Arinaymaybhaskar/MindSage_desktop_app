@@ -19,7 +19,7 @@ import { removeLegacyQdrantData } from "./legacyQdrant.js";
 import { isIndexReady, setIndexer } from "./methods/search.js";
 import { createIndexer } from "./services/indexer.js";
 import { activeProvider, embed } from "./ai/client.js";
-import { warmUp as warmUpBuiltinAI } from "./ai/llama.js";
+import * as builtinAI from "./ai/llama.js";
 import { vectorSupport } from "./db/connection.js";
 import { registerTrashIPC, startTrashJob } from "./methods/trash.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
@@ -160,6 +160,7 @@ app.whenReady().then(async () => {
   const log = (message) => appLog.info(message);
 
   log("App ready");
+  builtinAI.setModelsDir(path.join(app.getPath("userData"), "models"));
 
   // Sticky so it can be replayed to renderers that load later.
   let servicesReady = false;
@@ -277,7 +278,7 @@ app.whenReady().then(async () => {
       log(`Ollama setup error: ${e?.stack || e}`);
     }
   } else {
-    setTimeout(warmUpBuiltinAI, 10_000);
+    setTimeout(builtinAI.warmUp, 10_000);
   }
 
   // The renderer pings this once it has actually painted (see App.tsx),
@@ -428,3 +429,18 @@ app.on("before-quit", () => {
 // them at both events: a probe started between them is caught by will-quit.
 app.on("before-quit", killOllamaCliChildren);
 app.on("will-quit", killOllamaCliChildren);
+
+// The built-in AI engine holds native memory and GPU state: free it before the
+// process exits, giving it a few seconds at most.
+let builtinAIStopped = false;
+app.on("before-quit", (event) => {
+  if (builtinAIStopped || !builtinAI.isStarted()) return;
+  event.preventDefault();
+  builtinAIStopped = true;
+  Promise.race([
+    builtinAI.shutdown(),
+    new Promise((resolve) => setTimeout(resolve, 3000)),
+  ])
+    .catch((e) => appLog.warn("Built-in AI shutdown failed", e))
+    .finally(() => app.quit());
+});

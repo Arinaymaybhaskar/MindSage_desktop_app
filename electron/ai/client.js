@@ -8,14 +8,14 @@ import * as ollama from "./ollama.js";
 export const PROVIDERS = ["builtin", "ollama"];
 
 /**
- * The chosen provider. Without a choice, an install that already picked
- * Ollama models keeps Ollama, and a new one gets the built-in engine.
+ * The chosen provider. Without a choice, the built-in engine runs only once
+ * its models are on disk; until then Ollama does, as before, so nobody loses
+ * AI while the setup screens for the built-in engine do not exist yet.
  */
 export function activeProvider() {
   const chosen = modelStore.get("aiProvider");
   if (PROVIDERS.includes(chosen)) return chosen;
-  const picked = modelStore.get("selectedModels") ?? {};
-  return Object.keys(picked).length ? "ollama" : "builtin";
+  return builtin.modelsReady() ? "builtin" : "ollama";
 }
 
 const provider = () => (activeProvider() === "ollama" ? ollama : builtin);

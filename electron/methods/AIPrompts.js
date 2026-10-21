@@ -81,7 +81,10 @@ export function parseJournalMetadata(rawResponse) {
     return null;
   }
 
-  const title = typeof parsed.title === "string" ? parsed.title.trim() : "";
+  const title =
+    typeof parsed.title === "string"
+      ? parsed.title.trim().slice(0, MAX_TITLE_CHARS).trim()
+      : "";
   const mood_score = clampMoodScore(parsed.mood_score);
   const mood_tags = sanitizeMoodTags(parsed.mood_tags);
 
@@ -90,11 +93,16 @@ export function parseJournalMetadata(rawResponse) {
   return { title, mood_score, mood_tags };
 }
 
+/** Every journal and Ask call stops after this many tokens, on either provider. */
+export const MAX_OUTPUT_TOKENS = 300;
+/** A title longer than this is cut before it reaches the journal. */
+export const MAX_TITLE_CHARS = 80;
+
 /** The shape getAutoPopulateValues asks for, forced as a grammar on the model. */
 export const JOURNAL_METADATA_SCHEMA = {
   type: "object",
   properties: {
-    title: { type: "string" },
+    title: { type: "string", maxLength: MAX_TITLE_CHARS },
     mood_score: { enum: [1, 2, 3, 4, 5] },
     mood_tags: {
       type: "array",

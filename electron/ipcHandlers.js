@@ -75,6 +75,7 @@ import {
   handleDeleteOllamaModel,
 } from "./methods/ollama.js";
 import {
+  handleCancelAIDownload,
   handleDownloadAIModel,
   handleGetAIStatus,
   handleSetAIProvider,
@@ -225,6 +226,7 @@ export function registerIPCHandlers() {
   ipcMain.handle("ai:get-status", handleGetAIStatus);
   ipcMain.handle("ai:set-provider", handleSetAIProvider);
   ipcMain.handle("ai:download-model", handleDownloadAIModel);
+  ipcMain.handle("ai:cancel-download", handleCancelAIDownload);
 
   // Whisper
   ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);

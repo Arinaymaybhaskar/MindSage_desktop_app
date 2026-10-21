@@ -10,6 +10,7 @@ import { downloadFile } from "../ai/download.js";
 
 const PROGRESS_EVERY_MS = 250;
 let downloading = null; // { id, done, total }
+let cancelDownload = null;
 
 export async function handleGetAIStatus() {
   return {
@@ -35,16 +36,21 @@ function broadcast(progress) {
 
 /** Downloads one built-in model; resumes a cut download and checks its SHA-256. */
 export async function handleDownloadAIModel(_event, id) {
+  if (typeof id !== "string" || !Object.hasOwn(BUILTIN_MODELS, id)) {
+    return { error: "Unknown model" };
+  }
   const spec = BUILTIN_MODELS[id];
-  if (!spec) return { error: "Unknown model" };
   if (downloading) return { error: "Another model is downloading" };
   downloading = { id, done: 0, total: spec.bytes };
+  const controller = new AbortController();
+  cancelDownload = () => controller.abort();
   let sentAt = 0;
   try {
     await downloadFile({
       url: spec.url,
       dest: builtin.modelPath(id),
       sha256: spec.sha256,
+      signal: controller.signal,
       onProgress: ({ done, total }) => {
         downloading = { id, done, total };
         if (Date.now() - sentAt < PROGRESS_EVERY_MS) return;
@@ -56,10 +62,20 @@ export async function handleDownloadAIModel(_event, id) {
     broadcast({ id, done: spec.bytes, total: spec.bytes, finished: true });
     return { success: true };
   } catch (err) {
-    log.warn("Built-in AI model download failed", { id, error: err.message });
-    broadcast({ id, error: err.message });
-    return { error: err.message };
+    const cancelled = controller.signal.aborted;
+    const error = cancelled ? "Download cancelled" : err.message;
+    log.warn("Built-in AI model download stopped", { id, error });
+    broadcast({ id, error, cancelled });
+    return { error, cancelled };
   } finally {
     downloading = null;
+    cancelDownload = null;
   }
+}
+
+/** Stops the running download; its .part stays, so the next try resumes. */
+export function handleCancelAIDownload() {
+  if (!cancelDownload) return { error: "No download is running" };
+  cancelDownload();
+  return { success: true };
 }

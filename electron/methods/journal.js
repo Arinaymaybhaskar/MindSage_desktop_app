@@ -5,6 +5,7 @@ import { updateJournalEntry } from "../db/journal.js";
 import {
   AISummaryPrompt,
   JOURNAL_METADATA_SCHEMA,
+  MAX_OUTPUT_TOKENS,
   getAutoPopulateValues,
   isSummarizable,
   parseJournalMetadata,
@@ -192,7 +193,10 @@ export async function handleRetryAIMetadata(event, journalId, type) {
 
     try {
       const metadata = parseJournalMetadata(
-        await generate(prompt, { schema: JOURNAL_METADATA_SCHEMA }),
+        await generate(prompt, {
+          schema: JOURNAL_METADATA_SCHEMA,
+          maxTokens: MAX_OUTPUT_TOKENS,
+        }),
       );
       if (!metadata)
         throw new Error("AI returned incomplete or invalid metadata");
@@ -238,7 +242,9 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     const prompt = AISummaryPrompt(entry.content);
 
     try {
-      const summary = sanitizeSummary(await generate(prompt));
+      const summary = sanitizeSummary(
+        await generate(prompt, { maxTokens: MAX_OUTPUT_TOKENS }),
+      );
       if (!summary) {
         const error = "AI could not produce a valid summary";
         db.prepare(

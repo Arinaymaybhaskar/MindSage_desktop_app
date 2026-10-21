@@ -3,6 +3,7 @@ import { spawn } from "child_process";
 import {
   AISummaryPrompt,
   JOURNAL_METADATA_SCHEMA,
+  MAX_OUTPUT_TOKENS,
   getAutoPopulateValues,
   isSummarizable,
   parseJournalMetadata,
@@ -54,7 +55,11 @@ export const handleOllamaPrompt = async (
   if (!prompt) return { error: "A prompt is required." };
 
   try {
-    return await generate(prompt, { json: jsonMode, ollamaModel: model });
+    return await generate(prompt, {
+      json: jsonMode,
+      ollamaModel: model,
+      maxTokens: MAX_OUTPUT_TOKENS,
+    });
   } catch (err) {
     log.error("AI prompt error:", err);
     return { error: err.message };
@@ -125,7 +130,10 @@ eventBus.on("journal:created", async ({ entry }) => {
     log.debug("Filling in missing details", { entryId: entry.id });
     try {
       const metadata = parseJournalMetadata(
-        await generate(prompt, { schema: JOURNAL_METADATA_SCHEMA }),
+        await generate(prompt, {
+          schema: JOURNAL_METADATA_SCHEMA,
+          maxTokens: MAX_OUTPUT_TOKENS,
+        }),
       );
       if (!metadata) {
         throw new Error("AI returned incomplete or invalid metadata");
@@ -171,7 +179,9 @@ eventBus.on("journal:created", async ({ entry }) => {
   }
 
   try {
-    const summary = sanitizeSummary(await generate(prompt));
+    const summary = sanitizeSummary(
+      await generate(prompt, { maxTokens: MAX_OUTPUT_TOKENS }),
+    );
     if (!summary) {
       const error = "AI could not produce a valid summary";
       db.prepare(

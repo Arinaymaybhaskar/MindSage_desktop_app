@@ -1,6 +1,7 @@
 import localDB from "../db/index.js";
 import { eventBus } from "../eventBus.js";
 import {
+  MAX_OUTPUT_TOKENS,
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
   respondWithoutContext,
@@ -132,6 +133,7 @@ async function aiResponse(
         generate(queryPropsPrompt, {
           schema: PROPS_JSON_SCHEMA,
           ollamaModel: model,
+          maxTokens: MAX_OUTPUT_TOKENS,
         }),
       propsResSchema,
       3,
@@ -185,6 +187,7 @@ async function aiResponse(
         return generate(mainPrompt, {
           schema: CHAT_RESPONSE_JSON_SCHEMA,
           ollamaModel: model,
+          maxTokens: MAX_OUTPUT_TOKENS,
           onToken: (_fragment, full) => {
             const partial = partialJsonString(full, "response");
             if (partial === null || partial.length <= emitted) return;

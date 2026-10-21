@@ -65,6 +65,22 @@ describe("downloadFile", () => {
     expect(fs.existsSync(`${dest}.part`)).toBe(false);
   });
 
+  it("keeps the part when cancelled, so the next try resumes", async () => {
+    const controller = new AbortController();
+    await expect(
+      downloadFile({
+        url: "u",
+        dest,
+        sha256: SHA,
+        fetchImpl: server,
+        signal: controller.signal,
+        onProgress: () => controller.abort(),
+      }),
+    ).rejects.toThrow();
+    expect(fs.existsSync(dest)).toBe(false);
+    expect(fs.existsSync(`${dest}.part`)).toBe(true);
+  });
+
   it("does not download a file that is already there", async () => {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, BYTES);

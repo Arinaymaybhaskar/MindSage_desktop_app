@@ -97,6 +97,7 @@ contextBridge.exposeInMainWorld("electron", {
         "ai:get-status",
         "ai:set-provider",
         "ai:download-model",
+        "ai:cancel-download",
         "search:query",
         "search:status",
         "dashboard:get-data",

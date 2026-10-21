@@ -50,6 +50,13 @@ describe("sanitizeMoodTags", () => {
 });
 
 describe("parseJournalMetadata", () => {
+  it("cuts a runaway title before it reaches the journal", () => {
+    const raw = JSON.stringify({ title: "word ".repeat(100), mood_score: 3 });
+    const { title } = parseJournalMetadata(raw)!;
+    expect(title.length).toBeLessThanOrEqual(80);
+    expect(title).toMatch(/^word/);
+  });
+
   it("parses a clean JSON string and sanitizes fields", () => {
     const raw =
       '{"title":"A good day","mood_score":4,"mood_tags":["proud","bogus"]}';
