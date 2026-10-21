@@ -76,7 +76,7 @@ export function getDashboardData(userId) {
       `
         SELECT *
         FROM goals
-        WHERE user_id = ? AND is_pinned = 1
+        WHERE user_id = ? AND is_pinned = 1 AND is_deleted = 0
     `,
     )
     .all(userId);
@@ -209,7 +209,7 @@ export function getUserStats(userId) {
             SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completedGoals,
             SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as activeGoals
         FROM goals
-        WHERE user_id = ?
+        WHERE user_id = ? AND is_deleted = 0
     `,
     )
     .get(userId);
@@ -221,7 +221,8 @@ export function getUserStats(userId) {
         SELECT t.name
         FROM journal_entry_tags jet
         JOIN tags t ON jet.tag_id = t.id
-        WHERE t.user_id = ?
+        JOIN journal_entries je ON je.id = jet.journal_entry_id
+        WHERE t.user_id = ? AND je.is_deleted = 0
         GROUP BY t.name
         ORDER BY COUNT(jet.tag_id) DESC
         LIMIT 1

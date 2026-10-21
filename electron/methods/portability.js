@@ -16,6 +16,8 @@ import localDB from "../db/index.js";
 import { db } from "../db/connection.js";
 import { exportEverything } from "../db/exportData.js";
 import { currentUserId } from "../session.js";
+import { purge } from "./trash.js";
+import { getIndexer } from "./search.js";
 import {
   EXPORT_FORMATS,
   FORMAT_NAMES,
@@ -280,7 +282,7 @@ export async function handleCommitImport() {
   lastImport = { userId, ids, at: new Date().toISOString() };
   // Index the new entries for search in one sweep, rather than queueing AI
   // title and summary generation for every one of them.
-  global.qdrantWorker?.postMessage({ type: "journal:bulk-sync-requested" });
+  getIndexer()?.sweep();
   return { imported: ids.length };
 }
 
@@ -288,9 +290,12 @@ export async function handleUndoImport() {
   const userId = requireUser();
   if (!lastImport || lastImport.userId !== userId)
     throw new Error("No import to undo");
+  // Undoing an import removes the entries outright rather than filling the
+  // Trash with every one of them: the user just chose to take them back.
   let removed = 0;
   for (const id of lastImport.ids)
     removed += localDB.deleteJournalEntry(userId, id);
+  await purge(userId, { entryIds: lastImport.ids, goalIds: [] });
   lastImport = null;
   return { removed };
 }

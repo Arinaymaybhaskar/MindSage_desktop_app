@@ -1,6 +1,7 @@
 import localDB from "../db/index.js";
 import { eventBus } from "../eventBus.js";
 import { currentUserId } from "../session.js";
+import { log } from "../log.js";
 
 export const handleGetActiveGoals = async (event) => {
   const userId = currentUserId();
@@ -25,10 +26,12 @@ export const handleCreateGoal = async (event, goal) => {
     return { error: "Not signed in" };
   }
   const goalCreated = await localDB.AddGoal(userId, goal);
-  console.log(goalCreated, "goal created");
+  log.info(goalCreated, "goal created");
   if (goalCreated.changes == 1) {
-    // Trigger Qdrant sync
-    eventBus.emit("goal:created", { entry: goal });
+    // The indexer embeds it in the background.
+    eventBus.emit("goal:created", {
+      entry: { ...goal, id: Number(goalCreated.lastInsertRowid) },
+    });
   }
   return goalCreated;
 };
@@ -40,7 +43,7 @@ export const handleUpdateGoal = async (event, goalId, goalData) => {
   }
   const updatedGoal = await localDB.updateGoal(userId, goalId, goalData);
   if (updatedGoal) {
-    eventBus.emit("goal:updated", { entry: goalData });
+    eventBus.emit("goal:updated", { entry: { ...goalData, id: goalId } });
   }
   return updatedGoal;
 };
@@ -92,41 +95,3 @@ export const handleGetGoalById = (event, goalId) => {
   }
   return localDB.getGoalById(goalId, userId);
 };
-
-// Manual sync functions
-export function syncGoalToQdrant(goalId) {
-  if (qdrantWorker) {
-    qdrantWorker.postMessage({
-      type: "goal:sync-requested",
-      data: { goalId },
-    });
-  }
-}
-
-export function syncProgressLogToQdrant(progressLogId) {
-  if (qdrantWorker) {
-    qdrantWorker.postMessage({
-      type: "progress_log:sync-requested",
-      data: { progressLogId },
-    });
-  }
-}
-
-// Bulk sync functions
-export function bulkSyncGoalsToQdrant() {
-  if (qdrantWorker) {
-    qdrantWorker.postMessage({
-      type: "goal:bulk-sync-requested",
-      data: {},
-    });
-  }
-}
-
-export function bulkSyncProgressLogsToQdrant() {
-  if (qdrantWorker) {
-    qdrantWorker.postMessage({
-      type: "progress_log:bulk-sync-requested",
-      data: {},
-    });
-  }
-}

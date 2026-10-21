@@ -11,47 +11,52 @@
 
 import { app, ipcMain } from "electron";
 import { appSettings } from "../appSettings.js";
+import { createUpdateRelay } from "./updateRelay.js";
+import { log } from "../log.js";
 
 let updaterPromise = null;
+
+// What the window has been told so far, and whether an update is ready.
+let relay = null;
+
+// The Microsoft Store (MSIX) updates the app itself; the in-app updater must
+// stay out of its way. There is no such build today.
+const isStoreBuild = () => Boolean(process.windowsStore);
 
 /**
  * electron-updater is CommonJS. Imported from ESM, its exports arrive on
  * `default`, so destructuring `autoUpdater` off the namespace gave undefined
  * and the first property write crashed every packaged launch.
  */
-function loadUpdater(win) {
+function loadUpdater(getWin) {
   updaterPromise ??= (async () => {
     let mod;
     try {
       mod = await import("electron-updater");
     } catch {
-      console.warn("[updater] electron-updater not installed, skipping");
+      log.warn("[updater] electron-updater not installed, skipping");
       return null;
     }
     const autoUpdater = mod.autoUpdater ?? mod.default?.autoUpdater;
     if (!autoUpdater) {
-      console.warn("[updater] electron-updater exposes no autoUpdater");
+      log.warn("[updater] electron-updater exposes no autoUpdater");
       return null;
     }
 
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
 
-    const notify = (channel, payload) => {
+    relay = createUpdateRelay((channel, payload) => {
+      const win = getWin();
       if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
-    };
-    autoUpdater.on("update-available", (info) =>
-      notify("update:available", { version: info?.version }),
-    );
-    autoUpdater.on("download-progress", (p) =>
-      notify("update:progress", { percent: Math.round(p?.percent ?? 0) }),
-    );
-    autoUpdater.on("update-downloaded", (info) =>
-      notify("update:downloaded", { version: info?.version }),
-    );
-    autoUpdater.on("error", (err) =>
-      console.error("[updater] error:", err?.message || err),
-    );
+    });
+    autoUpdater.on("update-available", (info) => relay.available(info));
+    autoUpdater.on("download-progress", (p) => relay.progress(p));
+    autoUpdater.on("update-downloaded", (info) => relay.downloaded(info));
+    autoUpdater.on("error", (err) => {
+      log.error("[updater] error:", err?.message || err);
+      relay.failed();
+    });
     return autoUpdater;
   })();
   return updaterPromise;
@@ -62,9 +67,10 @@ function loadUpdater(win) {
  * page can say it.
  * @returns {Promise<{status: "unavailable-in-dev" | "unavailable" | "up-to-date" | "downloading" | "error", version?: string, message?: string}>}
  */
-export async function checkForUpdates(win) {
+export async function checkForUpdates(getWin) {
   if (!app.isPackaged) return { status: "unavailable-in-dev" };
-  const autoUpdater = await loadUpdater(win);
+  if (isStoreBuild()) return { status: "unavailable" };
+  const autoUpdater = await loadUpdater(getWin);
   if (!autoUpdater) return { status: "unavailable" };
   try {
     const result = await autoUpdater.checkForUpdates();
@@ -75,7 +81,7 @@ export async function checkForUpdates(win) {
     return { status: "up-to-date", version: app.getVersion() };
   } catch (err) {
     const full = String(err?.message || err);
-    console.error("[updater] check failed:", full);
+    log.error("[updater] check failed:", full);
     // electron-updater's messages embed the whole HTTP response, headers and
     // feed included. The Settings page gets one readable line.
     const message = /Unable to find latest version|No published versions/i.test(
@@ -88,11 +94,29 @@ export async function checkForUpdates(win) {
 }
 
 /** The launch-time check: a no-op unless the user turned it on. */
-export async function initAutoUpdater(win) {
+export async function initAutoUpdater(getWin) {
   if (!appSettings.get("checkForUpdates")) return;
-  await checkForUpdates(win);
+  await checkForUpdates(getWin);
 }
 
 export function registerUpdaterIPC(getWin) {
-  ipcMain.handle("update:check", () => checkForUpdates(getWin()));
+  ipcMain.handle("update:check", () => checkForUpdates(getWin));
+
+  // A window that loads after the events fired asks for where things stand.
+  ipcMain.handle(
+    "update:get-state",
+    () => relay?.getState() ?? { phase: "idle" },
+  );
+
+  // Restart into the downloaded update. The window decides when (it saves
+  // drafts and refuses while an entry is mid-edit); this only refuses if
+  // nothing has been downloaded. The reply goes out before the app quits.
+  ipcMain.handle("update:install", async () => {
+    if (!relay?.canInstall()) {
+      return { success: false, error: "No update has been downloaded yet" };
+    }
+    const autoUpdater = await loadUpdater(getWin);
+    setImmediate(() => autoUpdater.quitAndInstall(true, true));
+    return { success: true };
+  });
 }

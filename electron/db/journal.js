@@ -114,7 +114,9 @@ export function getRecentEntries(userId) {
             (SELECT GROUP_CONCAT(t.name)
                FROM journal_entry_tags jt
                JOIN tags t ON t.id = jt.tag_id
-              WHERE jt.journal_entry_id = j.id) AS mood_tags
+              WHERE jt.journal_entry_id = j.id) AS mood_tags,
+            (SELECT s.state FROM search_index s
+               WHERE s.source_type = 'journal' AND s.source_id = j.id) AS index_state
         FROM journal_entries j
         WHERE j.user_id = ? AND j.is_deleted = 0
         ORDER BY j.created_at DESC
@@ -155,7 +157,9 @@ export function getAllEntries(
             (SELECT GROUP_CONCAT(t.name)
                FROM journal_entry_tags jt
                JOIN tags t ON t.id = jt.tag_id
-              WHERE jt.journal_entry_id = j.id) AS mood_tags
+              WHERE jt.journal_entry_id = j.id) AS mood_tags,
+            (SELECT s.state FROM search_index s
+               WHERE s.source_type = 'journal' AND s.source_id = j.id) AS index_state
         FROM journal_entries j
         WHERE j.user_id = ? AND j.is_deleted = 0
     `;
@@ -256,7 +260,9 @@ export function getJournalById(userId, journalId) {
   const stmt = db.prepare(`
         SELECT
             j.*,
-            GROUP_CONCAT(t.name) AS mood_tags
+            GROUP_CONCAT(t.name) AS mood_tags,
+            (SELECT s.state FROM search_index s
+               WHERE s.source_type = 'journal' AND s.source_id = j.id) AS index_state
         FROM journal_entries j
         LEFT JOIN journal_entry_tags jt ON j.id = jt.journal_entry_id
         LEFT JOIN tags t ON jt.tag_id = t.id
@@ -291,21 +297,32 @@ export function getMoodScores(userId, range) {
 }
 
 /**
+ * The date an update may move an entry to: a non-empty string that parses as a
+ * date, or null for "leave the entry's date alone". Only the user changes an
+ * entry's date (the editor sends it); internal writers such as the AI
+ * completion send none (KAN-377).
+ * @param {unknown} value
+ * @returns {string|null}
+ */
+function requestedCreatedAt(value) {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  return Number.isNaN(Date.parse(value)) ? null : value;
+}
+
+/**
  * Updates an existing journal entry and its tags in a transaction.
+ * `created_at` changes only when the payload carries a valid date, and
+ * `transcription`, `title`, `mood_score` and `mood_tags` only when the payload
+ * has the key (null, "" or [] clears it); a writer that leaves one out keeps
+ * what is stored.
  * @param {number} userId - The user's ID.
  * @param {number} journalId - The ID of the journal entry to update.
  * @param {object} entry - The updated journal entry data.
  * @returns {object|null} The updated journal entry or null if not found.
  */
 export function updateJournalEntry(userId, journalId, entry) {
-  const {
-    title,
-    content,
-    mood_score,
-    mood_tags = [],
-    transcription,
-    created_at,
-  } = entry;
+  const { title, content, mood_score, mood_tags, transcription, created_at } =
+    entry;
 
   const sentiment_score = analyzeSentimentLocal(content || "");
   const updated_at = new Date().toISOString();
@@ -315,34 +332,43 @@ export function updateJournalEntry(userId, journalId, entry) {
     const updateStmt = db.prepare(`
             UPDATE journal_entries
             SET
-                title = @title,
+                title = CASE WHEN @set_title = 1 THEN @title ELSE title END,
                 content = @content,
-                mood_score = @mood_score,
+                mood_score = CASE WHEN @set_mood_score = 1
+                                  THEN @mood_score ELSE mood_score END,
                 sentiment_score = @sentiment_score,
                 updated_at = @updated_at,
-                created_at = @created_at,
+                created_at = COALESCE(@created_at, created_at),
                 synced = 0,
                 sync_action = 'update',
-                transcription = @transcription
+                transcription = CASE WHEN @set_transcription = 1
+                                     THEN @transcription
+                                     ELSE transcription END
             WHERE
-                id = @journalId AND user_id = @userId
+                id = @journalId AND user_id = @userId AND is_deleted = 0
         `);
 
     const result = updateStmt.run({
       title: title || null,
       content: content || "",
       mood_score: mood_score || null,
+      set_title: title === undefined ? 0 : 1,
+      set_mood_score: mood_score === undefined ? 0 : 1,
       sentiment_score,
       updated_at,
-      created_at: created_at || new Date().toISOString(),
+      created_at: requestedCreatedAt(created_at),
       journalId,
       userId,
-      transcription,
+      set_transcription: transcription === undefined ? 0 : 1,
+      transcription: transcription ?? null,
     });
 
     if (result.changes === 0) {
       return null; // Entry didn't exist or wasn't updated.
     }
+
+    // Tags absent from the payload stay as they are; [] clears them.
+    if (mood_tags === undefined) return getJournalById(userId, journalId);
 
     // Step 2: Clear existing tag links for this entry.
     db.prepare("DELETE FROM journal_entry_tags WHERE journal_entry_id = ?").run(
@@ -386,8 +412,9 @@ export function deleteJournalEntry(userId, journalId) {
   // Soft delete for offline mode to allow syncing the deletion.
   const stmt = db.prepare(`
         UPDATE journal_entries
-        SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP, synced = 0, sync_action = 'delete'
-        WHERE id = ? AND user_id = ?
+        SET is_deleted = 1, deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+            updated_at = CURRENT_TIMESTAMP, synced = 0, sync_action = 'delete'
+        WHERE id = ? AND user_id = ? AND is_deleted = 0
     `);
   const result = stmt.run(journalId, userId);
   return result.changes;
@@ -430,28 +457,8 @@ export function addContentSummary(summary, journalId, userId) {
   const stmt = db.prepare(`
         UPDATE journal_entries
         SET content_summary = ?, updated_at = CURRENT_TIMESTAMP, synced = 0, sync_action = 'update'
-        WHERE id = ? AND user_id = ?
+        WHERE id = ? AND user_id = ? AND is_deleted = 0
     `);
   const result = stmt.run(summary, journalId, userId);
   return result.changes;
 }
-
-export const getPendingJournal = (userId) => {
-  const stmt = db.prepare(`
-        SELECT * FROM journal_entries 
-        WHERE synced_to_qdrant = 'pending' AND user_id = ?
-        ORDER BY created_at ASC 
-        LIMIT 1
-    `);
-  return stmt.get(userId);
-};
-
-export const updateSyncStatus = (journalId, userId, status) => {
-  const stmt = db.prepare(`
-        UPDATE journal_entries
-        SET synced_to_qdrant = ?
-        WHERE id = ? AND user_id = ?
-    `);
-  const result = stmt.run(status, journalId, userId);
-  return result.changes;
-};

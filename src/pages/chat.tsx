@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import AskFooter from "../components/chat/AskFooter";
 import { motion } from "framer-motion";
 import { Sidebar } from "../components/chat/Sidebar";
 import { chatService, type ChatMediaUploadResult } from "../api/chatService";
@@ -425,7 +426,7 @@ export const ChatPage: React.FC = () => {
                     .trimEnd()
                 : m.content;
 
-            // The database returns flat rows; the bubble reads the Qdrant hit
+            // The database returns flat rows; the bubble reads the search hit
             // shape that a live reply produces. Normalise so both paths render
             // through the same code.
             const sources = (m.sources || []).map((s) => ({
@@ -576,6 +577,7 @@ export const ChatPage: React.FC = () => {
                   onRemoveImage={handleRemoveImage}
                   onRemovePdf={() => setAttachedPdf(null)}
                 />
+                <AskFooter />
               </motion.div>
             </>
           ) : (

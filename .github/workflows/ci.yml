@@ -47,3 +47,121 @@ jobs:
 
       - name: Test
         run: npm test
+
+  # better-sqlite3 is built for Electron's ABI, so these run under Electron as
+  # Node (scripts/run-db-tests.mjs). `npm ci` here keeps the postinstall step
+  # (electron-rebuild) that the job above skips on purpose.
+  database:
+    name: Database & index tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (builds better-sqlite3 for Electron)
+        run: npm ci
+
+      # Migrations on real SQLite, journal CRUD, the pre-migration backup, and
+      # the sqlite-vec search index and the indexer loop with a fake embedding
+      # model.
+      - name: Database and index tests
+        run: npm run test:db
+
+  # One pass through the real app: launch, sign up, sign in, write, wait for
+  # the AI's own completion events, find the entry through search. Windows
+  # because that is the build that ships (sqlite-vec-windows-x64 is unpacked
+  # from the asar), and a
+  # runner has no GPU, so Ollama runs on the CPU with a 1B chat model.
+  e2e:
+    name: End-to-end (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (builds better-sqlite3 for Electron)
+        run: npm ci
+
+      # Models are about 1.5 GB; cached so only the first run pays for them.
+      - name: Cache Ollama models
+        uses: actions/cache@v4
+        with:
+          path: ~\.ollama\models
+          key: ollama-models-nomic-embed-text-v1.5-llama3.2-1b
+
+      # Not OllamaSetup.exe: the installer starts "ollama app" (tray) when it
+      # finishes, and Start-Process -Wait waits for that whole process tree, so
+      # the step hung until the job timeout (every run since the job was added).
+      - name: Install Ollama
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://github.com/ollama/ollama/releases/latest/download/ollama-windows-amd64.zip -OutFile ollama.zip
+          Expand-Archive ollama.zip -DestinationPath "$env:RUNNER_TEMP\ollama"
+          "$env:RUNNER_TEMP\ollama" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      # One step on purpose: a process started with Start-Process dies when its
+      # step ends on the Windows runner, so serve, pulls, check and e2e share it.
+      - name: Run Ollama and the end-to-end test
+        timeout-minutes: 25
+        shell: pwsh
+        env:
+          OLLAMA_HOST: 127.0.0.1:11434
+        run: |
+          $ollama = Join-Path $env:RUNNER_TEMP 'ollama\ollama.exe'
+          $out = Join-Path $env:RUNNER_TEMP 'ollama-serve.log'
+          $err = Join-Path $env:RUNNER_TEMP 'ollama-serve.err.log'
+          $serve = Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+          try {
+            $up = $false
+            for ($i = 0; $i -lt 30 -and -not $up; $i++) {
+              try { Invoke-RestMethod http://127.0.0.1:11434/api/tags | Out-Null; $up = $true } catch { Start-Sleep 2 }
+            }
+            if (-not $up) {
+              Get-Content $out, $err -Tail 50 -ErrorAction SilentlyContinue
+              throw 'Ollama did not answer on 127.0.0.1:11434 within 60 s'
+            }
+            foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
+              & $ollama pull $model
+              if ($LASTEXITCODE -ne 0) { throw "ollama pull $model failed with exit code $LASTEXITCODE" }
+            }
+
+            # Same probe the app makes (Node fetch), so a failure here names the cause.
+            & $ollama list
+            $tags = Invoke-WebRequest http://127.0.0.1:11434/api/tags -UseBasicParsing
+            "GET /api/tags -> $($tags.StatusCode)"
+            foreach ($model in 'nomic-embed-text:v1.5', 'llama3.2:1b') {
+              if ($tags.Content -notmatch [regex]::Escape($model)) { throw "$model is not in /api/tags" }
+            }
+            node -e "fetch('http://127.0.0.1:11434/api/tags').then(r => console.log('node fetch ->', r.status), e => { console.error('node fetch failed:', e.cause || e); process.exit(1) })"
+            if ($LASTEXITCODE -ne 0) { throw 'node fetch of /api/tags failed' }
+
+            npm run test:e2e
+            if ($LASTEXITCODE -ne 0) { throw "npm run test:e2e failed with exit code $LASTEXITCODE" }
+          } finally {
+            Stop-Process -Id $serve.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Keep the failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure
+          path: e2e-artifacts
+
+      - name: Keep the Ollama serve log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollama-serve-log
+          path: ${{ runner.temp }}/ollama-serve*.log
+          if-no-files-found: ignore

@@ -28,11 +28,12 @@ import { ollamaService } from "../api/ollamaService";
 import { getFollowUpQuestionsPrompt } from "../utils/prompts/Journal";
 import { SidebarPanel } from "../components/journal/SidebarPanel";
 import type { SelectedModels } from "../types/Ollama";
+import { registerUnsavedWork } from "../utils/unsavedWork";
+import { draftKey } from "../utils/draftKeys";
 
 const emptyJournal: JournalEntry = {
   title: "",
   content: "",
-  mood_score: 0,
   sentiment_score: 0,
   mood_tags: [],
 };
@@ -43,7 +44,6 @@ export default function JournalForm() {
   const navigate = useNavigate();
   const [showSaved, setShowSaved] = useState(false);
   const isEdit = Boolean(id);
-  const DRAFT_KEY = id ? `draft-journal-${id}` : "draft-journal";
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [existingAudioUrl, setExistingAudioUrl] = useState<string | null>(null); // State for existing audio
@@ -52,6 +52,11 @@ export default function JournalForm() {
   const voiceRecorderState = useVoiceRecorder();
   const { recordingBlob, resetRecording } = voiceRecorderState;
   const { user: sessionUser } = useAuth();
+  // Drafts belong to the signed-in profile; with nobody signed in there is none.
+  const DRAFT_KEY =
+    sessionUser?.id === undefined
+      ? null
+      : draftKey(sessionUser.id, id ? `journal-${id}` : "journal");
   const [selectedModel, setSelectedModel] = useState<string>("");
 
   useEffect(() => {
@@ -127,6 +132,7 @@ export default function JournalForm() {
           mood_tags: fetchedEntry.mood_tags || [],
         };
         setEntry(entryToSet);
+        baselineRef.current = JSON.stringify(entryToSet);
 
         // Set the edited date to the entry's created_at date
         if (fetchedEntry.created_at) {
@@ -173,7 +179,7 @@ export default function JournalForm() {
           }
         }
       } else {
-        const savedDraft = localStorage.getItem(DRAFT_KEY);
+        const savedDraft = DRAFT_KEY ? localStorage.getItem(DRAFT_KEY) : null;
         if (savedDraft) {
           const draft = JSON.parse(savedDraft);
           const draftToSet = { ...draft, mood_tags: draft.mood_tags || [] };
@@ -197,9 +203,32 @@ export default function JournalForm() {
     loadEntry();
   }, [id, isEdit, sessionUser, DRAFT_KEY]);
 
+  // Tell the update bar what a restart would lose. A new entry's text can be
+  // written to its draft on the spot; an entry being edited has no draft, and
+  // neither kind can keep a picked photo or a fresh recording.
+  const entryRef = useRef(entry);
+  entryRef.current = entry;
+  const baselineRef = useRef<string | null>(null);
+  const hasMediaRef = useRef(false);
+  hasMediaRef.current = Boolean(imageFile || recordingBlob);
+  useEffect(() => {
+    return registerUnsavedWork({
+      flush: () => {
+        if (!isEdit && DRAFT_KEY) {
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(entryRef.current));
+        }
+      },
+      isDirty: () =>
+        hasMediaRef.current ||
+        (isEdit &&
+          baselineRef.current !== null &&
+          JSON.stringify(entryRef.current) !== baselineRef.current),
+    });
+  }, [isEdit, DRAFT_KEY]);
+
   // Auto-save draft
   useEffect(() => {
-    if (isEdit) return; // Don't auto-save for existing entries
+    if (isEdit || !DRAFT_KEY) return; // Don't auto-save for existing entries
     const timer = setTimeout(() => {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(entry));
       setShowSaved(true);
@@ -215,7 +244,7 @@ export default function JournalForm() {
       const isSave = (e.ctrlKey || e.metaKey) && key === "s";
       if (!isSave) return;
       e.preventDefault();
-      if (isEdit) return; // don't save drafts for existing entries
+      if (isEdit || !DRAFT_KEY) return; // don't save drafts for existing entries
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(entry));
         setShowSaved(true);
@@ -304,7 +333,7 @@ export default function JournalForm() {
       const mergedEntry: JournalEntry = {
         ...entry,
         title: entry.title?.trim() ? entry.title : "",
-        mood_score: entry.mood_score ?? 0,
+        mood_score: entry.mood_score ?? null,
         mood_tags: entry.mood_tags ?? [],
         created_at: editedDate
           ? new Date(editedDate).toISOString()
@@ -321,18 +350,16 @@ export default function JournalForm() {
       }
 
       const journalId = isEdit ? Number(id) : Number(res.id);
-      let imageKey = entry.image_key;
       let audioKey = entry.audio_key;
 
       if (imageFile) {
         const arrayBuffer = await imageFile.arrayBuffer();
-        const result = await mediaService.saveFileForJournal(
+        await mediaService.saveFileForJournal(
           journalId,
           "image",
           arrayBuffer,
           imageFile.name,
         );
-        if (result.success) imageKey = result.key;
       }
 
       if (recordingBlob) {
@@ -353,12 +380,11 @@ export default function JournalForm() {
               string | null
             >("whisper:transcribe-journal-audio", audioKey, journalId);
             if (transcription) {
-              // Update the entry with the transcription
-              const entryWithTranscription = {
-                ...mergedEntry,
-                transcription: transcription,
-              };
-              await journalService.update(journalId, entryWithTranscription);
+              // Only the fields it sets: title and tags may be AI-filled by now.
+              await journalService.update(journalId, {
+                content: mergedEntry.content,
+                transcription,
+              } as JournalEntry);
             }
           } catch (err) {
             console.error("Failed to transcribe audio:", err);
@@ -367,22 +393,7 @@ export default function JournalForm() {
         }
       }
 
-      const needsMediaUpdate =
-        imageKey !== res.image_key || audioKey !== res.audio_key;
-
-      if (needsMediaUpdate) {
-        await journalService.update(journalId, {
-          ...mergedEntry,
-          image_key: imageKey,
-          audio_key: audioKey,
-        });
-      }
-      await window.electron.ipcRenderer.invoke(
-        "qdrant:sync-journal",
-        journalId,
-      );
-
-      localStorage.removeItem(DRAFT_KEY);
+      if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY);
       navigate("/dashboard");
     } catch (error) {
       console.error("❌ [handleSubmit] Submission error:", error);
@@ -642,7 +653,7 @@ export default function JournalForm() {
           <aside className="w-96 overflow-y-auto flex-shrink-0 no-scrollbar border-l border-border-light dark:border-border-dark p-6 space-y-6">
             <SidebarPanel title="Mood & Sentiment" icon={Smile}>
               <MoodSlider
-                value={entry.mood_score ?? 50}
+                value={entry.mood_score}
                 onChange={(score) => setEntry({ ...entry, mood_score: score })}
               />
               <MoodTagSelector

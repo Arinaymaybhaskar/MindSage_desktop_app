@@ -9,7 +9,7 @@
 //
 // What the password is for: picking whose journal this is and keeping people
 // out of the app's screens. It does not encrypt anything on disk
-// (MASTER_TODO 15, option B; encryption is a later, separate feature).
+// (option B; encryption is a later, separate feature).
 //
 // "Remember me" persists the user id in an electron-store file next to the
 // other app settings, so the next launch opens signed in. Without it, a launch

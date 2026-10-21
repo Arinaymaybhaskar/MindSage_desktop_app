@@ -1,72 +1,38 @@
-import { execSync, exec } from "child_process";
 import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
 import {
   AISummaryPrompt,
-  generateContextTimeAndBaseQueryPrompt,
   getAutoPopulateValues,
   isSummarizable,
   parseJournalMetadata,
   sanitizeSummary,
-  respondWithContext,
-  respondWithoutContext,
 } from "./AIPrompts.js";
 import { modelStore } from "../store.js";
-import { SemanticSearch } from "./qdrant.js";
 import { currentUserId } from "../session.js";
-import z from "zod";
 import { db } from "../db/connection.js";
+import { log } from "../log.js";
+import { listOllamaModels } from "./ollamaList.js";
 
-export const handleGetOllamaModels = async (event) => {
+/**
+ * `ollama:models`: the installed models for Settings > Models.
+ *
+ * Asynchronous and bounded (see `ollamaList.js`): a hung Ollama answers
+ * `{ error, reason: "timeout" }` after a few seconds instead of freezing the
+ * main process (KAN-369), and one that is not running answers
+ * `{ error, reason: "unreachable" }`.
+ */
+export const handleGetOllamaModels = async () => {
   const userId = currentUserId();
   if (!userId) return { error: "Not signed in" };
 
-  try {
-    // 1️⃣ Get the basic list of models
-    const listOutput = execSync("ollama list", { encoding: "utf-8" });
-    const lines = listOutput.trim().split("\n").slice(1);
-    const models = lines.map((line) => {
-      const parts = line.trim().split(/\s{2,}/);
-      return {
-        name: parts[0],
-        size: parts[1],
-        modified: parts[2],
-      };
-    });
-
-    // 2️⃣ Enrich with API show info in parallel
-    const enrichedModels = await Promise.all(
-      models.map(async (model) => {
-        try {
-          const res = await fetch("http://localhost:11434/api/show", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model: model.name, verbose: true }),
-          });
-          const info = await res.json();
-
-          if (info && info.model_info) {
-            delete info.model_info["tokenizer.ggml.merges"];
-            delete info.model_info["tokenizer.ggml.scores"];
-            delete info.model_info["tokenizer.ggml.token_type"];
-            delete info.model_info["tokenizer.ggml.tokens"];
-            delete info["tensors"];
-            delete info["modelfile"];
-            delete info["license"];
-          }
-          return { ...model, info };
-        } catch (err) {
-          console.error(`Error fetching info for ${model.name}`, err);
-          return model; // fallback to basic info
-        }
-      }),
-    );
-
-    return enrichedModels;
-  } catch (err) {
-    console.error("Error fetching Ollama models:", err);
-    return [];
+  const result = await listOllamaModels({
+    onShowError: (name, err) =>
+      log.error(`Error fetching info for ${name}`, err),
+  });
+  if (!Array.isArray(result)) {
+    log.warn("Could not list Ollama models", { reason: result.reason });
   }
+  return result;
 };
 
 /**
@@ -95,7 +61,7 @@ export const streamOllamaPrompt = async (
   const requestBody = { model, prompt, stream: true, num_predict: numPredict };
   if (jsonMode) requestBody.format = "json";
 
-  const res = await fetch("http://localhost:11434/api/generate", {
+  const res = await fetch("http://127.0.0.1:11434/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(requestBody),
@@ -167,7 +133,7 @@ export const handleOllamaPrompt = async (
   // if (!userId) {
   //     return { error: "Not signed in" };
   // }
-  console.log(model, prompt, "model", "prompt");
+  log.debug("Ollama prompt", { model, promptChars: prompt?.length });
   if (!model || !prompt) {
     return { error: "Model name and prompt are required." };
   }
@@ -185,7 +151,7 @@ export const handleOllamaPrompt = async (
       requestBody.format = "json";
     }
 
-    const res = await fetch("http://localhost:11434/api/generate", {
+    const res = await fetch("http://127.0.0.1:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
@@ -198,7 +164,7 @@ export const handleOllamaPrompt = async (
     const data = await res.json();
     return data.response;
   } catch (err) {
-    console.error("Ollama error:", err);
+    log.error("Ollama error:", err);
     return { error: err.message };
   }
 };
@@ -226,7 +192,7 @@ export const handleOllamaImagePrompt = async (
       num_predict: 300,
     };
 
-    const res = await fetch("http://localhost:11434/api/generate", {
+    const res = await fetch("http://127.0.0.1:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
@@ -239,7 +205,7 @@ export const handleOllamaImagePrompt = async (
     const data = await res.json();
     return data.response;
   } catch (err) {
-    console.error("Ollama image error:", err);
+    log.error("Ollama image error:", err);
     return { error: err.message };
   }
 };
@@ -268,9 +234,9 @@ eventBus.on("journal:created", async ({ entry }) => {
     // Get the selected chat model from settings
     const selectedModels = modelStore.get("selectedModels");
     const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
-    console.log(model, "model used for filing up missing details");
+    log.debug("Filling in missing details", { model });
     try {
-      const res2 = await fetch("http://localhost:11434/api/generate", {
+      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -298,7 +264,7 @@ eventBus.on("journal:created", async ({ entry }) => {
         entryId: entry.id,
       });
     } catch (err) {
-      console.error("AI metadata generation failed:", err);
+      log.error("AI metadata generation failed:", err);
       db.prepare(
         `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`,
       ).run(err.message, entry.id);
@@ -333,7 +299,7 @@ eventBus.on("journal:created", async ({ entry }) => {
   const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
 
   try {
-    const res2 = await fetch("http://localhost:11434/api/generate", {
+    const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -370,7 +336,7 @@ eventBus.on("journal:created", async ({ entry }) => {
       entryId: entry.id,
     });
   } catch (err) {
-    console.error("AI summary generation failed:", err);
+    log.error("AI summary generation failed:", err);
     db.prepare(
       `UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ? WHERE id = ?`,
     ).run(err.message, entry.id);
@@ -381,120 +347,6 @@ eventBus.on("journal:created", async ({ entry }) => {
   }
 });
 
-// Schemas
-const propsResSchema = z.object({
-  requires_context: z.boolean(),
-  requires_time_filter: z.boolean().optional().default(false),
-  time_filter_from: z.string().nullish().default(null),
-  time_filter_to: z.string().nullish().default(null),
-  base_query: z.string().optional().default(""),
-  notes: z.string().optional().default(""),
-});
-
-const chatResponseSchema = z.object({
-  response: z.string(),
-  // Matches the key the prompt actually asks for and the renderer consumes.
-  suggested_user_prompt: z.string(),
-});
-
-// Helper: parse and retry AI JSON
-async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log("calling ai");
-      const raw = await rawFn();
-      console.log("ai response", raw);
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON found");
-
-      return schema.parse(JSON.parse(jsonMatch[0]));
-    } catch (err) {
-      console.log(`Attempt ${attempt} failed: ${err.message}`);
-      if (attempt === maxRetries)
-        throw new Error(`Failed after ${maxRetries} attempts`);
-    }
-  }
-}
-
-eventBus.on(
-  "chat:new-message",
-  async ({ content, chatId, messageId, model, userId }) => {
-    try {
-      const now = new Date();
-      const currentTimeISO = now.toISOString();
-
-      // 1️⃣ Generate propsRes
-      const queryPropsPrompt = generateContextTimeAndBaseQueryPrompt(
-        content,
-        currentTimeISO,
-      );
-      const propsRes = await parseAIWithRetries(
-        () => handleOllamaPrompt("", "", model, queryPropsPrompt, true),
-        propsResSchema,
-        3,
-      );
-      console.log("Validated propsRes:", propsRes);
-
-      let semanticResult = [];
-
-      // 2️⃣ Semantic search logic
-      if (propsRes.requires_context) {
-        // Use original user content
-        console.log("requires context");
-        const vector = await generateEmbedding(content);
-        semanticResult = await SemanticSearch(
-          vector,
-          userId,
-          5,
-          "mind_entries",
-        );
-      } else if (propsRes.requires_time_filter) {
-        console.log("requires context with time filter");
-        // Use base_query and time filter
-        const vector = await generateEmbedding(propsRes.base_query);
-        semanticResult = await SemanticSearch(
-          vector,
-          userId,
-          5,
-          "mind_entries",
-          {
-            from: propsRes.time_filter_from,
-            to: propsRes.time_filter_to,
-          },
-        );
-      }
-
-      let mainPrompt;
-
-      if (!propsRes.requires_context && semanticResult.length == 0) {
-        console.log("No context needed");
-        mainPrompt = respondWithoutContext(content);
-      } else {
-        // 3️⃣ Generate prompt for main AI response
-        mainPrompt = respondWithContext(content, semanticResult);
-      }
-
-      // 4️⃣ Get final chat response
-      const chatResponse = await parseAIWithRetries(
-        () => handleOllamaPrompt("", "", model, mainPrompt, true),
-        chatResponseSchema,
-        3,
-      );
-      console.log(chatResponse, "ai chat res");
-      // 5️⃣ Emit validated response
-      eventBus.emit("chat:response-generated", {
-        response: chatResponse,
-        chatId,
-        messageId,
-        semanticResult,
-      });
-    } catch (error) {
-      console.log(error, "error occcured");
-      eventBus.emit("chat:error", error);
-    }
-  },
-);
-
 // Update generateSuggestion to use selected model
 export async function generateSuggestion(prompt, maxTokens = 20) {
   try {
@@ -502,7 +354,7 @@ export async function generateSuggestion(prompt, maxTokens = 20) {
     const selectedModels = modelStore.get("selectedModels");
     const model = selectedModels?.decision || "llama3.2:latest"; // Fallback model
 
-    const response = await fetch("http://localhost:11434/api/generate", {
+    const response = await fetch("http://127.0.0.1:11434/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -529,7 +381,7 @@ export async function generateSuggestion(prompt, maxTokens = 20) {
     // The generated text is in the 'response' property
     return data.response.trim();
   } catch (error) {
-    console.error("[generateSuggestion] Error fetching suggestion:", error);
+    log.error("[generateSuggestion] Error fetching suggestion:", error);
     // Return an empty string on failure so the frontend doesn't break
     return "";
   }
@@ -558,6 +410,11 @@ export const handleDownloadOllamaModel = (event, modelName) => {
 
     child.stderr.on("data", (data) => {
       errorOutput += data.toString();
+    });
+
+    // A missing binary emits "error" (never "close"); unhandled, it throws.
+    child.on("error", (err) => {
+      reject({ error: `Download failed: ${err.message}` });
     });
 
     child.on("close", (code) => {
@@ -593,6 +450,10 @@ export const handleDeleteOllamaModel = (event, modelName) => {
       errorOutput += data.toString();
     });
 
+    child.on("error", (err) => {
+      reject({ error: `Delete failed: ${err.message}` });
+    });
+
     child.on("close", (code) => {
       if (code === 0) {
         resolve({ success: true, message: `${modelName} deleted` });
@@ -605,7 +466,7 @@ export const handleDeleteOllamaModel = (event, modelName) => {
 
 export async function generateEmbedding(text) {
   try {
-    const response = await fetch("http://localhost:11434/api/embeddings", {
+    const response = await fetch("http://127.0.0.1:11434/api/embeddings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -623,7 +484,7 @@ export async function generateEmbedding(text) {
     const data = await response.json();
     return data.embedding;
   } catch (error) {
-    console.error("Error generating embedding:", error);
+    log.error("Error generating embedding:", error);
     throw error;
   }
 }

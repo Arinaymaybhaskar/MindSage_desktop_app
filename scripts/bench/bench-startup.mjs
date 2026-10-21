@@ -2,8 +2,8 @@
  * Measures cold start, step by step, from the app's own startup log.
  *
  * electron/main.js already writes timestamped markers to
- * `<userData>/main.log` for exactly this purpose ("App ready", "Starting
- * Qdrant", "Sent services-ready to renderer", and so on), so nothing needs
+ * `<userData>/main.log` for exactly this purpose ("App ready", "Search
+ * index ready", "Sent services-ready to renderer", and so on), so nothing needs
  * instrumenting - this launches the packaged build, waits for the run to
  * complete, and turns those timestamps into per-step deltas.
  *
@@ -12,9 +12,9 @@
  * describes a developer's experience and not a user's.
  *
  * **It runs against a copy of the real profile, never the profile itself.** An
- * empty profile would not be the startup path being measured: Qdrant's start
- * time depends on the size of its collections, and the database open on the
- * size of the journal. So the database, qdrant-data and Local Storage are
+ * empty profile would not be the startup path being measured: the database
+ * open depends on the size of the journal, and the index sweep on how many
+ * entries still lack a vector. So the database and Local Storage are
  * copied into a scratch directory, and the app is pointed there with APPDATA
  * and MS_USER_DATA_DIR. Caches and media are not copied; startup does not read
  * them. Launching against the real profile used to be the design, and it meant
@@ -58,7 +58,6 @@ const PROFILE_PARTS = [
   "mind-sage.db",
   "mind-sage.db-wal",
   "mind-sage.db-shm",
-  "qdrant-data",
   "Local Storage",
 ];
 
@@ -91,15 +90,49 @@ if (!fs.existsSync(exePath)) {
 const MARKERS = [
   "App ready",
   "Splash window shown",
-  "Main window created",
   "Initializing localDB",
   "Running OllamaEmbeddingModelSetup",
-  "Starting Qdrant",
-  "Qdrant started",
-  "IPC handlers, event bus, and worker initialized",
+  "IPC handlers and event bus registered",
+  "Main window created",
+  "Search index ready",
   "Sent services-ready to renderer",
   "Renderer signaled visually ready",
 ];
+
+/**
+ * Chromium's own log, where a renderer's console output lands, including the
+ * rejection "No handler registered for 'x'" when it calls a channel nobody has
+ * registered a handler for. main.log never sees it, so the app is launched
+ * with --enable-logging=file and this file is read after every run. Any match
+ * fails the bench: the race it names is the one KAN-59 closed.
+ *
+ * Limit: this only sees the error if the renderer logs it or leaves it
+ * unhandled. Electron's main process also prints "Error occurred in handler
+ * for 'x'" for it, but to its own stdout, which this bench discards. A caller
+ * that swallows the rejection silently would not be caught here.
+ *
+ * A missing or empty log is a failed run, never a pass: Chromium always writes
+ * something, so no file means the capture itself broke and "0 errors" would be
+ * meaningless.
+ */
+const MISSING_HANDLER = /No handler registered/g;
+const chromiumLog = path.join(userData, "chromium.log");
+const readChromiumLog = () => {
+  try {
+    const text = fs.readFileSync(chromiumLog, "utf8");
+    return {
+      captured: text.length > 0,
+      missingHandlers: (text.match(MISSING_HANDLER) || []).length,
+    };
+  } catch {
+    return { captured: false, missingHandlers: 0 };
+  }
+};
+
+// Counted across every run, complete or not: a startup broken badly enough to
+// never signal ready is the likeliest to have hit a missing handler.
+let totalMissingHandlers = 0;
+let runsWithoutLog = 0;
 
 const LINE = /^\[([^\]]+)\]\s+(.*)$/;
 
@@ -117,13 +150,16 @@ function parseRun(sinceBytes) {
     const m = line.match(LINE);
     if (!m) continue;
     const [, iso, message] = m;
-    const marker = MARKERS.find((k) => message.trim() === k);
+    // "Sent services-ready to renderer (degraded: ...)" is the same step.
+    const marker = MARKERS.find(
+      (k) => message.trim() === k || message.startsWith(`${k} (`),
+    );
     if (marker) events.push({ marker, at: Date.parse(iso) });
   }
   return events;
 }
 
-/** Kills the whole process tree - Electron spawns helpers and Qdrant. */
+/** Kills the whole process tree - Electron spawns helpers. */
 function killTree(pid) {
   try {
     execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
@@ -138,6 +174,7 @@ const runs = [];
 
 for (let i = 0; i < RUNS; i++) {
   const startBytes = fs.existsSync(logPath) ? fs.statSync(logPath).size : 0;
+  fs.rmSync(chromiumLog, { force: true });
 
   const t0 = Date.now();
   // ELECTRON_RUN_AS_NODE must be stripped. The suite runner sets it for every
@@ -152,11 +189,15 @@ for (let i = 0; i < RUNS; i++) {
   };
   delete appEnv.ELECTRON_RUN_AS_NODE;
 
-  const proc = spawn(exePath, [], {
-    detached: true,
-    stdio: "ignore",
-    env: appEnv,
-  });
+  const proc = spawn(
+    exePath,
+    ["--enable-logging=file", `--log-file=${chromiumLog}`],
+    {
+      detached: true,
+      stdio: "ignore",
+      env: appEnv,
+    },
+  );
 
   // Poll the log rather than the process: the window appearing is what ends a
   // startup, and the process stays alive long after that.
@@ -173,9 +214,15 @@ for (let i = 0; i < RUNS; i++) {
     (e) => e.marker === "Renderer signaled visually ready",
   );
   const spawnToFirstMarker = events.length ? events[0].at - t0 : null;
+  // Give Chromium a moment to flush before the process is killed and read.
+  await new Promise((r) => setTimeout(r, 1000));
+  const log = readChromiumLog();
+  const missingHandlers = log.missingHandlers;
+  totalMissingHandlers += missingHandlers;
+  if (!log.captured) runsWithoutLog++;
 
   killTree(proc.pid);
-  // Let ports and file locks clear before the next launch, or Qdrant's port
+  // Let ports and file locks clear before the next launch, or a stale port
   // probe and the SQLite open race the dying process and skew the next run.
   await new Promise((r) => setTimeout(r, SETTLE_MS));
 
@@ -199,10 +246,14 @@ for (let i = 0; i < RUNS; i++) {
     spawnToAppReadyMs: spawnToFirstMarker,
     steps,
     totalMs: total,
+    missingHandlers,
   });
 
   console.log(
-    `  run ${i + 1} (${runs[runs.length - 1].kind}): total ${fmt(total)}`,
+    `  run ${i + 1} (${runs[runs.length - 1].kind}): total ${fmt(total)}` +
+      (missingHandlers
+        ? `  FAIL: ${missingHandlers} "No handler registered"`
+        : ""),
   );
   for (const [marker, ms] of Object.entries(steps)) {
     if (ms >= 1) console.log(`      ${marker.padEnd(48)} ${fmt(ms)}`);
@@ -218,7 +269,12 @@ try {
 }
 
 if (runs.length === 0) {
-  console.error("No complete startup runs were captured.");
+  console.error(
+    "No complete startup runs were captured." +
+      (totalMissingHandlers
+        ? ` ${totalMissingHandlers} "No handler registered" error(s) were logged before they gave up.`
+        : ""),
+  );
   process.exit(1);
 }
 
@@ -237,6 +293,8 @@ const report = {
   perRun: runs,
   stepStats,
   totals: summarise(runs.map((r) => r.totalMs)),
+  missingHandlerErrors: totalMissingHandlers,
+  runsWithoutLog,
   profile: `copy of the real profile: ${copied.join(", ") || "nothing found, empty profile"}`,
   note:
     "Measured against the packaged build and a copy of the real user profile. The first run " +
@@ -250,3 +308,21 @@ if (OUT) {
 }
 
 console.log(`\n  total startup p50: ${fmt(report.totals.p50)}`);
+
+// A renderer that called a channel before its handler existed is a failed
+// startup, however fast it was.
+if (report.missingHandlerErrors > 0) {
+  console.error(
+    `\n  FAILED: ${report.missingHandlerErrors} "No handler registered" error(s) across all launches. ` +
+      "A window must never be created before every IPC handler is registered (see electron/main.js).",
+  );
+  process.exit(1);
+}
+if (report.runsWithoutLog > 0) {
+  console.error(
+    `\n  FAILED: Chromium's log was missing or empty for ${report.runsWithoutLog} launch(es), ` +
+      "so the missing-handler check did not run. Check --enable-logging=file and --log-file.",
+  );
+  process.exit(1);
+}
+console.log(`  no "No handler registered" errors in ${runs.length} run(s)`);

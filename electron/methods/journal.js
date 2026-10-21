@@ -11,6 +11,7 @@ import {
 } from "./AIPrompts.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
+import { log } from "../log.js";
 
 export async function handleCreateJournal(event, payload) {
   const userId = currentUserId();
@@ -50,7 +51,7 @@ export async function handleGetJournalById(event, journalId) {
   const userId = currentUserId();
   if (!userId) throw new Error("Not signed in");
 
-  console.log("Fetching journal by ID in offline mode:", journalId);
+  log.info("Fetching journal by ID in offline mode:", journalId);
   return localDB.getJournalById(userId, journalId);
 }
 
@@ -59,6 +60,11 @@ export async function handleUpdateJournal(event, journalId, payload) {
   if (!userId) throw new Error("Not signed in");
   let updatedJournal;
   updatedJournal = localDB.updateJournalEntry(userId, journalId, payload);
+  // The indexer re-embeds it if the words changed.
+  eventBus.emit("journal:updated", { entry: updatedJournal });
+  // People re-reads the entry only if its text actually changed.
+  if (updatedJournal)
+    eventBus.emit("journal:edited", { userId, entry: updatedJournal });
   if (updatedJournal.audio_key) {
     eventBus.emit("journal:audio-saved", { entry: updatedJournal, event });
   }
@@ -95,18 +101,6 @@ export async function handleGetChartData(event, range) {
   if (!userId) throw new Error("Not signed in");
   return localDB.getMoodScores(userId, range);
 }
-
-export const getPendingJournals = (userId) => {
-  if (!userId) throw new Error("Invalid userId");
-  return localDB.getPendingJournals(userId);
-};
-
-export const updateSyncStatus = (userId, journalId, status) => {
-  if (!userId) throw new Error("Invalid userId");
-  if (!journalId) throw new Error("Invalid journalId");
-  if (!status) throw new Error("Invalid status");
-  return localDB.updateSyncStatus(userId, journalId, status);
-};
 
 const addContentSummary = (summary, journalId, userId) => {
   return localDB.addContentSummary(summary, journalId, userId);
@@ -155,17 +149,6 @@ eventBus.on("journal:aiCompleted", ({ entry, metadata, force }) => {
     `UPDATE journal_entries SET ai_metadata_status = 'completed', ai_metadata_error = NULL WHERE id = ?`,
   ).run(entry.id);
   eventBus.emit("journal:updated", { entry: updated });
-  // Trigger Qdrant update with the new fields via worker message
-  if (global.qdrantWorker) {
-    global.qdrantWorker.postMessage({
-      type: "journal:qdrant-update-needed",
-      data: { entry: updated },
-    });
-  } else {
-    console.error(
-      `[JOURNAL] Qdrant worker not available for journal ID: ${entry.id}`,
-    );
-  }
 });
 
 eventBus.on("ollama:summary-generated", ({ summary, id, userId }) => {
@@ -183,7 +166,7 @@ eventBus.on("whisper:transcribe-ended", ({ entry, transcriptionText }) => {
 });
 
 eventBus.on("custom:test-event", (data) => {
-  console.log("Custom test event received with data:", data);
+  log.debug("Custom test event received");
 });
 
 // --- AI Metadata Retry Handler ---
@@ -210,7 +193,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     const model = selectedModels?.chat || "llama3.2:latest";
 
     try {
-      const res2 = await fetch("http://localhost:11434/api/generate", {
+      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -237,7 +220,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
       });
       return { success: true };
     } catch (err) {
-      console.error("AI metadata retry failed:", err);
+      log.error("AI metadata retry failed:", err);
       db.prepare(
         `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`,
       ).run(err.message, journalId);
@@ -272,7 +255,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     const model = selectedModels?.chat || "llama3.2:latest";
 
     try {
-      const res2 = await fetch("http://localhost:11434/api/generate", {
+      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -305,7 +288,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
       });
       return { success: true };
     } catch (err) {
-      console.error("AI summary retry failed:", err);
+      log.error("AI summary retry failed:", err);
       db.prepare(
         `UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ? WHERE id = ?`,
       ).run(err.message, journalId);

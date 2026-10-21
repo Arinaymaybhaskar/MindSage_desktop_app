@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isSafeExternalUrl } from "./windowGuard.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,9 +30,10 @@ export async function createWindow() {
     frame: false,
     titleBarStyle: "hidden",
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
@@ -60,22 +62,44 @@ export async function createWindow() {
     win.loadFile(path.join(process.env.DIST, "index.html"));
   }
 
+  return win;
+}
+
+let ipcRegistered = false;
+
+/**
+ * Window-control and open-external channels. Registered once for the life of
+ * the app, not per window: a second `handle` for the same channel throws, and
+ * a second `on` would stack listeners each time the window is recreated
+ * (macOS reopen, KAN-337). They act on whichever window is current.
+ */
+export function registerWindowIpc() {
+  if (ipcRegistered) return;
+  ipcRegistered = true;
+
   // Window control IPC
-  ipcMain.on("minimize-window", () => !win.isDestroyed() && win.minimize());
+  ipcMain.on(
+    "minimize-window",
+    () => !!win && !win.isDestroyed() && win.minimize(),
+  );
   ipcMain.on("maximize-window", () => {
     if (!win || win.isDestroyed()) return;
     win.isMaximized() ? win.unmaximize() : win.maximize();
   });
-  ipcMain.on("close-window", () => !win.isDestroyed() && win.close());
+  ipcMain.on("close-window", () => !!win && !win.isDestroyed() && win.close());
 
   ipcMain.handle("open-external", async (_event, url) => {
     try {
-      await shell.openExternal(url);
+      if (!isSafeExternalUrl(url)) {
+        return {
+          success: false,
+          error: "Only web and mail links can be opened",
+        };
+      }
+      await shell.openExternal(new URL(url).href);
       return { success: true };
     } catch (err) {
       return { success: false, error: String(err) };
     }
   });
-
-  return win;
 }

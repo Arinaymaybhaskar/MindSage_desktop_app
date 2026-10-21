@@ -4,7 +4,7 @@
 
 A single prioritised list of what stands between the current codebase and a product that can be shipped to strangers. Synthesised from every doc in this folder **and re-verified against the code**, because several tracked items were already fixed and several live numbers had drifted.
 
-> **For execution order, use [MASTER_TODO.md](MASTER_TODO.md)**, which merges this document with every other doc in the folder into one sequential queue. This document holds the reasoning and the evidence; that one holds the ordering.
+> **For execution order, use Jira** (project KAN, one release per phase). This document holds the reasoning and the evidence; Jira holds the ordering.
 
 **Legend:** severity `🔴 blocker` `🟠 high` `🟡 medium` `🟢 low` · effort `S` < 1d · `M` 1–3d · `L` > 3d
 
@@ -37,7 +37,7 @@ Run before trusting any older doc in this folder.
 
 - [ ] 🔴 M — **Encrypt the database at rest.** [connection.js:6-10](../electron/db/connection.js#L6-L10) opens a plain `better-sqlite3` file at a predictable path. Journal text, moods, and the bcrypt hash are readable by anyone with file access, which makes the login screen a UI gate in front of an open door. Depends on the recovery decision in [OFFLINE_AUTH_DESIGN.md](OFFLINE_AUTH_DESIGN.md).
 - [ ] 🔴 S — **Remove the hardcoded JWT secret** from [electron/methods/auth.js:9](../electron/methods/auth.js#L9) — it now ships *inside the packaged app*. Rotate it and scrub git history.
-- [x] 🔴 S — **Resolve the token charade.** Done 2026-10-06: profile-selection chosen (option B), tokens deleted, the session held in the main process. See [MASTER_TODO §0](MASTER_TODO.md).
+- [x] 🔴 S — **Resolve the token charade.** Done 2026-10-06: profile-selection chosen (option B), tokens deleted, the session held in the main process.
 - [ ] 🔴 S — **Gate the auto-updater.** Fires unprompted on every packaged launch with `autoDownload = true` ([NETWORK_AUDIT.md](NETWORK_AUDIT.md) §1.1). Contradicts the offline-first claim.
 
 ### Data-loss paths (not tracked in any prior doc)
@@ -57,11 +57,11 @@ Run before trusting any older doc in this folder.
 ## 2. 🟠 High — production operations
 
 - [ ] 🟠 M — **No crash reporting.** Zero visibility into production failures. Electron's `crashReporter` at minimum. Anything network-bound needs explicit opt-in given the offline positioning.
-- [ ] 🟠 S — **Update UI is missing.** `autoUpdater` emits `update:available`, `update:progress`, and `update:downloaded` to the renderer ([autoUpdater.js:28-36](../electron/services/autoUpdater.js#L28-L36)) and **nothing listens**. Updates download and install silently.
+- [~] 🟠 S — **Update UI is missing.** Wired in KAN-60 (UpdateBar); not yet run against a real release. `autoUpdater` emits `update:available`, `update:progress`, and `update:downloaded` to the renderer ([autoUpdater.js:28-36](../electron/services/autoUpdater.js#L28-L36)) and **nothing listens**. Updates download and install silently.
 - [ ] 🟠 M — **Make CI quality gates blocking.** Requires clearing 131 typecheck + 92 lint errors. The highest-leverage fix: `electron.d.ts` doesn't declare `minimize` / `maximize` / `close` / `onWindowStateChange`, which [preload.js:4-32](../electron/preload.js#L4) *does* expose — a pure typing gap that accounts for the `TitleBar.tsx` failures.
 - [ ] 🟠 M — **Cut the installer down from 236 MB.** The unpacked app is **777 MB** — over half of it avoidable: mac binaries shipped inside the Windows build, an 81 MB ffmpeg, renderer libraries shipped twice, and 43 MB of unused Electron locales. Full breakdown and plan in [BUNDLE_SIZE_PLAN.md](BUNDLE_SIZE_PLAN.md).
-- [ ] 🟠 M — **Deepen test coverage** to journal CRUD, the Qdrant/AI worker, and migrations. Add a Playwright e2e for launch → write → search.
-- [ ] 🟠 S — **Add a Content-Security-Policy.** None exists and `webSecurity` is default ([NETWORK_AUDIT.md](NETWORK_AUDIT.md) §4.1). Cheap, and it turns "we make no external requests" into an enforced invariant.
+- [~] 🟠 M — **Deepen test coverage** (KAN-57: database, migration and worker tests in; the Playwright e2e is written but not yet green in CI) to journal CRUD, the Qdrant/AI worker, and migrations. Add a Playwright e2e for launch → write → search.
+- [x] 🟠 S — **Add a Content-Security-Policy.** Done (KAN-61, electron/csp.js). None exists and `webSecurity` is default ([NETWORK_AUDIT.md](NETWORK_AUDIT.md) §4.1). Cheap, and it turns "we make no external requests" into an enforced invariant.
 - [ ] 🟠 S — **Release pipeline is Windows-only** while `build` declares `mac: dmg` and `linux: AppImage`. See [MAC_RELEASE_PLAN.md](MAC_RELEASE_PLAN.md).
 - [ ] 🟠 M — **Introduce a logger** (`electron-log`) with levels, rotation, and redaction — replaces 106 `console.log` calls.
 - [ ] 🟠 S — **First run requires the network** (274 MB model pull). Document it and fail gracefully offline instead of stalling at setup.
@@ -86,8 +86,8 @@ Run before trusting any older doc in this folder.
 
 - [ ] 🟢 M — **Accessibility is thin** — 72 aria attributes across 166 buttons, and exactly **one** `prefers-reduced-motion` rule in a heavily animated app. No focus-trap or skip-link pattern.
 - [ ] 🟢 S — **Add `CONTRIBUTING.md` and `CHANGELOG.md`.**
-- [ ] 🟢 S — **No user-facing data deletion or uninstall cleanup.** NSIS leaves `%APPDATA%/MindSage` behind. For a journaling app, "delete everything" should be explicit and honest.
-- [ ] 🟢 S — **Add `sandbox: true`** to both BrowserWindows. `contextIsolation` and `nodeIntegration` are already set correctly.
+- [~] 🟢 S — **No user-facing data deletion or uninstall cleanup.** NSIS leaves `%APPDATA%/MindSage` behind. For a journaling app, "delete everything" should be explicit and honest. Half done (KAN-63): the uninstaller now asks, default No; the in-app Delete profile flow is separate.
+- [x] 🟢 S — **Add `sandbox: true`** to both BrowserWindows. `contextIsolation` and `nodeIntegration` are already set correctly.
 - [ ] 🟢 S — **Resolve the import-extension contradiction** between [AGENTS.md](../AGENTS.md) and [TECHNICAL_DEBT.md](TECHNICAL_DEBT.md) §4.5.
 - [ ] 🟢 S — **Refresh [CLAUDE.md](../CLAUDE.md) and [AGENTS.md](../AGENTS.md)** against §0 of this document.
 

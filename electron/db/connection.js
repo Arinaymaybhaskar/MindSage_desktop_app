@@ -2,6 +2,15 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 import { MIGRATIONS, runMigrations } from "./migrations.js";
+import {
+  describeLoadFailure,
+  ensureVectorTable,
+  extensionPath,
+  loadVectorExtension,
+  removeOrphanVectors,
+} from "./vectorExtension.js";
+import { log } from "../log.js";
+import { checkpointOnce } from "./walCheckpoint.js";
 
 // Where the database used to be resolved: next to Electron's userData on
 // Windows, but ~/Library/Preferences on macOS and ~/.local/share on Linux,
@@ -18,8 +27,7 @@ const legacyDbPath = path.join(
 
 /**
  * The database lives in Electron's userData (MS_DB_DIR, set by
- * userDataOverride.js before this module loads; the Qdrant worker inherits
- * it). On Windows that is the same file as before. Elsewhere, an existing
+ * userDataOverride.js before this module loads). On Windows that is the same file as before. Elsewhere, an existing
  * journal at the legacy path wins over an empty new location, so moving the
  * default can never present a user with a blank journal.
  */
@@ -34,7 +42,7 @@ function resolveDbPath() {
     !fs.existsSync(preferred) &&
     fs.existsSync(legacyDbPath)
   ) {
-    console.log(`Using the existing database at ${legacyDbPath}`);
+    log.info(`Using the existing database at ${legacyDbPath}`);
     return legacyDbPath;
   }
   return preferred;
@@ -52,8 +60,8 @@ export const db = new Database(dbPath);
 // never reached it at all.
 db.pragma("foreign_keys = ON");
 
-// WAL lets the main process read while the Qdrant worker writes; in the
-// default rollback journal every worker write blocked every read, measured at
+// WAL lets reads continue while a write is in flight; in the
+// default rollback journal every write blocked every read, measured at
 // 200ms for a 1ms query (docs/benchmarks/FINDINGS.md §2). journal_mode is
 // stored in the file, so this is a no-op after the first launch, and the
 // worker's handle repeats it harmlessly. synchronous is per connection: NORMAL
@@ -61,6 +69,23 @@ db.pragma("foreign_keys = ON");
 // commits on a power cut, which FULL would cost an fsync per write to prevent.
 db.pragma("journal_mode = WAL");
 db.pragma("synchronous = NORMAL");
+// Deleted rows are overwritten, not left readable in the file's free pages:
+// deleting something for good has to remove its text from the database file.
+db.pragma("secure_delete = ON");
+
+// The search index is a sqlite-vec table in this same file (KAN-192). If the
+// extension cannot be loaded the journal still opens and only search is
+// unavailable; callers check this before using the index.
+export const vectorSupport = loadVectorExtension(db);
+if (!vectorSupport.ok) {
+  let where = "";
+  try {
+    where = extensionPath();
+  } catch (error) {
+    where = `unresolved: ${error?.message ?? error}`;
+  }
+  log.error(describeLoadFailure(where, vectorSupport.error));
+}
 
 // A pre-migration snapshot is the user's only insurance: the database is the
 // single copy of their journal and there is no undo for a bad ALTER.
@@ -69,7 +94,7 @@ const BACKUPS_TO_KEEP = 5;
 
 function backupDatabase(fromVersion) {
   if (process.env.MS_SKIP_DB_BACKUP === "1") {
-    console.log("Skipping database backup (MS_SKIP_DB_BACKUP=1)");
+    log.info("Skipping database backup (MS_SKIP_DB_BACKUP=1)");
     return;
   }
 
@@ -101,7 +126,7 @@ function backupDatabase(fromVersion) {
   } catch (err) {
     // VACUUM INTO refuses on a corrupt database, where a raw byte copy still
     // salvages whatever is readable.
-    console.error("VACUUM INTO failed, falling back to a file copy:", err);
+    log.error("VACUUM INTO failed, falling back to a file copy:", err);
     fs.copyFileSync(db.name, target);
     for (const suffix of ["-wal", "-shm"]) {
       if (fs.existsSync(db.name + suffix)) {
@@ -110,8 +135,40 @@ function backupDatabase(fromVersion) {
     }
   }
 
-  console.log(`Backed up the database to ${target}`);
+  log.info(`Backed up the database to ${target}`);
   pruneBackups(dir);
+  return target;
+}
+
+/**
+ * Replaces every older safety copy with one made now. Used when a profile is
+ * deleted but others remain: the old copies still hold that profile's journal,
+ * and cannot be edited safely (older schemas), so they go and a fresh copy,
+ * taken after the rows were removed, takes their place. The new copy is made
+ * first; the old ones are removed even if it could not be (the person asked
+ * for the data to go). KAN-344.
+ */
+export function replaceBackups() {
+  const dir = path.join(path.dirname(db.name), BACKUP_DIR_NAME);
+  let fresh = null;
+  try {
+    fresh = backupDatabase(db.pragma("user_version", { simple: true })) ?? null;
+  } catch (err) {
+    log.error("Could not make a fresh database backup:", err);
+  }
+  const keep = fresh ? path.basename(fresh) : null;
+  let removed = 0;
+  try {
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.startsWith("mind-sage-v")) continue;
+      if (keep && name.startsWith(keep)) continue;
+      fs.rmSync(path.join(dir, name), { force: true });
+      removed += 1;
+    }
+  } catch (err) {
+    log.error("Could not remove the old database backups:", err);
+  }
+  return { replaced: fresh !== null, removed };
 }
 
 function pruneBackups(dir) {
@@ -128,7 +185,7 @@ function pruneBackups(dir) {
       fs.rmSync(path.join(dir, stale + "-shm"), { force: true });
     }
   } catch (err) {
-    console.error("Could not prune old database backups:", err);
+    log.error("Could not prune old database backups:", err);
   }
 }
 
@@ -140,8 +197,32 @@ export function initDatabase() {
     beforeMigrate: backupDatabase,
   });
 
+  // After the numbered migrations, and outside them on purpose: a machine that
+  // cannot load the extension must still migrate its journal.
+  if (vectorSupport.ok) {
+    ensureVectorTable(db);
+    // A purge made while the extension could not load left its vectors
+    // behind; they go now, before anything can search or index (KAN-368).
+    try {
+      const removed = removeOrphanVectors(db);
+      if (removed) {
+        log.info(`Search index: removed ${removed} orphaned vector(s)`);
+      }
+    } catch (err) {
+      log.error("Could not remove orphaned vectors:", err);
+    }
+  }
+
+  // Finishes a fold that a delete could not complete last time (another
+  // program held the file, or the app was killed before closing it): until
+  // then the database file can keep old page images of deleted rows. One
+  // short try, never blocking startup for long (KAN-371).
+  if (!checkpointOnce(db).ok) {
+    log.warn("Startup WAL checkpoint was busy; it will run again later");
+  }
+
   if (applied.length) {
-    console.log(
+    log.info(
       `Database migrated from version ${from} to ${to}: ${applied.join(", ")}`,
     );
   }
@@ -174,5 +255,5 @@ export function initDatabase() {
     insertCategory.run(cat.name, cat.color);
   });
 
-  console.log(`Local database ready at schema version ${to}.`);
+  log.info(`Local database ready at schema version ${to}.`);
 }

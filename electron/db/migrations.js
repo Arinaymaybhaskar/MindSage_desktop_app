@@ -415,7 +415,7 @@ export const MIGRATIONS = [
     // Every journal list, dashboard and gallery query filters on user_id and
     // is_deleted and sorts or ranges on created_at; without this index each
     // one scanned the whole table (DB-1, 41 scans per bench run). The
-    // journal_entry_tags lookup MASTER_TODO item 7 also asked for is already
+    // journal_entry_tags lookup an earlier audit also asked for is already
     // served by that table's primary key, (journal_entry_id, tag_id).
     version: 4,
     name: "journal-entries-list-index",
@@ -423,6 +423,206 @@ export const MIGRATIONS = [
       d.exec(`
         CREATE INDEX IF NOT EXISTS idx_journal_entries_user_deleted_created
           ON journal_entries(user_id, is_deleted, created_at);
+      `),
+  },
+  {
+    // Trash (KAN-52). Deleting an entry or a goal used to either hide it
+    // forever (entries: is_deleted = 1, nothing ever read it back or removed
+    // it) or destroy it at once (goals). Both now sit in the trash for 30 days
+    // and are then purged, so each row records when it was trashed.
+    //
+    // Entries already soft-deleted get deleted_at = now, so their 30 days start
+    // at the upgrade: they appear in the Trash and can be restored. (Stamping
+    // them from their last update would purge the old ones within seconds of
+    // the first launch, before anyone could look.)
+    //
+    // vector_deletions is the durable queue of search-index points to remove
+    // after the row is gone, so a purge that happens while the vector store
+    // is down is finished later instead of leaving the text behind.
+    version: 5,
+    name: "trash",
+    up: (d) =>
+      d.exec(`
+        ALTER TABLE journal_entries ADD COLUMN deleted_at TEXT;
+        ALTER TABLE goals ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE goals ADD COLUMN deleted_at TEXT;
+
+        UPDATE journal_entries
+           SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE is_deleted = 1 AND deleted_at IS NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_goals_user_deleted
+          ON goals(user_id, is_deleted);
+        CREATE INDEX IF NOT EXISTS idx_journal_entries_trashed
+          ON journal_entries(user_id, deleted_at) WHERE is_deleted = 1;
+
+        CREATE TABLE IF NOT EXISTS vector_deletions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          source_type TEXT NOT NULL
+            CHECK(source_type IN ('journal', 'goal', 'progress_log')),
+          source_id INTEGER NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(source_type, source_id)
+        );
+      `),
+  },
+  {
+    // Deleting an entry or goal for good looks up the saved answers that cite
+    // it by (source_type, source_id); without this index every lookup walks
+    // all of the user's messages.
+    version: 6,
+    name: "message-sources-lookup",
+    up: (d) =>
+      d.exec(`
+      CREATE INDEX IF NOT EXISTS idx_message_sources_source
+        ON message_sources(source_type, source_id);
+    `),
+  },
+  {
+    // The search index (KAN-192). The vectors live in a sqlite-vec table made
+    // at startup (vectorExtension.js, so a machine that cannot load the
+    // extension still migrates); this table says what is indexed, what
+    // is waiting and what failed, and its id is the vector's rowid.
+    //
+    // attempts / next_attempt_at are the bounded backfill's memory (KAN-88):
+    // a row that fails waits 1 min, 5 min, 30 min, 2 h, then 12 h; after
+    // five failed attempts it waits until its content changes.
+    version: 7,
+    name: "search-index",
+    up: (d) =>
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS search_index (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          source_type TEXT NOT NULL
+            CHECK(source_type IN ('journal', 'goal', 'progress_log')),
+          source_id INTEGER NOT NULL,
+          content_hash TEXT,
+          state TEXT NOT NULL DEFAULT 'pending'
+            CHECK(state IN ('pending', 'ok', 'failed')),
+          attempts INTEGER NOT NULL DEFAULT 0,
+          next_attempt_at INTEGER,
+          last_error TEXT,
+          indexed_at TEXT,
+          UNIQUE(source_type, source_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_search_index_work
+          ON search_index(state, next_attempt_at);
+        CREATE INDEX IF NOT EXISTS idx_search_index_user
+          ON search_index(user_id);
+      `),
+  },
+  {
+    // Qdrant is gone (KAN-192). Its bookkeeping goes with it: the queue of
+    // points to delete (a purge now removes vectors in its own transaction)
+    // and the per-row sync state, which search_index replaced. The two
+    // indexes on that state must be dropped before their columns.
+    version: 8,
+    name: "drop-qdrant-state",
+    up: (d) => {
+      d.exec(`
+        DROP TABLE IF EXISTS vector_deletions;
+        DROP INDEX IF EXISTS idx_goals_synced_to_qdrant;
+        DROP INDEX IF EXISTS idx_progress_logs_synced_to_qdrant;
+      `);
+      for (const table of ["journal_entries", "goals", "progress_logs"]) {
+        const columns = d
+          .prepare(`PRAGMA table_info(${table})`)
+          .all()
+          .map((c) => c.name);
+        for (const column of ["synced_to_qdrant", "qdrant_id"]) {
+          if (columns.includes(column)) {
+            d.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+          }
+        }
+      }
+    },
+  },
+  {
+    // The People section (docs/PEOPLE.md). Everything here is derived from
+    // journal entries, so every row hangs off an entry or a person by a
+    // cascading foreign key: deleting either removes what was worked out from
+    // it in the same statement. Mentions keep sentence offsets rather than a
+    // copy of the text, so the journal is never stored twice.
+    version: 9,
+    name: "people-tables",
+    up: (d) =>
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS people (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            display_name TEXT NOT NULL,
+            relationship TEXT,
+            relationship_suggested TEXT,
+            status TEXT NOT NULL DEFAULT 'suggested'
+              CHECK(status IN ('suggested', 'confirmed', 'ignored')),
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_people_user_status
+          ON people(user_id, status);
+
+        CREATE TABLE IF NOT EXISTS person_aliases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER NOT NULL,
+            alias TEXT NOT NULL,
+            alias_normalised TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'ai' CHECK(source IN ('user', 'ai')),
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE,
+            UNIQUE(person_id, alias_normalised)
+        );
+        CREATE INDEX IF NOT EXISTS idx_person_aliases_normalised
+          ON person_aliases(alias_normalised);
+
+        CREATE TABLE IF NOT EXISTS person_mentions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id INTEGER NOT NULL,
+            person_id INTEGER NOT NULL,
+            name_as_written TEXT NOT NULL,
+            sentence_start INTEGER NOT NULL,
+            sentence_end INTEGER NOT NULL,
+            valence INTEGER CHECK(valence BETWEEN -2 AND 2),
+            feeling_tags TEXT,
+            confidence REAL,
+            user_verified INTEGER NOT NULL DEFAULT 0,
+            extractor_version INTEGER NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+            FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_person_mentions_person
+          ON person_mentions(person_id);
+        CREATE INDEX IF NOT EXISTS idx_person_mentions_entry
+          ON person_mentions(entry_id);
+
+        CREATE TABLE IF NOT EXISTS person_summaries (
+            person_id INTEGER PRIMARY KEY,
+            summary_json TEXT NOT NULL,
+            mentions_hash TEXT NOT NULL,
+            model TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS people_jobs (
+            entry_id INTEGER PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            content_hash TEXT,
+            status TEXT NOT NULL DEFAULT 'queued'
+              CHECK(status IN ('queued', 'running', 'done', 'skipped', 'failed')),
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            extractor_version INTEGER,
+            priority INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_people_jobs_user_status
+          ON people_jobs(user_id, status);
       `),
   },
 ];

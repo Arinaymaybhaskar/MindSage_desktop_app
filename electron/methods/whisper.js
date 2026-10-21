@@ -4,6 +4,7 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import { eventBus } from "../eventBus.js";
 import fs from "fs";
+import { log } from "../log.js";
 
 let liveProcess = null;
 
@@ -17,13 +18,13 @@ function safeSend(event, channel, payload) {
   try {
     event?.sender?.send(channel, payload);
   } catch (err) {
-    console.warn(`Failed to send IPC to ${channel}:`, err);
+    log.warn(`Failed to send IPC to ${channel}:`, err);
   }
 }
 
 export function startLiveTranscription(event) {
   if (liveProcess) {
-    console.warn("⚠️ Live transcription already running, skipping start");
+    log.warn("⚠️ Live transcription already running, skipping start");
     return;
   }
 
@@ -56,7 +57,7 @@ export function startLiveTranscription(event) {
   });
 
   liveProcess.stderr.on("data", (err) => {
-    console.error("❌ [Whisper STDERR]:", err.toString().trim());
+    log.error("❌ [Whisper STDERR]:", err.toString().trim());
   });
 
   liveProcess.on("close", (code, signal) => {
@@ -70,7 +71,7 @@ export function stopLiveTranscription() {
     liveProcess.kill("SIGINT");
     liveProcess = null;
   } else {
-    console.warn("⚠️ stopLiveTranscription called but no process is running");
+    log.warn("⚠️ stopLiveTranscription called but no process is running");
   }
 }
 
@@ -123,11 +124,11 @@ export function transcribeAudioBlob(filePath, event) {
           resolve(json);
           safeSend(event, "blob-transcription-result", json);
         } catch (err) {
-          console.error("JSON parse error:", err);
+          log.error("JSON parse error:", err);
           reject(err);
         }
       } else {
-        console.error("Whisper JSON file not found:", jsonPath);
+        log.error("Whisper JSON file not found:", jsonPath);
         reject(new Error("Whisper JSON file missing"));
       }
     });
@@ -139,11 +140,9 @@ export function transcribeAudioBlob(filePath, event) {
 eventBus.on("journal:audio-saved", ({ entry, event }) => {
   if (!entry.audio_key || !event) {
     if (!entry.audio_key)
-      console.error("Audio key missing from 'journal:audio-saved' event.");
+      log.error("Audio key missing from 'journal:audio-saved' event.");
     if (!event)
-      console.error(
-        "IPC event object missing from 'journal:audio-saved' event.",
-      );
+      log.error("IPC event object missing from 'journal:audio-saved' event.");
     return;
   }
 
@@ -169,7 +168,7 @@ eventBus.on("journal:audio-saved", ({ entry, event }) => {
       // `).run(transcriptionText, entry.id);
     })
     .catch((error) => {
-      console.error("💥 Transcription failed for:", entry.audio_key, error);
+      log.error("💥 Transcription failed for:", entry.audio_key, error);
 
       event.sender.send("blob-transcription-error", {
         message: "Transcription failed.",

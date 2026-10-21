@@ -1,23 +1,34 @@
 // main.js
 // Must stay first: it redirects userData before any module reads it.
 import "./userDataOverride.js";
-import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
-import fs from "node:fs";
+import "./logSetup.js";
+import { app, BrowserWindow, globalShortcut, ipcMain, shell } from "electron";
 import path, { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import localDB from "./db/index.js";
 // import { startServer } from "../src/server/app.js";
-import { createWindow } from "./windowManager.js";
+import { createWindow, registerWindowIpc } from "./windowManager.js";
+import { createReopener } from "./windowReopen.js";
+import { guardContents, isAppUrl } from "./windowGuard.js";
 import { registerIPCHandlers } from "./ipcHandlers.js";
 import { setupEventBusListeners } from "./events.js";
-import { startQdrant, stopQdrant } from "./services/qdrantManager.js";
+import { startServices } from "./services/startServices.js";
+import { createServiceAnnouncer } from "./services/serviceAnnouncer.js";
+import { removeLegacyQdrantData } from "./legacyQdrant.js";
+import { isIndexReady, setIndexer } from "./methods/search.js";
+import { createIndexer } from "./services/indexer.js";
+import { generateEmbedding } from "./methods/ollama.js";
+import { vectorSupport } from "./db/connection.js";
+import { registerTrashIPC, startTrashJob } from "./methods/trash.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
 import { registerSetupIPC } from "./services/appSetup.js";
+import { killOllamaCliChildren } from "./services/ollamaCli.js";
 import { applyLaunchAtStartup, registerAppSettingsIPC } from "./appSettings.js";
 import { registerSessionIPC } from "./methods/auth.js";
 import { initAutoUpdater, registerUpdaterIPC } from "./services/autoUpdater.js";
-import { Worker } from "node:worker_threads";
+import { log as appLog } from "./log.js";
+import { registerLogIPC } from "./logIpc.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,9 +73,10 @@ function openQuickCaptureWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
@@ -72,7 +84,7 @@ function openQuickCaptureWindow() {
     ? `${process.env.VITE_DEV_SERVER_URL}#/quick-capture`
     : `file://${path.join(process.env.DIST, "index.html")}#/quick-capture`;
 
-  console.log("Loading QuickCapture URL:", url);
+  appLog.info("Loading QuickCapture URL:", url);
   quickCaptureWindow.loadURL(url);
 
   quickCaptureWindow.once("ready-to-show", () => {
@@ -93,48 +105,29 @@ function openQuickCaptureWindow() {
   });
 }
 
-// ------------------- Qdrant Worker -------------------
-function createQdrantWorker() {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-
-  // Same path in dev and packaged. main.js and qdrantWorker.js are siblings
-  // in dist-electron either way, and when packaged that directory lives
-  // inside app.asar, which __dirname already points into. The packaged
-  // branch used to resolve process.resourcesPath/dist-electron, which does
-  // not exist: dist-electron/**/* is packed into the archive, so the
-  // worker never started in a real install.
-  const workerPath = path.join(__dirname, "qdrantWorker.js");
-
-  const worker = new Worker(workerPath, { type: "module" });
-
-  worker.on("message", (message) => {
-    // Structured progress goes to the renderer's AI activity panel; everything
-    // else the worker posts is debug logging.
-    if (message?.type === "ai-activity") {
-      const win = BrowserWindow.getAllWindows()[0];
-      if (win && !win.isDestroyed()) {
-        win.webContents.send("ai-status-event", {
-          event: message.event,
-          data: message.data,
-        });
-      }
-      return;
-    }
-    console.log("Qdrant Worker Message:", message);
-  });
-  worker.on("error", (error) => console.error("Qdrant Worker Error:", error));
-  worker.on("exit", (code) => {
-    if (code !== 0)
-      console.error(`Qdrant Worker stopped with exit code ${code}`);
-    else console.log("Qdrant worker exited successfully");
-  });
-  worker.on("online", () => console.log("Qdrant worker is online"));
-
-  global.qdrantWorker = worker;
-
-  return worker;
+// ------------------- Search indexer -------------------
+// Progress goes to the renderer's AI activity panel.
+function reportIndexActivity(event, data) {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win && !win.isDestroyed()) {
+    win.webContents.send("ai-status-event", { event, data });
+  }
 }
+
+// ------------------- Navigation guard -------------------
+// Every window, including the ones created later, may only show the app's own
+// pages. A link that asks for a new window is refused, and goes to the
+// default browser instead when it is a web or mail address.
+app.on("web-contents-created", (_event, contents) => {
+  guardContents(contents, {
+    isApp: (url) =>
+      isAppUrl(url, {
+        devUrl: process.env.VITE_DEV_SERVER_URL,
+        distDir: process.env.DIST,
+      }),
+    openExternal: (url) => shell.openExternal(url).catch(() => {}),
+  });
+});
 
 // ------------------- Optional GPU Fallback -------------------
 // Enable this by setting environment variable MS_DISABLE_GPU=1 on affected machines
@@ -162,13 +155,8 @@ if (process.env.MS_REMOTE_DEBUG) {
 
 // ------------------- App Ready -------------------
 app.whenReady().then(async () => {
-  // Simple file logger in userData to debug startup on customer machines
-  const logPath = path.join(app.getPath("userData"), "main.log");
-  const log = (message) => {
-    try {
-      fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`);
-    } catch {}
-  };
+  // Startup lines go to the shared, rotating, redacted logger (userData/logs).
+  const log = (message) => appLog.info(message);
 
   log("App ready");
 
@@ -201,7 +189,7 @@ app.whenReady().then(async () => {
     } catch {}
     // Check for app updates once the UI is visible: packaged builds only,
     // and only if the user turned automatic checks on in Settings.
-    initAutoUpdater(win).catch((e) =>
+    initAutoUpdater(() => win).catch((e) =>
       log(`Auto-updater init error: ${e?.stack || e}`),
     );
   };
@@ -209,10 +197,13 @@ app.whenReady().then(async () => {
   // Register setup + app-settings IPC up front so the renderer's first-run
   // onboarding flow can query/drive them before the heavier services finish.
   try {
+    registerLogIPC();
     registerSetupIPC();
     registerAppSettingsIPC();
     registerUpdaterIPC(() => win);
     registerSessionIPC();
+    registerTrashIPC(() => win);
+    startTrashJob();
     applyLaunchAtStartup();
   } catch (e) {
     log(`Setup/settings IPC init error: ${e?.stack || e}`);
@@ -237,8 +228,10 @@ app.whenReady().then(async () => {
       roundedCorners: false,
       show: true,
       webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
+        preload: path.join(__dirname, "splashPreload.cjs"),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
       },
     });
     const splashUrl = process.env.VITE_DEV_SERVER_URL
@@ -250,25 +243,38 @@ app.whenReady().then(async () => {
     log(`Failed to create splash: ${e?.stack || e}`);
   }
 
-  // Create main window in background; it will be shown after services are ready
+  const splashStatus = (text) => {
+    if (splash && !splash.isDestroyed())
+      splash.webContents.send("splash-status", text);
+  };
+
+  // ---- Everything the window can ask for exists before the window does ----
+  //
+  // The database is initialised and every IPC handler is registered here,
+  // before the main window is created, so a renderer can never invoke a
+  // channel that has no handler yet. That used to be left to timing: handlers
+  // came after `await startQdrant()`, and a signed-in user's first screen
+  // asked for `models:get-selected` long before then ("No handler
+  // registered"). Do not put an await between these steps and createWindow.
   try {
-    win = await createWindow();
-    // Replay services-ready for reloads. The event below is sent once, so a
-    // renderer that mounts afterwards - or any in-session reload, which is
-    // routine while capturing screenshots - would otherwise never see it.
-    win.webContents.on("did-finish-load", () => {
-      if (servicesReady && !win.isDestroyed()) {
-        win.webContents.send("services-ready");
-      }
-    });
-    log("Main window created");
+    log("Initializing localDB");
+    splashStatus("Initializing local database…");
+    localDB.initDatabase();
   } catch (e) {
-    log(`Failed to create window: ${e?.stack || e}`);
+    log(`localDB init error: ${e?.stack || e}`);
+  }
+
+  try {
+    log("Running OllamaEmbeddingModelSetup");
+    splashStatus("Preparing AI models…");
+    OllamaEmbeddingModelSetup();
+  } catch (e) {
+    log(`Ollama setup error: ${e?.stack || e}`);
   }
 
   // The renderer pings this once it has actually painted (see App.tsx),
   // after waiting a couple of animation frames past mount so this isn't just
-  // "the blank shell showed up". Registered before services finish so an
+  // "the blank shell showed up". Registered before the window exists so an
   // early ping (fast machine, warm cache) isn't missed.
   ipcMain.on("renderer:visually-ready", () => {
     if (rendererVisuallyReady) return;
@@ -276,6 +282,77 @@ app.whenReady().then(async () => {
     log("Renderer signaled visually ready");
     revealMainWindowIfReady();
   });
+
+  // Tells the window how services ended up, once there is a window, whether
+  // the vector index settles first or the window is created first.
+  const announcer = createServiceAnnouncer({
+    getWindow: () => win,
+    onSent: (status) => {
+      servicesReady = true;
+      log(
+        status.degraded
+          ? "Sent services-ready to renderer (degraded: search unavailable)"
+          : "Sent services-ready to renderer",
+      );
+      revealMainWindowIfReady();
+    },
+  });
+
+  // Registers the handlers and event bus synchronously, then starts the
+  // vector index in the background. See services/startServices.js.
+  startServices({
+    registerHandlers: () => {
+      splashStatus("Wiring up services…");
+      registerIPCHandlers();
+      setupEventBusListeners();
+      log("IPC handlers and event bus registered");
+    },
+    // The index lives in the journal database, so "starting" it is only
+    // checking that the sqlite-vec extension loaded.
+    startIndex: async () => {
+      if (!isIndexReady()) {
+        throw new Error(
+          `sqlite-vec did not load: ${vectorSupport.error ?? "unknown"}`,
+        );
+      }
+      return {};
+    },
+    onIndexReady: () => {
+      const indexer = createIndexer({
+        embed: generateEmbedding,
+        report: reportIndexActivity,
+      });
+      setIndexer(indexer);
+      indexer.start();
+      log("Search index ready");
+      // The old Qdrant folder is only ever the index; the indexer refills the
+      // new one from the journal, so the old data is not needed.
+      removeLegacyQdrantData(app.getPath("userData"), log);
+    },
+    retryDelaysMs: [],
+    onStatus: (status) => {
+      announcer.update(status);
+    },
+    log,
+  }).catch((e) => log(`Service startup error: ${e?.stack || e}`));
+
+  // Create the main window hidden; it is revealed once services have
+  // reported (ready or degraded) and the renderer has painted.
+  registerWindowIpc();
+  // Replay services-ready for reloads. It is sent once per status, so a
+  // renderer that mounts afterwards - or any in-session reload, which is
+  // routine while capturing screenshots - would otherwise never see it.
+  const replayOnLoad = (w) =>
+    w.webContents.on("did-finish-load", () => announcer.replay(w));
+  try {
+    win = await createWindow();
+    replayOnLoad(win);
+    log("Main window created");
+    // The index may have settled before the window existed.
+    announcer.flush();
+  } catch (e) {
+    log(`Failed to create window: ${e?.stack || e}`);
+  }
 
   // Safety net: never let a lost/renamed IPC message strand the user on the
   // splash screen forever.
@@ -287,52 +364,6 @@ app.whenReady().then(async () => {
     }
   }, 15000);
 
-  // Start services asynchronously, and keep the UI up
-  (async () => {
-    try {
-      log("Initializing localDB");
-      if (splash && !splash.isDestroyed())
-        splash.webContents.send(
-          "splash-status",
-          "Initializing local database…",
-        );
-      localDB.initDatabase();
-    } catch (e) {
-      log(`localDB init error: ${e?.stack || e}`);
-    }
-
-    try {
-      log("Running OllamaEmbeddingModelSetup");
-      if (splash && !splash.isDestroyed())
-        splash.webContents.send("splash-status", "Preparing AI models…");
-      OllamaEmbeddingModelSetup();
-    } catch (e) {
-      log(`Ollama setup error: ${e?.stack || e}`);
-    }
-
-    try {
-      log("Starting Qdrant");
-      if (splash && !splash.isDestroyed())
-        splash.webContents.send("splash-status", "Starting vector database…");
-      const runtime = await startQdrant();
-      log("Qdrant started");
-      if (splash && !splash.isDestroyed())
-        splash.webContents.send("splash-status", "Wiring up services…");
-      registerIPCHandlers(runtime);
-      setupEventBusListeners();
-      createQdrantWorker();
-      log("IPC handlers, event bus, and worker initialized");
-      if (win && !win.isDestroyed()) {
-        servicesReady = true;
-        win.webContents.send("services-ready");
-        log("Sent services-ready to renderer");
-        revealMainWindowIfReady();
-      }
-    } catch (e) {
-      log(`Qdrant/IPC init error: ${e?.stack || e}`);
-    }
-  })();
-
   // ------------------- Global Shortcut -------------------
   const shortcut =
     process.platform === "darwin"
@@ -340,7 +371,7 @@ app.whenReady().then(async () => {
       : "Control+Alt+Space";
 
   const registered = globalShortcut.register(shortcut, () => {
-    console.log("QuickCapture triggered!");
+    appLog.info("QuickCapture triggered!");
     openQuickCaptureWindow();
   });
 
@@ -352,10 +383,19 @@ app.whenReady().then(async () => {
   });
 
   if (!registered)
-    console.log("Failed to register QuickCapture global shortcut");
+    appLog.info("Failed to register QuickCapture global shortcut");
 
+  const reopen = createReopener({
+    getWindow: () => win,
+    create: createWindow,
+    adopt: (w) => {
+      win = w;
+    },
+    onCreated: replayOnLoad,
+  });
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0)
+      reopen().catch((e) => log(`Reopen failed: ${e?.stack || e}`));
   });
 });
 
@@ -373,6 +413,10 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  stopQdrant();
   globalShortcut.unregisterAll(); // Clean up global shortcuts
 });
+
+// A status probe still running at quit would outlive the app (KAN-378). Kill
+// them at both events: a probe started between them is caught by will-quit.
+app.on("before-quit", killOllamaCliChildren);
+app.on("will-quit", killOllamaCliChildren);

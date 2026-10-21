@@ -1,3 +1,4 @@
+import { log } from "../log.js";
 // Single source of truth for the mood taxonomy. Used both to build the prompt
 // and to validate/sanitize whatever the model returns, so the two can't drift.
 export const MOOD_TAG_GROUPS = {
@@ -239,6 +240,10 @@ Relevance Score: ${item.score?.toFixed?.(3) ?? "N/A"}
     .join("\n");
 }
 
+// Ask is a reflection tool, not advice or therapy (KAN-51): both Ask prompts
+// carry this rule.
+export const NO_ADVICE_RULE = `- You are a reflection tool, not a therapist or an adviser. Do NOT give advice, instructions, diagnoses or recommendations about what the user should do. Reflect what the entries show and ask what matters to them. If the user seems to be in danger or distress, say gently that talking to someone they trust or a local support line can help, without giving clinical guidance.`;
+
 // --- 2. Respond with context ---
 export function respondWithContext(entry, context) {
   // REVISED instruction block for clarity and perspective control.
@@ -262,6 +267,7 @@ Your job:
 - Understand the core meaning of the query.
 - Carefully analyze the past entries for emotional patterns, recurring themes, goals, or mindset shifts related to the query.
 - Generate a thoughtful, context-aware, and psychologically insightful response (2–3 sentences maximum).
+${NO_ADVICE_RULE}
 ${followUpInstruction}
 - Respond strictly in JSON with the following keys:
   {
@@ -303,6 +309,7 @@ You will be given a user query (what the user is currently asking or thinking ab
 Your job:
 - Understand the core meaning of the query.
 - Generate a thoughtful and reflective response (2–3 sentences maximum).
+${NO_ADVICE_RULE}
 ${followUpInstruction}
 - Do NOT make assumptions about the user's past entries.
 - Respond strictly in JSON with the following keys:
@@ -326,7 +333,7 @@ export function generateContextTimeAndBaseQueryPrompt(
   userQuery,
   currentTimeISO,
 ) {
-  console.log(currentTimeISO, "current time");
+  log.info(currentTimeISO, "current time");
   return `
 You are MindSage, an AI journaling assistant that analyzes user queries to determine search requirements.
 

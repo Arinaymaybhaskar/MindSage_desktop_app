@@ -16,6 +16,7 @@ import {
 import {
   userChangePassword,
   userDeleteAccount,
+  userDeleteSummary,
   userGetMe,
   userGetSettings,
   userUpdateProfile,
@@ -85,8 +86,7 @@ import {
   getUserStats,
 } from "./methods/dashboard.js";
 import { modelStore } from "./store.js";
-import { registerQdrantIPC } from "./methods/qdrant.js";
-import { Worker } from "node:worker_threads";
+import { registerSearchIPC } from "./methods/search.js";
 import { fileURLToPath } from "node:url";
 import {
   handleChangeChatTitle,
@@ -97,25 +97,35 @@ import {
   linkMediaToMessage as handleLinkMediaToMessage,
 } from "./methods/chat.js";
 import { handleExportUserData } from "./methods/exportData.js";
+import {
+  handleAddAlias,
+  handleConfirmPerson,
+  handleDeletePerson,
+  handleFixMention,
+  handleGetEntryMentions,
+  handleGetInbox,
+  handleGetPerson,
+  handleGetStatus as handleGetPeopleStatus,
+  handleIgnorePerson,
+  handleListPeople,
+  handleMergePeople,
+  handleRemoveAlias,
+  handleRetryFailed,
+  handleSetEnabled as handleSetPeopleEnabled,
+  handleSetPaused as handleSetPeoplePaused,
+  handleSummarize,
+  handleUndoMerge,
+  handleUpdatePerson,
+} from "./methods/people.js";
 import { eventBus } from "./eventBus.js";
 import { db } from "./db/connection.js";
+import { log } from "./log.js";
 
-export function createQdrantWorker() {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-
-  const worker = new Worker(join(__dirname, "qdrantWorker.js"));
-  worker.on("error", (error) => console.error("Qdrant Worker Error:", error));
-  worker.on("exit", (code) => {
-    if (code !== 0)
-      console.error(`Qdrant Worker stopped with exit code ${code}`);
-  });
-  return worker;
-}
-
-export function registerIPCHandlers(runtime) {
-  // Qdrant
-  registerQdrantIPC(runtime);
+// Nothing registered here may wait on the vector index: see
+// services/startServices.js for why.
+export function registerIPCHandlers() {
+  // Search
+  registerSearchIPC();
 
   // Media
   ipcMain.handle("media:save", handleSaveMedia);
@@ -145,6 +155,7 @@ export function registerIPCHandlers(runtime) {
   ipcMain.handle("user:get-settings", userGetSettings);
   ipcMain.handle("user:update-settings", userUpdateSettings);
   ipcMain.handle("user:change-password", userChangePassword);
+  ipcMain.handle("user:delete-summary", userDeleteSummary);
   ipcMain.handle("user:delete-account", userDeleteAccount);
 
   // Journal
@@ -197,7 +208,7 @@ export function registerIPCHandlers(runtime) {
       try {
         return await generateSuggestion(prompt, maxTokens);
       } catch (err) {
-        console.error(err);
+        log.error(err);
         return "";
       }
     },
@@ -236,7 +247,7 @@ export function registerIPCHandlers(runtime) {
         }
         return null;
       } catch (err) {
-        console.error("Transcription error:", err);
+        log.error("Transcription error:", err);
         return null;
       }
     },
@@ -248,6 +259,26 @@ export function registerIPCHandlers(runtime) {
   ipcMain.handle("chat:get-chats", handleGetChats);
   ipcMain.handle("chat:delete-chat", handleDeleteChat);
   ipcMain.handle("chat:change-title", handleChangeChatTitle);
+
+  // People
+  ipcMain.handle("people:get-status", handleGetPeopleStatus);
+  ipcMain.handle("people:set-enabled", handleSetPeopleEnabled);
+  ipcMain.handle("people:set-paused", handleSetPeoplePaused);
+  ipcMain.handle("people:retry-failed", handleRetryFailed);
+  ipcMain.handle("people:list", handleListPeople);
+  ipcMain.handle("people:get", handleGetPerson);
+  ipcMain.handle("people:summarize", handleSummarize);
+  ipcMain.handle("people:get-inbox", handleGetInbox);
+  ipcMain.handle("people:confirm", handleConfirmPerson);
+  ipcMain.handle("people:ignore", handleIgnorePerson);
+  ipcMain.handle("people:delete", handleDeletePerson);
+  ipcMain.handle("people:update", handleUpdatePerson);
+  ipcMain.handle("people:add-alias", handleAddAlias);
+  ipcMain.handle("people:remove-alias", handleRemoveAlias);
+  ipcMain.handle("people:merge", handleMergePeople);
+  ipcMain.handle("people:undo-merge", handleUndoMerge);
+  ipcMain.handle("people:entry-mentions", handleGetEntryMentions);
+  ipcMain.handle("people:fix-mention", handleFixMention);
 
   // export data
   ipcMain.handle("user:export-data", handleExportUserData);
@@ -329,8 +360,7 @@ export function registerIPCHandlers(runtime) {
 
   aiEvents.forEach((eventName) => {
     eventBus.on(eventName, (data) => {
-      // `runtime` (from startQdrant) has no mainWindow, so resolve the live
-      // window the same way events.js does.
+      // Resolve the live window the same way events.js does.
       const win = BrowserWindow.getAllWindows()[0];
       if (win && !win.isDestroyed()) {
         win.webContents.send("ai-status-event", {

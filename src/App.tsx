@@ -16,7 +16,7 @@ import JournalForm from "./pages/journalForm";
 import JournalDetail from "./pages/journalDetails";
 import Settings from "./pages/settings";
 import ChangePassword from "./pages/auth/changePassword";
-import { DeleteAccount } from "./pages/auth/deleteAccount";
+import DeleteProfileDialog from "./components/DeleteProfileDialog";
 import ForgotPassword from "./pages/auth/forgotPassword";
 import DataExport from "./pages/dataExport";
 import { ChatPage } from "./pages/chat";
@@ -27,21 +27,25 @@ import {
   MessageSquareDot,
   PenIcon,
   Target,
+  Users,
 } from "lucide-react";
 import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
+import PeoplePage from "./pages/people";
+import PersonDetail from "./pages/personDetail";
 import OllamaTutorialPage from "./pages/OllamaTutorial";
-import QdrantViewer from "./pages/qdrantViewer";
 import { ColorThemeProvider } from "./context/ColorThemeContext";
 import { initializeColors } from "./utils/colorInitializer";
 import GoalDetail from "./pages/goalDetail";
 import GlobalSearch from "./components/GlobalSearch";
 import Memories from "./pages/Memories";
+import Trash from "./pages/Trash";
 import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
 import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
 import Onboarding, { SETUP_COMPLETE_KEY } from "./pages/Onboarding";
 import AIReadinessBanner from "./components/AIReadinessBanner";
+import UpdateBar from "./components/UpdateBar";
 import { ToastProvider } from "./context/ToastContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ErrorFallback from "./components/ErrorFallback";
@@ -71,7 +75,7 @@ function AppLayout() {
   }, []);
 
   // Readiness marker for Playwright-driven screenshot and demo-video runs.
-  // Startup is slow and staged (database, Ollama models, the Qdrant binary,
+  // Startup is slow and staged (database, Ollama models, the search index,
   // then IPC and the worker), so automation needs a real signal rather than a
   // fixed sleep - the whole sequence can take 10-30s on a cold start.
   useEffect(() => {
@@ -154,10 +158,6 @@ function AppLayout() {
 
   // CHANGED: Updated the paths for the dock items.
   // "Write" now points to the root "/" and "Dashboard" points to "/dashboard".
-  //
-  // The Qdrant viewer is deliberately absent: it is a developer tool that dumps
-  // raw collections and embedding vectors, and it has no meaning for a user.
-  // The /qdrant route still exists and is reachable by URL for debugging.
   const items = [
     { path: "/dashboard", icon: <HomeIcon size={18} />, label: "Dashboard" },
     { path: "/", icon: <PenIcon size={18} />, label: "Write" },
@@ -165,6 +165,7 @@ function AppLayout() {
 
     { path: "/chat", icon: <MessageSquareDot size={18} />, label: "Chat" },
     { path: "/goals", icon: <Target size={18} />, label: "Goals" },
+    { path: "/people", icon: <Users size={18} />, label: "People" },
   ].map((item) => ({
     ...item,
     onClick: () => navigate(item.path),
@@ -195,10 +196,19 @@ function AppLayout() {
           />
         )}
         <div className="flex flex-col h-full w-full overflow-hidden">
-          {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
+          {/* The title bar is fixed over the top 40px, so notices start below
+              it, and <main> only needs its own top padding while there are
+              none (the wrapper is :empty then, and hidden). */}
+          <div className="peer pt-10 empty:hidden">
+            {!isQuickCapturePage && !isAuthPage && <UpdateBar />}
+            {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
+          </div>
+          {/* Outside the routes: deleting a profile signs the person out, and
+              its "deleted" screen has to survive that. */}
+          {!isQuickCapturePage && <DeleteProfileDialog />}
           <main
             className={`flex-1 overflow-hidden no-scrollbar ${
-              isQuickCapturePage ? "" : "pt-10"
+              isQuickCapturePage ? "" : "peer-empty:pt-10"
             }`}
           >
             {/* Wraps the routes only, so a page crash leaves the title bar,
@@ -236,19 +246,14 @@ function AppLayout() {
                     </PrivateRoute>
                   }
                 />
-                {/* A vector-database inspector for debugging. Nothing links
-                  to it, and it should not reach users, so it exists only in
-                  a dev build. */}
-                {import.meta.env.DEV && (
-                  <Route
-                    path="/qdrant"
-                    element={
-                      <PrivateRoute>
-                        <QdrantViewer />
-                      </PrivateRoute>
-                    }
-                  />
-                )}
+                <Route
+                  path="/trash"
+                  element={
+                    <PrivateRoute>
+                      <Trash />
+                    </PrivateRoute>
+                  }
+                />
                 <Route path="/register" element={<Register />} />
                 <Route path="/profiles" element={<Profiles />} />
                 <Route path="/login" element={<Login />} />
@@ -306,18 +311,26 @@ function AppLayout() {
                   }
                 />
                 <Route
-                  path="/delete-account"
-                  element={
-                    <PrivateRoute>
-                      <DeleteAccount />
-                    </PrivateRoute>
-                  }
-                />
-                <Route
                   path="/data-export"
                   element={
                     <PrivateRoute>
                       <DataExport />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/people"
+                  element={
+                    <PrivateRoute>
+                      <PeoplePage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/people/:id"
+                  element={
+                    <PrivateRoute>
+                      <PersonDetail />
                     </PrivateRoute>
                   }
                 />

@@ -57,7 +57,7 @@ const ChangePassword = () => {
       await userService.changePassword(payload);
 
       showToast("Password updated successfully.", "success");
-      navigate("/settings#security");
+      navigate("/settings/security");
     } catch (err) {
       console.error(err);
       showToast(
@@ -84,7 +84,7 @@ const ChangePassword = () => {
       <div className="bg-base-light dark:bg-base-dark min-h-[calc(100vh-40px)] flex items-center justify-center px-4 py-12">
         <main className="max-w-md w-full">
           <Link
-            to="/settings#security"
+            to="/settings/security"
             className="flex items-center gap-2 text-text-light-sub dark:text-text-dark-sub hover:text-dark1 dark:text-light1 dark:hover:text-dark1 dark:text-light1 font-semibold transition-colors mb-6"
           >
             <ArrowLeft size={18} />

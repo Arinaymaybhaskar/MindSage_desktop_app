@@ -24,12 +24,16 @@
     "bench:full": "node scripts/run-bench.mjs --stages all",
     "capture": "node scripts/capture-shots.mjs",
     "gen:images": "node scripts/gen-demo-images.mjs",
+    "tokens": "node scripts/token-report.mjs",
     "postinstall": "npm run rebuild",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:db": "node scripts/run-db-tests.mjs",
+    "test:e2e": "vite build && node scripts/e2e/run.mjs",
+    "qa:smoke": "xvfb-run -a node scripts/qa/smoke.mjs",
     "test:watch": "vitest",
     "prepare": "husky",
     "bench:board": "node scripts/bench/render-board.mjs",
@@ -73,27 +77,12 @@
       "output": "release"
     },
     "mac": {
-      "target": "dmg",
-      "extraResources": [
-        {
-          "from": "resources/mac/",
-          "to": "mac"
-        }
-      ]
+      "target": "dmg"
     },
     "win": {
       "target": "nsis",
       "icon": "assets/icon2.ico",
       "extraResources": [
-        {
-          "from": "resources/win/",
-          "to": "win",
-          "filter": [
-            "**/*",
-            "!.qdrant-initialized",
-            "!snapshots/**"
-          ]
-        },
         {
           "from": "resources/whisper-bin-x64/",
           "to": "whisper-bin-x64"
@@ -111,11 +100,13 @@
     "linux": {
       "target": "AppImage",
       "icon": "assets/icon2.png"
-    }
+    },
+    "asarUnpack": [
+      "node_modules/sqlite-vec-*/**"
+    ]
   },
   "dependencies": {
     "@google/genai": "^1.10.0",
-    "@qdrant/js-client-rest": "^1.15.1",
     "axios": "^1.10.0",
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^12.2.0",
@@ -131,11 +122,11 @@
     "fflate": "^0.8.3",
     "ffmpeg-static": "^5.2.0",
     "framer-motion": "^12.23.12",
-    "get-port": "^7.1.0",
     "google-auth-library": "^10.1.0",
     "gsap": "^3.13.0",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.525.0",
+    "qrcode-generator": "^1.4.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-easy-crop": "^5.5.0",
@@ -146,6 +137,7 @@
     "recharts": "^3.0.2",
     "sentiment": "^5.0.2",
     "simple-icons": "^16.34.0",
+    "sqlite-vec": "0.1.9",
     "strip-ansi": "^7.1.0",
     "uuid": "^11.1.0",
     "zip-a-folder": "^3.1.9",
@@ -177,6 +169,7 @@
     "jsdom": "^30.0.1",
     "lint-staged": "^17.4.1",
     "nodemon": "^3.1.10",
+    "playwright-core": "^1.56.1",
     "postcss": "^8.5.6",
     "prettier": "^3.9.6",
     "tailwindcss": "^4.1.11",
@@ -185,7 +178,6 @@
     "vite": "^7.0.4",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6",
-    "vite-plugin-static-copy": "^3.1.2",
     "vitest": "^4.1.10"
   }
 }

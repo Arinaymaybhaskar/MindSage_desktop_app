@@ -6,7 +6,7 @@ export interface JournalEntry {
   id?: number;
   title: string;
   content: string;
-  mood_score?: number;
+  mood_score?: number | null;
   sentiment_score?: number;
   mood_tags?: string[];
   created_at?: string;
@@ -15,18 +15,13 @@ export interface JournalEntry {
   transcription?: string;
   content_summary?: string;
   tags?: string[];
-  synced_to_qdrant?:
-    "not_synced" | "pending" | "in_progress" | "success" | "failed";
+  /** Place in the search index; null when the entry has no vector yet. */
+  index_state?: "ok" | "pending" | "failed" | null;
   ai_metadata_status?: "not_started" | "pending" | "completed" | "failed";
   ai_summary_status?:
     "not_started" | "pending" | "completed" | "failed" | "skipped";
   ai_metadata_error?: string;
   ai_summary_error?: string;
-}
-
-interface MoodScoreData {
-  mood_score: number;
-  created_at: string;
 }
 
 const checkElectron = () => {
@@ -86,17 +81,6 @@ export const journalService = {
     return await window.electron.ipcRenderer.invoke("journal:delete", id);
   },
 
-  /**
-   * Fetches mood scores for a given date range.
-   */
-  getMoodRange: async (range: number): Promise<MoodScoreData[]> => {
-    checkElectron();
-    // Assuming you have a 'journal:get-mood-scores' handler
-    return await window.electron.ipcRenderer.invoke(
-      "journal:get-mood-scores",
-      range,
-    );
-  },
   getRecent: async () => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke("journal:get-recent");

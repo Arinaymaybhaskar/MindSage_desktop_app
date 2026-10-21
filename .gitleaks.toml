@@ -4,8 +4,9 @@
 useDefault = true
 
 [allowlist]
-description = "Files that legitimately contain secret-shaped placeholders"
+description = "Files that legitimately contain secret-shaped placeholders (the QA kit signs up a throwaway test profile)"
 paths = [
   '''\.env\.example$''',
   '''\.gitleaks\.toml$''',
+  '''^scripts/qa/''',
 ]

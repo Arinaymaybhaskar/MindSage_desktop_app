@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'"
+      content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MindSage</title>
@@ -53,23 +53,11 @@
         width: 64px;
         height: 64px;
       }
-      /* The static SVG paints instantly and shares the Rive artwork's exact
-         shapes/colors, so cross-fading the canvas in over it (once the wasm
-         runtime has actually loaded) reads as one continuous logo rather
-         than a pop-in - there's no gap where the card just sits empty. */
-      .logo-wrap svg,
-      .logo-wrap canvas {
+      .logo-wrap svg {
         position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
-      }
-      .logo-wrap canvas {
-        opacity: 0;
-        transition: opacity 0.25s ease;
-      }
-      .logo-wrap canvas.ready {
-        opacity: 1;
       }
       .name {
         font-size: 15px;
@@ -114,12 +102,10 @@
             fill="#B2EDC2"
           />
         </svg>
-        <canvas id="logo" width="184" height="182"></canvas>
       </div>
       <div class="name">MindSage</div>
       <div id="status" class="status" role="status">Starting…</div>
     </div>
-    <script src="./rive/rive.js"></script>
     <script src="./splash.js"></script>
   </body>
 </html>

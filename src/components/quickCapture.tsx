@@ -4,6 +4,7 @@ import { Loader2, Save, LogIn } from "lucide-react";
 import journalService, { type JournalEntry } from "../api/journalService";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
+import { draftKey } from "../utils/draftKeys";
 
 /**
  * Quick capture used to hold the entry in component state and nowhere else,
@@ -12,7 +13,6 @@ import { useToast } from "../hooks/useToast";
  * non-destructive: this window shares an origin with the main one, so the
  * text is still here the next time the shortcut is pressed.
  */
-const DRAFT_KEY = "draft-quick-capture";
 const DRAFT_DEBOUNCE_MS = 1500;
 
 export default function QuickCapture() {
@@ -21,11 +21,22 @@ export default function QuickCapture() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const { user: sessionUser, checking } = useAuth();
+  // Drafts belong to the signed-in profile; with nobody signed in there is none.
+  const DRAFT_KEY =
+    sessionUser?.id === undefined
+      ? null
+      : draftKey(sessionUser.id, "quick-capture");
   const { showToast } = useToast();
 
   const contentInputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Loads the signed-in profile's draft; another profile's text is cleared out
+  // of the form, never carried over.
   useEffect(() => {
+    setIsDraftLoaded(false);
+    setTitle("");
+    setContent("");
+    if (!DRAFT_KEY) return;
     try {
       const stored = localStorage.getItem(DRAFT_KEY);
       if (stored) {
@@ -43,10 +54,10 @@ export default function QuickCapture() {
       // back over a readable one.
       setIsDraftLoaded(true);
     }
-  }, []);
+  }, [DRAFT_KEY]);
 
   useEffect(() => {
-    if (!isDraftLoaded) return;
+    if (!isDraftLoaded || !DRAFT_KEY) return;
     const timer = setTimeout(() => {
       try {
         if (!title && !content) {
@@ -59,7 +70,7 @@ export default function QuickCapture() {
       }
     }, DRAFT_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [title, content, isDraftLoaded]);
+  }, [title, content, isDraftLoaded, DRAFT_KEY]);
 
   const handleCloseWindow = useCallback(async () => {
     await window.electron.ipcRenderer.invoke("quick-capture:close");
@@ -86,12 +97,11 @@ export default function QuickCapture() {
         mood_tags: [],
       };
 
-      const res = await journalService.create(mergedEntry);
+      await journalService.create(mergedEntry);
 
-      await window.electron.ipcRenderer.invoke("qdrant:sync-journal", res.id);
       showToast("Journal entry saved.", "success");
 
-      localStorage.removeItem(DRAFT_KEY);
+      if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY);
       setTitle("");
       setContent("");
       handleCloseWindow();
@@ -105,7 +115,15 @@ export default function QuickCapture() {
     } finally {
       setIsSaving(false);
     }
-  }, [title, content, sessionUser, isSaving, handleCloseWindow, showToast]);
+  }, [
+    title,
+    content,
+    sessionUser,
+    isSaving,
+    handleCloseWindow,
+    showToast,
+    DRAFT_KEY,
+  ]);
 
   // Keyboard shortcut for manual save (Ctrl/Cmd + Enter)
   useEffect(() => {

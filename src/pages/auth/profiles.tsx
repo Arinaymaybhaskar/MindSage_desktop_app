@@ -46,7 +46,7 @@ const displayName = (p: Profile) => p.full_name || p.username;
  * The signed-out front door: every account on this install, then a password
  * for the one picked. Usernames are shown on purpose. The password picks
  * whose journal this is and keeps others out of the app; it is not a secret
- * that hides who has an account (MASTER_TODO 15, option B).
+ * that hides who has an account (option B: the password picks the account, it does not encrypt).
  */
 export default function Profiles() {
   const [profiles, setProfiles] = useState<Profile[] | null>(null);

@@ -260,7 +260,7 @@ export const settingsCommands = [
     type: "Settings",
     title: "Delete Account",
     icon: Trash2,
-    path: "/settings/security",
+    path: "/settings/profile",
     keywords: [
       "settings",
       "delete",

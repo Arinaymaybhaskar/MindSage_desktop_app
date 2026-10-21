@@ -15,7 +15,11 @@ export default defineConfig({
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       "electron/**/*.{test,spec}.{js,ts}",
+      // Claude Code project hooks (plain Node scripts, spawned by the tests).
+      ".claude/hooks/**/*.test.mjs",
     ],
+    // Database tests need Electron's ABI; they run with `npm run test:db`.
+    exclude: ["**/node_modules/**", "**/*.db.test.{js,ts}"],
     // The default "forks" pool times out starting workers on Node 26; threads
     // is reliable here. Revisit once the toolchain targets an LTS Node.
     pool: "threads",

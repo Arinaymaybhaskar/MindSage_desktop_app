@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils } from "electron";
+import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 
 contextBridge.exposeInMainWorld("electron", {
   minimize: () => ipcRenderer.send("minimize-window"),
@@ -6,14 +6,8 @@ contextBridge.exposeInMainWorld("electron", {
   close: () => ipcRenderer.send("close-window"),
 
   zoom: {
-    set: (factor) => {
-      const { webFrame } = require("electron");
-      webFrame.setZoomFactor(factor);
-    },
-    get: () => {
-      const { webFrame } = require("electron");
-      return webFrame.getZoomFactor();
-    },
+    set: (factor) => webFrame.setZoomFactor(factor),
+    get: () => webFrame.getZoomFactor(),
   },
 
   send: (channel, ...args) => ipcRenderer.send(channel, ...args),
@@ -60,6 +54,7 @@ contextBridge.exposeInMainWorld("electron", {
         "user:update-settings",
         "user:change-password",
         "user:delete-account",
+        "user:delete-summary",
         "journal:create",
         "journal:get-recent",
         "journal:get-all",
@@ -67,7 +62,6 @@ contextBridge.exposeInMainWorld("electron", {
         "journal:update",
         "journal:update-ai-status",
         "journal:delete",
-        "journal:get-mood-scores",
         "journal:get-images",
         "journal:get-chart-data",
         "journal:retry-ai-metadata",
@@ -100,11 +94,8 @@ contextBridge.exposeInMainWorld("electron", {
         "ollama:generate-suggestion",
         "ollama:download-model",
         "ollama:delete-model",
-        "qdrant:get-collections",
-        "qdrant:create-collection",
-        "qdrant:upsert",
-        "qdrant:search",
-        "qdrant:delete-collection",
+        "search:query",
+        "search:status",
         "dashboard:get-data",
         "dashboard:get-monthly-scores",
         "dashboard:get-all-time-scores",
@@ -114,10 +105,8 @@ contextBridge.exposeInMainWorld("electron", {
         "whisper:stop-live-transcription", // stop live
         "settings:getSelectedModel",
         "settings:setSelectedModel",
-        "qdrant:bulk-sync", // Add this new channel
-        "qdrant:sync-journal",
-        "qdrant:sync-goal",
-        "qdrant:sync-progress-log",
+        "search:bulk-sync",
+        "search:sync",
         "chat:get-by-id",
         "chat:get-chats",
         "chat:send-message",
@@ -143,6 +132,31 @@ contextBridge.exposeInMainWorld("electron", {
         "settings:set-launch-at-startup",
         "settings:set-check-for-updates",
         "update:check",
+        "update:get-state",
+        "trash:list",
+        "trash:restore",
+        "trash:delete-forever",
+        "trash:empty",
+        "update:install",
+        // People
+        "people:get-status",
+        "people:set-enabled",
+        "people:set-paused",
+        "people:retry-failed",
+        "people:list",
+        "people:get",
+        "people:summarize",
+        "people:get-inbox",
+        "people:confirm",
+        "people:ignore",
+        "people:delete",
+        "people:update",
+        "people:add-alias",
+        "people:remove-alias",
+        "people:merge",
+        "people:undo-merge",
+        "people:entry-mentions",
+        "people:fix-mention",
       ];
 
       if (validChannels.includes(channel)) {
@@ -165,7 +179,10 @@ contextBridge.exposeInMainWorld("electron", {
         "update:available",
         "update:progress",
         "update:downloaded",
+        "update:error",
+        "trash:progress",
         "auth:changed",
+        "people:changed",
       ];
       if (!validChannels.includes(channel)) {
         return () => {};

@@ -3,6 +3,9 @@ import path from "node:path";
 import { zip } from "zip-a-folder";
 import { db } from "./connection.js";
 import os from "node:os";
+import { log } from "../log.js";
+import { liveSummaryLines } from "../people/insights.js";
+import { normaliseName } from "../people/text.js";
 
 /**
  * Creates a comprehensive ZIP archive of all user data, handling cases where some data tables may be empty.
@@ -55,14 +58,14 @@ export async function exportEverything(userId, destinationPath) {
       "SELECT * FROM user_settings WHERE user_id = ?",
     );
     const journalEntriesQuery = db.prepare(
-      "SELECT * FROM journal_entries WHERE user_id = ? ORDER BY created_at DESC",
+      "SELECT * FROM journal_entries WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC",
     );
     const tagsQuery = db.prepare("SELECT * FROM tags WHERE user_id = ?");
     const journalEntryTagsQuery = db.prepare(
-      "SELECT * FROM journal_entry_tags WHERE journal_entry_id IN (SELECT id FROM journal_entries WHERE user_id = ?)",
+      "SELECT * FROM journal_entry_tags WHERE journal_entry_id IN (SELECT id FROM journal_entries WHERE user_id = ? AND is_deleted = 0)",
     );
     const journalAnalysisQuery = db.prepare(
-      "SELECT * FROM journal_analysis WHERE journal_id IN (SELECT id FROM journal_entries WHERE user_id = ?)",
+      "SELECT * FROM journal_analysis WHERE journal_id IN (SELECT id FROM journal_entries WHERE user_id = ? AND is_deleted = 0)",
     );
     const notificationsQuery = db.prepare(
       "SELECT * FROM notifications WHERE user_id = ?",
@@ -85,9 +88,11 @@ export async function exportEverything(userId, destinationPath) {
     const categoriesQuery = db.prepare(
       "SELECT * FROM categories WHERE user_id = ?",
     );
-    const goalsQuery = db.prepare("SELECT * FROM goals WHERE user_id = ?");
+    const goalsQuery = db.prepare(
+      "SELECT * FROM goals WHERE user_id = ? AND is_deleted = 0",
+    );
     const progressLogsQuery = db.prepare(
-      "SELECT * FROM progress_logs WHERE goal_id IN (SELECT id FROM goals WHERE user_id = ?)",
+      "SELECT * FROM progress_logs WHERE goal_id IN (SELECT id FROM goals WHERE user_id = ? AND is_deleted = 0)",
     );
     const chatsQuery = db.prepare(
       "SELECT * FROM chats WHERE user_id = ? ORDER BY created_at DESC",
@@ -101,6 +106,54 @@ export async function exportEverything(userId, destinationPath) {
     const messageSourcesQuery = db.prepare(
       "SELECT * FROM message_sources WHERE message_id IN (SELECT id FROM messages WHERE chat_id IN (SELECT id FROM chats WHERE user_id = ?))",
     );
+
+    // People: confirmed people, and suggestions a live entry names. Ignored
+    // people and everything of theirs stay out. Nothing drawn only from
+    // trashed entries: a suggestion no live entry names, a name the AI added
+    // that only trashed entries hold, or a summary line citing a trashed
+    // entry (both filtered below).
+    const exportedPeople = `SELECT p.id FROM people p WHERE p.user_id = ? AND p.status != 'ignored' AND (p.status != 'suggested' OR EXISTS (
+        SELECT 1 FROM person_mentions m JOIN journal_entries j ON j.id = m.entry_id AND j.is_deleted = 0
+         WHERE m.person_id = p.id))`;
+    const peopleQuery = db.prepare(
+      `SELECT * FROM people WHERE id IN (${exportedPeople})`,
+    );
+    const personAliasesQuery = db.prepare(
+      `SELECT * FROM person_aliases WHERE person_id IN (${exportedPeople})`,
+    );
+    const personMentionsQuery = db.prepare(
+      `SELECT * FROM person_mentions WHERE person_id IN (${exportedPeople}) AND entry_id IN (SELECT id FROM journal_entries WHERE is_deleted = 0)`,
+    );
+    const personSummariesQuery = db.prepare(
+      `SELECT * FROM person_summaries WHERE person_id IN (${exportedPeople})`,
+    );
+    // An AI-added name stays only while a live entry still writes it.
+    const liveAliases = (rows, mentions) => {
+      const written = new Set(
+        mentions.map(
+          (m) => `${m.person_id}:${normaliseName(m.name_as_written)}`,
+        ),
+      );
+      return rows.filter(
+        (a) =>
+          a.source !== "ai" ||
+          written.has(`${a.person_id}:${a.alias_normalised}`),
+      );
+    };
+    const liveSummaries = (rows, entries) => {
+      const live = new Set(entries.map((e) => e.id));
+      return rows.flatMap((s) => {
+        let lines;
+        try {
+          lines = liveSummaryLines(JSON.parse(s.summary_json), live);
+        } catch {
+          return [];
+        }
+        return lines.length
+          ? [{ ...s, summary_json: JSON.stringify(lines) }]
+          : [];
+      });
+    };
 
     // -- 2. Collect all data from the database into a single object --
     const sourceData = {
@@ -123,7 +176,17 @@ export async function exportEverything(userId, destinationPath) {
       messages: messagesQuery.all(userId),
       files: filesQuery.all(userId),
       message_sources: messageSourcesQuery.all(userId),
+      people: peopleQuery.all(userId),
+      person_mentions: personMentionsQuery.all(userId),
     };
+    sourceData.person_aliases = liveAliases(
+      personAliasesQuery.all(userId),
+      sourceData.person_mentions,
+    );
+    sourceData.person_summaries = liveSummaries(
+      personSummariesQuery.all(userId),
+      sourceData.journal_entries,
+    );
 
     const flatData = JSON.parse(JSON.stringify(sourceData));
     const structuredData = JSON.parse(JSON.stringify(sourceData));
@@ -135,13 +198,11 @@ export async function exportEverything(userId, destinationPath) {
           ensureDirExists(destDir);
           fs.copyFileSync(sourcePath, path.join(destDir, destFilename));
         } catch (error) {
-          console.error(`Failed to copy asset: ${sourcePath}`, error);
+          log.error(`Failed to copy asset: ${sourcePath}`, error);
         }
       } else if (sourcePath) {
         // Log a warning if the source file doesn't exist to make debugging easier.
-        console.warn(
-          `Asset source file not found, skipping copy: ${sourcePath}`,
-        );
+        log.warn(`Asset source file not found, skipping copy: ${sourcePath}`);
       }
     };
 
@@ -207,7 +268,7 @@ export async function exportEverything(userId, destinationPath) {
     const metadata = {
       exported_at: new Date().toISOString(),
       app_version: "1.0.0",
-      data_schema_version: "1.3.0-combined",
+      data_schema_version: "1.4.0-combined",
     };
 
     flatData.metadata = metadata;
@@ -234,6 +295,10 @@ export async function exportEverything(userId, destinationPath) {
       "ai/interventions.json": structuredData.ai_interventions,
       "ai/nudges.json": structuredData.ai_nudges,
       "ai/emotion_patterns.json": structuredData.user_emotion_patterns,
+      "people/people.json": structuredData.people,
+      "people/aliases.json": structuredData.person_aliases,
+      "people/mentions.json": structuredData.person_mentions,
+      "people/summaries.json": structuredData.person_summaries,
     };
 
     for (const [filename, data] of Object.entries(dataMap)) {
@@ -249,10 +314,10 @@ export async function exportEverything(userId, destinationPath) {
     // -- 6. Cleanup the temporary directory --
     fs.rmSync(tempDir, { recursive: true, force: true });
 
-    console.log(`Combined data exported successfully to: ${destinationPath}`);
+    log.info(`Combined data exported successfully to: ${destinationPath}`);
     return destinationPath;
   } catch (error) {
-    console.error("Error during combined data export:", error);
+    log.error("Error during combined data export:", error);
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }

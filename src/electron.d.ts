@@ -43,7 +43,9 @@ declare global {
       removeAllListeners: (channel: string) => void;
     };
 
-    openExternal: (url: string) => Promise<void>;
+    openExternal: (
+      url: string,
+    ) => Promise<{ success: boolean; error?: string }>;
     /** The filesystem path of a dropped File (Electron's webUtils). */
     getPathForFile: (file: File) => string;
 

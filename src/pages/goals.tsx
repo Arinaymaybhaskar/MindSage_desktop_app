@@ -18,7 +18,6 @@ import { progressLogsService } from "../api/progressLogsService";
 import LogProgressModal from "../components/goals/modals/logProgressModal";
 import GoalCardSkeleton from "../components/goals/GoalCardSkeleton";
 import ActiveGoalsList from "../components/goals/ActiveGoalsList";
-import { qdrantService } from "../api/qDrantService";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const GoalsPage: React.FC = () => {
@@ -109,9 +108,6 @@ const GoalsPage: React.FC = () => {
         goalAdded = await goalService.addGoal(goalData);
       }
       console.log(goalAdded, "goalAdded");
-      if (goalAdded) {
-        await qdrantService.syncGoal(goalAdded.lastInsertRowid);
-      }
       closeModal();
       await fetchAllData();
     } catch (error) {
@@ -168,9 +164,6 @@ const GoalsPage: React.FC = () => {
         log = await progressLogsService.addProgress(goalId, value, description);
       }
       console.log(log, "log");
-      if (log) {
-        qdrantService.syncProgressLog(log.id);
-      }
       closeModal();
       if (res.target_value === res.current_value) {
         await goalService.completeGoal(res.id);
@@ -341,7 +334,7 @@ const GoalsPage: React.FC = () => {
             isOpen
             onClose={closeModal}
             onConfirm={() => handleDelete(selectedGoal)}
-            type={"journal"}
+            type={"goal"}
           />
         )}
         {modalType === "reflection" && selectedGoal && (

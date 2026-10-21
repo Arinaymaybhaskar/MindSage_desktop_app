@@ -14,6 +14,42 @@ const checkElectron = () => {
  * A service for handling all user-related actions, such as fetching profiles
  * and updating settings, for both online and offline modes.
  */
+export interface ProfileSummary {
+  entries: number;
+  trashedEntries: number;
+  goals: number;
+  trashedGoals: number;
+  photos: number;
+  recordings: number;
+  chats: number;
+  otherProfiles: number;
+  mediaBytes: number;
+}
+
+export interface DeleteProfileResult {
+  message: string;
+  entries: number;
+  filesRemoved: number;
+  /** True when no other profile is left on this computer. */
+  lastProfile: boolean;
+  backupsRemoved: boolean;
+  /** True when other profiles remain and the old safety copies were swapped for a fresh one. */
+  backupsReplaced: boolean;
+  /** Files another program was holding open; retried on the next start. */
+  filesPending: number;
+  /**
+   * False when the database's write-ahead log could not be folded back
+   * (another program held the file): old copies of the profile's pages may
+   * stay in the database file until MindSage next starts.
+   */
+  walFolded?: boolean;
+  /**
+   * False when the windows' localStorage could not be wiped: the profile's
+   * name and email (the display cache) may stay in its files on disk.
+   */
+  localStorageErased?: boolean;
+}
+
 export const userService = {
   /**
    * Fetches the current user's profile information.
@@ -83,11 +119,17 @@ export const userService = {
    */
   deleteAccount: async (payload: {
     password: string;
-  }): Promise<{ message: string }> => {
+  }): Promise<DeleteProfileResult> => {
     checkElectron();
     return await window.electron.ipcRenderer.invoke(
       "user:delete-account",
       payload,
     );
+  },
+
+  /** What deleting this profile would remove, for the delete screen. */
+  deleteSummary: async (): Promise<ProfileSummary> => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke("user:delete-summary");
   },
 };

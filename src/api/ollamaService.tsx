@@ -1,4 +1,18 @@
-import type { OllamaModel } from "../types/Ollama";
+import type {
+  OllamaListFailure,
+  OllamaModel,
+  OllamaModelsResult,
+} from "../types/Ollama";
+
+/** Ollama could not be asked for its models; the message says why. */
+export class OllamaListError extends Error {
+  readonly reason: OllamaListFailure;
+  constructor(message: string, reason: OllamaListFailure) {
+    super(message);
+    this.name = "OllamaListError";
+    this.reason = reason;
+  }
+}
 
 const checkElectron = () => {
   if (!window.electron?.ipcRenderer) {
@@ -7,13 +21,21 @@ const checkElectron = () => {
 };
 
 export const ollamaService = {
+  /**
+   * Rejects with the handler's message ("Ollama is not responding." and so on)
+   * when Ollama could not be asked, so the screen can say why the list is
+   * empty. Signed out, the handler answers `{ error }` with no `reason`, and
+   * that still reads as an empty list.
+   */
   getModels: async (): Promise<OllamaModel[]> => {
     checkElectron();
-    const result = await window.electron.ipcRenderer.invoke<
-      OllamaModel[] | { error: string }
-    >("ollama:models");
-    // The handler answers `{ error }` rather than throwing when signed out.
-    return Array.isArray(result) ? result : [];
+    const result =
+      await window.electron.ipcRenderer.invoke<OllamaModelsResult>(
+        "ollama:models",
+      );
+    if (Array.isArray(result)) return result;
+    if (result?.reason) throw new OllamaListError(result.error, result.reason);
+    return [];
   },
 
   /**

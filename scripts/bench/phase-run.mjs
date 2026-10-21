@@ -1,6 +1,6 @@
 /**
- * The full benchmark: every stage, run once at the end of each phase of
- * docs/MASTER_TODO.md.
+ * The full benchmark: every stage, run once at the end of each roadmap phase
+ * (a Jira release: P1, P2, ...).
  *
  *   npm run bench:phase -- 1                # after Phase 1
  *   npm run bench:phase -- 1 --no-build     # reuse release/win-unpacked
