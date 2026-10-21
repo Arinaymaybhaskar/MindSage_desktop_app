@@ -4,6 +4,7 @@ import {
   useLocation,
   useNavigate,
   HashRouter,
+  Navigate,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Login from "./pages/auth/login";
@@ -33,7 +34,6 @@ import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
 import PeoplePage from "./pages/people";
 import PersonDetail from "./pages/personDetail";
-import OllamaTutorialPage from "./pages/OllamaTutorial";
 import { ColorThemeProvider } from "./context/ColorThemeContext";
 import { initializeColors } from "./utils/colorInitializer";
 import GoalDetail from "./pages/goalDetail";
@@ -153,7 +153,6 @@ function AppLayout() {
     location.pathname === "/register" ||
     location.pathname === "/forgot-password" ||
     location.pathname === "/reset-password" ||
-    location.pathname === "/ollama-tutorial" ||
     location.pathname === "/setup";
 
   // CHANGED: Updated the paths for the dock items.
@@ -344,7 +343,11 @@ function AppLayout() {
                 />
                 <Route
                   path="/ollama-tutorial"
-                  element={<OllamaTutorialPage />}
+                  element={<Navigate to="/settings/models" replace />}
+                />
+                <Route
+                  path="/qdrant"
+                  element={<Navigate to="/settings/models" replace />}
                 />
                 <Route path="/setup" element={<Onboarding />} />
                 <Route

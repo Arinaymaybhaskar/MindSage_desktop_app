@@ -349,7 +349,7 @@ export default function LocalAIPanel() {
           title: "Ollama is not installed",
           detail: "Local AI features stay off until it is installed.",
           tone: "text-danger",
-          action: { label: "Install", to: "/ollama-tutorial" },
+          action: { label: "Install", to: "/settings/models" },
         };
       case "ollama-not-running":
         return {
@@ -358,7 +358,7 @@ export default function LocalAIPanel() {
           title: "Ollama is installed but not running",
           detail: "Start it and check again.",
           tone: "text-warning",
-          action: { label: "How to start", to: "/ollama-tutorial" },
+          action: { label: "How to start", to: "/settings/models" },
         };
       case "pull-failure":
       case "error":

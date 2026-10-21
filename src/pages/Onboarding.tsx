@@ -282,7 +282,7 @@ export default function Onboarding() {
                   <Download size={15} /> Install automatically
                 </button>
                 <button
-                  onClick={() => navigate("/ollama-tutorial")}
+                  onClick={() => navigate("/settings/models")}
                   className="rounded-lg border border-border-light px-4 py-2 text-sm font-semibold text-text-light-sub dark:border-border-dark dark:text-text-dark-sub"
                 >
                   Install manually
