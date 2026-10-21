@@ -16,7 +16,49 @@ import { currentUserId } from "../session.js";
 import { db } from "../db/connection.js";
 import localDB from "../db/index.js";
 import { log } from "../log.js";
-import { listOllamaModels } from "./ollamaList.js";
+import { humanBytes, listOllamaModels } from "./ollamaList.js";
+import { BUILTIN_MODELS } from "../ai/models.js";
+import { isDownloaded } from "../ai/llama.js";
+
+/** How long a good list is reused; a pull or delete drops it sooner. */
+export const MODEL_LIST_TTL_MS = 45_000;
+
+let cached = null; // { at, rows }
+let inFlight = null;
+let generation = 0; // a list that started before an invalidation is not kept
+
+/** Drops the cached list; called when a model is pulled or deleted. */
+export const clearModelListCache = () => {
+  cached = null;
+  inFlight = null;
+  generation++;
+};
+
+/** Built-in engine mode: the models on disk, in the row shape Settings reads. */
+const builtinRows = () =>
+  Object.entries(BUILTIN_MODELS)
+    .filter(([id]) => isDownloaded(id))
+    .map(([id, m]) => ({ name: id, size: "", modified: humanBytes(m.bytes) }));
+
+const fetchModelList = () => {
+  const started = generation;
+  const pending = listOllamaModels({
+    onShowError: (name, err) =>
+      log.error(`Error fetching info for ${name}`, err),
+  })
+    .then((result) => {
+      if (!Array.isArray(result)) {
+        log.warn("Could not list Ollama models", { reason: result.reason });
+      } else if (started === generation) {
+        cached = { at: Date.now(), rows: result };
+      }
+      return result;
+    })
+    .finally(() => {
+      if (inFlight === pending) inFlight = null;
+    });
+  return pending;
+};
 
 /**
  * `ollama:models`: the installed models for Settings > Models.
@@ -24,20 +66,18 @@ import { listOllamaModels } from "./ollamaList.js";
  * Asynchronous and bounded (see `ollamaList.js`): a hung Ollama answers
  * `{ error, reason: "timeout" }` after a few seconds instead of freezing the
  * main process (KAN-369), and one that is not running answers
- * `{ error, reason: "unreachable" }`.
+ * `{ error, reason: "unreachable" }`. A good list is cached for
+ * `MODEL_LIST_TTL_MS` and concurrent calls share one request (KAN-90);
+ * failures are never cached. With the built-in engine chosen, the list is
+ * the downloaded model files and Ollama is not asked.
  */
 export const handleGetOllamaModels = async () => {
   const userId = currentUserId();
   if (!userId) return { error: "Not signed in" };
 
-  const result = await listOllamaModels({
-    onShowError: (name, err) =>
-      log.error(`Error fetching info for ${name}`, err),
-  });
-  if (!Array.isArray(result)) {
-    log.warn("Could not list Ollama models", { reason: result.reason });
-  }
-  return result;
+  if (modelStore.get("aiProvider") === "builtin") return builtinRows();
+  if (cached && Date.now() - cached.at < MODEL_LIST_TTL_MS) return cached.rows;
+  return (inFlight ??= fetchModelList());
 };
 
 /** `ollama:get-response`: one generation through the AI client. */
@@ -288,10 +328,12 @@ export const handleDownloadOllamaModel = (event, modelName) => {
 
     // A missing binary emits "error" (never "close"); unhandled, it throws.
     child.on("error", (err) => {
+      clearModelListCache();
       reject({ error: `Download failed: ${err.message}` });
     });
 
     child.on("close", (code) => {
+      clearModelListCache();
       if (code === 0) {
         resolve({ success: true, message: `${modelName} downloaded` });
       } else {
@@ -325,10 +367,12 @@ export const handleDeleteOllamaModel = (event, modelName) => {
     });
 
     child.on("error", (err) => {
+      clearModelListCache();
       reject({ error: `Delete failed: ${err.message}` });
     });
 
     child.on("close", (code) => {
+      clearModelListCache();
       if (code === 0) {
         resolve({ success: true, message: `${modelName} deleted` });
       } else {
