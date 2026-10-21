@@ -48,10 +48,10 @@ export function isDownloaded(id) {
   }
 }
 
-/** The chosen chat model, or the one this machine's memory calls for. */
+/** The chosen chat model while it is on disk, else the one this machine's memory calls for. */
 export function chatModelId() {
   const chosen = modelStore.get("builtinModels")?.chat;
-  return BUILTIN_MODELS[chosen]?.role === "chat"
+  return BUILTIN_MODELS[chosen]?.role === "chat" && isDownloaded(chosen)
     ? chosen
     : defaultChatModel(os.totalmem());
 }

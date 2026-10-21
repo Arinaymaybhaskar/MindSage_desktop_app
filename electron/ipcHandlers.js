@@ -76,6 +76,10 @@ import {
 } from "./methods/ollama.js";
 import {
   handleCancelAIDownload,
+  handleGetModelPicker,
+  handleProbeAISpeed,
+  handleSelectAIModel,
+  handleDeleteAIModel,
   handleDownloadAIModel,
   handleGetAIStatus,
   handleSetAIProvider,
@@ -227,6 +231,10 @@ export function registerIPCHandlers() {
   ipcMain.handle("ai:set-provider", handleSetAIProvider);
   ipcMain.handle("ai:download-model", handleDownloadAIModel);
   ipcMain.handle("ai:cancel-download", handleCancelAIDownload);
+  ipcMain.handle("ai:get-model-picker", handleGetModelPicker);
+  ipcMain.handle("ai:probe-speed", handleProbeAISpeed);
+  ipcMain.handle("ai:select-model", handleSelectAIModel);
+  ipcMain.handle("ai:delete-model", handleDeleteAIModel);
 
   // Whisper
   ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);
