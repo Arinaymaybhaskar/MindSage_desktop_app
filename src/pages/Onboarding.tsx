@@ -261,7 +261,7 @@ export default function Onboarding() {
 
   const finish = useCallback(() => {
     localStorage.setItem(SETUP_COMPLETE_KEY, "1");
-    navigate("/", { replace: true });
+    navigate("/youre-set", { replace: true });
   }, [navigate]);
 
   const handleInstallOllama = useCallback(async () => {

@@ -44,6 +44,7 @@ import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
 import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
 import Onboarding, { SETUP_COMPLETE_KEY } from "./pages/Onboarding";
+import YoureSet from "./pages/YoureSet";
 import AIReadinessBanner from "./components/AIReadinessBanner";
 import AIStatusCard from "./components/AIStatusCard";
 import UpdateBar from "./components/UpdateBar";
@@ -356,6 +357,7 @@ function AppLayout() {
                   element={<Navigate to="/settings/models" replace />}
                 />
                 <Route path="/setup" element={<Onboarding />} />
+                <Route path="/youre-set" element={<YoureSet />} />
                 <Route
                   path="/goals/view/:id"
                   element={
