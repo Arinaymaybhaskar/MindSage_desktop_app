@@ -63,18 +63,6 @@ export function registerSearchIPC() {
     return { success: true, message: "Queued for search" };
   });
 
-  // A sweep that picks up anything still without a vector. Rows that gave up
-  // (attempts used up, no next attempt) are put back to pending first, because
-  // the automatic loop never retries them; this manual action is how a person
-  // asks for that (KAN-373).
-  ipcMain.handle("search:bulk-sync", async () => {
-    if (!index.vectorsAvailable()) return indexUnavailableResult();
-    const retried = index.retryGaveUp();
-    if (retried) log.info(`Search: retrying ${retried} item(s) that gave up`);
-    indexer?.sweep();
-    return { success: true, message: "Indexing started" };
-  });
-
   ipcMain.handle("search:status", async () => {
     const userId = currentUserId();
     if (!userId) return { success: false, error: "Not signed in" };

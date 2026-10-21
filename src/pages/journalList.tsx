@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
-import { searchService } from "../api/searchService";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import WeeklyMoodStrip from "../components/weeklyMoodStrip";
@@ -18,7 +17,6 @@ import {
   CheckCircle2,
   AlertCircle,
   CircleSlash,
-  Cloud,
   AlertTriangle,
 } from "lucide-react";
 import { formatTimeAgo } from "../utils/DateFormatter";
@@ -149,8 +147,6 @@ export default function JournalList() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [bulkSyncing, setBulkSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const PAGE_LIMIT = 10;
   const navigate = useNavigate();
   const [deleteModalInfo, setDeleteModalInfo] = useState<{
@@ -318,38 +314,6 @@ export default function JournalList() {
     );
   };
 
-  const handleBulkSync = async () => {
-    if (bulkSyncing) return;
-
-    setBulkSyncing(true);
-    setSyncStatus("Starting bulk sync...");
-
-    try {
-      const result = await searchService.bulkSync();
-      if (result.success) {
-        setSyncStatus("Bulk sync started successfully!");
-        setTimeout(() => {
-          setEntries([]);
-          setPage(0);
-          setHasMore(true);
-          setSyncStatus(null);
-        }, 2000);
-      } else {
-        setSyncStatus(`Sync failed: ${result.error}`);
-      }
-    } catch (error) {
-      console.error("Bulk sync error:", error);
-      setSyncStatus(
-        `Sync failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    } finally {
-      setBulkSyncing(false);
-      setTimeout(() => setSyncStatus(null), 5000);
-    }
-  };
-
   const filteredEntries = useMemo(() => {
     let result = entries;
     if (selectedDate) {
@@ -472,18 +436,6 @@ export default function JournalList() {
             My Journals
           </h1>
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleBulkSync}
-              disabled={bulkSyncing}
-              className="flex items-center gap-2 px-5 py-2.5 bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark font-semibold rounded-lg shadow-md hover:bg-tertiary-light dark:hover:bg-tertiary-dark transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 border border-border-light dark:border-border-dark"
-            >
-              {bulkSyncing ? (
-                <Loader2 size={20} className="animate-spin" />
-              ) : (
-                <Cloud size={20} />
-              )}
-              <span>{bulkSyncing ? "Syncing..." : "Sync All"}</span>
-            </button>
             <Link
               to="/trash"
               className="flex items-center gap-2 px-5 py-2.5 bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark font-semibold rounded-lg shadow-md hover:bg-tertiary-light dark:hover:bg-tertiary-dark border border-border-light dark:border-border-dark transition-all duration-200"
@@ -500,14 +452,6 @@ export default function JournalList() {
             </Link>
           </div>
         </header>
-
-        {syncStatus && (
-          <div className="mb-6 p-4 bg-light1 dark:bg-dark1 border border-info/20 rounded-lg">
-            <p className="text-dark1 dark:text-light1 font-medium text-center">
-              {syncStatus}
-            </p>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 space-y-6">

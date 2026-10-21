@@ -126,7 +126,6 @@ contextBridge.exposeInMainWorld("electron", {
         "whisper:stop-live-transcription", // stop live
         "settings:getSelectedModel",
         "settings:setSelectedModel",
-        "search:bulk-sync",
         "search:sync",
         "chat:get-by-id",
         "chat:get-chats",

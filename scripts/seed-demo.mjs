@@ -691,8 +691,7 @@ Done.
 Next:
   1. npm run dev, then log in as ${PERSONA.email}
   2. In DevTools: localStorage.setItem("setup_complete", "1"); localStorage.setItem("zoom_scale", "100")
-  3. With Ollama + nomic-embed-text running, embed for semantic search:
-     await window.electron.ipcRenderer.invoke("search:bulk-sync")
+  3. With Ollama + nomic-embed-text running, the app indexes the entries by itself on start
 `);
 
 db.close();

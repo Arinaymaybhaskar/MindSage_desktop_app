@@ -22,11 +22,6 @@ export const searchService = {
     checkElectron();
     return window.electron.ipcRenderer.invoke("search:query", query, limit);
   },
-  /** Looks for anything still without a vector and indexes it. */
-  bulkSync: (): Promise<SearchSyncResult> => {
-    checkElectron();
-    return window.electron.ipcRenderer.invoke("search:bulk-sync");
-  },
   /** Asks for one item to be indexed again (the Retry button). */
   syncItem: (type: SearchSourceType, id: number): Promise<SearchSyncResult> => {
     checkElectron();

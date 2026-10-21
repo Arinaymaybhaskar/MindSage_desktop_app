@@ -8,7 +8,6 @@
  * Usage in the console after pasting:
  *   capture.setup()          // everything below, then tells you to reload
  *   capture.theme("Ocean")   // switch accent preset without clicking through
- *   capture.embed()          // index seeded entries for search
  *   capture.check()          // report anything still wrong for a clean shot
  */
 (() => {
@@ -112,19 +111,6 @@
       console.log("  - Win+Shift+S, window mode, to capture");
     },
 
-    /**
-     * Embeds seeded entries so semantic search returns results. Seeded rows
-     * fire no journal:created event, so nothing is indexed until this runs.
-     * Needs Ollama with nomic-embed-text.
-     */
-    async embed() {
-      console.log(
-        "Starting bulk sync - watch the main process log for progress...",
-      );
-      await window.electron.ipcRenderer.invoke("search:bulk-sync");
-      console.log("Bulk sync requested. Give it a minute, then try Ctrl+F.");
-    },
-
     /** Reports anything that would spoil a shot. */
     check() {
       const problems = [];
@@ -190,7 +176,5 @@
   };
 
   window.capture = capture;
-  console.log(
-    "capture.setup() / capture.theme(name) / capture.embed() / capture.check()",
-  );
+  console.log("capture.setup() / capture.theme(name) / capture.check()");
 })();
