@@ -1,15 +1,12 @@
 import localDB from "../db/index.js";
 import { eventBus } from "../eventBus.js";
 import {
+  MAX_OUTPUT_TOKENS,
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
   respondWithoutContext,
 } from "./AIPrompts.js";
-import {
-  generateEmbedding,
-  handleOllamaPrompt,
-  streamOllamaPrompt,
-} from "./ollama.js";
+import { embed, generate } from "../ai/client.js";
 import { partialJsonString } from "./jsonStream.js";
 import { semanticSearch } from "./search.js";
 import { isIndexUnavailable } from "../services/searchIndex.js";
@@ -35,6 +32,35 @@ const chatResponseSchema = z.object({
   response: z.string(),
   suggested_user_prompt: z.string(),
 });
+
+// The same two shapes as JSON schemas, forced on the model as a grammar.
+const PROPS_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    requires_context: { type: "boolean" },
+    requires_time_filter: { type: "boolean" },
+    time_filter_from: { type: ["string", "null"] },
+    time_filter_to: { type: ["string", "null"] },
+    base_query: { type: "string" },
+    notes: { type: "string" },
+  },
+  required: [
+    "requires_context",
+    "requires_time_filter",
+    "time_filter_from",
+    "time_filter_to",
+    "base_query",
+    "notes",
+  ],
+};
+const CHAT_RESPONSE_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    response: { type: "string" },
+    suggested_user_prompt: { type: "string" },
+  },
+  required: ["response", "suggested_user_prompt"],
+};
 
 /**
  * Sends generation progress to the window that asked for it.
@@ -103,8 +129,12 @@ async function aiResponse(
       currentTimeISO,
     );
     const propsRes = await parseAIWithRetries(
-      // (event, model, prompt, jsonMode): called directly, so no IPC event.
-      () => handleOllamaPrompt(null, model, queryPropsPrompt, true),
+      () =>
+        generate(queryPropsPrompt, {
+          schema: PROPS_JSON_SCHEMA,
+          ollamaModel: model,
+          maxTokens: MAX_OUTPUT_TOKENS,
+        }),
       propsResSchema,
       3,
     );
@@ -120,13 +150,13 @@ async function aiResponse(
       // Use original user content
       log.debug("requires context");
       onPhase("searching");
-      const vector = await generateEmbedding(content);
+      const vector = await embed(content);
       semanticResult = semanticSearch(vector, userId, 5);
     } else if (propsRes.requires_time_filter) {
       log.debug("requires context with time filter");
       onPhase("searching");
       // Use base_query and time filter
-      const vector = await generateEmbedding(propsRes.base_query);
+      const vector = await embed(propsRes.base_query);
       semanticResult = semanticSearch(vector, userId, 5, {
         range: {
           from: propsRes.time_filter_from,
@@ -154,8 +184,10 @@ async function aiResponse(
         // otherwise the second attempt appends to the first.
         onReset();
         let emitted = 0;
-        return streamOllamaPrompt(model, mainPrompt, {
-          jsonMode: true,
+        return generate(mainPrompt, {
+          schema: CHAT_RESPONSE_JSON_SCHEMA,
+          ollamaModel: model,
+          maxTokens: MAX_OUTPUT_TOKENS,
           onToken: (_fragment, full) => {
             const partial = partialJsonString(full, "response");
             if (partial === null || partial.length <= emitted) return;

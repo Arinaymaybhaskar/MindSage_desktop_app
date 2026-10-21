@@ -4,7 +4,7 @@ const handlers = new Map();
 vi.mock("electron", () => ({
   ipcMain: { handle: (channel, fn) => handlers.set(channel, fn) },
 }));
-vi.mock("./ollama.js", () => ({ generateEmbedding: vi.fn() }));
+vi.mock("../ai/client.js", () => ({ embed: vi.fn() }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 vi.mock("../log.js", () => ({ log: { error: vi.fn(), info: vi.fn() } }));
 

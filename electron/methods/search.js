@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import { generateEmbedding } from "./ollama.js";
+import { embed } from "../ai/client.js";
 import { currentUserId } from "../session.js";
 import * as index from "../db/searchIndex.js";
 import {
@@ -43,7 +43,7 @@ export function registerSearchIPC() {
     const userId = currentUserId();
     if (!userId) return { success: false, error: "Not signed in" };
     try {
-      const vector = await generateEmbedding(queryInput);
+      const vector = await embed(queryInput);
       return semanticSearch(vector, userId, limit);
     } catch (error) {
       log.error("search:query failed", error);

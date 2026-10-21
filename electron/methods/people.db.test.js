@@ -20,10 +20,11 @@ vi.mock("electron", () => ({
   BrowserWindow: { getAllWindows: () => [] },
   powerMonitor: { isOnBatteryPower: () => false },
 }));
-// People is on for everyone here; nothing else reads a setting.
+// People is on for everyone here, and the AI runs through a fake Ollama.
 vi.mock("electron-store", () => ({
   default: class {
     get(key) {
+      if (key === "aiProvider") return "ollama";
       return String(key).startsWith("users.") ? { enabled: true } : undefined;
     }
     set() {}

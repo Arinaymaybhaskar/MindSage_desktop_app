@@ -175,6 +175,20 @@ describe("the indexer", () => {
     expect(stateOf(e.id).state).toBe("ok");
   });
 
+  it("does not spend attempts while the built-in model is not downloaded", async () => {
+    const e = entry({ content: "before the model download" });
+    const missing = make(async () => {
+      throw Object.assign(new Error("not downloaded"), {
+        code: "AI_UNAVAILABLE",
+      });
+    });
+    missing.noteChanged("journal", e.id);
+    advance(10_000);
+    await missing.drain();
+    missing.stop();
+    expect(stateOf(e.id)).toMatchObject({ state: "pending", attempts: 0 });
+  });
+
   it("drops an item purged while its embedding was being made", async () => {
     const e = entry({ content: "purged midway" });
     const indexer = make(async () => {

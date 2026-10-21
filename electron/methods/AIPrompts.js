@@ -81,7 +81,10 @@ export function parseJournalMetadata(rawResponse) {
     return null;
   }
 
-  const title = typeof parsed.title === "string" ? parsed.title.trim() : "";
+  const title =
+    typeof parsed.title === "string"
+      ? parsed.title.trim().slice(0, MAX_TITLE_CHARS).trim()
+      : "";
   const mood_score = clampMoodScore(parsed.mood_score);
   const mood_tags = sanitizeMoodTags(parsed.mood_tags);
 
@@ -90,11 +93,32 @@ export function parseJournalMetadata(rawResponse) {
   return { title, mood_score, mood_tags };
 }
 
+/** Every journal and Ask call stops after this many tokens, on either provider. */
+export const MAX_OUTPUT_TOKENS = 300;
+/** A title longer than this is cut before it reaches the journal. */
+export const MAX_TITLE_CHARS = 80;
+
+/** The shape getAutoPopulateValues asks for, forced as a grammar on the model. */
+export const JOURNAL_METADATA_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string", maxLength: MAX_TITLE_CHARS },
+    mood_score: { enum: [1, 2, 3, 4, 5] },
+    mood_tags: {
+      type: "array",
+      items: { enum: [...CANONICAL_MOOD_TAGS.values()] },
+      minItems: 1,
+      maxItems: 5,
+    },
+  },
+  required: ["title", "mood_score", "mood_tags"],
+};
+
 export function getAutoPopulateValues(content) {
   // Constructs the prompt asking the model to analyze a journal entry and
   // return a structured JSON object with a title, mood score, and tags.
-  // Callers send this with Ollama's `format: "json"` so the output is always
-  // valid JSON; parseJournalMetadata then validates the shape.
+  // Callers send this with JOURNAL_METADATA_SCHEMA so the output always
+  // parses; parseJournalMetadata then validates the values.
   const moodTagsJson = JSON.stringify(MOOD_TAG_GROUPS, null, 2);
   const prompt = `
 You are an expert AI assistant specializing in emotional analysis and sentiment extraction from text. Analyze the user's journal entry and return ONLY a JSON object.
