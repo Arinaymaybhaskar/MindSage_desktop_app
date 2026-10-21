@@ -31,11 +31,50 @@ export function recommend(totalMemBytes) {
   };
 }
 
+/** "2.0 GB": sizes are shown in GB with one decimal everywhere. */
+export const formatGB = (bytes) => `${(bytes / GiB).toFixed(1)} GB`;
+
+/**
+ * What the download dialog needs about disk: a cut download only needs the
+ * rest of the file. `short` is how much must still be freed, 0 when it fits.
+ */
+export function downloadSpace(id, freeBytes, partialBytes = 0) {
+  const need = Math.max(0, BUILTIN_MODELS[id].bytes - partialBytes);
+  return { need, free: freeBytes, short: Math.max(0, need - freeBytes) };
+}
+
+/**
+ * What deleting a model takes away. The embedding model is search itself, so
+ * it has no stand-in; a chat model falls back to another downloaded chat
+ * model, else chat is off until one is downloaded.
+ */
+export function deleteImpact(id, selectedChat, isDownloaded) {
+  const embed = BUILTIN_MODELS[id].role === "embed";
+  if (!isDownloaded(id) || (!embed && id !== selectedChat))
+    return { inUse: false };
+  const alternative = embed
+    ? null
+    : (Object.keys(BUILTIN_MODELS).find(
+        (m) => m !== id && BUILTIN_MODELS[m].role === "chat" && isDownloaded(m),
+      ) ?? null);
+  const label = BUILTIN_MODELS[id].label;
+  const warning = embed
+    ? `${label} powers search. Search stops working until it is downloaded again.`
+    : alternative
+      ? `${label} is the chat model in use. ${BUILTIN_MODELS[alternative].label} takes over.`
+      : `${label} is the chat model in use and no other is downloaded. AI features turn off until you download one.`;
+  return { inUse: true, alternative, warning };
+}
+
+/** A file another program holds open cannot be deleted now; try again later. */
+export const isLockedError = (err) =>
+  ["EBUSY", "EPERM", "EACCES"].includes(err?.code);
+
 /** Said before a download starts when the model will not run here, else null. */
 export function downloadWarning(id, totalMemBytes) {
   const spec = BUILTIN_MODELS[id];
   if (!spec || fitsInMemory(spec.bytes, totalMemBytes)) return null;
-  return `${spec.label} needs about ${((spec.bytes * MEMORY_FACTOR) / GiB).toFixed(1)} GB of memory and would not run well on this PC.`;
+  return `${spec.label} needs about ${formatGB(spec.bytes * MEMORY_FACTOR)} of memory and would not run well on this PC.`;
 }
 
 /**

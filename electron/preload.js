@@ -102,6 +102,7 @@ contextBridge.exposeInMainWorld("electron", {
         "ai:probe-speed",
         "ai:select-model",
         "ai:delete-model",
+        "ai:get-model-dialog",
         "search:query",
         "search:status",
         "dashboard:get-data",

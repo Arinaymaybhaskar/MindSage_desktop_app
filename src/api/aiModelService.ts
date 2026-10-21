@@ -43,7 +43,31 @@ export interface ModelResult {
   /** The download needs the user's OK first; `error` is the warning text. */
   needsConfirm?: boolean;
   cancelled?: boolean;
-  chatModel?: string;
+  /** Chat model after a delete: another downloaded one, or null when chat is off. */
+  chatModel?: string | null;
+  /** Download: the disk is too small. Delete: the file is locked, try later. */
+  notEnoughSpace?: boolean;
+  retryLater?: boolean;
+}
+
+/** What the download and delete dialogs show; sizes are preformatted "2.0 GB". */
+export interface ModelDialogInfo {
+  id: string;
+  label: string;
+  size: string;
+  downloaded: boolean;
+  /** What is still to fetch (less than `size` when a cut download resumes). */
+  needSize: string;
+  freeSize: string | null;
+  /** Null when the model fits; else how much must be freed. */
+  shortSize: string | null;
+  enoughSpace: boolean;
+  /** Set when the model will not run well on this PC. */
+  memoryWarning: string | null;
+  impact:
+    | { inUse: false }
+    | { inUse: true; alternative: string | null; warning: string };
+  error?: string;
 }
 
 const hasElectron = () => !!window.electron?.ipcRenderer;
@@ -69,9 +93,13 @@ export const aiModelService = {
       ? invoke<ModelResult>("ai:download-model", id, confirmed)
       : { error: "Not available" },
 
-  /** Falls back to the recommendation when the chosen model is deleted. */
-  remove: async (id: string): Promise<ModelResult> =>
+  /** Read fresh each call: the dialog polls it, since disk space can change. */
+  dialogInfo: async (id: string): Promise<ModelDialogInfo | null> =>
+    hasElectron() ? invoke<ModelDialogInfo>("ai:get-model-dialog", id) : null,
+
+  /** Pass `confirmed` after showing the `needsConfirm` warning (a model in use). */
+  remove: async (id: string, confirmed = false): Promise<ModelResult> =>
     hasElectron()
-      ? invoke<ModelResult>("ai:delete-model", id)
+      ? invoke<ModelResult>("ai:delete-model", id, confirmed)
       : { error: "Not available" },
 };
