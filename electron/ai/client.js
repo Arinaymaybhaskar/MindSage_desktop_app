@@ -36,6 +36,9 @@ const provider = () => (activeProvider() === "ollama" ? ollama : builtin);
 export const generate = (prompt, options) =>
   provider().generate(prompt, options);
 
+/** The built-in model for an enrichment task, passed as `model` (Ollama ignores it). */
+export const taskModel = (task) => builtin.taskModelId(task);
+
 /** The search embedding of `text` (nomic-embed-text v1.5 on both providers). */
 export const embed = (text) => provider().embed(text);
 

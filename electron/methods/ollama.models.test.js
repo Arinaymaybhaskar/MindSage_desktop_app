@@ -14,6 +14,7 @@ vi.mock("child_process", () => {
 vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
 vi.mock("./search.js", () => ({ semanticSearch: vi.fn() }));
 vi.mock("../db/connection.js", () => ({ db: {} }));
+vi.mock("../db/index.js", () => ({ default: {} }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 vi.mock("../log.js", () => ({
   log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },

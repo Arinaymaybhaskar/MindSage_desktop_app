@@ -2,16 +2,9 @@ import localDB from "../db/index.js";
 import { db } from "../db/connection.js";
 import { eventBus } from "../eventBus.js";
 import { updateJournalEntry } from "../db/journal.js";
-import {
-  AISummaryPrompt,
-  JOURNAL_METADATA_SCHEMA,
-  MAX_OUTPUT_TOKENS,
-  getAutoPopulateValues,
-  isSummarizable,
-  parseJournalMetadata,
-  sanitizeSummary,
-} from "./AIPrompts.js";
-import { generate } from "../ai/client.js";
+import { isSummarizable } from "./AIPrompts.js";
+import { generateMetadata, generateSummary } from "./ollama.js";
+import { background } from "../ai/queue.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
@@ -114,7 +107,11 @@ const addContentSummary = (summary, journalId, userId) => {
 // final 'completed' status transition so the entry is never marked completed
 // with empty fields. `force` (set by an explicit user regenerate) overwrites
 // the AI fields; auto-generation on create only fills blanks.
-eventBus.on("journal:aiCompleted", ({ entry, metadata, force }) => {
+eventBus.on("journal:aiCompleted", ({ entry: queued, metadata, force }) => {
+  // The call may have waited in the AI queue (KAN-89): write over the entry as
+  // it is now, so an edit made meanwhile is kept, and leave a Trashed one be.
+  const entry = localDB.getJournalById(queued.user_id, queued.id);
+  if (!entry) return;
   if (!metadata) {
     const error = "AI returned incomplete or invalid metadata";
     db.prepare(
@@ -189,17 +186,8 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     // Trigger the AI metadata generation again
     eventBus.emit("journal:aiStarted", { entryId: entry.id });
 
-    const prompt = getAutoPopulateValues(entry.content);
-
     try {
-      const metadata = parseJournalMetadata(
-        await generate(prompt, {
-          schema: JOURNAL_METADATA_SCHEMA,
-          maxTokens: MAX_OUTPUT_TOKENS,
-        }),
-      );
-      if (!metadata)
-        throw new Error("AI returned incomplete or invalid metadata");
+      const metadata = await background(() => generateMetadata(entry.content));
       // The journal:aiCompleted persister writes the fields and flips the
       // status to 'completed'. force:true because this is an explicit user
       // retry/regenerate: overwrite the existing AI fields.
@@ -239,12 +227,8 @@ export async function handleRetryAIMetadata(event, journalId, type) {
 
     eventBus.emit("ollama:summary-started", { entryId: entry.id });
 
-    const prompt = AISummaryPrompt(entry.content);
-
     try {
-      const summary = sanitizeSummary(
-        await generate(prompt, { maxTokens: MAX_OUTPUT_TOKENS }),
-      );
+      const summary = await background(() => generateSummary(entry.content));
       if (!summary) {
         const error = "AI could not produce a valid summary";
         db.prepare(

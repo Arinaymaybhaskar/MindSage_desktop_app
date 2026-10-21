@@ -93,6 +93,17 @@ describe("built-in engine", () => {
     ).rejects.toMatchObject({ code: "AI_UNAVAILABLE" });
   });
 
+  it("runs each enrichment task on its own model, or the chat model when it is missing", async () => {
+    store.set("builtinModels", { chat: "qwen-2.5-1.5b" });
+    const llama = await freshEngine();
+    expect(llama.taskModelId("summary")).toBe("qwen-2.5-1.5b");
+    // The 3B is not downloaded here.
+    expect(llama.taskModelId("metadata")).toBe("qwen-2.5-1.5b");
+    fake.totalmem = 2 * 2 ** 30; // Qwen no longer fits either
+    store.set("builtinModels", { chat: "llama-3.2-3b" });
+    expect(llama.taskModelId("summary")).toBe("llama-3.2-3b");
+  });
+
   it("streams on the GPU and clears the crash marker once a call worked", async () => {
     const llama = await freshEngine();
     const seen = [];

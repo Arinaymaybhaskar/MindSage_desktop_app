@@ -7,6 +7,7 @@ import {
   respondWithoutContext,
 } from "./AIPrompts.js";
 import { embed, generate } from "../ai/client.js";
+import { foreground } from "../ai/queue.js";
 import { partialJsonString } from "./jsonStream.js";
 import { semanticSearch } from "./search.js";
 import { isIndexUnavailable } from "../services/searchIndex.js";
@@ -313,11 +314,14 @@ export const handleUserMessage = async (
 
   let aiRes;
   try {
-    aiRes = await aiResponse(message, chatId, messageId, model, userId, {
-      onPhase: (phase, extra) => emit("phase", { phase, ...extra }),
-      onDelta: (text) => emit("delta", { text }),
-      onReset: () => emit("reset"),
-    });
+    // Ask goes ahead of background AI work in the shared queue.
+    aiRes = await foreground(() =>
+      aiResponse(message, chatId, messageId, model, userId, {
+        onPhase: (phase, extra) => emit("phase", { phase, ...extra }),
+        onDelta: (text) => emit("delta", { text }),
+        onReset: () => emit("reset"),
+      }),
+    );
   } catch (err) {
     emit("error", { message: err?.message || "Generation failed." });
     if (isIndexUnavailable(err))
