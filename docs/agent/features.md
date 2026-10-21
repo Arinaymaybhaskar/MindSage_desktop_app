@@ -37,6 +37,8 @@ App logos come from Simple Icons via [AppLogo.tsx](../../src/components/settings
 
 Whisper.cpp + DLLs and FFmpeg ship via `electron-builder` `extraResources`. Path resolution differs between dev (`../resources/...`) and packaged (`process.resourcesPath`) — copy the pattern in [electron/methods/whisper.js](../../electron/methods/whisper.js).
 
+The binaries are not in git (KAN-193). [resources/binaries.json](../../resources/binaries.json) lists each file with its sha256 and the GitHub Release (`binaries-whisper-v1`) that holds it as a flat asset (named by basename); `scripts/fetch-binaries.mjs` downloads and verifies them, runs as `prebuild`/`prerelease` and as `npm run fetch:binaries`, and skips files already present with the right hash (CI caches `resources/whisper-bin-x64`). A missing file (offline) or a checksum mismatch exits non-zero naming the file. To change a binary: upload the new asset to a new release tag, update the hashes and `release` in the manifest. `MS_BINARIES_BASE_URL` overrides the release URL. After pulling this change, run `npm run fetch:binaries` before `npm run dev` on a clone that lacks `resources/whisper-bin-x64`.
+
 ## Environment flags
 
 - `MS_DISABLE_GPU=1` (Windows) disables GPU for machines with broken drivers (the `win32` check near the top of `electron/main.js`).
