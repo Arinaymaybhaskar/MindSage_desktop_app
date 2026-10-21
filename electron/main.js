@@ -278,7 +278,7 @@ app.whenReady().then(async () => {
     } catch (e) {
       log(`Ollama setup error: ${e?.stack || e}`);
     }
-  } else {
+  } else if (["builtin", "gguf"].includes(activeProvider())) {
     setTimeout(builtinAI.warmUp, 10_000);
   }
   // A setup the user began (or an offline one) resumes by itself; it never blocks startup.

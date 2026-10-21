@@ -8,6 +8,7 @@ import { modelStore } from "../store.js";
 import { log } from "../log.js";
 import { PROVIDERS, activeProvider } from "../ai/client.js";
 import * as builtin from "../ai/llama.js";
+import { reachable as openaiReachable } from "../ai/openai.js";
 import { BUILTIN_MODELS } from "../ai/models.js";
 import {
   deleteImpact,
@@ -41,6 +42,10 @@ export async function handleGetAIStatus() {
 
 export async function handleSetAIProvider(_event, provider) {
   if (!PROVIDERS.includes(provider)) return { error: "Unknown provider" };
+  // OpenAI-compatible and .gguf need their settings checked: ai:provider-apply.
+  if (provider === "openai" || provider === "gguf") {
+    return { error: "Use the advanced setup to choose this provider" };
+  }
   modelStore.set("aiProvider", provider);
   if (provider === "ollama") await builtin.unloadAll();
   return { success: true };
@@ -146,12 +151,14 @@ const restarter = createRestarter({
   provider: activeProvider,
   reloadBuiltin: builtin.restart,
   ollamaRunning: () =>
-    fetch("http://127.0.0.1:11434/api/version", {
-      signal: AbortSignal.timeout(2000),
-    }).then(
-      (res) => res.ok,
-      () => false,
-    ),
+    activeProvider() === "openai"
+      ? openaiReachable()
+      : fetch("http://127.0.0.1:11434/api/version", {
+          signal: AbortSignal.timeout(2000),
+        }).then(
+          (res) => res.ok,
+          () => false,
+        ),
   queue,
   // The .part stays, so the download picks up where it stopped.
   pauseDownload,

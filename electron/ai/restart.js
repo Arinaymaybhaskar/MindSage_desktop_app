@@ -24,16 +24,17 @@ export function createRestarter(deps) {
 
   async function run() {
     const provider = deps.provider();
-    if (provider === "ollama") {
-      // shortcut: no spawn handle is kept for Ollama; upgrade when the app owns the process.
+    if (provider === "ollama" || provider === "openai") {
+      // shortcut: no spawn handle is kept for Ollama or an AI server; upgrade when the app owns the process.
       const up = await deps.ollamaRunning();
+      const name = provider === "ollama" ? "Ollama" : "The AI server";
       set({
         state: up ? "ready" : "error",
         provider,
         managed: false,
         details: up
-          ? "Ollama is not managed by MindSage, so it was not restarted. It is running."
-          : "Ollama is not managed by MindSage and is not running. Start it yourself.",
+          ? `${name} is not managed by MindSage, so it was not restarted. It is running.`
+          : `${name} is not managed by MindSage and is not running. Start it yourself.`,
       });
       return;
     }

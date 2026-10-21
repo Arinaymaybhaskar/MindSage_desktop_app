@@ -96,6 +96,12 @@ import {
   handleStartSetup,
 } from "./methods/aiSetup.js";
 import {
+  handleApplyProvider,
+  handleCheckProvider,
+  handleGetProviderConfig,
+  handlePickGguf,
+} from "./methods/aiProvider.js";
+import {
   startLiveTranscription,
   stopLiveTranscription,
   transcribeAudioBlob,
@@ -255,6 +261,10 @@ export function registerIPCHandlers() {
   ipcMain.handle("ai:setup-pause", handlePauseSetup);
   ipcMain.handle("ai:setup-answer-metered", handleAnswerMetered);
   ipcMain.handle("ai:setup-online", handleSetupOnline);
+  ipcMain.handle("ai:provider-get", handleGetProviderConfig);
+  ipcMain.handle("ai:provider-pick-gguf", handlePickGguf);
+  ipcMain.handle("ai:provider-check", handleCheckProvider);
+  ipcMain.handle("ai:provider-apply", handleApplyProvider);
 
   // Whisper
   ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);

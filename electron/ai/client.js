@@ -4,8 +4,13 @@
 import { modelStore } from "../store.js";
 import * as builtin from "./llama.js";
 import * as ollama from "./ollama.js";
+import * as openai from "./openai.js";
+import { checkGguf } from "./gguf.js";
 
-export const PROVIDERS = ["builtin", "ollama"];
+// "openai" is any OpenAI-compatible server on this PC (LM Studio); "gguf" is
+// the user's own model file run by the built-in engine (KAN-79). The advanced
+// options never become the default: a fresh install stays on the built-in one.
+export const PROVIDERS = ["builtin", "ollama", "openai", "gguf"];
 
 /**
  * The chosen provider. Without a choice, the built-in engine runs only once
@@ -18,7 +23,28 @@ export function activeProvider() {
   return builtin.modelsReady() ? "builtin" : "ollama";
 }
 
-const provider = () => (activeProvider() === "ollama" ? ollama : builtin);
+/** The saved .gguf, checked again before every call (a 24-byte read). */
+function useGguf() {
+  const checked = checkGguf(modelStore.get("ggufPath"));
+  if (!checked.ok) {
+    throw Object.assign(new Error(checked.error), { code: "AI_UNAVAILABLE" });
+  }
+  builtin.setCustomModel(checked);
+}
+
+const gguf = {
+  generate(prompt, options) {
+    useGguf();
+    return builtin.generate(prompt, {
+      ...options,
+      model: builtin.CUSTOM_MODEL,
+    });
+  },
+  embed: (text) => builtin.embed(text),
+};
+
+const PROVIDER_IMPL = { builtin, ollama, openai, gguf };
+const provider = () => PROVIDER_IMPL[activeProvider()];
 
 /**
  * One generation; resolves with the whole answer.
@@ -43,7 +69,15 @@ export const taskModel = (task) => builtin.taskModelId(task);
 export const embed = (text) => provider().embed(text);
 
 /** The model that answers a call with these options, for provenance. */
-export const modelName = (ollamaModel) =>
-  activeProvider() === "ollama"
-    ? ollamaModel || ollama.defaultModel()
-    : builtin.chatModelId();
+export function modelName(ollamaModel) {
+  switch (activeProvider()) {
+    case "ollama":
+      return ollamaModel || ollama.defaultModel();
+    case "openai":
+      return openai.modelName();
+    case "gguf":
+      return "custom-gguf";
+    default:
+      return builtin.chatModelId();
+  }
+}
