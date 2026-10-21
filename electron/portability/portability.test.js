@@ -279,6 +279,24 @@ describe("other apps' exports", () => {
     expect(entries).toEqual([]);
     expect(warnings[0]).toMatch(/doesn't look like a journal export/);
   });
+
+  const damaged = () => {
+    const { bytes } = writeAny("markdown", ENTRIES);
+    return file("broken.zip", bytes.slice(0, Math.floor(bytes.length / 2)));
+  };
+
+  it("names a damaged archive instead of failing with a parser error", () => {
+    expect(() => readAny([damaged()])).toThrow(/broken\.zip looks damaged/);
+  });
+
+  it("skips a damaged file, reads the rest and says what was skipped", () => {
+    const { entries, warnings } = readAny([
+      damaged(),
+      file("2026-10-01 day.txt", "A good day."),
+    ]);
+    expect(entries).toHaveLength(1);
+    expect(warnings.join(" ")).toMatch(/broken\.zip is damaged/);
+  });
 });
 
 describe("helpers", () => {
