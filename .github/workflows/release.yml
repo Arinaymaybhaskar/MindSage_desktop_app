@@ -21,6 +21,14 @@ jobs:
           node-version: 20
           cache: npm
 
+      # `npm run release` fetches and sha256-checks resources/ (prerelease);
+      # the key changes with the manifest, so a new binary is a cache miss.
+      - name: Cache native binaries
+        uses: actions/cache@v4
+        with:
+          path: resources/whisper-bin-x64
+          key: binaries-${{ hashFiles('resources/binaries.json') }}
+
       # Full install runs postinstall (electron-rebuild) so the native
       # better-sqlite3 addon is compiled for the packaged app.
       - name: Install dependencies

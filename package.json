@@ -15,6 +15,9 @@
   "scripts": {
     "dev": "vite",
     "dev:capture": "node scripts/run-dev-capture.mjs",
+    "fetch:binaries": "node scripts/fetch-binaries.mjs",
+    "prebuild": "node scripts/fetch-binaries.mjs",
+    "prerelease": "node scripts/fetch-binaries.mjs",
     "build": "vite build && electron-builder",
     "release": "vite build && electron-builder --publish always",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
