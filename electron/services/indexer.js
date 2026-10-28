@@ -15,6 +15,10 @@ const PAUSE_BETWEEN_BATCHES_MS = 400;
 /** Writes are given this long to finish before the next embedding starts. */
 const YIELD_AFTER_WRITE_MS = 1500;
 const UNAVAILABLE_RETRY_MS = [30_000, 120_000, 300_000];
+/** About the 2048 tokens nomic-embed-text holds, for English text. */
+export const MAX_EMBED_CHARS = 8000;
+/** Always fits 2048 tokens: its tokenizer never makes more tokens than characters. */
+export const MIN_EMBED_CHARS = 2000;
 
 const TYPE_LABEL = {
   journal: "journals",
@@ -91,8 +95,24 @@ export function createIndexer({
       index.removeSources(item.type, [item.id]);
       return "gone";
     }
-    const vector = await embed(source.text);
+    // A blank item has nothing to embed (the model returns no vector): it is
+    // done without one instead of failing until it gives up (KAN-391).
+    const vector = source.text.trim() ? await embedFitting(source.text) : null;
     return index.storeVector(item.type, item.id, vector, source.hash);
+  }
+
+  /** Embeds the start of `text` that fits the model's context (KAN-391). */
+  async function embedFitting(text) {
+    let part = text.slice(0, MAX_EMBED_CHARS);
+    for (;;) {
+      try {
+        return await embed(part);
+      } catch (error) {
+        // Too long for the context (Ollama answers 500): try a shorter start.
+        if (isUnavailable(error) || part.length <= MIN_EMBED_CHARS) throw error;
+        part = part.slice(0, Math.max(MIN_EMBED_CHARS, part.length >> 1));
+      }
+    }
   }
 
   async function drain() {
