@@ -5,7 +5,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AIStatusCard, { SETTLE_MS } from "./AIStatusCard";
 import {
@@ -35,13 +35,22 @@ describe("deriveAIState priority", () => {
     );
     expect(
       deriveAIState({ ...none, downloading: true, needsSetup: true }),
-    ).toBe("downloading");
+    ).toBe("setup");
+    expect(deriveAIState({ ...none, needsSetup: true, stopped: true })).toBe(
+      "setup",
+    );
+    expect(
+      deriveAIState({ ...none, stopped: true, downloadPaused: true }),
+    ).toBe("stopped");
     expect(
       deriveAIState({ ...none, downloadFailed: true, downloading: true }),
     ).toBe("error");
     expect(
       deriveAIState({ ...none, restart: "starting", downloadPaused: true }),
-    ).toBe("starting");
+    ).toBe("paused");
+    expect(deriveAIState({ ...none, restart: "starting", working: true })).toBe(
+      "starting",
+    );
   });
 
   it("covers all eight states", () => {
@@ -72,6 +81,10 @@ async function mount(compact = false) {
   render(
     <MemoryRouter>
       <AIStatusCard compact={compact} />
+      <Routes>
+        <Route path="/settings/models" element={<p>Settings models</p>} />
+        <Route path="*" element={null} />
+      </Routes>
     </MemoryRouter>,
   );
   await act(async () => {});
@@ -106,19 +119,71 @@ describe("AIStatusCard", () => {
     await mount();
     const live = screen.getByRole("status");
     expect(live).toHaveAttribute("aria-live", "polite");
-    expect(live).toHaveTextContent("Local AI is ready");
+    expect(live).toHaveTextContent("Local AI ready");
+    expect(screen.getByText("Everything runs on this PC")).toBeVisible();
   });
 
-  it("names the model that is downloading", async () => {
+  it("shows the table's title and second line for starting and paused", async () => {
     await mount();
-    emit("ai:download-progress", { id: "chat", done: 50, total: 100 });
+    emit("ai:restart-status", { state: "starting" });
     await settle();
+    expect(screen.getByText("Starting Local AI…")).toBeVisible();
+    expect(screen.getByText("Search and Ask ready in a moment")).toBeVisible();
+    emit("ai:restart-status", { state: "ready" });
+    emit("ai:download-progress", { id: "chat", paused: true });
+    await settle();
+    expect(screen.getByText("Local AI paused")).toBeVisible();
+    expect(
+      screen.getByText("Writing works. AI catches up when you resume."),
+    ).toBeVisible();
+  });
+
+  it("working counts distinct entries and does not re-announce the count", async () => {
+    await mount();
+    const live = screen.getByRole("status");
+    for (const id of [1, 2, 3])
+      emit("ai-status-event", {
+        event: "journal:aiStarted",
+        data: { entryId: id },
+      });
+    await settle();
+    expect(screen.getByText("Working on 3 entries")).toBeVisible();
+    const announced = live.textContent;
+    for (const id of [1, 2])
+      emit("ai-status-event", {
+        event: "journal:aiCompleted",
+        data: { entryId: id },
+      });
+    expect(screen.getByText("Working on 1 entry")).toBeVisible();
+    expect(live.textContent).toBe(announced);
+  });
+
+  it("clicking the title opens Settings > Local AI", async () => {
+    await mount();
+    fireEvent.click(screen.getByRole("button", { name: "Local AI ready" }));
+    expect(screen.getByText("Settings models")).toBeVisible();
+  });
+
+  it("shows real GB done of total with a progress bar", async () => {
+    await mount();
+    const GB = 1024 ** 3;
+    emit("ai:download-progress", {
+      id: "chat",
+      done: 1.2 * GB,
+      total: 2.4 * GB,
+    });
+    await settle();
+    expect(
+      screen.getByText("1.2 of 2.4 GB · only downloads use the internet"),
+    ).toBeVisible();
     expect(screen.getByTestId("ai-status-card")).toHaveAttribute(
       "data-state",
       "downloading",
     );
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Downloading Qwen 3B 50%",
+    expect(screen.getByRole("status")).toHaveTextContent("Downloading a model");
+    expect(screen.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuenow",
+      "50",
     );
   });
 
