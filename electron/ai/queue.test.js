@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { background, foreground } from "./queue.js";
+import { background, foreground, yieldToAsk } from "./queue.js";
 
 const deferred = () => {
   let resolve;
@@ -48,5 +48,38 @@ describe("shared AI queue", () => {
     await asking;
     await job;
     expect(order).toEqual(["ask", "ask 2", "ask done", "job"]);
+  });
+
+  it("aborts a running background call when an Ask starts, then runs it again (KAN-390)", async () => {
+    const signals = [];
+    // A model call that runs until its signal is aborted, the second time it finishes.
+    const call = (signal) => {
+      signals.push(signal);
+      if (signals.length > 1) return Promise.resolve("done");
+      return new Promise((_, reject) =>
+        signal.addEventListener("abort", () => reject(new Error("aborted"))),
+      );
+    };
+    const job = background(() => yieldToAsk(call));
+    await tick();
+    expect(signals).toHaveLength(1);
+
+    const ask = deferred();
+    const asking = foreground(() => ask.promise);
+    expect(signals[0].aborted).toBe(true);
+    await tick();
+    expect(signals).toHaveLength(1); // not again while Ask runs
+    ask.resolve();
+    await asking;
+    expect(await job).toBe("done");
+    expect(signals).toHaveLength(2);
+  });
+
+  it("passes on a failure that was not Ask's abort", async () => {
+    await expect(
+      yieldToAsk(async () => {
+        throw new Error("model missing");
+      }),
+    ).rejects.toThrow("model missing");
   });
 });
