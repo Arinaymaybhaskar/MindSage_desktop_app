@@ -29,6 +29,8 @@ import { modelStore } from "../store.js";
 import { modelsReady } from "../ai/llama.js";
 import { importStatuses } from "./importBackfill.js";
 import { backfillEnrichment } from "./ollama.js";
+import { clampMoodLevel } from "../moodWords.js";
+import { log } from "../log.js";
 
 const requireUser = () => {
   const id = currentUserId();
@@ -65,6 +67,7 @@ function loadEntries(userId) {
     )
     .all(userId);
   let missingMedia = 0;
+  let outOfRange = 0;
   const media = (key) => {
     if (!key) return [];
     try {
@@ -74,17 +77,24 @@ function loadEntries(userId) {
       return [];
     }
   };
+  const mood = (score) => {
+    const level = clampMoodLevel(score);
+    if (level !== null && level !== score) outOfRange++;
+    return level;
+  };
   const entries = rows.map((r) => ({
     title: r.title || null,
     content: r.content ?? "",
     createdAt: r.created_at,
     updatedAt: r.updated_at || null,
-    // 1 to 5; 0 is how Quick Capture writes "none".
-    mood: r.mood_score || null,
+    // 1 to 5; a stored score outside that is clamped, as the app shows it.
+    mood: mood(r.mood_score),
     tags: r.tag_list ? r.tag_list.split("\u001f") : [],
     images: media(r.image_key),
     audio: media(r.audio_key),
   }));
+  if (outOfRange)
+    log.warn("export: mood scores out of 1 to 5 were clamped", { outOfRange });
   return { entries, missingMedia };
 }
 

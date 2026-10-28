@@ -1,11 +1,11 @@
-import { MOODS } from "../../utils/moods";
+import { getMood } from "../../utils/moods";
 
 export interface MoodOrbProps {
   level: number;
   size?: "sm" | "md" | "lg";
   className?: string;
   /**
-   * Hides the built-in "Neutral / OVERALL MOOD" caption. The dashboard tile
+   * Hides the built-in "Steady / OVERALL MOOD" caption. The dashboard tile
    * supplies its own numeric readout, and two captions under one orb read as a
    * mistake.
    */
@@ -36,7 +36,7 @@ export default function MoodOrb({
   className = "",
   hideLabel = false,
 }: MoodOrbProps) {
-  const mood = MOODS[level - 1];
+  const mood = getMood(level);
 
   return (
     <div

@@ -173,7 +173,7 @@ describe("mood slider default (KAN-383)", () => {
     fireEvent.change(view.getByTestId("mood-slider"), {
       target: { value: "4" },
     });
-    expect(view.getByText("Great", { selector: "span" })).toBeTruthy();
+    expect(view.getByText("Good", { selector: "span" })).toBeTruthy();
     await save(view);
     expect(journalService.create).toHaveBeenCalledWith(
       expect.objectContaining({ mood_score: 4 }),
@@ -189,7 +189,7 @@ describe("mood slider default (KAN-383)", () => {
       mood_score: 5,
     } as never);
     const view = await open("/journal/edit/5");
-    expect(view.getByText("Excellent", { selector: "span" })).toBeTruthy();
+    expect(view.getByText("Bright", { selector: "span" })).toBeTruthy();
     await save(view);
     expect(journalService.update).toHaveBeenCalledWith(
       5,
