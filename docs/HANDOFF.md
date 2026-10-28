@@ -1,4 +1,4 @@
-# MindSage handoff (2026-10-28, P2 wave 4: closeout bugs in flight)
+# MindSage handoff (2026-10-28 late, P2 wave 4 built, awaiting owner)
 
 You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin` and `git pull` (merge, never rebase), then read this file again if the pull changed it.
 
@@ -11,14 +11,12 @@ You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and do
 - KAN-81 was built WITHOUT its blockers: KAN-162 (daily nudge, fix version P3) and KAN-313 (Windows Hello, release-later) are still To Do and unbuilt. The screen's reminder toggle only stores `journal_reminder` and `reminder_time` and fires nothing; Windows Hello is hidden behind `helloAvailable()`, which returns false. Do not build 162/313 in P2 unless the owner says so.
 
 ## Next
-1. Closeout bugs (Opus agent ac3946b309648a8ff, resumed after a rate limit; check its report or `gh pr list`): KAN-386 (commit 55ec4eb on fix/KAN-386-cpu-fallback-reset) and KAN-387 (c86328f on fix/KAN-387-ask-answer-cap) were committed locally and may still be unpushed; KAN-390 and KAN-392 were being built. KAN-393 is PR #82 (CI green, not merged, waits for the owner's word). A push denied by the permission classifier must be surfaced to the owner, not worked around; the owner says "push it" and then you push and open the PR against the phase branch.
-2. Jira work owed because the Atlassian connector dropped mid-session (owner must reconnect it): add label `not-reviewed` to KAN-393 (the label edit timed out; the status transition to Not reviewed did apply), and set label plus status "Not reviewed" on KAN-386, 387, 390, 392 once their PRs exist. Labels are set-full on edit.
-3. Merged this session: #72, #73 to #77, #78, #79 (KAN-169), #80 (KAN-394), #81. KAN-169 and KAN-394 are labelled and in Not reviewed.
-4. Remaining candidates: KAN-388, KAN-191, KAN-60, KAN-67/74/83/93/94 (To Do, P2). No review or test per the owner.
-2. Review first, when the owner lifts the pause: KAN-76 migration 10 (rebuilds `users`, email nullable; the migration runner now turns foreign keys off around migrations marked `rebuildsTables` and runs foreign_key_check; a mistake would delete journal entries via cascade). Never run on a real profile yet.
-3. KAN-80 placement conflict: first-run /setup runs before sign-up, so its import step only works with a signed-in profile (new installs see a pointer to Settings). The design changes list (2026-10-20) moved WIN-145 to after the first saved entry. Owner decides where the screen goes.
-4. Bugs filed this phase (P2, phase-2-closeout): KAN-386, 387, 390, 392, 393; KAN-391 by someone else. Confirm the fix version on KAN-392 and KAN-393. The two CI fixes in #71 were committed under Refs KAN-70/KAN-75 with no bug ticket.
-5. KAN-388: ONNX runtime feelings classifier and NLI gate; KAN-69 has a TODO(KAN-388) hook. Measure added size.
+1. Open PRs against the phase branch, all built, unreviewed, untested, NOT merged (owner said do not merge): #82 KAN-393, #84 KAN-386, #85 KAN-387, #86 KAN-390, #87 KAN-392, #88 KAN-391, #89 KAN-93, #90 KAN-94, #91 KAN-67, #92 KAN-74 (#92 CI was pending). CI green on #82 and #84 to #91. All their Jira tickets carry `not-reviewed` and sit in Not reviewed. Merge only when the owner says "merge". Expect conflicts: AIPrompts.js between #89 and #90; migration numbering (#90 uses 12). Merge #83 (this handoff) first.
+2. Follow-ups noted by agents: after #86 merges, People extraction (#87) should also use `yieldToAsk`. Chat and search query embeds (`methods/chat.js`, `methods/search.js`) still send untruncated text (KAN-391 covered the indexer only). `scripts/qa/app.mjs` sign-up still fills #email and #full_name (removed by KAN-76). KAN-74: the last-import record is not deleted when its profile is deleted. KAN-67: names compare case-sensitively ("Maya" and "maya" both allowed). Custom feeling words with comma, ; or | are refused (KAN-94). No tag filter exists in the app, so KAN-94 "appears in filters" had nothing to extend.
+3. Remaining P2 To Do: KAN-388 (ONNX, waits on installer-size decision), KAN-77/177/178/181/183 (encryption/recovery, clash with "password encrypts nothing", re-scope), KAN-83 (landing page), KAN-191 and KAN-193 (blocked on owner), KAN-385 (needs hardware). Nothing else buildable in P2 without an owner decision.
+4. Review first, when the owner lifts the pause: KAN-76 migration 10 and KAN-94 migration 12 (never run on a real profile yet).
+5. KAN-80 placement conflict: first-run /setup runs before sign-up, so its import step only works with a signed-in profile. Owner decides where the screen goes.
+6. The phase branch has no CI run of its own (CI triggers on push to main and on PRs only).
 
 ## Facts from this session's agents (things later work must know)
 - KAN-76: profile name is the existing `username` column; sign-up is one screen (`/register`), zxcvbn lazy-loaded (main chunk 1,871 kB to 1,046 kB, zxcvbn own 819 kB chunk); weak passwords blocked (score >= 3). `media:save-profile` path traversal fixed. Stepper.tsx deleted.
