@@ -1,4 +1,4 @@
-# MindSage handoff (2026-10-22 c, P2 waves 2 and 3 built, wave 4 started)
+# MindSage handoff (2026-10-28, P2 wave 4: closeout bugs in flight)
 
 You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin` and `git pull` (merge, never rebase), then read this file again if the pull changed it.
 
@@ -11,7 +11,10 @@ You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and do
 - KAN-81 was built WITHOUT its blockers: KAN-162 (daily nudge, fix version P3) and KAN-313 (Windows Hello, release-later) are still To Do and unbuilt. The screen's reminder toggle only stores `journal_reminder` and `reminder_time` and fires nothing; Windows Hello is hidden behind `helloAvailable()`, which returns false. Do not build 162/313 in P2 unless the owner says so.
 
 ## Next
-1. Wave 4 housekeeping: KAN-169 (lint electron/ and scripts/) and KAN-394 (11 unused packages removed) are merged. Next candidates: KAN-388, bugs 386/387/390/392/393, KAN-191, KAN-60. No review or test per the owner.
+1. Closeout bugs (Opus agent ac3946b309648a8ff, resumed after a rate limit; check its report or `gh pr list`): KAN-386 (commit 55ec4eb on fix/KAN-386-cpu-fallback-reset) and KAN-387 (c86328f on fix/KAN-387-ask-answer-cap) were committed locally and may still be unpushed; KAN-390 and KAN-392 were being built. KAN-393 is PR #82 (CI green, not merged, waits for the owner's word). A push denied by the permission classifier must be surfaced to the owner, not worked around; the owner says "push it" and then you push and open the PR against the phase branch.
+2. Jira work owed because the Atlassian connector dropped mid-session (owner must reconnect it): add label `not-reviewed` to KAN-393 (the label edit timed out; the status transition to Not reviewed did apply), and set label plus status "Not reviewed" on KAN-386, 387, 390, 392 once their PRs exist. Labels are set-full on edit.
+3. Merged this session: #72, #73 to #77, #78, #79 (KAN-169), #80 (KAN-394), #81. KAN-169 and KAN-394 are labelled and in Not reviewed.
+4. Remaining candidates: KAN-388, KAN-191, KAN-60, KAN-67/74/83/93/94 (To Do, P2). No review or test per the owner.
 2. Review first, when the owner lifts the pause: KAN-76 migration 10 (rebuilds `users`, email nullable; the migration runner now turns foreign keys off around migrations marked `rebuildsTables` and runs foreign_key_check; a mistake would delete journal entries via cascade). Never run on a real profile yet.
 3. KAN-80 placement conflict: first-run /setup runs before sign-up, so its import step only works with a signed-in profile (new installs see a pointer to Settings). The design changes list (2026-10-20) moved WIN-145 to after the first saved entry. Owner decides where the screen goes.
 4. Bugs filed this phase (P2, phase-2-closeout): KAN-386, 387, 390, 392, 393; KAN-391 by someone else. Confirm the fix version on KAN-392 and KAN-393. The two CI fixes in #71 were committed under Refs KAN-70/KAN-75 with no bug ticket.
