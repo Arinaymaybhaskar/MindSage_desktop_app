@@ -1,4 +1,14 @@
-# MindSage handoff (2026-10-28 late, P2 wave 4 built, awaiting owner)
+# MindSage handoff (2026-10-29, P2 wave 4 built, owner decisions taken, new tickets filed)
+
+## 2026-10-29 decisions (owner) and new tickets
+- Installer ships CPU and Vulkan engine binaries only. CUDA becomes an optional post-install download for Nvidia GPUs: KAN-434 (no fix version yet). This unblocks KAN-388 (ONNX).
+- The password only locks the profile; it encrypts nothing. KAN-77, 177, 178, 181, 183 moved to fix version P5 (label release-p5). Their descriptions still say "encrypts" and name old releases; rewrite when the real encryption project is scoped.
+- KAN-80 import placement: after sign-up, optional, never blocking (a skippable line on You're set). Ticket KAN-436.
+- KAN-70 "feelings" means the KAN-94 feeling words (built-in plus custom). Mood stays the KAN-93 five words under "Enrich entries". The merged KAN-70 build read it as mood tags, so rework is KAN-437, after #90 merges. The owner already edited KAN-70's description.
+- KAN-64 status card wording is the table in KAN-64's own description (title plus second line per state). The agent said the wording was unavailable; it was in Jira. The built card does not match it. Ticket KAN-435.
+- Follow-ups, all filed as P2 bugs with `found-in-phase-2`, `phase-2-closeout`: KAN-438 People extraction yields to Ask (after #86 merges), KAN-439 chat and search query embeds untruncated, KAN-440 profile names case-insensitive, KAN-441 last-import record deleted with its profile.
+- Owner said not to worry about timelines.
+- Not done: the owner's own actions (release `binaries-whisper-v1` for PR #51; delete KAN-389 in the Jira UI). All 11 PRs (#82, #84 to #92) are CI green and unmerged, mergeable and clean individually; #89 and #90 will conflict in AIPrompts.js, and #90 uses migration 12. Merge only when the owner says "merge", #83 first.
 
 You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin` and `git pull` (merge, never rebase), then read this file again if the pull changed it.
 
@@ -39,11 +49,9 @@ You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and do
 
 ## Needs the owner
 1. Create release `binaries-whisper-v1` and upload the files (PR #51). History removal waits for KAN-191.
-2. Installer size: win-x64 prebuilts are 632 MB unpacked (cpu 30, vulkan 71, cuda 169, cuda-ext 351, arm64 11). Agent recommends CPU and Vulkan only.
-3. Encryption/recovery tickets (KAN-177, 178, 181, 183, 77) clash with the rule that the password encrypts nothing. Re-scope before building.
-4. Delete KAN-389 in the Jira UI (duplicate of KAN-388; the connector cannot delete issues).
-5. Confirm "feelings" = mood tags (KAN-70) and give the status-card wording (KAN-64).
-6. The owner's checkout had an incomplete node_modules (no .bin): `git switch phase/p2-remove-the-setup-wall`, `git pull`, `npm ci` (without --ignore-scripts), then `npm run dev`.
+2. Delete KAN-389 in the Jira UI (duplicate of KAN-388; the connector cannot delete issues).
+3. Say "merge" when ready (see 2026-10-29 section above).
+4. The owner's checkout had an incomplete node_modules (no .bin): `git switch phase/p2-remove-the-setup-wall`, `git pull`, `npm ci` (without --ignore-scripts), then `npm run dev`.
 
 ## Decisions made
 - Provider rule (KAN-68): built-in engine only when aiProvider is set to it or both GGUFs are on disk at verified size; otherwise Ollama. Ollama stays a full provider.
