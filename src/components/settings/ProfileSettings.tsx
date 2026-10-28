@@ -7,11 +7,7 @@ import DeleteProfileCard from "./DeleteProfileCard";
 type ProfileSettingsProps = Pick<SettingsPanelProps, "user" | "onProfileSave">;
 
 const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
-  const [formData, setFormData] = useState({
-    full_name: "",
-    username: "",
-    email: "",
-  });
+  const [name, setName] = useState("");
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
@@ -44,18 +40,20 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
 
   useEffect(() => {
     if (user) {
-      setFormData({
-        full_name: user.full_name || "",
-        username: user.username || "",
-        email: user.email || "",
-      });
+      setName(user.username || "");
       loadProfileImage(user.profile_picture ?? null);
     }
   }, [user]);
 
-  // Input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  // The profile name saves when the field is left; a refused name goes back
+  // to the saved one (the toast says why).
+  const saveName = async () => {
+    if (!user || name === user.username) return;
+    try {
+      await onProfileSave({ username: name });
+    } catch {
+      setName(user.username);
+    }
   };
 
   // File select
@@ -148,7 +146,9 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
         finalImagePath = null;
       }
 
-      await onProfileSave({ ...formData, profile_picture: finalImagePath });
+      await onProfileSave({ profile_picture: finalImagePath });
+    } catch {
+      // The settings page has already shown the reason.
     } finally {
       setIsSaving(false);
       // Reload the page after saving profile
@@ -283,41 +283,17 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
 
           {/* Form Fields */}
           <div>
-            <label htmlFor="full_name" className={labelClasses}>
-              Full Name
-            </label>
-            <input
-              type="text"
-              name="full_name"
-              id="full_name"
-              value={formData.full_name}
-              onChange={handleChange}
-              className={inputClasses}
-            />
-          </div>
-          <div>
             <label htmlFor="username" className={labelClasses}>
-              Username
+              Profile name
             </label>
             <input
               type="text"
               name="username"
               id="username"
-              value={formData.username}
-              onChange={handleChange}
-              className={inputClasses}
-            />
-          </div>
-          <div>
-            <label htmlFor="email" className={labelClasses}>
-              Email Address
-            </label>
-            <input
-              type="email"
-              name="email"
-              id="email"
-              value={formData.email}
-              onChange={handleChange}
+              maxLength={80}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={saveName}
               className={inputClasses}
             />
           </div>
@@ -338,7 +314,7 @@ const ProfileSettings = ({ user, onProfileSave }: ProfileSettingsProps) => {
           </div>
         </form>
       </div>
-      <DeleteProfileCard name={user?.full_name || user?.username || ""} />
+      <DeleteProfileCard name={user?.username || ""} />
     </>
   );
 };

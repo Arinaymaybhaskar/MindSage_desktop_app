@@ -45,7 +45,7 @@ const SETTLE = 1200;
 const DEFAULT_THEME = "Sunset";
 
 /** The seeded demo account. Must match PERSONA in scripts/seed-demo.mjs. */
-const DEMO_LOGIN = { identifier: "maya@mindsage.local", password: "demo1234" };
+const DEMO_LOGIN = { identifier: "maya", password: "demo1234" };
 
 /**
  * Logs into the demo account unless already there.
@@ -62,7 +62,7 @@ async function ensureDemoUser(cdp) {
     catch { return null; }
   })()`);
 
-  const alreadyDemo = current?.email === DEMO_LOGIN.identifier;
+  const alreadyDemo = current?.username === DEMO_LOGIN.identifier;
   if (!alreadyDemo) {
     console.log(
       `  Logged in as ${current?.username ?? "nobody"} - switching to the demo account`,
@@ -81,7 +81,7 @@ async function ensureDemoUser(cdp) {
       );
       if (!res?.userInfo) return { ok: false, error: "no user returned" };
       localStorage.setItem("userInfo", JSON.stringify(res.userInfo));
-      return { ok: true, name: res.userInfo.full_name || res.userInfo.username };
+      return { ok: true, name: res.userInfo.username };
     } catch (e) {
       return { ok: false, error: String(e && e.message || e) };
     }

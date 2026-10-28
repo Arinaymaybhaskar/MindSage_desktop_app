@@ -229,9 +229,10 @@ export default function Dashboard() {
     return { bar: "bg-indigo-500", text: "text-indigo-500" };
   };
 
-  const displayName = user?.full_name || user?.username;
+  const displayName = user?.username;
+  // Array.from keeps an emoji or other astral first character whole.
   const displayInitial = displayName ? (
-    displayName.charAt(0).toUpperCase()
+    Array.from(displayName)[0].toUpperCase()
   ) : (
     <UserIcon size={20} />
   );
@@ -255,7 +256,7 @@ export default function Dashboard() {
         <header className="mb-5 flex flex-wrap items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
             <h1 className="font-display text-4xl sm:text-[2.75rem] font-semibold leading-[1.1] tracking-tight text-text-light dark:text-text-dark">
-              Welcome back, {user.full_name?.split(" ")[0] || user.username}
+              Welcome back, {user.username}
             </h1>
             <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-text-light-sub dark:text-text-dark-sub">
               {summary}

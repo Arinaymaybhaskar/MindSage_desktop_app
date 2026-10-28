@@ -2,13 +2,11 @@ import bcrypt from "bcryptjs";
 import { db } from "./connection.js"; // Import the db connection
 
 /**
- * Finds a user by their email or username for login.
+ * Finds a user by profile name (the username column), for sign-in and the
+ * duplicate check. Email is no longer a way in (KAN-67).
  */
-export function findUserByIdentifier(identifier) {
-  const stmt = db.prepare(
-    "SELECT * FROM users WHERE email = ? OR username = ?",
-  );
-  return stmt.get(identifier, identifier);
+export function findUserByName(name) {
+  return db.prepare("SELECT * FROM users WHERE username = ?").get(name);
 }
 
 /**
@@ -27,20 +25,10 @@ export function findUserById(id) {
 export function listProfiles() {
   return db
     .prepare(
-      `SELECT id, username, full_name, profile_picture
+      `SELECT id, username, profile_picture
          FROM users WHERE id != 0 ORDER BY id`,
     )
     .all();
-}
-
-/**
- * Finds a user by email or username to check for uniqueness during registration.
- */
-export function findUserForCheck(email, username) {
-  const stmt = db.prepare(
-    "SELECT * FROM users WHERE email = ? OR username = ?",
-  );
-  return stmt.get(email, username);
 }
 
 /**
