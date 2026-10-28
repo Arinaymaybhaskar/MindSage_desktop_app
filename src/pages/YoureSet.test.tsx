@@ -7,6 +7,8 @@ import YoureSet from "./YoureSet";
 const updateSettings = vi.fn().mockResolvedValue({});
 const setFeature = vi.fn().mockResolvedValue({});
 const navigate = vi.fn();
+const pickImport = vi.fn();
+const commitImport = vi.fn();
 
 vi.mock("react-router-dom", async (orig) => ({
   ...(await orig<typeof import("react-router-dom")>()),
@@ -29,7 +31,29 @@ vi.mock("../api/helloService", () => ({
   helloAvailable: () => Promise.resolve(false),
 }));
 
+vi.mock("../api/portabilityService", async (orig) => ({
+  ...(await orig()),
+  portabilityService: {
+    pickImport: () => pickImport(),
+    commitImport: () => commitImport(),
+  },
+}));
+
 afterEach(cleanup);
+
+const renderIt = async () => {
+  await act(async () => {
+    render(
+      <MemoryRouter>
+        <YoureSet />
+      </MemoryRouter>,
+    );
+  });
+};
+const choose = () =>
+  act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Choose a file/ }));
+  });
 
 describe("You're set screen (KAN-81)", () => {
   it("saves each toggle at once, shows the time only when on, hides Hello", async () => {
@@ -61,5 +85,36 @@ describe("You're set screen (KAN-81)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(navigate).toHaveBeenCalledWith("/", { replace: true });
+  });
+
+  it("lists the supported formats when the file is not one (KAN-80)", async () => {
+    pickImport.mockResolvedValue({
+      canceled: false,
+      format: null,
+      warnings: ["Supported: a MindSage backup, Day One JSON, Journey."],
+    });
+    await renderIt();
+    await choose();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Supported: a MindSage backup, Day One JSON",
+    );
+  });
+
+  it("keeps Continue enabled while a large import runs (KAN-436)", async () => {
+    pickImport.mockResolvedValue({
+      canceled: false,
+      format: "dayone",
+      formatName: "Day One",
+      toImport: 5000,
+    });
+    commitImport.mockReturnValue(new Promise(() => {}));
+    await renderIt();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    await choose();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    });
+    expect(screen.getByText(/in the background/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 });
