@@ -56,6 +56,8 @@ contextBridge.exposeInMainWorld("electron", {
         "user:delete-account",
         "user:delete-summary",
         "journal:create",
+        "tags:custom-list",
+        "tags:custom-add",
         "journal:get-recent",
         "journal:get-all",
         "journal:get-by-id",

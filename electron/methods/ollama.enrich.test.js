@@ -4,6 +4,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // the summary in its own call, one after the other in the shared AI queue.
 const generate = vi.hoisted(() => vi.fn());
 const getJournalById = vi.hoisted(() => vi.fn());
+const customFeelingWords = vi.hoisted(() => vi.fn(() => []));
 vi.mock("../ai/client.js", () => ({
   generate,
   taskModel: (task) => `model-for-${task}`,
@@ -12,7 +13,9 @@ const failedRows = vi.hoisted(() => ({ rows: [] }));
 vi.mock("../db/connection.js", () => ({
   db: { prepare: () => ({ run: () => {}, all: () => failedRows.rows }) },
 }));
-vi.mock("../db/index.js", () => ({ default: { getJournalById } }));
+vi.mock("../db/index.js", () => ({
+  default: { getJournalById, customFeelingWords },
+}));
 vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 const ALL_ON = {
@@ -153,6 +156,21 @@ describe("enrichment on save", () => {
     await ask;
     await drained();
     expect(generate).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers the user's 50 most used own words in the prompt and enum (KAN-94)", async () => {
+    const own = [{ name: "उदास", family: "Sad", uses: 3 }];
+    customFeelingWords.mockReturnValueOnce(own);
+    const { generateMetadata } = await import("./ollama.js");
+    generate.mockResolvedValueOnce(
+      '{"title":"A walk","mood_score":2,"mood_tags":["उदास","Invented"]}',
+    );
+    const out = await generateMetadata("text", 7);
+    expect(customFeelingWords).toHaveBeenLastCalledWith(7, 50);
+    const [prompt, opts] = generate.mock.calls[0];
+    expect(prompt).toContain("उदास");
+    expect(opts.schema.properties.mood_tags.items.enum).toContain("उदास");
+    expect(out.mood_tags).toEqual(["उदास"]);
   });
 
   it("does nothing for an entry moved to the Trash while it waited", async () => {

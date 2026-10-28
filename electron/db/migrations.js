@@ -675,6 +675,14 @@ export const MIGRATIONS = [
         `ALTER TABLE user_settings ADD COLUMN reminder_time TEXT DEFAULT '20:00'`,
       ),
   },
+  {
+    // A feeling word the user writes in their own words (KAN-94) keeps the
+    // family they pick. Built-in words stay NULL: their family is the one in
+    // MOOD_TAG_GROUPS.
+    version: 12,
+    name: "tag-family",
+    up: (d) => d.exec(`ALTER TABLE tags ADD COLUMN family TEXT`),
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

@@ -31,6 +31,8 @@ import { SidebarPanel } from "../components/journal/SidebarPanel";
 import type { SelectedModels } from "../types/Ollama";
 import { registerUnsavedWork } from "../utils/unsavedWork";
 import { draftKey } from "../utils/draftKeys";
+import { tagService } from "../api/tagService";
+import type { CustomFeelingWord } from "../api/tagService";
 
 const emptyJournal: JournalEntry = {
   title: "",
@@ -41,6 +43,13 @@ const emptyJournal: JournalEntry = {
 
 export default function JournalForm() {
   const [entry, setEntry] = useState<JournalEntry>(emptyJournal);
+  const [customWords, setCustomWords] = useState<CustomFeelingWord[]>([]);
+  useEffect(() => {
+    tagService
+      .listCustomWords()
+      .then((w) => setCustomWords(Array.isArray(w) ? w : []))
+      .catch(() => {});
+  }, []);
   const { id } = useParams();
   const navigate = useNavigate();
   const [showSaved, setShowSaved] = useState(false);
@@ -665,6 +674,10 @@ export default function JournalForm() {
               <MoodTagSelector
                 key={JSON.stringify(entry.mood_tags)}
                 selected={entry.mood_tags ?? []}
+                customWords={customWords}
+                onCustomWordAdded={(w) =>
+                  setCustomWords((prev) => [...prev, w])
+                }
                 onChange={(tags) => {
                   setEntry({ ...entry, mood_tags: tags });
                 }}
