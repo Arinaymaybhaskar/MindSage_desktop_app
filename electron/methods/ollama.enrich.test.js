@@ -19,9 +19,14 @@ vi.mock("../db/connection.js", () => ({
     }),
   },
 }));
+const setSuggestedTags = vi.hoisted(() => vi.fn(() => null));
 vi.mock("../db/index.js", () => ({
-  default: { getJournalById, customFeelingWords },
+  default: { getJournalById, customFeelingWords, setSuggestedTags },
 }));
+// The ONNX models (KAN-388): not downloaded unless a test says so.
+const classifyFeelings = vi.hoisted(() => vi.fn(async () => null));
+const summarySupported = vi.hoisted(() => vi.fn(async () => null));
+vi.mock("../ai/onnx.js", () => ({ classifyFeelings, summarySupported }));
 vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 const ALL_ON = { enrich: true, feelings: true, suggestions: true };
@@ -53,6 +58,88 @@ beforeEach(() => {
   generate.mockReset();
   getJournalById.mockReset().mockReturnValue(entry);
   getFeatures.mockReset().mockReturnValue(ALL_ON);
+  classifyFeelings.mockReset().mockResolvedValue(null);
+  summarySupported.mockReset().mockResolvedValue(null);
+  setSuggestedTags.mockClear();
+});
+
+describe("the ONNX classifier and entailment gate (KAN-388)", () => {
+  const completed = [];
+  eventBus.on("journal:aiCompleted", (e) => completed.push(e.metadata));
+  const failed = [];
+  eventBus.on("ollama:summary-failed", (e) => failed.push(e.error));
+  const saved = [];
+  eventBus.on("ollama:summary-generated", (e) => saved.push(e.summary));
+
+  it("takes the feeling words from the classifier, run before the chat model", async () => {
+    classifyFeelings.mockImplementation(async () => {
+      expect(generate).not.toHaveBeenCalled();
+      return ["Hurt", "Lonely"];
+    });
+    generate
+      .mockResolvedValueOnce('{"title":"A walk","mood":"Good"}')
+      .mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    // The chat model is not asked for feeling words the classifier gave.
+    const { schema } = generate.mock.calls[0][1];
+    expect(Object.keys(schema.properties)).toEqual(["title", "mood"]);
+    expect(completed.at(-1)).toEqual({
+      title: "A walk",
+      mood_score: 4,
+      mood_tags: ["Hurt", "Lonely"],
+    });
+  });
+
+  it("still offers the classifier's words when no chat model can run", async () => {
+    // The user ticks "Content" while the chat model is tried.
+    getJournalById
+      .mockReturnValueOnce(entry)
+      .mockReturnValue({ ...entry, mood_tags: ["Content"] });
+    classifyFeelings.mockResolvedValue(["Content", "Proud"]);
+    generate.mockRejectedValue(new Error("The built-in AI is not downloaded"));
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    // Offered, not tagged (KAN-437); one already ticked is not offered again.
+    expect(setSuggestedTags).toHaveBeenCalledWith(7, 1, ["Proud"]);
+  });
+
+  it("asks the chat model nothing when Enrich entries is off and the classifier ran", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, enrich: false });
+    classifyFeelings.mockResolvedValue(["Proud"]);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
+    expect(completed.at(-1)).toEqual({ mood_tags: ["Proud"] });
+  });
+
+  it("writes a rejected summary once more, then holds it", async () => {
+    classifyFeelings.mockResolvedValue([]);
+    summarySupported.mockResolvedValue(false);
+    generate
+      .mockResolvedValueOnce('{"title":"A walk","mood":"Good"}')
+      .mockResolvedValue(SUMMARY);
+    const before = saved.length;
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).toHaveBeenCalledTimes(3); // metadata, then two drafts
+    expect(saved.length).toBe(before);
+    expect(failed.at(-1)).toMatch(/valid summary/);
+  });
+
+  it("saves the second draft when it passes the gate", async () => {
+    classifyFeelings.mockResolvedValue([]);
+    summarySupported.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    generate
+      .mockResolvedValueOnce('{"title":"A walk","mood":"Good"}')
+      .mockResolvedValueOnce(
+        "The writer went skiing in the mountains with friends.",
+      )
+      .mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(saved.at(-1)).toBe(SUMMARY);
+  });
 });
 
 describe("AI feature switches (KAN-70, KAN-437)", () => {

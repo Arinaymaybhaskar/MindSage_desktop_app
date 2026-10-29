@@ -78,6 +78,42 @@ export const BUILTIN_MODELS = {
     unpackedBytes: 176103306,
     sha256: "5209bfeb4e1845bc99b70e906797935379ffa65a5ac44a8f6e3b36b9948483af",
   },
+  // The CPU ONNX models (KAN-388, ai/onnx.js): feeling words on save, and the
+  // check that a summary says only what its entry says. Neither needs Ollama
+  // or the llama engine. Revisions and SHA-256 are Hugging Face's own (the
+  // API's sha and lfs.sha256), read 2026-10-29; the tokenizer is not in LFS,
+  // so its SHA-256 was computed from the file downloaded at that revision the
+  // same day. Both models use the RoBERTa vocabulary: one tokenizer serves both.
+  "feelings-classifier": {
+    label: "Feelings classifier (GoEmotions)",
+    role: "onnx",
+    file: "roberta-base-go_emotions-int8.onnx",
+    url: `${HF}/SamLowe/roberta-base-go_emotions-onnx/resolve/90ee0c1c4796d370e68968687b8ba51fc11224f4/onnx/model_quantized.onnx`,
+    bytes: 125397543,
+    sha256: "0c1981c5b479674747911c8e2228f0c4ec90bf47bf66e830f7d4fc62be082958",
+  },
+  "summary-check": {
+    label: "Summary check (MiniLM NLI)",
+    role: "onnx",
+    file: "nli-MiniLM2-L6-H768-quint8-avx2.onnx",
+    url: `${HF}/cross-encoder/nli-MiniLM2-L6-H768/resolve/b95119ce93d3e065de6214e38cd4a97b0f2f2c6d/onnx/model_quint8_avx2.onnx`,
+    bytes: 82823063,
+    sha256: "44391a5241a62e0083c1a8899a71e69a092b95aea5ba89e14062925468eceac7",
+  },
+  "roberta-tokenizer": {
+    label: "Tokenizer for the classifier and summary check",
+    role: "onnx",
+    file: "roberta-tokenizer.json",
+    url: `${HF}/cross-encoder/nli-MiniLM2-L6-H768/resolve/b95119ce93d3e065de6214e38cd4a97b0f2f2c6d/tokenizer.json`,
+    bytes: 1356048,
+    sha256: "82139106e603ee4e1d5bc99d056ccbed5a92bc24848b1b5a7137c26e00d0dbf6",
+  },
+};
+
+export const ONNX_MODELS = {
+  classifier: "feelings-classifier",
+  nli: "summary-check",
+  tokenizer: "roberta-tokenizer",
 };
 
 export const CUDA_ENGINE = "cuda-engine";

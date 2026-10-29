@@ -96,6 +96,10 @@
           "from": "resources/whisper-bin-x64/",
           "to": "whisper-bin-x64"
         }
+      ],
+      "files": [
+        "!**/node_modules/onnxruntime-node/bin/napi-v*/{linux,darwin}/**",
+        "!**/node_modules/onnxruntime-node/bin/napi-v*/win32/arm64/**"
       ]
     },
     "nsis": {
@@ -114,7 +118,8 @@
       "node_modules/sqlite-vec-*/**",
       "node_modules/node-llama-cpp/bins",
       "node_modules/node-llama-cpp/llama/localBuilds",
-      "node_modules/@node-llama-cpp/*"
+      "node_modules/@node-llama-cpp/*",
+      "node_modules/onnxruntime-node/bin/**"
     ]
   },
   "dependencies": {
@@ -126,6 +131,7 @@
     "fflate": "^0.8.3",
     "ffmpeg-static": "^5.2.0",
     "node-llama-cpp": "3.22.1",
+    "onnxruntime-node": "1.30.0",
     "sentiment": "^5.0.2",
     "sqlite-vec": "0.1.9",
     "strip-ansi": "^7.1.0",
