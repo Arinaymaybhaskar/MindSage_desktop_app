@@ -4,6 +4,7 @@ import { currentUserId, signOut } from "../session.js";
 import { createAttemptLimiter } from "../attemptLimiter.js";
 import { deleteProfileEverything, describeProfile } from "./profileDelete.js";
 import { eraseLocalStorage } from "../windowStorage.js";
+import { cleanProfileName, DUPLICATE_PROFILE_NAME } from "../profileName.js";
 
 // Wrong passwords on the delete screen and the change-password form share one
 // count; after five the profile is locked for a minute. Checks for one profile
@@ -53,10 +54,20 @@ export const userGetMe = async (event) => {
   return localDB.getUserById(userId);
 };
 
+/** Renames the profile and/or sets its picture: `{ username?, profile_picture? }`. */
 export const userUpdateProfile = async (event, payload) => {
   const userId = currentUserId();
   if (!userId) throw new Error("Not signed in");
-  const user = localDB.updateUserProfile(userId, payload);
+  const changes = {};
+  if (payload?.username !== undefined) {
+    changes.username = cleanProfileName(payload.username);
+    const other = localDB.findUserByName(changes.username);
+    if (other && other.id !== userId) throw new Error(DUPLICATE_PROFILE_NAME);
+  }
+  if (payload && "profile_picture" in payload) {
+    changes.profile_picture = payload.profile_picture ?? null;
+  }
+  const user = localDB.updateUserProfile(userId, changes);
   return { user };
 };
 

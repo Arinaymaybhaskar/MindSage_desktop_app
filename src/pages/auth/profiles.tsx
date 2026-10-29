@@ -15,11 +15,9 @@ import { useAuth } from "../../hooks/useAuth";
 import { errorMessage } from "../../utils/errors";
 import Welcome from "./welcome";
 
-/** Two initials from the full name, or the first letter of the username. */
+/** The profile name's first character, kept whole when it is an emoji. */
 function initials(p: Profile) {
-  const words = (p.full_name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
-  return (words[0]?.[0] ?? p.username[0] ?? "?").toUpperCase();
+  return (Array.from(p.username)[0] ?? "?").toUpperCase();
 }
 
 function Avatar({ profile, size }: { profile: Profile; size: number }) {
@@ -40,8 +38,6 @@ function Avatar({ profile, size }: { profile: Profile; size: number }) {
     </div>
   );
 }
-
-const displayName = (p: Profile) => p.full_name || p.username;
 
 /**
  * The signed-out front door: every account on this install, then a password
@@ -134,9 +130,7 @@ export default function Profiles() {
   return (
     <AuthLayout
       title={
-        selected
-          ? `Welcome back, ${displayName(selected)}`
-          : "Who's journaling?"
+        selected ? `Welcome back, ${selected.username}` : "Who's journaling?"
       }
       subtitle={
         selected
@@ -171,13 +165,8 @@ export default function Profiles() {
                         <Avatar profile={p} size={72} />
                       </div>
                       <span className="w-full truncate text-sm font-medium text-text-light dark:text-text-dark">
-                        {displayName(p)}
+                        {p.username}
                       </span>
-                      {p.full_name && (
-                        <span className="-mt-2 w-full truncate text-xs text-text-light-sub dark:text-text-dark-sub">
-                          @{p.username}
-                        </span>
-                      )}
                     </button>
                   </li>
                 ))}
@@ -212,11 +201,6 @@ export default function Profiles() {
           >
             <div className="flex flex-col items-center gap-2">
               <Avatar profile={selected} size={88} />
-              {selected.full_name && (
-                <span className="text-sm text-text-light-sub dark:text-text-dark-sub">
-                  @{selected.username}
-                </span>
-              )}
             </div>
 
             {error && (

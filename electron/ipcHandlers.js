@@ -6,6 +6,7 @@ import {
   handlePickImport,
   handleReadImport,
   handleUndoImport,
+  handleLastImport,
 } from "./methods/portability.js";
 import {
   handleCheckUsername,
@@ -342,6 +343,7 @@ export function registerIPCHandlers() {
   ipcMain.handle("data:import-read", handleReadImport);
   ipcMain.handle("data:import-commit", handleCommitImport);
   ipcMain.handle("data:import-undo", handleUndoImport);
+  ipcMain.handle("data:import-last", handleLastImport);
 
   ipcMain.handle("dialog:show-save-export", async (event) => {
     const browserWindow = BrowserWindow.fromWebContents(event.sender);

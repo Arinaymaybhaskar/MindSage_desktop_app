@@ -9,8 +9,14 @@ vi.mock("../ai/client.js", () => ({
   taskModel: (task) => `model-for-${task}`,
 }));
 const failedRows = vi.hoisted(() => ({ rows: [] }));
+const writes = vi.hoisted(() => []);
 vi.mock("../db/connection.js", () => ({
-  db: { prepare: () => ({ run: () => {}, all: () => failedRows.rows }) },
+  db: {
+    prepare: (sql) => ({
+      run: (...args) => writes.push({ sql, args }),
+      all: () => failedRows.rows,
+    }),
+  },
 }));
 vi.mock("../db/index.js", () => ({ default: { getJournalById } }));
 vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
@@ -42,7 +48,7 @@ const entry = {
   title: "",
   content: Array.from({ length: 30 }, (_, i) => `word${i}`).join(" "),
 };
-const METADATA = '{"title":"A walk","mood_score":4,"mood_tags":["Content"]}';
+const METADATA = '{"title":"A walk","mood":"Good","mood_tags":["Content"]}';
 const SUMMARY = "The writer walked home in the rain and felt calm.";
 const drained = () => background(() => {});
 
@@ -160,6 +166,25 @@ describe("enrichment on save", () => {
     eventBus.emit("journal:created", { entry });
     await drained();
     expect(generate).not.toHaveBeenCalled();
+  });
+
+  // KAN-393: left 'pending', a restored entry needed Cancel then Retry.
+  it("marks the pending statuses failed when the entry went to the Trash", async () => {
+    getJournalById.mockReturnValue(null);
+    writes.length = 0;
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    const failed = writes.filter((w) => w.sql.includes("'failed'"));
+    const sql = failed.map((w) => w.sql.replace(/\s+/g, " "));
+    expect(sql).toEqual([
+      expect.stringMatching(
+        /SET ai_metadata_status = 'failed'.*AND ai_metadata_status = 'pending'/,
+      ),
+      expect.stringMatching(
+        /SET ai_summary_status = 'failed'.*AND ai_summary_status = 'pending'/,
+      ),
+    ]);
+    expect(failed.map((w) => w.args[1])).toEqual([entry.id, entry.id]);
   });
 });
 

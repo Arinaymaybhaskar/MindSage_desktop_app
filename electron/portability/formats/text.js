@@ -10,6 +10,7 @@ import {
   makeEntry,
   toIso,
 } from "../common.js";
+import { moodWord } from "../../moodWords.js";
 
 const RULE = "=".repeat(60);
 // Our own export: a rule, "2024-01-31 08:30  Title", a rule, then the body.
@@ -48,7 +49,8 @@ export const text = {
           if (trailer) {
             for (const line of trailer[1].trim().split("\n")) {
               const t = /^Tags: (.*)$/.exec(line);
-              const m = /^Mood: (\d)\/5$/.exec(line);
+              // "Mood: Good (4/5)", or "Mood: 4/5" from older exports.
+              const m = /^Mood: (?:\p{L}+ \()?(\d)\/5\)?$/u.exec(line);
               if (t)
                 tags = t[1]
                   .split(",")
@@ -103,7 +105,7 @@ export const text = {
       const extra = [];
       if (e.tags.length) extra.push(`Tags: ${e.tags.join(", ")}`);
       if (e.mood !== null && e.mood !== undefined)
-        extra.push(`Mood: ${e.mood}/5`);
+        extra.push(`Mood: ${moodWord(e.mood)} (${e.mood}/5)`);
       return `${RULE}\n${head}\n${RULE}\n${e.content.trim()}\n${extra.length ? `\n${extra.join("\n")}\n` : ""}`;
     });
     return { files: new Map([["MindSage.txt", out.join("\n")]]), single: true };
