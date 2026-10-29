@@ -4,8 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import YoureSet from "./YoureSet";
 
-const updateSettings = vi.fn().mockResolvedValue({});
-const setFeature = vi.fn().mockResolvedValue({});
+let emit: (p: unknown) => void = () => {};
 const navigate = vi.fn();
 const pickImport = vi.fn();
 const commitImport = vi.fn();
@@ -14,21 +13,13 @@ vi.mock("react-router-dom", async (orig) => ({
   ...(await orig<typeof import("react-router-dom")>()),
   useNavigate: () => navigate,
 }));
-vi.mock("../api/userService", () => ({
-  userService: {
-    getSettings: () =>
-      Promise.resolve({ journal_reminder: 0, reminder_time: "20:00" }),
-    updateSettings: (p: unknown) => updateSettings(p),
+vi.mock("../api/setupService", () => ({
+  setupService: {
+    onProgress: (cb: (p: unknown) => void) => {
+      emit = cb;
+      return () => {};
+    },
   },
-}));
-vi.mock("../api/aiFeaturesService", () => ({
-  aiFeaturesService: {
-    get: () => Promise.resolve({ suggestions: true }),
-    set: (...a: unknown[]) => setFeature(...a),
-  },
-}));
-vi.mock("../api/helloService", () => ({
-  helloAvailable: () => Promise.resolve(false),
 }));
 
 vi.mock("../api/portabilityService", async (orig) => ({
@@ -56,34 +47,23 @@ const choose = () =>
   });
 
 describe("You're set screen (KAN-81)", () => {
-  it("saves each toggle at once, shows the time only when on, hides Hello", async () => {
+  it("has no toggles, shows download progress, one Start writing button (KAN-433)", async () => {
+    await renderIt();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText(/Windows Hello|Pro/)).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
     await act(async () => {
-      render(
-        <MemoryRouter>
-          <YoureSet />
-        </MemoryRouter>,
-      );
+      emit({ phase: "pulling-model", model: "qwen3:4b", percent: 42 });
     });
-    expect(screen.queryByLabelText("Reminder time")).toBeNull();
-    expect(screen.queryByText(/Windows Hello/)).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Downloading qwen3:4b: 42%",
+    );
+    await act(async () => {
+      emit({ phase: "pulling-model", model: "qwen3:4b", percent: 100 });
+    });
+    expect(screen.queryByRole("status")).toBeNull();
 
-    await act(async () => {
-      fireEvent.click(screen.getByLabelText(/Remind me/));
-    });
-    expect(updateSettings).toHaveBeenCalledWith({ journal_reminder: true });
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText("Reminder time"), {
-        target: { value: "07:30" },
-      });
-    });
-    expect(updateSettings).toHaveBeenCalledWith({ reminder_time: "07:30" });
-
-    await act(async () => {
-      fireEvent.click(screen.getByLabelText(/Suggest prompts/));
-    });
-    expect(setFeature).toHaveBeenCalledWith("suggestions", false);
-
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start writing" }));
     expect(navigate).toHaveBeenCalledWith("/", { replace: true });
   });
 
@@ -109,12 +89,12 @@ describe("You're set screen (KAN-81)", () => {
     });
     commitImport.mockReturnValue(new Promise(() => {}));
     await renderIt();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Start writing" })).toBeEnabled();
     await choose();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Import" }));
     });
     expect(screen.getByText(/in the background/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Start writing" })).toBeEnabled();
   });
 });
