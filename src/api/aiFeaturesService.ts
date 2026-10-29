@@ -1,8 +1,11 @@
-// Renderer wrapper for the per-profile AI feature switches (KAN-70). Only the
-// window.electron IPC bridge, never Node.
+// Renderer wrapper for the per-profile AI feature switches (KAN-70, KAN-437).
+// Only the window.electron IPC bridge, never Node.
 
-export type AIFeature =
-  "title" | "summary" | "mood" | "feelings" | "suggestions";
+/**
+ * enrich: title, summary and mood word after saving. feelings: the AI offers
+ * feeling words, saved only when ticked. suggestions: autocomplete.
+ */
+export type AIFeature = "enrich" | "feelings" | "suggestions";
 
 export type AIFeatures = Record<AIFeature, boolean>;
 

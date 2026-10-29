@@ -683,6 +683,15 @@ export const MIGRATIONS = [
     name: "tag-family",
     up: (d) => d.exec(`ALTER TABLE tags ADD COLUMN family TEXT`),
   },
+  {
+    // Feeling words the AI offers for an entry (KAN-437), a JSON array of
+    // names. They are not the entry's tags: one becomes a tag only when the
+    // user ticks it. NULL means none offered.
+    version: 13,
+    name: "suggested-feelings",
+    up: (d) =>
+      d.exec(`ALTER TABLE journal_entries ADD COLUMN suggested_tags TEXT`),
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

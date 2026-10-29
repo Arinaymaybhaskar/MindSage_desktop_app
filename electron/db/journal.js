@@ -276,7 +276,57 @@ export function getJournalById(userId, journalId) {
   return {
     ...row,
     mood_tags: row.mood_tags ? row.mood_tags.split(",") : [],
+    suggested_tags: parseSuggested(row.suggested_tags),
   };
+}
+
+function parseSuggested(json) {
+  try {
+    const list = JSON.parse(json ?? "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The feeling words the AI offers for an entry (KAN-437), replacing any it
+ * offered before. They are not tags until the user ticks one.
+ * @returns {object|null} The entry, or null if not found.
+ */
+export function setSuggestedTags(userId, journalId, names) {
+  db.prepare(
+    `UPDATE journal_entries SET suggested_tags = ?
+     WHERE id = ? AND user_id = ? AND is_deleted = 0`,
+  ).run(JSON.stringify(names), journalId, userId);
+  return getJournalById(userId, journalId);
+}
+
+/**
+ * The user ticked an offered feeling word: it becomes one of the entry's tags
+ * and leaves the offered list.
+ * @returns {object|null} The entry, or null if it or the word is not there.
+ */
+export function acceptSuggestedTag(userId, journalId, name) {
+  return db.transaction(() => {
+    const entry = getJournalById(userId, journalId);
+    if (!entry?.suggested_tags.includes(name)) return null;
+    db.prepare("INSERT OR IGNORE INTO tags (user_id, name) VALUES (?, ?)").run(
+      userId,
+      name,
+    );
+    const tag = db
+      .prepare("SELECT id FROM tags WHERE user_id = ? AND name = ?")
+      .get(userId, name);
+    db.prepare(
+      "INSERT OR IGNORE INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)",
+    ).run(journalId, tag.id);
+    return setSuggestedTags(
+      userId,
+      journalId,
+      entry.suggested_tags.filter((n) => n !== name),
+    );
+  })();
 }
 
 /**

@@ -391,6 +391,19 @@ export default function JournalDetail() {
 
   // --- Parse mood tags ---
   const moodTags = parseMoodTags(entry.mood_tags);
+  // Feeling words the AI offers stay unticked until the user ticks one (KAN-437).
+  const offeredFeelings = (entry.suggested_tags ?? []).filter(
+    (tag) => !moodTags.includes(tag),
+  );
+  const acceptFeeling = async (name: string) => {
+    try {
+      const res = await journalService.acceptFeeling(entry.id!, name);
+      if ("error" in res) showToast(res.error, "danger");
+      else setEntry(res);
+    } catch (err) {
+      showToast(errorMessage(err), "danger");
+    }
+  };
 
   // --- Render the main entry view ---
   return (
@@ -638,6 +651,29 @@ export default function JournalDetail() {
                           >
                             {tag}
                           </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {offeredFeelings.length > 0 && (
+                    <div>
+                      <p className="text-sm mb-3 font-medium text-text-light-sub dark:text-text-dark-sub">
+                        Suggested feelings
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {offeredFeelings.map((tag) => (
+                          <label
+                            key={tag}
+                            className="flex items-center gap-1.5 border border-border-light dark:border-border-dark text-text-light dark:text-text-dark px-3 py-1.5 rounded-full text-xs font-medium"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={false}
+                              onChange={() => void acceptFeeling(tag)}
+                            />
+                            {tag}
+                          </label>
                         ))}
                       </div>
                     </div>
