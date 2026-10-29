@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import { useToast } from "../hooks/useToast";
 import { errorMessage } from "../utils/errors";
 import MoodOrb from "../components/ui/MoodOrb";
+import { moodWord } from "../../electron/moodWords";
 import EntryContentWithPeople from "../components/people/EntryContentWithPeople";
 
 // --- Helper: Export Journal to Markdown ---
@@ -41,7 +42,7 @@ function exportJournalToMarkdown(entry: JournalEntry) {
   const markdown = `# ${entry.title || "Untitled"}  
 
 **Date:** ${createdAt}  
-**Mood Score:** ${entry.mood_score || "-"} / 5  
+**Mood:** ${moodWord(entry.mood_score) ?? "-"}  
 **Sentiment:** ${entry.sentiment_score?.toFixed(2) || "-"}  
 **Tags:** ${tags}  
 
@@ -459,20 +460,23 @@ export default function JournalDetail() {
             <aside className="w-full lg:w-1/3 lg:sticky top-8 h-fit mt-8 lg:mt-0">
               <div className="bg-secondary-light dark:bg-secondary-dark shadow-lg rounded-2xl p-6 border border-border-light dark:border-border-dark space-y-6">
                 {/* Mood Orb - Prominent at top */}
-                <div
-                  data-testid="mood-orb"
-                  className="flex flex-col items-center gap-4 text-center pt-2"
-                >
-                  <MoodOrb level={entry.mood_score || 3} size="lg" />
-                  <div className="flex items-center justify-center gap-3 text-sm">
-                    <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
-                      Mood Score:
-                    </span>
-                    <span className="font-bold text-text-light dark:text-text-dark">
-                      {entry.mood_score} / 5
-                    </span>
+                {/* No mood, no orb: an empty score must not read as Steady. */}
+                {entry.mood_score != null && (
+                  <div
+                    data-testid="mood-orb"
+                    className="flex flex-col items-center gap-4 text-center pt-2"
+                  >
+                    <MoodOrb level={entry.mood_score} size="lg" />
+                    <div className="flex items-center justify-center gap-3 text-sm">
+                      <span className="font-medium text-text-light-sub dark:text-text-dark-sub">
+                        Mood:
+                      </span>
+                      <span className="font-bold text-text-light dark:text-text-dark">
+                        {moodWord(entry.mood_score)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* AI Insights */}
                 {(entry.content_summary || entry.transcription) && (

@@ -4,7 +4,7 @@ import { MoodSlider } from "./moodSlider";
 
 afterEach(cleanup);
 
-const LABELS = ["Bad", "Neutral", "Good", "Great", "Excellent"];
+const LABELS = ["Heavy", "Low", "Steady", "Good", "Bright"];
 
 describe("MoodSlider", () => {
   it.each([0, 50, undefined, null, NaN])(

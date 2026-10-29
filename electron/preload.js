@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld("electron", {
         "data:import-read",
         "data:import-commit",
         "data:import-undo",
+        "data:import-last",
         "auth:get-session",
         "auth:list-profiles",
         "auth:logout",

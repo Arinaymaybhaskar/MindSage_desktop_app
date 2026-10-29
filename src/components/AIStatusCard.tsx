@@ -24,7 +24,7 @@ import {
   NEEDS_ATTENTION,
   type AIState,
 } from "../utils/aiStatus";
-import { JOB_EVENTS, JOB_LABEL, type JobKind } from "../utils/aiJobs";
+import { JOB_EVENTS, type JobKind } from "../utils/aiJobs";
 
 /** A new state shows only after it held this long, so starting/ready cannot flash. */
 export const SETTLE_MS = 500;
@@ -135,8 +135,6 @@ export default function AIStatusCard({
     return () => clearInterval(t);
   }, [provider]);
 
-  const label = (id?: string) =>
-    status?.models.find((m) => m.id === id)?.label ?? id ?? "the model";
   const failed = !!progress?.error && !progress.cancelled;
   const paused = !!progress?.paused;
   const downloading = !!progress && !failed && !paused;
@@ -154,22 +152,57 @@ export default function AIStatusCard({
   });
   const state = useSettled(live, SETTLE_MS) as AIState;
 
-  const job = [...jobs.values()][0];
-  const percent =
+  const entries = new Set(
+    [...jobs.keys()].map((k) => k.slice(k.indexOf(":") + 1)).filter(Boolean),
+  ).size;
+  const count = entries || jobs.size;
+  const gb = (n: number) => (n / 1024 ** 3).toFixed(1);
+  const pct =
     progress?.total && progress.done !== undefined
-      ? ` ${Math.floor((progress.done / progress.total) * 100)}%`
-      : "";
-  const text: Record<AIState, string> = {
-    ready: "Local AI is ready",
-    working: `Local AI is working on ${job ? JOB_LABEL[job].toLowerCase() : "your entry"}`,
-    downloading: `Downloading ${label(progress?.id)}${percent}`,
-    starting: "Local AI is starting",
-    paused: `Download paused: ${label(progress?.id)}`,
-    stopped: "Local AI is not running",
-    error: failed
-      ? `Download of ${label(progress?.id)} stopped`
-      : "Local AI hit a problem",
-    setup: "Local AI needs setup",
+      ? Math.min(100, Math.floor((progress.done / progress.total) * 100))
+      : undefined;
+  const dlSecond =
+    progress?.total && progress.done !== undefined
+      ? `${gb(progress.done)} of ${gb(progress.total)} GB · only downloads use the internet`
+      : "Only downloads use the internet";
+  // `lead` is what the live region announces: no counts or percentages, so a
+  // working 3 -> 2 -> 1 or a download tick does not re-announce.
+  const text: Record<
+    AIState,
+    { title: string; second: string; lead?: string }
+  > = {
+    ready: { title: "Local AI ready", second: "Everything runs on this PC" },
+    working: {
+      title: `Working on ${count} ${count === 1 ? "entry" : "entries"}`,
+      lead: "Working on your entries",
+      second: "Adding titles, mood and tags",
+    },
+    downloading: {
+      title: "Downloading a model",
+      second: dlSecond,
+      lead: "Downloading a model",
+    },
+    starting: {
+      title: "Starting Local AI…",
+      second: "Search and Ask ready in a moment",
+    },
+    paused: {
+      title: "Local AI paused",
+      second: "Writing works. AI catches up when you resume.",
+    },
+    stopped: {
+      title: "Local AI stopped",
+      second: "You can keep writing. Nothing is lost.",
+    },
+    error: {
+      title: "Local AI hit a problem",
+      second:
+        "Writing is safe. Ask and summaries are paused until the model is repaired.",
+    },
+    setup: {
+      title: "Local AI not set up",
+      second: "Writing works without it",
+    },
   };
   // Engine detail is the engine's own message, never entry or chat text.
   const detail =
@@ -200,19 +233,19 @@ export default function AIStatusCard({
   return (
     <>
       <div role="status" aria-live="polite" className="sr-only">
-        {text[state]}
+        {`${text[state].lead ?? text[state].title}. ${text[state].second}`}
       </div>
       {!hidden && (
         <div
           data-testid="ai-status-card"
           data-state={state}
           className={`rounded-lg border border-border-light bg-surface-light text-sm text-text-light dark:border-border-dark dark:bg-surface-dark dark:text-text-dark ${compact ? "flex size-9 items-center justify-center" : "flex flex-col gap-1 p-3"}`}
-          title={compact ? text[state] : undefined}
+          title={compact ? text[state].title : undefined}
         >
           {compact ? (
             <button
               type="button"
-              aria-label={`${text[state]}. ${shownAction ?? ""}`}
+              aria-label={`${text[state].title}. ${shownAction ?? ""}`}
               disabled={busy}
               onClick={() => shownAction && run(shownAction)}
               className={tone}
@@ -227,8 +260,35 @@ export default function AIStatusCard({
                   aria-hidden
                   className={`${tone} shrink-0 ${state === "starting" ? "animate-spin" : ""}`}
                 />
-                <span>{text[state]}</span>
+                <button
+                  type="button"
+                  onClick={() => navigate("/settings/models")}
+                  className="text-left font-medium hover:underline"
+                >
+                  {text[state].title}
+                </button>
               </div>
+              <p className="text-xs text-text-light-sub dark:text-text-dark-sub">
+                {text[state].second}
+              </p>
+              {state === "downloading" && pct !== undefined && (
+                <div className="flex items-center gap-2">
+                  <div
+                    role="progressbar"
+                    aria-label="Model download"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={pct}
+                    className="h-1 flex-1 overflow-hidden rounded-full bg-border-light dark:bg-border-dark"
+                  >
+                    <div
+                      className="h-full bg-info"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-xs">{pct}%</span>
+                </div>
+              )}
               {detail && (
                 <p className="text-xs text-text-light-sub dark:text-text-dark-sub">
                   {detail}

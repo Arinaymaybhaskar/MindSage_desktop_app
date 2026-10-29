@@ -358,10 +358,10 @@ export default function JournalList() {
 
   const moodDataForCalendar = useMemo(
     () =>
-      entries.map((e) => ({
-        date: e.created_at!,
-        mood_score: e.mood_score ?? 5,
-      })),
+      // An entry without a mood has no mood to plot or name.
+      entries
+        .filter((e) => e.mood_score != null)
+        .map((e) => ({ date: e.created_at!, mood_score: e.mood_score! })),
     [entries],
   );
 

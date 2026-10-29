@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   portabilityService,
   type ExportFormat,
   type ImportPreview,
+  type LastImport,
 } from "../../api/portabilityService";
 
 interface FormatOption {
@@ -268,9 +269,11 @@ type ImportStage = "drop" | "reading" | "preview" | "importing" | "done";
 function ImportModal({
   isOpen,
   onClose,
+  last,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  last: LastImport | null;
 }) {
   const [stage, setStage] = useState<ImportStage>("drop");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -495,6 +498,13 @@ function ImportModal({
             </p>
           )}
 
+          {!!p.toImport && last && !last.edited && (
+            <p className={sub}>
+              Only the latest import can be undone: after this one, your import
+              of {fmtDate(last.at)} can no longer be undone.
+            </p>
+          )}
+
           {error && (
             <p role="alert" className="text-sm text-danger">
               {error}
@@ -569,8 +579,79 @@ function ImportModal({
 
 // --------------------------------------------------------------- section --
 
+function LastImportCard({
+  last,
+  onUndone,
+}: {
+  last: LastImport;
+  onUndone: (removed: number) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const undo = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onUndone((await portabilityService.undoImport()).removed);
+    } catch (err) {
+      setError(`Undo failed: ${errorText(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border-light dark:border-border-dark p-4 space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold">Last import</p>
+          <p className={sub}>
+            {plural(last.count, "entry", "entries")}
+            {last.source ? ` from ${last.source}` : ""}, {fmtDate(last.at)}
+          </p>
+          <p className={sub}>
+            {last.edited
+              ? "Undo is off because an entry from this import was edited since."
+              : "Only your latest import can be undone."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={undo}
+          disabled={busy || last.edited}
+          className={secondaryBtn}
+        >
+          {busy ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Undo2 size={16} />
+          )}
+          Undo
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 const ExportSettings = () => {
   const [open, setOpen] = useState<"export" | "import" | null>(null);
+  const [last, setLast] = useState<LastImport | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Read again whenever the import dialog closes: it may have added or undone one.
+  useEffect(() => {
+    if (open) return;
+    portabilityService
+      .lastImport()
+      .then(setLast)
+      .catch(() => setLast(null));
+  }, [open]);
 
   const tile =
     "group flex flex-col gap-3 text-left rounded-2xl border border-border-light dark:border-border-dark p-5 transition-colors hover:bg-tertiary-light dark:hover:bg-tertiary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-info";
@@ -587,6 +668,25 @@ const ExportSettings = () => {
           Your journal is yours. Take it to another app, or bring one in.
         </p>
       </div>
+      {(last || notice) && (
+        <div className="px-6 pt-6 text-text-light dark:text-text-dark">
+          {last ? (
+            <LastImportCard
+              last={last}
+              onUndone={(removed) => {
+                setLast(null);
+                setNotice(
+                  `Removed the ${plural(removed, "imported entry", "imported entries")}.`,
+                );
+              }}
+            />
+          ) : (
+            <p role="status" className={sub}>
+              {notice}
+            </p>
+          )}
+        </div>
+      )}
       <div className="p-6 grid gap-4 sm:grid-cols-2 text-text-light dark:text-text-dark">
         <button
           type="button"
@@ -630,7 +730,11 @@ const ExportSettings = () => {
         </button>
       </div>
       <ExportModal isOpen={open === "export"} onClose={() => setOpen(null)} />
-      <ImportModal isOpen={open === "import"} onClose={() => setOpen(null)} />
+      <ImportModal
+        isOpen={open === "import"}
+        onClose={() => setOpen(null)}
+        last={last}
+      />
     </div>
   );
 };

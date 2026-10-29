@@ -174,7 +174,7 @@ try {
    */
   const session = await cdp.evaluate(`(async () => {
     const res = await window.electron.ipcRenderer.invoke("auth:login", {
-      identifier: ${JSON.stringify(BENCH_USER.email)},
+      identifier: ${JSON.stringify(BENCH_USER.username)},
       password: ${JSON.stringify(BENCH_USER.password)},
     });
     if (!res || !res.userInfo) return { error: JSON.stringify(res) };

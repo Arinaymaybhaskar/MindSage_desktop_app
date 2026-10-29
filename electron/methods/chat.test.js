@@ -202,3 +202,24 @@ describe("Ask with a question too long for the embedding model (KAN-439)", () =>
     expect(result.error).toBeUndefined();
   });
 });
+
+describe("Ask's answer cap (KAN-387)", () => {
+  it("lets an answer over 1,200 characters finish as parseable JSON", async () => {
+    semanticSearch.mockReturnValue([]);
+    const long = "I noticed you wrote about the river often. ".repeat(40);
+    expect(long.length).toBeGreaterThan(1200);
+    answer = JSON.stringify({ response: long, suggested_user_prompt: "More?" });
+    // A model cut at its cap, at about 4 characters a token.
+    ai.generate.mockImplementation(async (_p, { onToken, maxTokens }) =>
+      onToken
+        ? answer.slice(0, maxTokens * 4)
+        : JSON.stringify({ requires_context: false }),
+    );
+
+    const result = await handleUserMessage(null, 5, "The river?", "llama3.2");
+
+    expect(result.error).toBeUndefined();
+    expect(result.aiRes.chatResponse.response).toBe(long);
+    expect(ai.generate).toHaveBeenCalledTimes(2); // no retry was needed
+  });
+});

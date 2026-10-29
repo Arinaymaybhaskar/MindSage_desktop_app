@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { strToU8, zipSync } from "fflate";
+import { strToU8, unzipSync, zipSync } from "fflate";
 import { readAny, writeAny } from "./index.js";
 import {
   htmlToText,
@@ -117,6 +117,43 @@ describe("round trips", () => {
     expect(b.title).toBeNull();
     // Minutes survive; the text format does not carry seconds.
     expect(a.createdAt).toBe(ENTRIES[0].createdAt);
+  });
+});
+
+describe("mood words in exports (KAN-93)", () => {
+  const written = (format) =>
+    new TextDecoder().decode(
+      writeAny(format, ENTRIES, { timeZone: "Europe/London" }).bytes,
+    );
+
+  it("CSV keeps the number and adds a word column", () => {
+    const [head, first, second] = written("csv").replace("﻿", "").split("\r\n");
+    expect(head).toBe(
+      "date,time,title,content,mood,mood_word,tags,created_at_utc",
+    );
+    expect(first).toContain(",4,Good,running|proud,");
+    // No mood, no word.
+    expect(second).toMatch(/,,,,2026-10-01T19:15:00.000Z$/);
+  });
+
+  it("text and Markdown name the word", () => {
+    expect(written("text")).toContain("Mood: Good (4/5)");
+    const zip = unzipSync(
+      writeAny("markdown", ENTRIES, { timeZone: "Europe/London" }).bytes,
+    );
+    const md = Object.entries(zip).find(([p]) => p.endsWith("yet.md"))[1];
+    expect(new TextDecoder().decode(md)).toContain("mood: 4\nmood_word: Good");
+  });
+
+  it("still reads exports written before the words", () => {
+    const oldCsv =
+      "date,time,title,content,mood,tags,created_at_utc\r\n2026-09-27,07:40,T,Body,4,a|b,2026-09-27T06:40:00.000Z\r\n";
+    expect(readAny([file("old.csv", oldCsv)]).entries[0].mood).toBe(4);
+    const rule = "=".repeat(60);
+    const oldText = `${rule}\n2026-09-27 07:40  T\n${rule}\nBody\n\nMood: 4/5\n`;
+    const [e] = readAny([file("MindSage.txt", oldText)]).entries;
+    expect(e.mood).toBe(4);
+    expect(e.content).toBe("Body");
   });
 });
 
