@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
 import { embed } from "../ai/client.js";
+import { embedFitting } from "../ai/embedFitting.js";
 import { currentUserId } from "../session.js";
 import * as index from "../db/searchIndex.js";
 import {
@@ -43,8 +44,8 @@ export function registerSearchIPC() {
     const userId = currentUserId();
     if (!userId) return { success: false, error: "Not signed in" };
     try {
-      const vector = await embed(queryInput);
-      return semanticSearch(vector, userId, limit);
+      const vector = await embedFitting(embed, queryInput);
+      return vector ? semanticSearch(vector, userId, limit) : [];
     } catch (error) {
       log.error("search:query failed", error);
       return { success: false, error: error.message };

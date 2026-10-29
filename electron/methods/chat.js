@@ -8,6 +8,7 @@ import {
   respondWithoutContext,
 } from "./AIPrompts.js";
 import { embed, generate } from "../ai/client.js";
+import { embedFitting } from "../ai/embedFitting.js";
 import { foreground } from "../ai/queue.js";
 import { partialJsonString } from "./jsonStream.js";
 import { semanticSearch } from "./search.js";
@@ -152,19 +153,25 @@ async function aiResponse(
       // Use original user content
       log.debug("requires context");
       onPhase("searching");
-      const vector = await embed(content);
-      semanticResult = semanticSearch(vector, userId, 5);
+      const vector = await embedFitting(embed, content);
+      if (vector) semanticResult = semanticSearch(vector, userId, 5);
     } else if (propsRes.requires_time_filter) {
       log.debug("requires context with time filter");
       onPhase("searching");
       // Use base_query and time filter
-      const vector = await embed(propsRes.base_query);
-      semanticResult = semanticSearch(vector, userId, 5, {
-        range: {
-          from: propsRes.time_filter_from,
-          to: propsRes.time_filter_to,
-        },
-      });
+      // A blank base_query (the model's choice) searches with the question.
+      const vector = await embedFitting(
+        embed,
+        propsRes.base_query.trim() || content,
+      );
+      if (vector) {
+        semanticResult = semanticSearch(vector, userId, 5, {
+          range: {
+            from: propsRes.time_filter_from,
+            to: propsRes.time_filter_to,
+          },
+        });
+      }
     }
     log.debug("Semantic result", { count: semanticResult.length });
     let mainPrompt;

@@ -1,6 +1,7 @@
 import { eventBus } from "../eventBus.js";
 import { log } from "../log.js";
 import * as index from "../db/searchIndex.js";
+import { embedFitting, isUnavailable } from "../ai/embedFitting.js";
 
 // Keeps the search index in step with the journal (KAN-192, KAN-88). It runs in
 // the main process: embedding is an HTTP call to Ollama and the writes are
@@ -15,25 +16,12 @@ const PAUSE_BETWEEN_BATCHES_MS = 400;
 /** Writes are given this long to finish before the next embedding starts. */
 const YIELD_AFTER_WRITE_MS = 1500;
 const UNAVAILABLE_RETRY_MS = [30_000, 120_000, 300_000];
-/** About the 2048 tokens nomic-embed-text holds, for English text. */
-export const MAX_EMBED_CHARS = 8000;
-/** Always fits 2048 tokens: its tokenizer never makes more tokens than characters. */
-export const MIN_EMBED_CHARS = 2000;
 
 const TYPE_LABEL = {
   journal: "journals",
   goal: "goals",
   progress_log: "progress logs",
 };
-
-/** Ollama or the built-in engine cannot embed right now: not the item's fault. */
-export function isUnavailable(error) {
-  if (error?.code === "AI_UNAVAILABLE") return true;
-  const text = `${error?.message ?? ""} ${error?.cause?.code ?? ""}`;
-  return /fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|ETIMEDOUT|socket|\b404\b|\b503\b/i.test(
-    text,
-  );
-}
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -97,22 +85,8 @@ export function createIndexer({
     }
     // A blank item has nothing to embed (the model returns no vector): it is
     // done without one instead of failing until it gives up (KAN-391).
-    const vector = source.text.trim() ? await embedFitting(source.text) : null;
+    const vector = await embedFitting(embed, source.text);
     return index.storeVector(item.type, item.id, vector, source.hash);
-  }
-
-  /** Embeds the start of `text` that fits the model's context (KAN-391). */
-  async function embedFitting(text) {
-    let part = text.slice(0, MAX_EMBED_CHARS);
-    for (;;) {
-      try {
-        return await embed(part);
-      } catch (error) {
-        // Too long for the context (Ollama answers 500): try a shorter start.
-        if (isUnavailable(error) || part.length <= MIN_EMBED_CHARS) throw error;
-        part = part.slice(0, Math.max(MIN_EMBED_CHARS, part.length >> 1));
-      }
-    }
   }
 
   async function drain() {

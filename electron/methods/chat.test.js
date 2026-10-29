@@ -175,6 +175,34 @@ describe("Ask passes the model and prompt to the AI client (KAN-367)", () => {
   });
 });
 
+describe("Ask with a question too long for the embedding model (KAN-439)", () => {
+  it("searches with a shorter start of the question", async () => {
+    const sent = [];
+    ai.embed.mockImplementation(async (text) => {
+      sent.push(text.length);
+      if (text.length > 3_000) {
+        throw new Error(
+          "Ollama embedding API error: 500 Internal Server Error",
+        );
+      }
+      return [0.1, 0.2];
+    });
+    semanticSearch.mockReturnValue([]);
+    answer = JSON.stringify({ response: "ok", suggested_user_prompt: "next" });
+
+    const result = await handleUserMessage(
+      null,
+      5,
+      "word ".repeat(10_000),
+      "llama3.2",
+    );
+
+    expect(sent).toEqual([8_000, 4_000, 2_000]);
+    expect(semanticSearch).toHaveBeenCalledWith([0.1, 0.2], 7, 5);
+    expect(result.error).toBeUndefined();
+  });
+});
+
 describe("Ask's answer cap (KAN-387)", () => {
   it("lets an answer over 1,200 characters finish as parseable JSON", async () => {
     semanticSearch.mockReturnValue([]);
