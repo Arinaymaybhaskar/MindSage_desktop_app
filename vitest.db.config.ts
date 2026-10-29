@@ -9,7 +9,10 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["electron/**/*.db.test.{js,ts}"],
+    include: [
+      "electron/**/*.db.test.{js,ts}",
+      "scripts/ask-eval/**/*.db.test.js",
+    ],
     // Same reason as the main config; native addons load fine in threads.
     pool: "threads",
     // A 5,000-entry migration is asserted separately, with its own limit.

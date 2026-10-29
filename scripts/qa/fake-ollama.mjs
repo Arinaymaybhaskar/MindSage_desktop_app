@@ -151,7 +151,8 @@ const server = http.createServer(async (req, res) => {
     log({ ...rec, status: 200 });
     if (req.url === "/api/embeddings")
       return json(res, 200, { embedding: embed(prompt) });
-    const text = reply(prompt, body.format === "json");
+    // format is "json" or, for a forced schema (Ask), an object.
+    const text = reply(prompt, !!body.format);
     if (body.stream === false)
       return json(res, 200, { model: body.model, response: text, done: true });
     // The app streams NDJSON: one {response} piece per line, then {done:true}.
