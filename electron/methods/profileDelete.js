@@ -6,6 +6,7 @@ import { journalMediaDir } from "../mediaPaths.js";
 import { foldWal } from "../db/walCheckpoint.js";
 import { pendingFileCount, removeFiles } from "./trash.js";
 import { log } from "../log.js";
+import { setLast } from "../lastImport.js";
 
 // Deleting a whole profile (KAN-56): the database rows, their media files and
 // thumbnails, their search-index points, and, when it was the last profile on
@@ -51,6 +52,11 @@ export function describeProfile(userId) {
 export async function deleteProfileEverything(userId, { afterRows } = {}) {
   const removed = localDB.deleteProfile(userId);
   afterRows?.();
+  try {
+    setLast(userId, null);
+  } catch (err) {
+    log.error("Could not drop the last-import record:", err?.message ?? err);
+  }
   const filesRemoved = removeFiles({
     keys: removed.files,
     entryIds: removed.entryIds,
