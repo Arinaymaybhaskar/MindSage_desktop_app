@@ -12,6 +12,7 @@ vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 const db = {
   AddChat: vi.fn(async () => ({ id: 11 })),
   addMessage: vi.fn(),
+  isOwnChat: () => true,
 };
 vi.mock("../db/index.js", () => ({ default: db }));
 const semanticSearch = vi.fn();
