@@ -22,7 +22,10 @@ describe("built-in model choice by memory", () => {
 
   it("pins every download to a revision and a SHA-256", () => {
     for (const spec of Object.values(BUILTIN_MODELS)) {
-      expect(spec.url).toMatch(/\/resolve\/[0-9a-f]{40}\//);
+      // An npm tarball URL names its exact version, which npm never republishes.
+      expect(spec.url).toMatch(
+        /\/resolve\/[0-9a-f]{40}\/|^https:\/\/registry\.npmjs\.org\/.+-\d+\.\d+\.\d+\.tgz$/,
+      );
       expect(spec.sha256).toMatch(/^[0-9a-f]{64}$/);
     }
   });

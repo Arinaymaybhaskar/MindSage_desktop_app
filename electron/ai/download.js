@@ -17,7 +17,8 @@ async function sha256Of(file) {
  *
  * @param {{ url: string, dest: string, sha256: string,
  *   onProgress?: (p: { done: number, total: number }) => void,
- *   signal?: AbortSignal, fetchImpl?: typeof fetch }} options
+ *   signal?: AbortSignal, fetchImpl?: typeof fetch,
+ *   redirect?: "follow" | "error" }} options
  * @returns {Promise<string>} dest
  */
 export async function downloadFile({
@@ -27,6 +28,7 @@ export async function downloadFile({
   onProgress,
   signal,
   fetchImpl = fetch,
+  redirect = "follow",
 }) {
   if (fs.existsSync(dest)) return dest;
   fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -36,6 +38,7 @@ export async function downloadFile({
   const res = await fetchImpl(url, {
     headers: have ? { Range: `bytes=${have}-` } : {},
     signal,
+    redirect,
   });
   if (res.status === 416) {
     // The part is already whole; the checksum below decides.

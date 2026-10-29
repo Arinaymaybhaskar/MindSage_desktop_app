@@ -63,7 +63,24 @@ export const BUILTIN_MODELS = {
     bytes: 487601967,
     sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
   },
+  // The CUDA build of llama.cpp for Nvidia GPUs (KAN-434): the installer ships
+  // the CPU and Vulkan builds only. The npm tarball of the exact version
+  // node-llama-cpp needs; its SHA-512 matches package-lock.json, SHA-256 read
+  // from the same bytes 2026-10-29. Unpacked by ai/cuda.js, never run packed.
+  "cuda-engine": {
+    label: "GPU engine for Nvidia (CUDA)",
+    role: "engine",
+    file: "win-x64-cuda-3.22.1.tgz",
+    url: "https://registry.npmjs.org/@node-llama-cpp/win-x64-cuda/-/win-x64-cuda-3.22.1.tgz",
+    // The registry serves the file itself; a redirect is refused.
+    redirect: "error",
+    bytes: 138519723,
+    unpackedBytes: 176103306,
+    sha256: "5209bfeb4e1845bc99b70e906797935379ffa65a5ac44a8f6e3b36b9948483af",
+  },
 };
+
+export const CUDA_ENGINE = "cuda-engine";
 
 /** Voice models, best first: the multilingual small one wins when both are here. */
 export const VOICE_MODELS = ["whisper-small", "whisper-base-en"];

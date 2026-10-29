@@ -70,7 +70,8 @@
       "dist-electron/**/*",
       "package.json",
       "!dist/screenshots/**",
-      "!**/node_modules/better-sqlite3/{deps,src}/**"
+      "!**/node_modules/better-sqlite3/{deps,src}/**",
+      "!**/node_modules/@node-llama-cpp/win-x64-cuda*/**"
     ],
     "electronLanguages": [
       "en-US"

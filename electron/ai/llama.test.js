@@ -7,6 +7,9 @@ import path from "node:path";
 // made to fail a model load, as a crashing driver does; its CPU build works.
 const fake = vi.hoisted(() => ({
   gpuBroken: false,
+  cuda: false, // "auto" picks the CUDA build, as with a downloaded engine
+  cudaBroken: false,
+  gpuAsked: [], // the gpu option of every getLlama call
   totalmem: 64 * 2 ** 30,
   gate: null, // a promise a chat prompt waits on
   models: [],
@@ -37,10 +40,18 @@ vi.mock("node-llama-cpp", () => {
     }
     dispose() {}
   }
-  const getLlama = async ({ gpu }) => ({
-    gpu: gpu === false ? false : "vulkan",
+  const getLlama = async ({ gpu }) => {
+    fake.gpuAsked.push(gpu);
+    const built =
+      gpu === false ? false : fake.cuda && gpu === "auto" ? "cuda" : "vulkan";
+    return engineFor(built);
+  };
+  const engineFor = (gpu) => ({
+    gpu,
     dispose: async () => {},
     loadModel: async () => {
+      if (gpu === "cuda" && fake.cudaBroken)
+        throw new Error("cudaErrorNoDevice");
       if (gpu !== false && fake.gpuBroken) throw new Error("vk::DeviceLost");
       const model = {
         dispose: vi.fn(async () => {}),
@@ -79,6 +90,9 @@ beforeEach(() => {
   store.clear();
   Object.assign(fake, {
     gpuBroken: false,
+    cuda: false,
+    cudaBroken: false,
+    gpuAsked: [],
     totalmem: 64 * 2 ** 30,
     gate: null,
     models: [],
@@ -145,6 +159,45 @@ describe("built-in engine", () => {
     // And on the launch after that, before anything runs.
     const next = await freshEngine();
     expect((await next.status()).gpuFallback).toMatch(/GPU stopped MindSage/);
+  });
+
+  it("moves to Vulkan, not the CPU, when CUDA fails a load (KAN-434)", async () => {
+    fake.cuda = true;
+    fake.cudaBroken = true;
+    const llama = await freshEngine();
+    expect(await llama.generate("hi", { model: "qwen-2.5-1.5b" })).toBe("calm");
+    expect((await llama.status()).gpu).toBe("vulkan");
+    expect(store.get("builtinCudaOff")).toMatch(/cudaErrorNoDevice/);
+    expect(store.has("builtinCpuOnly")).toBe(false);
+    expect(fake.gpuAsked.at(-1)).toEqual({ type: "auto", exclude: ["cuda"] });
+  });
+
+  it("starts on Vulkan after CUDA took the app down", async () => {
+    fake.cuda = true;
+    store.set("builtinGpuPending", "cuda");
+    const llama = await freshEngine();
+    await llama.generate("hi", { model: "qwen-2.5-1.5b" });
+    expect((await llama.status()).gpu).toBe("vulkan");
+    expect(store.get("builtinCudaOff")).toMatch(/CUDA engine stopped/);
+    expect(store.has("builtinCpuOnly")).toBe(false);
+  });
+
+  it("counts the CUDA engine as downloaded only once it is unpacked", async () => {
+    const llama = await freshEngine();
+    expect(llama.isDownloaded("cuda-engine")).toBe(false);
+    const unpacked = path.join(dir, "win-x64-cuda-3.22.1");
+    fs.mkdirSync(path.join(unpacked, "dist"), { recursive: true });
+    fs.mkdirSync(path.join(unpacked, "bins", "win-x64-cuda"), {
+      recursive: true,
+    });
+    fs.writeFileSync(path.join(unpacked, "dist", "index.js"), "");
+    expect(llama.isDownloaded("cuda-engine")).toBe(false);
+    fs.writeFileSync(
+      path.join(unpacked, "bins", "win-x64-cuda", "llama-addon.node"),
+      "",
+    );
+    expect(llama.isDownloaded("cuda-engine")).toBe(true);
+    fs.rmSync(unpacked, { recursive: true });
   });
 
   it("a clean quit is not taken for a GPU crash", async () => {

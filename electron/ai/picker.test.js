@@ -85,6 +85,11 @@ describe("download and delete dialogs", () => {
     expect(downloadSpace("llama-3.2-3b", bytes, 0).short).toBe(0);
     expect(downloadSpace("llama-3.2-3b", bytes - 10, 0).short).toBe(10);
     expect(downloadSpace("llama-3.2-3b", 100, bytes - 100).short).toBe(0);
+    // An engine also needs room to unpack.
+    const cuda = BUILTIN_MODELS["cuda-engine"];
+    expect(downloadSpace("cuda-engine", Infinity).need).toBe(
+      cuda.bytes + cuda.unpackedBytes,
+    );
   });
 
   it("deleting the chat model in use names the stand-in, or turns chat off", () => {

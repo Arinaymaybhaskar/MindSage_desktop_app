@@ -81,6 +81,20 @@ describe("downloadFile", () => {
     expect(fs.existsSync(`${dest}.part`)).toBe(true);
   });
 
+  it("follows redirects unless told to refuse them", async () => {
+    await downloadFile({ url: "u", dest, sha256: SHA, fetchImpl: server });
+    expect(server.mock.calls[0][1].redirect).toBe("follow");
+    fs.rmSync(dest);
+    await downloadFile({
+      url: "u",
+      dest,
+      sha256: SHA,
+      fetchImpl: server,
+      redirect: "error",
+    });
+    expect(server.mock.calls[1][1].redirect).toBe("error");
+  });
+
   it("does not download a file that is already there", async () => {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, BYTES);

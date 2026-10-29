@@ -36,10 +36,13 @@ export const formatGB = (bytes) => `${(bytes / GiB).toFixed(1)} GB`;
 
 /**
  * What the download dialog needs about disk: a cut download only needs the
- * rest of the file. `short` is how much must still be freed, 0 when it fits.
+ * rest of the file, plus room to unpack an engine. `short` is how much must
+ * still be freed, 0 when it fits.
  */
 export function downloadSpace(id, freeBytes, partialBytes = 0) {
-  const need = Math.max(0, BUILTIN_MODELS[id].bytes - partialBytes);
+  const spec = BUILTIN_MODELS[id];
+  const need =
+    Math.max(0, spec.bytes - partialBytes) + (spec.unpackedBytes ?? 0);
   return { need, free: freeBytes, short: Math.max(0, need - freeBytes) };
 }
 
