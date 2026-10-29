@@ -43,9 +43,13 @@ vi.mock("node-llama-cpp", () => {
     loadModel: async () => {
       if (gpu !== false && fake.gpuBroken) throw new Error("vk::DeviceLost");
       const model = {
+        gpuLayers: gpu === false ? 0 : 33,
         dispose: vi.fn(async () => {}),
         tokenize: (t) => [...t],
-        createContext: async () => ({ getSequence: () => ({}) }),
+        createContext: async () => ({
+          contextSize: 4096,
+          getSequence: () => ({}),
+        }),
         createEmbeddingContext: async () => ({
           getEmbeddingFor: async () => ({ vector: [0.5, 0.5] }),
         }),
@@ -130,7 +134,31 @@ describe("built-in engine", () => {
     const status = await llama.status();
     expect(status.gpu).toBe(false);
     expect(status.gpuFallback).toMatch(/DeviceLost/);
-    expect(store.get("builtinCpuOnly")).toMatch(/DeviceLost/);
+    expect(store.get("builtinCpuOnly").reason).toMatch(/DeviceLost/);
+  });
+
+  it("tries the GPU again once the CPU-only flag is a week old", async () => {
+    const day = 24 * 60 * 60 * 1000;
+    store.set("builtinCpuOnly", { reason: "old", at: Date.now() - 8 * day });
+    const llama = await freshEngine();
+    await llama.generate("hi", { model: "qwen-2.5-1.5b" });
+    expect((await llama.status()).gpu).toBe("vulkan");
+    expect(store.has("builtinCpuOnly")).toBe(false);
+    const { log } = await import("../log.js");
+    expect(log.info).toHaveBeenCalledWith(
+      "Built-in AI model loaded",
+      expect.objectContaining({ gpuLayers: 33, contextSize: 4096 }),
+    );
+
+    // A flag saved before it could expire is a bare string: the GPU again.
+    store.set("builtinCpuOnly", "GPU failed");
+    expect((await (await freshEngine()).status()).gpuFallback).toBe(null);
+
+    // A recent one still holds.
+    store.set("builtinCpuOnly", { reason: "new", at: Date.now() - day });
+    const pinned = await freshEngine();
+    await pinned.generate("hi", { model: "qwen-2.5-1.5b" });
+    expect((await pinned.status()).gpu).toBe(false);
   });
 
   it("starts on the CPU, with a notice, after the GPU took the app down", async () => {
