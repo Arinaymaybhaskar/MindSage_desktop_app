@@ -2,10 +2,11 @@ import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
 import {
   AISummaryPrompt,
-  JOURNAL_METADATA_SCHEMA,
+  MAX_CUSTOM_IN_PROMPT,
   MAX_OUTPUT_TOKENS,
   getAutoPopulateValues,
   isSummarizable,
+  journalMetadataSchema,
   parseJournalMetadata,
   sanitizeSummary,
 } from "./AIPrompts.js";
@@ -157,17 +158,22 @@ const ENRICH_TIMEOUT_MS = 5 * 60_000;
 const enrichSignal = (signal) =>
   AbortSignal.any([signal, AbortSignal.timeout(ENRICH_TIMEOUT_MS)]);
 
-/** Title, mood and tags: one JSON-schema call (KAN-89). Throws when unusable. */
-export async function generateMetadata(content) {
+/**
+ * Title, mood and tags: one JSON-schema call (KAN-89). Throws when unusable.
+ * The user's most used own words join the tags it may pick (KAN-94).
+ */
+export async function generateMetadata(content, userId) {
+  const custom = localDB.customFeelingWords(userId, MAX_CUSTOM_IN_PROMPT);
   const metadata = parseJournalMetadata(
     await yieldToAsk((signal) =>
-      generate(getAutoPopulateValues(content), {
-        schema: JOURNAL_METADATA_SCHEMA,
+      generate(getAutoPopulateValues(content, custom), {
+        schema: journalMetadataSchema(custom),
         maxTokens: MAX_OUTPUT_TOKENS,
         model: taskModel("metadata"),
         signal: enrichSignal(signal),
       }),
     ),
+    custom,
   );
   if (!metadata) throw new Error("AI returned incomplete or invalid metadata");
   return metadata;
@@ -286,7 +292,7 @@ async function fillMetadata(entry, features) {
   log.debug("Filling in missing details", { entryId: entry.id });
   try {
     const metadata = maskMetadata(
-      await generateMetadata(entry.content),
+      await generateMetadata(entry.content, entry.user_id),
       entry,
       features,
     );

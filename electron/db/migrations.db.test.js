@@ -401,13 +401,44 @@ describe("the reminder-time migration", () => {
     const { userId } = seedJournal(db, { users: 1, entriesPerUser: 1 })[0];
     db.prepare("INSERT INTO user_settings (user_id) VALUES (?)").run(userId);
 
-    expect(runMigrations(db).applied).toEqual(["reminder-time"]);
+    expect(runMigrations(db, MIGRATIONS.slice(0, 11)).applied).toEqual([
+      "reminder-time",
+    ]);
 
     expect(
       db
         .prepare("SELECT reminder_time FROM user_settings WHERE user_id = ?")
         .get(userId).reminder_time,
     ).toBe("20:00");
+  });
+});
+
+describe("the tag-family migration", () => {
+  it("adds a nullable family to tags and keeps every tag and link", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 11));
+    const { userId } = seedJournal(db, { users: 1, entriesPerUser: 2 })[0];
+    const tagsBefore = db.prepare("SELECT * FROM tags ORDER BY id").all();
+    const links = db.prepare("SELECT COUNT(*) AS n FROM journal_entry_tags");
+    const linksBefore = links.get().n;
+
+    expect(runMigrations(db).applied).toEqual(["tag-family"]);
+
+    const tagsAfter = db.prepare("SELECT * FROM tags ORDER BY id").all();
+    expect(tagsAfter).toEqual(tagsBefore.map((t) => ({ ...t, family: null })));
+    expect(links.get().n).toBe(linksBefore);
+    db.prepare("INSERT INTO tags (user_id, name, family) VALUES (?, ?, ?)").run(
+      userId,
+      "खुश",
+      "Happy",
+    );
+    // UNIQUE(user_id, name) still holds.
+    expect(() =>
+      db
+        .prepare("INSERT INTO tags (user_id, name) VALUES (?, ?)")
+        .run(userId, "खुश"),
+    ).toThrow(/UNIQUE/);
+    integrityOk(db);
   });
 });
 

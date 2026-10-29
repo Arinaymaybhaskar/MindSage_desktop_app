@@ -192,7 +192,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
 
     try {
       const metadata = maskMetadata(
-        await background(() => generateMetadata(entry.content)),
+        await background(() => generateMetadata(entry.content, userId)),
         entry,
         features,
       );

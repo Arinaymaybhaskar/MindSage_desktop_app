@@ -38,16 +38,65 @@ const CANONICAL_MOOD_TAGS = new Map(
     .map((t) => [t.toLowerCase(), t]),
 );
 
+/** The seven families every feeling word, built-in or the user's own, sits in. */
+export const FEELING_FAMILIES = Object.keys(MOOD_TAG_GROUPS);
+/** How many of the user's own words the tag prompt offers, most used first. */
+export const MAX_CUSTOM_IN_PROMPT = 50;
+export const MAX_FEELING_CHARS = 40;
+
+/**
+ * Compares feeling words: case and accents on Latin letters make no new word.
+ * Marks in other scripts (a Devanagari vowel sign) are part of the word.
+ */
+export function feelingKey(word) {
+  return String(word)
+    .normalize("NFD")
+    .replace(/(\p{Script=Latin})\p{M}+/gu, "$1")
+    .normalize("NFC")
+    .trim()
+    .toLowerCase();
+}
+
+const BUILT_IN_FEELINGS = new Map([
+  ...FEELING_FAMILIES.map((f) => [feelingKey(f), { name: f, family: f }]),
+  ...Object.entries(MOOD_TAG_GROUPS).flatMap(([family, words]) =>
+    words.map((w) => [feelingKey(w), { name: w, family }]),
+  ),
+]);
+
+/** The built-in word (with its family) a typed word matches, or null. */
+export const builtInFeeling = (word) =>
+  BUILT_IN_FEELINGS.get(feelingKey(word)) ?? null;
+
+/**
+ * A word the user typed, trimmed and otherwise unchanged (any script, RTL
+ * included); null when it cannot be one. A comma, ; or | would split it when
+ * tags are read back from GROUP_CONCAT or a CSV.
+ */
+export function cleanFeelingWord(raw) {
+  if (typeof raw !== "string") return null;
+  const word = raw.trim();
+  if (!word || [...word].length > MAX_FEELING_CHARS) return null;
+  return /[,;|\p{Cc}]/u.test(word) ? null : word;
+}
+
 /**
  * Keep only tags that are in the taxonomy (case-insensitive), de-duplicated and
  * capped at 5. Anything the model invented or a category name is dropped.
+ * `custom` is the user's own words offered in the prompt.
  */
-export function sanitizeMoodTags(tags) {
+export function sanitizeMoodTags(tags, custom = []) {
   if (!Array.isArray(tags)) return [];
+  const known = custom.length
+    ? new Map([
+        ...CANONICAL_MOOD_TAGS,
+        ...custom.map((w) => [w.name.toLowerCase(), w.name]),
+      ])
+    : CANONICAL_MOOD_TAGS;
   const out = [];
   for (const raw of tags) {
     if (typeof raw !== "string") continue;
-    const canonical = CANONICAL_MOOD_TAGS.get(raw.trim().toLowerCase());
+    const canonical = known.get(raw.trim().toLowerCase());
     if (canonical && !out.includes(canonical)) out.push(canonical);
     if (out.length === 5) break;
   }
@@ -59,8 +108,9 @@ export function sanitizeMoodTags(tags) {
  * the five mood words; anything else is unusable. Returns a sanitized
  * { title, mood_score, mood_tags } object, or null when the output is unusable
  * (so callers can mark the entry failed instead of silently writing garbage).
+ * `custom` is the user's own words that were offered in the prompt.
  */
-export function parseJournalMetadata(rawResponse) {
+export function parseJournalMetadata(rawResponse, custom = []) {
   if (!rawResponse) return null;
   let parsed;
   try {
@@ -81,7 +131,7 @@ export function parseJournalMetadata(rawResponse) {
       ? parsed.title.trim().slice(0, MAX_TITLE_CHARS).trim()
       : "";
   const mood_score = moodScoreFromWord(parsed.mood);
-  const mood_tags = sanitizeMoodTags(parsed.mood_tags);
+  const mood_tags = sanitizeMoodTags(parsed.mood_tags, custom);
 
   // Require at least a title and a mood score to consider it usable.
   if (!title || mood_score == null) return null;
@@ -99,28 +149,43 @@ export const ASK_ANSWER_MAX_TOKENS = 1024;
 /** A title longer than this is cut before it reaches the journal. */
 export const MAX_TITLE_CHARS = 80;
 
-/** The shape getAutoPopulateValues asks for, forced as a grammar on the model. */
-export const JOURNAL_METADATA_SCHEMA = {
-  type: "object",
-  properties: {
-    title: { type: "string", maxLength: MAX_TITLE_CHARS },
-    mood: { enum: MOOD_WORDS },
-    mood_tags: {
-      type: "array",
-      items: { enum: [...CANONICAL_MOOD_TAGS.values()] },
-      minItems: 1,
-      maxItems: 5,
+/**
+ * The shape getAutoPopulateValues asks for, forced as a grammar on the model.
+ * `custom` (the user's own words, at most MAX_CUSTOM_IN_PROMPT) joins the enum.
+ */
+export function journalMetadataSchema(custom = []) {
+  return {
+    type: "object",
+    properties: {
+      title: { type: "string", maxLength: MAX_TITLE_CHARS },
+      mood: { enum: MOOD_WORDS },
+      mood_tags: {
+        type: "array",
+        items: {
+          enum: [...CANONICAL_MOOD_TAGS.values(), ...custom.map((w) => w.name)],
+        },
+        minItems: 1,
+        maxItems: 5,
+      },
     },
-  },
-  required: ["title", "mood", "mood_tags"],
-};
+    required: ["title", "mood", "mood_tags"],
+  };
+}
+export const JOURNAL_METADATA_SCHEMA = journalMetadataSchema();
 
-export function getAutoPopulateValues(content) {
+export function getAutoPopulateValues(content, custom = []) {
   // Constructs the prompt asking the model to analyze a journal entry and
   // return a structured JSON object with a title, a mood word, and tags.
-  // Callers send this with JOURNAL_METADATA_SCHEMA so the output always
-  // parses; parseJournalMetadata then validates the values.
-  const moodTagsJson = JSON.stringify(MOOD_TAG_GROUPS, null, 2);
+  // Callers send this with journalMetadataSchema(custom) so the output always
+  // parses; parseJournalMetadata then validates the values. The user's own
+  // words are listed under the family they picked.
+  const groups = Object.fromEntries(
+    Object.entries(MOOD_TAG_GROUPS).map(([f, words]) => [
+      f,
+      [...words, ...custom.filter((w) => w.family === f).map((w) => w.name)],
+    ]),
+  );
+  const moodTagsJson = JSON.stringify(groups, null, 2);
   const prompt = `
 You are an expert AI assistant specializing in emotional analysis and sentiment extraction from text. Analyze the user's journal entry and return ONLY a JSON object.
 
