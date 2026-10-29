@@ -27,7 +27,7 @@ export interface ModelPicker {
   totalMemBytes: number;
   recommendation: {
     chat: string;
-    /** null on small PCs until the feelings classifier exists (KAN-388). */
+    /** null on small PCs: feelings come from the classifier there (KAN-388). */
     metadata: string | null;
     summary: string;
     feelings: "classifier" | "chat-model";

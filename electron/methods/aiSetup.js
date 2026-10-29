@@ -8,7 +8,7 @@ import { modelStore } from "../store.js";
 import { log } from "../log.js";
 import { eventBus } from "../eventBus.js";
 import * as builtin from "../ai/llama.js";
-import { BUILTIN_MODELS, EMBED_MODEL } from "../ai/models.js";
+import { BUILTIN_MODELS, EMBED_MODEL, ONNX_MODELS } from "../ai/models.js";
 import { createSetup, checkReachable } from "../ai/setupState.js";
 import {
   clearPause,
@@ -36,6 +36,10 @@ const setup = createSetup({
     [
       EMBED_MODEL,
       ...(chosen() === "gguf" ? [] : [builtin.chatModelId()]),
+      // The CPU models: feeling words on save and the summary check (KAN-388).
+      ONNX_MODELS.tokenizer,
+      ONNX_MODELS.classifier,
+      ONNX_MODELS.nli,
     ].filter((id) => !builtin.isDownloaded(id)),
   chatId: builtin.chatModelId,
   totalMem: os.totalmem,

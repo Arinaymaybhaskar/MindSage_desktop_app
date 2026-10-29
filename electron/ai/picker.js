@@ -18,8 +18,9 @@ export const ON_REQUEST = ["llama-3.1-8b"];
  * Which model does which task on a machine with this much memory.
  * `metadata` (mood, tags) is null under 8 GB: Qwen 2.5 1.5B is kept off mood
  * (it gets feeling direction right 44%), so there summaries are its only job.
- * TODO(KAN-388): when the GoEmotions classifier exists, `feelings` becomes
- * "classifier" and reads the mood; until then nothing fills it on small PCs.
+ * `feelings` names the GoEmotions classifier (ai/onnx.js, KAN-388) on small
+ * PCs; enrichment uses it on every PC once it is downloaded, and the chat
+ * model's tags only while it is not.
  */
 export function recommend(totalMemBytes) {
   const small = totalMemBytes < 10 * GiB; // "8 GB" PCs report just under 8 GiB

@@ -19,9 +19,14 @@ vi.mock("../db/connection.js", () => ({
     }),
   },
 }));
+const updateJournalEntry = vi.hoisted(() => vi.fn((_u, _id, e) => e));
 vi.mock("../db/index.js", () => ({
-  default: { getJournalById, customFeelingWords },
+  default: { getJournalById, customFeelingWords, updateJournalEntry },
 }));
+// The ONNX models (KAN-388): not downloaded unless a test says so.
+const classifyFeelings = vi.hoisted(() => vi.fn(async () => null));
+const summarySupported = vi.hoisted(() => vi.fn(async () => null));
+vi.mock("../ai/onnx.js", () => ({ classifyFeelings, summarySupported }));
 vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 const ALL_ON = {
@@ -59,6 +64,85 @@ beforeEach(() => {
   generate.mockReset();
   getJournalById.mockReset().mockReturnValue(entry);
   getFeatures.mockReset().mockReturnValue(ALL_ON);
+  classifyFeelings.mockReset().mockResolvedValue(null);
+  summarySupported.mockReset().mockResolvedValue(null);
+  updateJournalEntry.mockClear();
+});
+
+describe("the ONNX classifier and entailment gate (KAN-388)", () => {
+  const completed = [];
+  eventBus.on("journal:aiCompleted", (e) => completed.push(e.metadata));
+  const failed = [];
+  eventBus.on("ollama:summary-failed", (e) => failed.push(e.error));
+  const saved = [];
+  eventBus.on("ollama:summary-generated", (e) => saved.push(e.summary));
+
+  it("takes the feeling words from the classifier, run before the chat model", async () => {
+    classifyFeelings.mockImplementation(async () => {
+      expect(generate).not.toHaveBeenCalled();
+      return ["Hurt", "Lonely"];
+    });
+    generate.mockResolvedValueOnce(METADATA).mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(completed.at(-1)).toMatchObject({
+      title: "A walk",
+      mood_tags: ["Hurt", "Lonely"],
+    });
+  });
+
+  it("keeps the classifier's words when no chat model can run", async () => {
+    getJournalById.mockReturnValue({ ...entry, mood_tags: [] });
+    classifyFeelings.mockResolvedValue(["Content"]);
+    generate.mockRejectedValue(new Error("The built-in AI is not downloaded"));
+    eventBus.emit("journal:created", { entry: { ...entry, mood_tags: [] } });
+    await drained();
+    expect(updateJournalEntry).toHaveBeenCalledWith(7, 1, {
+      content: entry.content,
+      mood_tags: ["Content"],
+    });
+  });
+
+  it("asks the chat model nothing when the classifier covers every switch on", async () => {
+    getFeatures.mockReturnValue({
+      ...ALL_ON,
+      title: false,
+      mood: false,
+      summary: false,
+    });
+    classifyFeelings.mockResolvedValue(["Proud"]);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
+    expect(completed.at(-1).mood_tags).toEqual(["Proud"]);
+  });
+
+  it("writes a rejected summary once more, then holds it", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, title: false, mood: false });
+    classifyFeelings.mockResolvedValue([]);
+    summarySupported.mockResolvedValue(false);
+    generate.mockResolvedValue(SUMMARY);
+    const before = saved.length;
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).toHaveBeenCalledTimes(2); // two summary drafts, no chat metadata
+    expect(saved.length).toBe(before);
+    expect(failed.at(-1)).toMatch(/valid summary/);
+  });
+
+  it("saves the second draft when it passes the gate", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, title: false, mood: false });
+    classifyFeelings.mockResolvedValue([]);
+    summarySupported.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    generate
+      .mockResolvedValueOnce(
+        "The writer went skiing in the mountains with friends.",
+      )
+      .mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(saved.at(-1)).toBe(SUMMARY);
+  });
 });
 
 describe("AI feature switches (KAN-70)", () => {

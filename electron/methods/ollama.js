@@ -13,6 +13,7 @@ import {
 import { generate, taskModel } from "../ai/client.js";
 import { background, yieldToAsk } from "../ai/queue.js";
 import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
+import { classifyFeelings, summarySupported } from "../ai/onnx.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { db } from "../db/connection.js";
@@ -40,7 +41,9 @@ export const clearModelListCache = () => {
 /** Built-in engine mode: the models on disk, in the row shape Settings reads. */
 const builtinRows = () =>
   Object.entries(BUILTIN_MODELS)
-    .filter(([id, m]) => m.role !== "voice" && isDownloaded(id))
+    .filter(
+      ([id, m]) => m.role !== "voice" && m.role !== "onnx" && isDownloaded(id),
+    )
     .map(([id, m]) => ({ name: id, size: "", modified: humanBytes(m.bytes) }));
 
 const fetchModelList = () => {
@@ -179,8 +182,26 @@ export async function generateMetadata(content, userId) {
   return metadata;
 }
 
-/** The summary, its own call (KAN-89); null when the model gave no usable one. */
+/** A summary the entailment gate rejects is written again this many times in all. */
+export const SUMMARY_TRIES = 2;
+
+/**
+ * The summary, its own call (KAN-89); null when the model gave no usable one
+ * or every try said something the entry does not (KAN-388): it is held, not
+ * saved, and the entry offers Retry. Without the gate's model it is saved as
+ * before.
+ */
 export async function generateSummary(content) {
+  for (let attempt = 1; attempt <= SUMMARY_TRIES; attempt++) {
+    const summary = await draftSummary(content);
+    if (!summary) return null;
+    if ((await summarySupported(content, summary)) !== false) return summary;
+    log.info("Summary failed the entailment gate", { attempt });
+  }
+  return null;
+}
+
+async function draftSummary(content) {
   return sanitizeSummary(
     await yieldToAsk((signal) =>
       generate(AISummaryPrompt(content), {
@@ -290,12 +311,23 @@ eventBus.on("ai:models-ready", backfillEnrichment);
 
 async function fillMetadata(entry, features) {
   log.debug("Filling in missing details", { entryId: entry.id });
+  // The feelings classifier goes first (KAN-388): it runs on the CPU, so its
+  // feeling words arrive even when no chat model can run. null when it is not
+  // downloaded; then the chat model's tags are used, as before.
+  const feelings =
+    features.feelings && !entry.mood_tags?.length
+      ? await classifyFeelings(entry.content)
+      : null;
   try {
+    const chatNeeded = features.title || features.mood || feelings === null;
     const metadata = maskMetadata(
-      await generateMetadata(entry.content, entry.user_id),
+      chatNeeded
+        ? await generateMetadata(entry.content, entry.user_id)
+        : { mood_tags: [] },
       entry,
       features,
     );
+    if (feelings) metadata.mood_tags = feelings;
     // Status is set to 'completed' by the journal:aiCompleted persister
     // once the sanitized metadata is written, so it can't be marked
     // completed with empty fields.
@@ -306,6 +338,7 @@ async function fillMetadata(entry, features) {
     });
   } catch (err) {
     log.error("AI metadata generation failed:", err);
+    if (feelings?.length) keepClassifiedFeelings(entry, feelings);
     db.prepare(
       `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`,
     ).run(err.message, entry.id);
@@ -314,6 +347,17 @@ async function fillMetadata(entry, features) {
       error: err.message,
     });
   }
+}
+
+/** The chat model failed: the classifier's words are kept, if the entry still has none. */
+function keepClassifiedFeelings(queued, feelings) {
+  const entry = localDB.getJournalById(queued.user_id, queued.id);
+  if (!entry || entry.mood_tags.length) return;
+  const updated = localDB.updateJournalEntry(entry.user_id, entry.id, {
+    content: entry.content,
+    mood_tags: feelings,
+  });
+  eventBus.emit("journal:updated", { entry: updated });
 }
 
 async function fillSummary(entry) {
