@@ -133,7 +133,7 @@ export const handleRegister = async (event, details) => {
     if (typeof details.password !== "string" || !details.password) {
       throw new Error("A password is required");
     }
-    if (localDB.findUserByName(username)) {
+    if (localDB.profileNameTaken(username)) {
       throw new Error(DUPLICATE_PROFILE_NAME);
     }
     if (details.photo?.arrayBuffer) {
@@ -171,7 +171,7 @@ export const handleCheckUsername = async (event, username) => {
   } catch (err) {
     return { available: false, error: err.message };
   }
-  return localDB.findUserByName(name)
+  return localDB.profileNameTaken(name)
     ? { available: false, error: DUPLICATE_PROFILE_NAME }
     : { available: true };
 };
