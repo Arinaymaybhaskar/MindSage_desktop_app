@@ -1,6 +1,17 @@
-# MindSage handoff (2026-10-29 evening, P2 coding nearly done)
+# MindSage handoff (2026-10-29 night, P2 coding done except the KAN-388 merge)
 
-## 2026-10-29 evening (read first; supersedes the "Next" list below)
+## 2026-10-29 night (read first; supersedes everything below where they differ)
+- Owner said "merge" and everything green is merged into the phase branch: #82 to #102 (incl. #51 KAN-193, #101 KAN-437, #102 KAN-438). Nothing is reviewed or tested; the owner wants ONE full review and QA pass after all code is written, then KAN-191 and KAN-385.
+- Agent grouping rule (owner): one Opus agent for all Opus-tier tickets, one Sonnet agent for all Sonnet-tier tickets, never one agent per ticket. Review and QA the same way.
+- Open: #103 (KAN-388, ONNX classifier and NLI gate, Opus). It conflicted with #101 in `fillMetadata` (ollama.js). The Opus agent (id a08e5e22d85552137, resume with SendMessage) was asked to merge phase into it, switch the classifier's "keep words if the chat model fails" path from tags to `setSuggestedTags`, check the migration number (phase has 13 from #101), reconcile with #51's manifest, and post the KAN-388 size comment in Jira. Check `gh pr view 103` for its commit and CI, then merge when green and the owner says "merge".
+- Owner decisions open in #103: model hosting (Hugging Face, pinned revision plus SHA-256), the two thresholds and the label-to-word map, whether to drop ~38 MB of probably unused DLLs, Ollama users never get the ONNX files (64 MB uncompressed added). Not verified: packaging, bench targets, installer size.
+- KAN-437 (#101): feeling words are no longer saved as tags; migration 13 adds `journal_entries.suggested_tags`; the entry page shows them as unticked boxes; `journal:accept-feeling` adds the tag. The old five AI-switch keys are ignored. No Settings screen shows the switches yet and the tick UI has no render test.
+- KAN-193: release `binaries-whisper-v1` exists (9 assets; the manifest uses 8, `ggml-tiny.en.bin` is unused). Real download verified. Not verified: release.yml cache step, a real installer build.
+- KAN-191 (history scrub, force-push of main): the owner must lift main's no-force-push rule for one push; do it only with no open PRs and `backup/pre-history-scrub` pushed first. Expect the auto-mode classifier to refuse; the owner runs the push.
+- KAN-385 (uninstaller on a clean Windows VM): owner tests later. KAN-83 landing page moved to P4. KAN-77/177/178/181/183 are P5.
+- Known: KAN-434 (optional CUDA download) has no fix version and its offer rarely shows on driver-only PCs (needs cublas64_13.dll). `npm run test:coverage` exists (local only, baseline 33.0% lines). `npm run test:db` fails with EBUSY on Windows; CI on Linux is authoritative. The auto-mode classifier denies `gh release create`; the owner ran it.
+
+## 2026-10-29 evening (older, partly superseded by the night section above)
 - Owner said "merge": #82 to #99 are merged into the phase branch, except #51. Open at the end: #100 (this handoff), #101, #102, #51. Built and merged this session: KAN-435 (#93), 436 (#94), 439 (#95, with 391), 434 (#96, optional CUDA download), 440 (#97), 441 (#98), 464 (#99, `npm run test:coverage`, local only, baseline 33.0% lines). None reviewed or tested; the owner wants one full review and QA pass after all code is written.
 - Agent grouping rule (owner): one Opus agent for all Opus-tier tickets, one Sonnet agent for all Sonnet-tier tickets, not one agent per ticket. Review and QA the same way, after the code is done.
 - The Opus agent (id a08e5e22d85552137) built KAN-437 (#101) and KAN-438 (#102), then hit the 5-hour usage limit (resets 19:30 IST on 2026-10-29). KAN-388 (ONNX classifier) is NOT done or not in a PR yet: after the reset, `SendMessage` to that agent id to continue KAN-388, or start one Opus agent for it. Merge #101 and #102 when CI is green.
