@@ -27,6 +27,14 @@ export interface ImportPreview {
   moreWarnings?: number;
 }
 
+/** The profile's latest import; `edited` means Undo is off. */
+export interface LastImport {
+  at: string;
+  source: string | null;
+  count: number;
+  edited: boolean;
+}
+
 const invoke = <T,>(channel: string, ...args: unknown[]) =>
   window.electron.ipcRenderer.invoke<T>(channel, ...args);
 
@@ -55,5 +63,7 @@ export const portabilityService = {
     invoke<ImportPreview>("data:import-read", paths),
   /** Resolves when every entry is written; progress arrives on ai-status-event. */
   commitImport: () => invoke<{ imported: number }>("data:import-commit"),
+  /** Removes the latest import's entries; refused once one was edited. */
   undoImport: () => invoke<{ removed: number }>("data:import-undo"),
+  lastImport: () => invoke<LastImport | null>("data:import-last"),
 };
