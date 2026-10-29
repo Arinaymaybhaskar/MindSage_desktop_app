@@ -21,6 +21,7 @@ import BentoCard, { TileLabel } from "../components/dashboard/BentoCard";
 import MoodHeatmap from "../components/dashboard/MoodHeatmap";
 import StreakRing from "../components/dashboard/StreakRing";
 import MoodOrb from "../components/ui/MoodOrb";
+import { moodWord } from "../../electron/moodWords";
 import MiniDonut from "../components/dashboard/MiniDonut";
 import LazyThumb from "../components/LazyThumb";
 import {
@@ -324,11 +325,8 @@ export default function Dashboard() {
               />
               <div className="min-w-0">
                 <p className="font-display text-2xl font-semibold leading-none text-text-light dark:text-text-dark">
-                  {(stats.averageMood || 0).toFixed(1)}
-                  <span className="text-sm text-text-light-sub dark:text-text-dark-sub">
-                    {" "}
-                    / 5
-                  </span>
+                  {/* AVG is null when no entry has a mood: no word then. */}
+                  {moodWord(stats.averageMood) ?? "-"}
                 </p>
                 <p className="mt-1 truncate text-xs text-text-light-sub dark:text-text-dark-sub">
                   Most often{" "}

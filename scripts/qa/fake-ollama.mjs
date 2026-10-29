@@ -11,6 +11,7 @@ import http from "node:http";
 import fs from "node:fs";
 import { parseArgs } from "node:util";
 import { portTaken } from "./procs.mjs";
+import { moodWord } from "../../electron/moodWords.js";
 
 const spec = {
   port: { type: "string", default: "11434" },
@@ -96,7 +97,7 @@ function reply(prompt, jsonMode) {
   if (prompt.includes("emotional analysis and sentiment extraction"))
     return JSON.stringify({
       title: v.title,
-      mood_score: Number(v["mood-score"]),
+      mood: moodWord(v["mood-score"]),
       mood_tags: v["mood-tags"].split(","),
     });
   if (prompt.includes("You are a summarization engine")) return v.summary;

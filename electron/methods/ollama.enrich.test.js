@@ -48,7 +48,7 @@ const entry = {
   title: "",
   content: Array.from({ length: 30 }, (_, i) => `word${i}`).join(" "),
 };
-const METADATA = '{"title":"A walk","mood_score":4,"mood_tags":["Content"]}';
+const METADATA = '{"title":"A walk","mood":"Good","mood_tags":["Content"]}';
 const SUMMARY = "The writer walked home in the rain and felt calm.";
 const drained = () => background(() => {});
 

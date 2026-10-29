@@ -1,6 +1,7 @@
 // src/components/MoodSlider.tsx
 import React, { useState, useEffect } from "react";
 import { motion, animate } from "framer-motion";
+import { MOOD_WORDS } from "../../electron/moodWords";
 
 type Props = {
   /** null/undefined/out of 1-5 means no mood chosen. */
@@ -13,11 +14,11 @@ type Props = {
 const face = (n: number) => `${import.meta.env.BASE_URL}emojis/${n}.png`;
 
 const moods = [
-  { value: 1, emoji: face(1), label: "Bad", color: "#ef4444" },
-  { value: 2, emoji: face(2), label: "Neutral", color: "#f97316" },
-  { value: 3, emoji: face(3), label: "Good", color: "#eab308" },
-  { value: 4, emoji: face(4), label: "Great", color: "#84cc16" },
-  { value: 5, emoji: face(5), label: "Excellent", color: "#22c55e" },
+  { value: 1, emoji: face(1), label: MOOD_WORDS[0], color: "#ef4444" },
+  { value: 2, emoji: face(2), label: MOOD_WORDS[1], color: "#f97316" },
+  { value: 3, emoji: face(3), label: MOOD_WORDS[2], color: "#eab308" },
+  { value: 4, emoji: face(4), label: MOOD_WORDS[3], color: "#84cc16" },
+  { value: 5, emoji: face(5), label: MOOD_WORDS[4], color: "#22c55e" },
 ];
 
 // Where the thumb rests while no mood is chosen; it is greyed out and labelled.
