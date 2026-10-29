@@ -1,4 +1,17 @@
-# MindSage handoff (2026-10-29, P2 wave 4 built, owner decisions taken, new tickets filed)
+# MindSage handoff (2026-10-29 evening, P2 coding nearly done)
+
+## 2026-10-29 evening (read first; supersedes the "Next" list below)
+- Owner said "merge": #82 to #99 are merged into the phase branch, except #51. Open at the end: #100 (this handoff), #101, #102, #51. Built and merged this session: KAN-435 (#93), 436 (#94), 439 (#95, with 391), 434 (#96, optional CUDA download), 440 (#97), 441 (#98), 464 (#99, `npm run test:coverage`, local only, baseline 33.0% lines). None reviewed or tested; the owner wants one full review and QA pass after all code is written.
+- Agent grouping rule (owner): one Opus agent for all Opus-tier tickets, one Sonnet agent for all Sonnet-tier tickets, not one agent per ticket. Review and QA the same way, after the code is done.
+- The Opus agent (id a08e5e22d85552137) built KAN-437 (#101) and KAN-438 (#102), then hit the 5-hour usage limit (resets 19:30 IST on 2026-10-29). KAN-388 (ONNX classifier) is NOT done or not in a PR yet: after the reset, `SendMessage` to that agent id to continue KAN-388, or start one Opus agent for it. Merge #101 and #102 when CI is green.
+- KAN-83 (landing page) moved to P4 (fix version and `release-p4`).
+- KAN-193 (#51): the owner created release `binaries-whisper-v1` (9 assets, hashes verified before upload). The Sonnet agent merged phase into #51 (1c25c84) and the real download of 8 files verified. `ggml-tiny.en.bin` was dropped from the manifest because KAN-91 no longer bundles it, so the release's 9th asset is unused. Merge #51 once its CI is green. Not verified: release.yml cache step, a real installer build.
+- KAN-191 (history scrub, force-push) is blocked on KAN-193 (same rewrite) and needs the owner to lift main's no-force-push rule for one push. Do it only with no open PRs and the backup branch pushed first.
+- KAN-385 (uninstaller, needs a clean Windows VM): owner tests later.
+- Remaining P2 To Do after the above: KAN-191, 193, 385 only. KAN-77/177/178/181/183 are P5.
+- Known: the CUDA runtime (cublas64_13.dll) is absent on driver-only PCs, so the KAN-434 offer rarely shows; KAN-434 has no fix version yet. `npm run test:db` fails with EBUSY on Windows; CI on Linux is authoritative.
+
+# (older) 2026-10-29 section follows
 
 ## 2026-10-29 decisions (owner) and new tickets
 - Installer ships CPU and Vulkan engine binaries only. CUDA becomes an optional post-install download for Nvidia GPUs: KAN-434 (no fix version yet). This unblocks KAN-388 (ONNX).
