@@ -127,6 +127,25 @@ function entriesResult(rows, header, max = SNIPPET_CHARS) {
 const rangeText = (a) =>
   a.from || a.to ? ` from ${a.from ?? "the start"} to ${a.to ?? "today"}` : "";
 
+// The line the person sees above the answer (KAN-447): "from 1 to 31 October".
+const human = (d, withMonth = true) =>
+  midnight(d).toLocaleDateString("en-GB", {
+    day: "numeric",
+    ...(withMonth && { month: "long" }),
+    ...(withMonth && d.slice(0, 4) !== localDay().slice(0, 4)
+      ? { year: "numeric" }
+      : {}),
+  });
+const when = (a) => {
+  if (a.from && a.to) {
+    const sameMonth = a.from.slice(0, 7) === a.to.slice(0, 7);
+    return ` from ${human(a.from, !sameMonth)} to ${human(a.to)}`;
+  }
+  if (a.from) return ` since ${human(a.from)}`;
+  return a.to ? ` up to ${human(a.to)}` : "";
+};
+const entries = (n) => `${n} ${n === 1 ? "entry" : "entries"}`;
+
 const ENTRY_COLUMNS = `
   j.id, j.title, j.content, j.mood_score, j.created_at,
   (SELECT GROUP_CONCAT(t.name, ', ') FROM journal_entry_tags jt
@@ -162,7 +181,8 @@ async function searchEntries(userId, a) {
     )
     .filter(
       (p) =>
-        !wanted.size || p.mood_tags.some((t) => wanted.has(t.toLowerCase())),
+        !wanted.size ||
+        (p.mood_tags ?? []).some((t) => wanted.has(t.toLowerCase())),
     )
     .slice(0, a.limit)
     .map((p) => ({
@@ -171,14 +191,20 @@ async function searchEntries(userId, a) {
       content: p.content,
       mood_score: p.mood_score,
       created_at: p.created_at,
-      feelings: p.mood_tags.join(", "),
+      feelings: (p.mood_tags ?? []).join(", "),
     }));
-  return entriesResult(
-    rows,
-    rows.length
-      ? `${rows.length} entries matched "${attr(a.query)}"${rangeText(a)}.`
-      : `No entries matched "${attr(a.query)}"${rangeText(a)}.`,
-  );
+  const about = `about "${attr(a.query)}"${when(a)}`;
+  return {
+    ...entriesResult(
+      rows,
+      rows.length
+        ? `${rows.length} entries matched "${attr(a.query)}"${rangeText(a)}.`
+        : `No entries matched "${attr(a.query)}"${rangeText(a)}.`,
+    ),
+    summary: rows.length
+      ? `Looked at ${entries(rows.length)} ${about}.`
+      : `Found no entries ${about}.`,
+  };
 }
 
 function entriesByDate(userId, a) {
@@ -197,7 +223,12 @@ function entriesByDate(userId, a) {
   const header = total
     ? `${total} entries from ${a.from} to ${a.to}; showing the ${a.order} ${rows.length}.`
     : `No entries from ${a.from} to ${a.to}.`;
-  return { ...entriesResult(rows, header), total };
+  let summary = `Found no entries${when(a)}.`;
+  if (total) {
+    const shown = rows.length < total ? `${rows.length} of ` : "";
+    summary = `Looked at ${shown}${entries(total)}${when(a)}.`;
+  }
+  return { ...entriesResult(rows, header), total, summary };
 }
 
 function getEntry(userId, a) {
@@ -208,7 +239,10 @@ function getEntry(userId, a) {
     )
     .get(a.id, userId);
   if (!row) return { ok: false, error: `There is no entry ${a.id}.` };
-  return entriesResult([row], `Entry ${a.id}:`, a.max_chars);
+  return {
+    ...entriesResult([row], `Entry ${a.id}:`, a.max_chars),
+    summary: "Read one entry.",
+  };
 }
 
 const GROUP = {
@@ -251,12 +285,14 @@ function moodStats(userId, a) {
       entries: g.entries,
       average: g.average,
     }));
-  const skipped = aiDb()
+  const counts = aiDb()
     .prepare(
-      `SELECT COUNT(*) AS n FROM journal_entries j
-        WHERE ${inRange} AND j.mood_score IS NULL`,
+      `SELECT COUNT(j.mood_score) AS rated,
+              COUNT(*) - COUNT(j.mood_score) AS skipped
+         FROM journal_entries j WHERE ${inRange}`,
     )
-    .get(params).n;
+    .get(params);
+  const skipped = counts.skipped;
   const lines = groups.map(
     (g) =>
       `${g.group}: average mood ${g.average} (${moodWord(Math.round(g.average))}) over ${g.entries} entries`,
@@ -268,7 +304,14 @@ function moodStats(userId, a) {
   ]
     .filter(Boolean)
     .join("\n");
-  return { ok: true, groups, skipped, sources: [], text };
+  return {
+    ok: true,
+    groups,
+    skipped,
+    sources: [],
+    text,
+    summary: `Looked at the mood of ${entries(counts.rated)}${when(a)}.`,
+  };
 }
 
 function getGoals(userId, a) {
@@ -302,6 +345,7 @@ function getGoals(userId, a) {
         : `No ${a.status} goals.`,
       ...blocks,
     ].join("\n"),
+    summary: `Looked at ${rows.length} ${a.status === "all" ? "" : `${a.status} `}goal${rows.length === 1 ? "" : "s"}.`,
   };
 }
 
