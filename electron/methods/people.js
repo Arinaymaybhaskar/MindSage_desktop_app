@@ -11,7 +11,7 @@ import Store from "electron-store";
 import { BrowserWindow, powerMonitor } from "electron";
 import { eventBus } from "../eventBus.js";
 import { generate, modelName } from "../ai/client.js";
-import { background } from "../ai/queue.js";
+import { background, yieldToAsk } from "../ai/queue.js";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
 import * as peopleDb from "../db/people.js";
@@ -109,9 +109,9 @@ function broadcastChanged() {
 /**
  * One structured-output call. The JSON schema becomes a grammar, so the
  * answer always parses into the right shape; the grounding checks then
- * decide whether what it says is true.
+ * decide whether what it says is true. `signal` also stops it.
  */
-async function aiJson(prompt, schema, numPredict) {
+async function aiJson(prompt, schema, numPredict, signal) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
   try {
@@ -119,12 +119,23 @@ async function aiJson(prompt, schema, numPredict) {
       schema,
       temperature: 0,
       maxTokens: numPredict,
-      signal: controller.signal,
+      signal: signal
+        ? AbortSignal.any([signal, controller.signal])
+        : controller.signal,
     });
   } finally {
     clearTimeout(timer);
   }
 }
+
+/**
+ * An extraction call: waits behind Ask and earlier AI jobs (KAN-392), and an
+ * Ask that starts while it runs stops it; it runs again after (KAN-438).
+ */
+const backgroundJson = (prompt, schema, numPredict) =>
+  background(() =>
+    yieldToAsk((signal) => aiJson(prompt, schema, numPredict, signal)),
+  );
 
 // ---------- Queue ----------
 
@@ -261,13 +272,10 @@ async function processEntry(userId, entry) {
 
   let found = [];
   if (shouldExtract(text, peopleDb.trackedAliases(userId))) {
-    // Background work: waits behind Ask and earlier AI jobs (KAN-392).
-    const raw = await background(() =>
-      aiJson(
-        buildExtractionPrompt({ sentences, knownPeople: known, ignored }),
-        EXTRACTION_SCHEMA,
-        400,
-      ),
+    const raw = await backgroundJson(
+      buildExtractionPrompt({ sentences, knownPeople: known, ignored }),
+      EXTRACTION_SCHEMA,
+      400,
     );
     found = groundExtraction(raw, {
       text,
@@ -282,15 +290,13 @@ async function processEntry(userId, entry) {
       for (const f of found) {
         try {
           const second = parseFeeling(
-            await background(() =>
-              aiJson(
-                buildFeelingPrompt(
-                  f.nameAsWritten,
-                  feelingExcerpt(sentences, f.sentences),
-                ),
-                FEELING_SCHEMA,
-                80,
+            await backgroundJson(
+              buildFeelingPrompt(
+                f.nameAsWritten,
+                feelingExcerpt(sentences, f.sentences),
               ),
+              FEELING_SCHEMA,
+              80,
             ),
           );
           if (second) Object.assign(f, second);
