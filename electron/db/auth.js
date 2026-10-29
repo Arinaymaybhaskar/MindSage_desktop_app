@@ -10,6 +10,18 @@ export function findUserByName(name) {
 }
 
 /**
+ * Whether another profile (not `exceptId`) already has this name, ignoring
+ * case (KAN-440). Done in JS so non-ASCII letters fold too; profiles are few.
+ * Sign-in still matches the stored name exactly, so old clashing pairs work.
+ */
+export function profileNameTaken(name, exceptId = null) {
+  const key = name.toLowerCase();
+  return listProfiles().some(
+    (p) => p.id !== exceptId && p.username.toLowerCase() === key,
+  );
+}
+
+/**
  * The signed-in user's row, for session restore and password checks.
  */
 export function findUserById(id) {

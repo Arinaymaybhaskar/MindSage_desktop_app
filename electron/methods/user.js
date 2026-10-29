@@ -61,8 +61,9 @@ export const userUpdateProfile = async (event, payload) => {
   const changes = {};
   if (payload?.username !== undefined) {
     changes.username = cleanProfileName(payload.username);
-    const other = localDB.findUserByName(changes.username);
-    if (other && other.id !== userId) throw new Error(DUPLICATE_PROFILE_NAME);
+    if (localDB.profileNameTaken(changes.username, userId)) {
+      throw new Error(DUPLICATE_PROFILE_NAME);
+    }
   }
   if (payload && "profile_picture" in payload) {
     changes.profile_picture = payload.profile_picture ?? null;

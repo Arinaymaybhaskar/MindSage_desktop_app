@@ -95,6 +95,38 @@ describe("profile name (KAN-67)", () => {
     });
   });
 
+  it("treats names that differ only by case as the same (KAN-440)", async () => {
+    await expect(register("josé")).rejects.toThrow(/already exists/);
+    expect(await auth.handleCheckUsername(null, "JOSÉ")).toMatchObject({
+      available: false,
+    });
+    await auth.handleLogin(null, { identifier: "José", password: "pw" });
+    await register("Анна");
+    await expect(
+      user.userUpdateProfile(null, { username: "АННА" }),
+    ).rejects.toThrow(/already exists/);
+    // Changing only the case of its own name is allowed.
+    await expect(
+      user.userUpdateProfile(null, { username: "JOSÉ" }),
+    ).resolves.toMatchObject({ user: { username: "JOSÉ" } });
+    await user.userUpdateProfile(null, { username: "José" });
+    // Profiles that already clash still sign in by their exact name.
+    const hash = (await import("bcryptjs")).default.hashSync("pw", 4);
+    db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)").run(
+      "Dup",
+      hash,
+    );
+    db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)").run(
+      "dup",
+      hash,
+    );
+    for (const name of ["Dup", "dup"]) {
+      await expect(
+        auth.handleLogin(null, { identifier: name, password: "pw" }),
+      ).resolves.toMatchObject({ userInfo: { username: name } });
+    }
+  });
+
   it("signs in by profile name only, not by email", async () => {
     db.prepare(
       "INSERT INTO users (username, email, password_hash) VALUES ('legacy', 'old@example.com', ?)",
