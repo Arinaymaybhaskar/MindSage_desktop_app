@@ -1,0 +1,13 @@
+{
+  "release": "https://github.com/Arinaymaybhaskar/MindSage_desktop_app/releases/download/binaries-whisper-v1",
+  "files": [
+    { "path": "whisper-bin-x64/Release/SDL2.dll", "sha256": "de23db1694a3c7a4a735e7ecd3d214b2023cc2267922c6c35d30c7fc7370d677" },
+    { "path": "whisper-bin-x64/Release/ggml-base.dll", "sha256": "e912e19071c32d673a81de4aab058d36328cc6b0c59c75889a0ba4c65fd6a4e6" },
+    { "path": "whisper-bin-x64/Release/ggml-cpu.dll", "sha256": "341ed96e2520ef9b44509f18b5ac4f60d171e47a6c55ab390d704ea7b06ae617" },
+    { "path": "whisper-bin-x64/Release/ggml.dll", "sha256": "f91ef57cfd6d2f07a5fc33e5dca114b3dc3abe8495f47b46dfbe178d6d775c37" },
+    { "path": "whisper-bin-x64/Release/whisper-cli.exe", "sha256": "b7c6dc2e999a80bc2d23cd4c76701211f392ae55d5cabdf0d45eb2ca4faf09af" },
+    { "path": "whisper-bin-x64/Release/whisper-server.exe", "sha256": "27dd0e748809b42f8cf4e3aba5e405cd7eeefe04f454d5892bd4ea6e6362a2e9" },
+    { "path": "whisper-bin-x64/Release/whisper-stream.exe", "sha256": "c5f7c11410a2b2daa072559f1509801d7dee492c7020dddadbfaef2a9308b393" },
+    { "path": "whisper-bin-x64/Release/whisper.dll", "sha256": "bbeceed370799687a363244edc583bac3dc5d472f5bd14691a26f22c7e710bb8" }
+  ]
+}
