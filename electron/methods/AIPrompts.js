@@ -93,8 +93,14 @@ export function parseJournalMetadata(rawResponse) {
   return { title, mood_score, mood_tags };
 }
 
-/** Every journal and Ask call stops after this many tokens, on either provider. */
+/** Every journal call and Ask's planning step stop after this many tokens, on either provider. */
 export const MAX_OUTPUT_TOKENS = 300;
+/**
+ * Ask's answer is grammar-forced JSON, so a cap that cuts it leaves JSON that
+ * cannot be parsed. About 4,000 characters; each retry after a failed parse
+ * gets this much more.
+ */
+export const ASK_ANSWER_MAX_TOKENS = 1024;
 /** A title longer than this is cut before it reaches the journal. */
 export const MAX_TITLE_CHARS = 80;
 
