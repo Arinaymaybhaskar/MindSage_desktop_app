@@ -48,7 +48,13 @@ export interface ModelResult {
   /** Download: the disk is too small. Delete: the file is locked, try later. */
   notEnoughSpace?: boolean;
   retryLater?: boolean;
+  /** CUDA engine: the running engine switches to it on the next launch. */
+  restartRequired?: boolean;
 }
+
+/** The one-time offer of the CUDA engine on a PC with a usable Nvidia GPU. */
+export type CudaOffer =
+  { offer: false } | { offer: true; id: string; label: string; bytes: number };
 
 /** What the download and delete dialogs show; sizes are preformatted "2.0 GB". */
 export interface ModelDialogInfo {
@@ -115,6 +121,14 @@ export const aiModelService = {
     hasElectron()
       ? invoke<ModelResult>("ai:delete-model", id, confirmed)
       : { error: "Not available" },
+
+  cudaOffer: async (): Promise<CudaOffer> =>
+    hasElectron() ? invoke<CudaOffer>("ai:cuda-offer-get") : { offer: false },
+
+  /** Recorded once either way; accepting does not start the download. */
+  answerCudaOffer: async (accept: boolean): Promise<void> => {
+    if (hasElectron()) await invoke("ai:cuda-offer-answer", accept);
+  },
 };
 
 /** One `ai:download-progress` message. */

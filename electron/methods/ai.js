@@ -9,7 +9,8 @@ import { log } from "../log.js";
 import { PROVIDERS, activeProvider } from "../ai/client.js";
 import * as builtin from "../ai/llama.js";
 import { reachable as openaiReachable } from "../ai/openai.js";
-import { BUILTIN_MODELS } from "../ai/models.js";
+import { BUILTIN_MODELS, CUDA_ENGINE } from "../ai/models.js";
+import { cudaSupported, unpackEngine, unpackedDir } from "../ai/cuda.js";
 import {
   deleteImpact,
   downloadSpace,
@@ -100,6 +101,7 @@ export async function handleDownloadAIModel(_event, id, confirmed = false) {
       url: spec.url,
       dest: builtin.modelPath(id),
       sha256: spec.sha256,
+      redirect: spec.redirect,
       signal: controller.signal,
       onProgress: ({ done, total }) => {
         downloading = { id, done, total };
@@ -108,9 +110,13 @@ export async function handleDownloadAIModel(_event, id, confirmed = false) {
         broadcast(downloading);
       },
     });
+    if (spec.role === "engine") await unpackEngine(builtin.modelPath(id));
     log.info("Built-in AI model downloaded", { id });
     broadcast({ id, done: spec.bytes, total: spec.bytes, finished: true });
-    return { success: true };
+    // A started engine has the old build's libraries loaded: the next launch switches.
+    return spec.role === "engine"
+      ? { success: true, restartRequired: builtin.isStarted() }
+      : { success: true };
   } catch (err) {
     if (pausedId === id) {
       broadcast({
@@ -250,6 +256,41 @@ export function handleSelectAIModel(_event, id) {
   return { success: true };
 }
 
+const CUDA_ANSWER = "cudaOfferAnswer"; // "accepted" | "declined": asked once
+
+/**
+ * Whether to offer the CUDA engine (KAN-434): Windows x64 on the built-in
+ * engine, setup finished, not asked before and not on disk, and an Nvidia GPU
+ * whose driver and CUDA runtime node-llama-cpp finds. Without the runtime the
+ * CUDA build cannot load, so it is not offered.
+ */
+export async function handleGetCudaOffer() {
+  const spec = BUILTIN_MODELS[CUDA_ENGINE];
+  const none = { offer: false };
+  if (
+    !cudaSupported() ||
+    activeProvider() !== "builtin" ||
+    modelStore.get(CUDA_ANSWER) ||
+    !builtin.modelsReady() ||
+    builtin.isDownloaded(CUDA_ENGINE)
+  )
+    return none;
+  try {
+    const { getLlamaGpuTypes } = await import("node-llama-cpp");
+    if (!(await getLlamaGpuTypes("supported")).includes("cuda")) return none;
+  } catch (err) {
+    log.warn("Nvidia GPU check failed", { error: err.message });
+    return none;
+  }
+  return { offer: true, id: CUDA_ENGINE, label: spec.label, bytes: spec.bytes };
+}
+
+/** Records the answer, so the offer is made once. Accepting does not download: ai:download-model does. */
+export function handleAnswerCudaOffer(_event, accept) {
+  modelStore.set(CUDA_ANSWER, accept === true ? "accepted" : "declined");
+  return { success: true };
+}
+
 export function partBytes(id) {
   try {
     return fs.statSync(`${builtin.modelPath(id)}.part`).size;
@@ -311,7 +352,11 @@ export async function handleDeleteAIModel(_event, id, confirmed = false) {
   }
   await builtin.unloadAll();
   try {
-    fs.rmSync(builtin.modelPath(id), { force: true });
+    const file = builtin.modelPath(id);
+    if (BUILTIN_MODELS[id].role === "engine") {
+      fs.rmSync(unpackedDir(file), { recursive: true, force: true });
+    }
+    fs.rmSync(file, { force: true });
   } catch (err) {
     log.warn("Built-in AI model could not be deleted", {
       id,

@@ -109,6 +109,8 @@ contextBridge.exposeInMainWorld("electron", {
         "ai:get-features",
         "ai:set-feature",
         "ai:get-model-dialog",
+        "ai:cuda-offer-get",
+        "ai:cuda-offer-answer",
         "ai:setup-get-state",
         "ai:setup-start",
         "ai:setup-pause",

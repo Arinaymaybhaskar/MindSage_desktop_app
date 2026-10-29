@@ -11,11 +11,13 @@ import { log } from "../log.js";
 import { modelStore } from "../store.js";
 import {
   BUILTIN_MODELS,
+  CUDA_ENGINE,
   EMBED_MODEL,
   TASK_MODELS,
   defaultChatModel,
   fitsInMemory,
 } from "./models.js";
+import { isUnpacked, unpackedDir, useDownloadedCuda } from "./cuda.js";
 
 const CHAT_CONTEXT = { min: 2048, max: 8192 };
 /** nomic-embed-text was trained on 2048 tokens; longer text is cut, as Ollama did. */
@@ -26,12 +28,15 @@ const DEFAULT_MAX_TOKENS = 512;
 // the app quit cleanly; still set at launch means the GPU took the app down.
 const GPU_PENDING = "builtinGpuPending";
 const CPU_ONLY = "builtinCpuOnly"; // { reason, at }: why the GPU is not used
+const CUDA_OFF = "builtinCudaOff"; // why the CUDA build is skipped for Vulkan
 // The GPU is tried again after this, so an unclean exit while starting (a
 // kill, a crash, a shutdown) or a one-off load error does not pin the CPU for
 // good; a GPU that still fails is caught again the same way.
 const GPU_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 const GPU_CRASHED =
   "The GPU stopped MindSage last time, so the built-in AI runs on the CPU.";
+const CUDA_CRASHED =
+  "The CUDA engine stopped MindSage last time, so the built-in AI uses Vulkan.";
 
 const rememberCpuOnly = (reason) =>
   modelStore.set(CPU_ONLY, { reason, at: Date.now() });
@@ -69,6 +74,8 @@ export const modelPath = (id) => {
 /** Downloads are renamed into place only after their SHA-256 matched. */
 export function isDownloaded(id) {
   try {
+    if (specOf(id).role === "engine")
+      return isUnpacked(unpackedDir(modelPath(id)));
     return fs.statSync(modelPath(id)).size === specOf(id).bytes;
   } catch {
     return false;
@@ -110,7 +117,12 @@ const ready = new Map(); // model id -> { model, ctx, sequence, queue, closed }
 
 function getEngine() {
   engine ??= (async () => {
-    if (!gpuFallback && modelStore.get(GPU_PENDING)) {
+    const pending = modelStore.get(GPU_PENDING);
+    if (!gpuFallback && pending === "cuda") {
+      modelStore.set(CUDA_OFF, CUDA_CRASHED);
+      modelStore.delete(GPU_PENDING);
+      log.warn("Built-in AI: CUDA crashed last launch, using Vulkan");
+    } else if (!gpuFallback && pending) {
       rememberCpuOnly(GPU_CRASHED);
       modelStore.delete(GPU_PENDING);
       log.warn("Built-in AI: the GPU crashed last launch, using the CPU");
@@ -120,15 +132,23 @@ function getEngine() {
       modelStore.delete(CPU_ONLY);
       modelStore.set(GPU_PENDING, true);
     }
+    useDownloadedCuda(unpackedDir(modelPath(CUDA_ENGINE)));
     lib ??= await import("node-llama-cpp");
     const llama = await lib.getLlama({
-      // "auto" tries CUDA, then Vulkan, then the CPU build, whichever loads.
-      gpu: gpuFallback ? false : "auto",
+      // "auto" tries CUDA (only when downloaded), then Vulkan, then the CPU.
+      gpu: gpuFallback
+        ? false
+        : modelStore.get(CUDA_OFF)
+          ? { type: "auto", exclude: ["cuda"] }
+          : "auto",
       build: "never",
       logger: (level, message) =>
         log.warn(`[llama.cpp] ${level}: ${String(message).slice(0, 200)}`),
     });
     if (llama.gpu === false) markGpuSafe();
+    else if (llama.gpu === "cuda" && !gpuProven) {
+      modelStore.set(GPU_PENDING, "cuda"); // a crash now skips CUDA, not the GPU
+    }
     log.info("Built-in AI engine ready", { gpu: llama.gpu });
     return llama;
   })().catch((err) => {
@@ -195,6 +215,16 @@ async function fallBackToCpu(reason) {
   await (await old?.catch(() => null))?.dispose();
 }
 
+/** CUDA that fails to load a model is skipped from then on: Vulkan runs instead. */
+async function skipCuda(reason) {
+  modelStore.set(CUDA_OFF, reason);
+  modelStore.delete(GPU_PENDING);
+  log.warn("Built-in AI: CUDA failed, using Vulkan", { reason });
+  const old = engine;
+  engine = null;
+  await (await old?.catch(() => null))?.dispose();
+}
+
 async function open(id) {
   const spec = specOf(id);
   const file = modelPath(id);
@@ -243,7 +273,8 @@ async function open(id) {
     }
     if (llama.gpu === false) throw err;
     await disposeOthers(id);
-    await fallBackToCpu(err.message);
+    if (llama.gpu === "cuda") await skipCuda(err.message);
+    else await fallBackToCpu(err.message);
     return open(id);
   }
 }

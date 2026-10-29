@@ -87,6 +87,8 @@ import {
   handleSetAIProvider,
   handleGetAIFeatures,
   handleSetAIFeature,
+  handleGetCudaOffer,
+  handleAnswerCudaOffer,
 } from "./methods/ai.js";
 import {
   handleAnswerMetered,
@@ -258,6 +260,8 @@ export function registerIPCHandlers() {
   ipcMain.handle("ai:get-features", handleGetAIFeatures);
   ipcMain.handle("ai:set-feature", handleSetAIFeature);
   ipcMain.handle("ai:get-model-dialog", handleGetModelDialog);
+  ipcMain.handle("ai:cuda-offer-get", handleGetCudaOffer);
+  ipcMain.handle("ai:cuda-offer-answer", handleAnswerCudaOffer);
   ipcMain.handle("ai:setup-get-state", handleGetSetupState);
   ipcMain.handle("ai:setup-start", handleStartSetup);
   ipcMain.handle("ai:setup-pause", handlePauseSetup);
