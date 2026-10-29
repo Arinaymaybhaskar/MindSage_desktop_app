@@ -1,11 +1,11 @@
 # MindSage handoff (2026-10-29 evening, P2 coding nearly done)
 
 ## 2026-10-29 evening (read first; supersedes the "Next" list below)
-- Owner said "merge": #82 to #99 are merged into the phase branch, except #51. Built and merged this session: KAN-435 (#93), 436 (#94), 439 (#95, with 391), 434 (#96, optional CUDA download), 440 (#97), 441 (#98), 464 (#99, `npm run test:coverage`, local only, baseline 33.0% lines). None reviewed or tested; the owner wants one full review and QA pass after all code is written.
+- Owner said "merge": #82 to #99 are merged into the phase branch, except #51. Open PRs at the end: #100 (this handoff), #101 (KAN-437), #102 (KAN-438), #51; KAN-388 (ONNX) was still being built. Built and merged this session: KAN-435 (#93), 436 (#94), 439 (#95, with 391), 434 (#96, optional CUDA download), 440 (#97), 441 (#98), 464 (#99, `npm run test:coverage`, local only, baseline 33.0% lines). None reviewed or tested; the owner wants one full review and QA pass after all code is written.
 - Agent grouping rule (owner): one Opus agent for all Opus-tier tickets, one Sonnet agent for all Sonnet-tier tickets, not one agent per ticket. Review and QA the same way, after the code is done.
 - Still running when this was written: the Opus agent (id a08e5e22d85552137, resume with SendMessage) building KAN-437 (feelings rework), KAN-438 (People extraction yieldToAsk) and KAN-388 (ONNX classifier), one PR each. Check `gh pr list` and merge them when CI is green.
 - KAN-83 (landing page) moved to P4 (fix version and `release-p4`).
-- KAN-193 (#51): the release `binaries-whisper-v1` does NOT exist. The auto-mode classifier denied `gh release create` ("Create Public Surface"). The 9 files, hash-verified against resources/binaries.json, are staged in `C:\Users\rahul\AppData\Local\Temp\whisper-v1-assets`. Owner runs, from that folder: `gh release create binaries-whisper-v1 --repo Arinaymaybhaskar/MindSage_desktop_app --prerelease --title "Whisper binaries v1 (build input, not an app release)" --notes "Whisper.cpp binaries (KAN-193). Not an app release." *.dll *.exe *.bin`. Then merge #51.
+- KAN-193 (#51): the owner created release `binaries-whisper-v1` (9 assets, 83 MB, hashes verified before upload). #51 now conflicts with the phase branch; the Sonnet agent (a2d11b6502f6539f5) was asked to merge phase into it and test the real download. Merge #51 when its CI is green.
 - KAN-191 (history scrub, force-push) is blocked on KAN-193 (same rewrite) and needs the owner to lift main's no-force-push rule for one push. Do it only with no open PRs and the backup branch pushed first.
 - KAN-385 (uninstaller, needs a clean Windows VM): owner tests later.
 - Remaining P2 To Do after the above: KAN-191, 193, 385 only. KAN-77/177/178/181/183 are P5.
