@@ -337,4 +337,54 @@ describe("extraction and the shared AI queue (KAN-392)", () => {
     );
     expect(fetch).toHaveBeenCalled();
   });
+
+  it("an Ask that starts mid-call stops it, and it runs again after (KAN-438)", async () => {
+    const { foreground } = await import("../ai/queue.js");
+    const { eventBus } = await import("../eventBus.js");
+    const id = entry(
+      "Went hiking with Marco on Saturday morning and he showed me the old quarry trail by the river.",
+    );
+    const calls = [];
+    const answer = {
+      ok: true,
+      json: async () => ({ response: JSON.stringify({ people: [] }) }),
+    };
+    globalThis.fetch = vi.fn((url, opts) => {
+      if (!String(url).endsWith("/api/generate"))
+        return Promise.resolve(answer);
+      calls.push(opts.signal);
+      // The first call hangs until it is aborted; the second answers.
+      if (calls.length === 1)
+        return new Promise((_, reject) =>
+          opts.signal.addEventListener("abort", () =>
+            reject(opts.signal.reason),
+          ),
+        );
+      return Promise.resolve(answer);
+    });
+    eventBus.emit("journal:created", {
+      userId: alice,
+      entry: localDB.getJournalById(alice, id),
+    });
+    people.handleRetryFailed(); // runs the queue now, not after the 5 s delay
+    await vi.waitFor(() => expect(calls).toHaveLength(1), { timeout: 5000 });
+
+    let endAsk;
+    const ask = foreground(() => new Promise((resolve) => (endAsk = resolve)));
+    await vi.waitFor(() => expect(calls[0].aborted).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(calls).toHaveLength(1); // nothing new while Ask answers
+
+    endAsk();
+    await ask;
+    await vi.waitFor(
+      () => {
+        const { queued, running, failed } = peopleDb.jobCounts(alice);
+        expect(queued + running).toBe(0);
+        expect(failed).toBe(0);
+      },
+      { timeout: 5000 },
+    );
+    expect(calls).toHaveLength(2);
+  });
 });

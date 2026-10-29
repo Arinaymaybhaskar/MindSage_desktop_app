@@ -11,32 +11,35 @@ vi.mock("electron-store", () => ({
     }
   },
 }));
-const { getFeatures, setFeature, maskMetadata } = await import("./features.js");
+const { getFeatures, setFeature, metadataOn, metadataParts } =
+  await import("./features.js");
 
 beforeEach(() => (data.users = {}));
 
 describe("AI feature switches", () => {
-  it("are all on by default and kept per profile", () => {
-    expect(Object.values(getFeatures(1)).every(Boolean)).toBe(true);
-    setFeature(1, "summary", false);
-    expect(getFeatures(1).summary).toBe(false);
-    expect(getFeatures(1).title).toBe(true);
-    expect(getFeatures(2).summary).toBe(true);
-    setFeature(1, "summary", true);
-    expect(getFeatures(1).summary).toBe(true);
+  it("are enrich, feelings and suggestions, all on by default and per profile", () => {
+    expect(getFeatures(1)).toEqual({
+      enrich: true,
+      feelings: true,
+      suggestions: true,
+    });
+    setFeature(1, "enrich", false);
+    expect(getFeatures(1).enrich).toBe(false);
+    expect(getFeatures(1).feelings).toBe(true);
+    expect(getFeatures(2).enrich).toBe(true);
+    setFeature(1, "enrich", true);
+    expect(getFeatures(1).enrich).toBe(true);
   });
 
-  it("reject an unknown feature", () => {
+  it("reject an unknown feature, the old mood switch included (KAN-437)", () => {
     expect(() => setFeature(1, "nope", true)).toThrow();
+    expect(() => setFeature(1, "mood", false)).toThrow();
   });
 
-  it("mask the fields of a switched-off feature with the entry's own", () => {
-    const f = { title: false, mood: true, feelings: false };
-    const out = maskMetadata(
-      { title: "AI", mood_score: 4, mood_tags: ["Calm"] },
-      { title: "Mine", mood_tags: ["Sad"] },
-      f,
-    );
-    expect(out).toEqual({ title: "Mine", mood_score: 4, mood_tags: ["Sad"] });
+  it("ask the metadata call for only what is switched on", () => {
+    const f = { enrich: false, feelings: true, suggestions: true };
+    expect(metadataParts(f)).toEqual({ enrich: false, feelings: true });
+    expect(metadataOn(f)).toBe(true);
+    expect(metadataOn({ ...f, feelings: false })).toBe(false);
   });
 });

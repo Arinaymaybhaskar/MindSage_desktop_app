@@ -5,7 +5,7 @@ import { updateJournalEntry } from "../db/journal.js";
 import { isSummarizable } from "./AIPrompts.js";
 import { generateMetadata, generateSummary } from "./ollama.js";
 import { background } from "../ai/queue.js";
-import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
+import { getFeatures, metadataOn, metadataParts } from "../ai/features.js";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
 
@@ -68,6 +68,16 @@ export async function handleUpdateJournal(event, journalId, payload) {
   return updatedJournal;
 }
 
+/** The user ticked a feeling word the AI offered (KAN-437): it becomes a tag. */
+export async function handleAcceptFeeling(event, journalId, name) {
+  const userId = currentUserId();
+  if (!userId) throw new Error("Not signed in");
+  const updated = localDB.acceptSuggestedTag(userId, journalId, name);
+  if (!updated) return { error: "That feeling is no longer offered" };
+  eventBus.emit("journal:updated", { entry: updated });
+  return updated;
+}
+
 export async function handleUpdateAIStatus(event, journalId, fields) {
   const userId = currentUserId();
   if (!userId) throw new Error("Not signed in");
@@ -121,30 +131,31 @@ eventBus.on("journal:aiCompleted", ({ entry: queued, metadata, force }) => {
     return;
   }
 
-  const enrichedEntry = force
-    ? {
-        // Explicit regenerate: replace the AI-generated fields.
-        title: metadata.title,
-        mood_score: metadata.mood_score,
-        mood_tags: metadata.mood_tags,
-        content: entry.content,
-      }
-    : {
-        // Auto-generate: preserve anything already filled in; fill blanks.
-        title: entry.title?.trim() || metadata.title,
-        mood_score: entry.mood_score ?? metadata.mood_score,
-        mood_tags:
-          Array.isArray(entry.mood_tags) && entry.mood_tags.length > 0
-            ? entry.mood_tags
-            : metadata.mood_tags,
-        content: entry.content,
-      };
-
-  const updated = localDB.updateJournalEntry(
-    entry.user_id,
-    entry.id,
-    enrichedEntry,
-  );
+  let updated = entry;
+  // Title and mood come only when "Enrich entries" is on (KAN-437).
+  if ("title" in metadata) {
+    const enrichedEntry = force
+      ? // Explicit regenerate: replace the AI-generated fields.
+        { title: metadata.title, mood_score: metadata.mood_score }
+      : {
+          // Auto-generate: preserve anything already filled in; fill blanks.
+          title: entry.title?.trim() || metadata.title,
+          mood_score: entry.mood_score ?? metadata.mood_score,
+        };
+    updated = localDB.updateJournalEntry(entry.user_id, entry.id, {
+      ...enrichedEntry,
+      content: entry.content,
+    });
+  }
+  // Feeling words are only offered: none becomes a tag until the user ticks
+  // it (KAN-437), and one already ticked is not offered again.
+  if (metadata.mood_tags) {
+    updated = localDB.setSuggestedTags(
+      entry.user_id,
+      entry.id,
+      metadata.mood_tags.filter((name) => !entry.mood_tags.includes(name)),
+    );
+  }
   db.prepare(
     `UPDATE journal_entries SET ai_metadata_status = 'completed', ai_metadata_error = NULL WHERE id = ?`,
   ).run(entry.id);
@@ -191,10 +202,8 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     eventBus.emit("journal:aiStarted", { entryId: entry.id });
 
     try {
-      const metadata = maskMetadata(
-        await background(() => generateMetadata(entry.content, userId)),
-        entry,
-        features,
+      const metadata = await background(() =>
+        generateMetadata(entry.content, userId, metadataParts(features)),
       );
       // The journal:aiCompleted persister writes the fields and flips the
       // status to 'completed'. force:true because this is an explicit user
@@ -218,7 +227,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
       return { success: false, error: err.message };
     }
   } else if (type === "summary") {
-    if (!features.summary) return off;
+    if (!features.enrich) return off;
     // Too short to summarize: skip consistently with the create path
     // instead of feeding a 1-sentence entry to a "3-5 sentence" prompt.
     if (!isSummarizable(entry.content)) {

@@ -422,7 +422,9 @@ describe("the tag-family migration", () => {
     const links = db.prepare("SELECT COUNT(*) AS n FROM journal_entry_tags");
     const linksBefore = links.get().n;
 
-    expect(runMigrations(db).applied).toEqual(["tag-family"]);
+    expect(runMigrations(db, MIGRATIONS.slice(0, 12)).applied).toEqual([
+      "tag-family",
+    ]);
 
     const tagsAfter = db.prepare("SELECT * FROM tags ORDER BY id").all();
     expect(tagsAfter).toEqual(tagsBefore.map((t) => ({ ...t, family: null })));
@@ -438,6 +440,27 @@ describe("the tag-family migration", () => {
         .prepare("INSERT INTO tags (user_id, name) VALUES (?, ?)")
         .run(userId, "खुश"),
     ).toThrow(/UNIQUE/);
+    integrityOk(db);
+  });
+});
+
+describe("the suggested-feelings migration", () => {
+  it("adds an empty offered-feelings column and keeps every entry and tag", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 12));
+    seedJournal(db, { users: 1, entriesPerUser: 2 });
+    const entriesBefore = db
+      .prepare("SELECT * FROM journal_entries ORDER BY id")
+      .all();
+    const links = db.prepare("SELECT COUNT(*) AS n FROM journal_entry_tags");
+    const linksBefore = links.get().n;
+
+    expect(runMigrations(db).applied).toEqual(["suggested-feelings"]);
+
+    expect(
+      db.prepare("SELECT * FROM journal_entries ORDER BY id").all(),
+    ).toEqual(entriesBefore.map((e) => ({ ...e, suggested_tags: null })));
+    expect(links.get().n).toBe(linksBefore);
     integrityOk(db);
   });
 });

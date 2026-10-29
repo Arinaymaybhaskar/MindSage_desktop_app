@@ -104,13 +104,24 @@ export function sanitizeMoodTags(tags, custom = []) {
 }
 
 /**
+ * What one metadata call asks for (KAN-437): `enrich` is the title and the
+ * mood word, `feelings` the feeling words. Either can be left out.
+ */
+export const ALL_METADATA = Object.freeze({ enrich: true, feelings: true });
+
+/**
  * Parse + validate the AI metadata response. The model answers with one of
- * the five mood words; anything else is unusable. Returns a sanitized
- * { title, mood_score, mood_tags } object, or null when the output is unusable
- * (so callers can mark the entry failed instead of silently writing garbage).
+ * the five mood words; anything else is unusable. Returns a sanitized object
+ * with only the parts asked for ({ title, mood_score } and/or { mood_tags }),
+ * or null when the output is unusable (so callers can mark the entry failed
+ * instead of silently writing garbage).
  * `custom` is the user's own words that were offered in the prompt.
  */
-export function parseJournalMetadata(rawResponse, custom = []) {
+export function parseJournalMetadata(
+  rawResponse,
+  custom = [],
+  parts = ALL_METADATA,
+) {
   if (!rawResponse) return null;
   let parsed;
   try {
@@ -126,16 +137,22 @@ export function parseJournalMetadata(rawResponse, custom = []) {
     return null;
   }
 
-  const title =
-    typeof parsed.title === "string"
-      ? parsed.title.trim().slice(0, MAX_TITLE_CHARS).trim()
-      : "";
-  const mood_score = moodScoreFromWord(parsed.mood);
-  const mood_tags = sanitizeMoodTags(parsed.mood_tags, custom);
-
-  // Require at least a title and a mood score to consider it usable.
-  if (!title || mood_score == null) return null;
-  return { title, mood_score, mood_tags };
+  const out = {};
+  if (parts.enrich) {
+    out.title =
+      typeof parsed.title === "string"
+        ? parsed.title.trim().slice(0, MAX_TITLE_CHARS).trim()
+        : "";
+    out.mood_score = moodScoreFromWord(parsed.mood);
+    // Require at least a title and a mood score to consider it usable.
+    if (!out.title || out.mood_score == null) return null;
+  }
+  if (parts.feelings) {
+    out.mood_tags = sanitizeMoodTags(parsed.mood_tags, custom);
+    // Feelings alone with none usable is nothing to offer.
+    if (!parts.enrich && !out.mood_tags.length) return null;
+  }
+  return out;
 }
 
 /** Every journal call and Ask's planning step stop after this many tokens, on either provider. */
@@ -152,61 +169,84 @@ export const MAX_TITLE_CHARS = 80;
 /**
  * The shape getAutoPopulateValues asks for, forced as a grammar on the model.
  * `custom` (the user's own words, at most MAX_CUSTOM_IN_PROMPT) joins the enum.
+ * A part left out of `parts` is not in the schema at all.
  */
-export function journalMetadataSchema(custom = []) {
-  return {
-    type: "object",
-    properties: {
-      title: { type: "string", maxLength: MAX_TITLE_CHARS },
-      mood: { enum: MOOD_WORDS },
-      mood_tags: {
-        type: "array",
-        items: {
-          enum: [...CANONICAL_MOOD_TAGS.values(), ...custom.map((w) => w.name)],
-        },
-        minItems: 1,
-        maxItems: 5,
+export function journalMetadataSchema(custom = [], parts = ALL_METADATA) {
+  const properties = {};
+  if (parts.enrich) {
+    properties.title = { type: "string", maxLength: MAX_TITLE_CHARS };
+    properties.mood = { enum: MOOD_WORDS };
+  }
+  if (parts.feelings) {
+    properties.mood_tags = {
+      type: "array",
+      items: {
+        enum: [...CANONICAL_MOOD_TAGS.values(), ...custom.map((w) => w.name)],
       },
-    },
-    required: ["title", "mood", "mood_tags"],
-  };
+      minItems: 1,
+      maxItems: 5,
+    };
+  }
+  return { type: "object", properties, required: Object.keys(properties) };
 }
 export const JOURNAL_METADATA_SCHEMA = journalMetadataSchema();
 
-export function getAutoPopulateValues(content, custom = []) {
+export function getAutoPopulateValues(
+  content,
+  custom = [],
+  parts = ALL_METADATA,
+) {
   // Constructs the prompt asking the model to analyze a journal entry and
-  // return a structured JSON object with a title, a mood word, and tags.
-  // Callers send this with journalMetadataSchema(custom) so the output always
-  // parses; parseJournalMetadata then validates the values. The user's own
-  // words are listed under the family they picked.
-  const groups = Object.fromEntries(
-    Object.entries(MOOD_TAG_GROUPS).map(([f, words]) => [
-      f,
-      [...words, ...custom.filter((w) => w.family === f).map((w) => w.name)],
-    ]),
+  // return a structured JSON object: a title and a mood word (`enrich`)
+  // and/or feeling words (`feelings`). Callers send this with
+  // journalMetadataSchema(custom, parts) so the output always parses;
+  // parseJournalMetadata then validates the values. The user's own words are
+  // listed under the family they picked, and only when feelings are asked for.
+  const steps = [
+    "**Read and Analyze:** Carefully read the journal entry provided at the end of this prompt.",
+  ];
+  const keys = [];
+  let tagList = "";
+  if (parts.enrich) {
+    steps.push(
+      "**Create a Title:** Generate a concise, evocative title (3 to 7 words) capturing the main theme or feeling.",
+      `**Choose a Mood:** Exactly one of these words:
+    * \`${MOOD_WORDS[0]}\`: despair, grief, intense anger
+    * \`${MOOD_WORDS[1]}\`: sadness, frustration, anxiety
+    * \`${MOOD_WORDS[2]}\`: neutral or mixed feelings
+    * \`${MOOD_WORDS[3]}\`: content, hopeful, peaceful
+    * \`${MOOD_WORDS[4]}\`: joyful, inspired, triumphant`,
+    );
+    keys.push("`title` (string)", "`mood` (one of the five mood words above)");
+  }
+  if (parts.feelings) {
+    const groups = Object.fromEntries(
+      Object.entries(MOOD_TAG_GROUPS).map(([f, words]) => [
+        f,
+        [...words, ...custom.filter((w) => w.family === f).map((w) => w.name)],
+      ]),
+    );
+    steps.push(
+      '**Select Mood Tags:** Choose 1 to 5 of the most relevant tags. You **MUST** copy tags verbatim from the specific moods listed below (e.g., "Playful", "Lonely", "Frustrated"). Do **not** use the top-level category names (e.g., "Happy", "Sad") and do **not** invent new tags.',
+    );
+    keys.push("`mood_tags` (array of strings)");
+    tagList = `### Allowed Mood Tags (choose only from the specific values):
+
+${JSON.stringify(groups, null, 2)}
+
+`;
+  }
+  steps.push(
+    `**Output:** Return a single valid JSON object with exactly the keys ${keys.join(", ")}. No prose, no markdown, no text outside the JSON.`,
   );
-  const moodTagsJson = JSON.stringify(groups, null, 2);
   const prompt = `
 You are an expert AI assistant specializing in emotional analysis and sentiment extraction from text. Analyze the user's journal entry and return ONLY a JSON object.
 
 **Instructions:**
 
-1.  **Read and Analyze:** Carefully read the journal entry provided at the end of this prompt.
-2.  **Create a Title:** Generate a concise, evocative title (3 to 7 words) capturing the main theme or feeling.
-3.  **Choose a Mood:** Exactly one of these words:
-    * \`${MOOD_WORDS[0]}\`: despair, grief, intense anger
-    * \`${MOOD_WORDS[1]}\`: sadness, frustration, anxiety
-    * \`${MOOD_WORDS[2]}\`: neutral or mixed feelings
-    * \`${MOOD_WORDS[3]}\`: content, hopeful, peaceful
-    * \`${MOOD_WORDS[4]}\`: joyful, inspired, triumphant
-4.  **Select Mood Tags:** Choose 1 to 5 of the most relevant tags. You **MUST** copy tags verbatim from the specific moods listed below (e.g., "Playful", "Lonely", "Frustrated"). Do **not** use the top-level category names (e.g., "Happy", "Sad") and do **not** invent new tags.
-5.  **Output:** Return a single valid JSON object with exactly the keys \`title\` (string), \`mood\` (one of the five mood words above), and \`mood_tags\` (array of strings). No prose, no markdown, no text outside the JSON.
+${steps.map((step, i) => `${i + 1}.  ${step}`).join("\n")}
 
-### Allowed Mood Tags (choose only from the specific values):
-
-${moodTagsJson}
-
-### Journal Content to Analyze:
+${tagList}### Journal Content to Analyze:
 
 ${content}
   `;

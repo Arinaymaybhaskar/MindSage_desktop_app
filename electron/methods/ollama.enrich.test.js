@@ -19,9 +19,9 @@ vi.mock("../db/connection.js", () => ({
     }),
   },
 }));
-const updateJournalEntry = vi.hoisted(() => vi.fn((_u, _id, e) => e));
+const setSuggestedTags = vi.hoisted(() => vi.fn(() => null));
 vi.mock("../db/index.js", () => ({
-  default: { getJournalById, customFeelingWords, updateJournalEntry },
+  default: { getJournalById, customFeelingWords, setSuggestedTags },
 }));
 // The ONNX models (KAN-388): not downloaded unless a test says so.
 const classifyFeelings = vi.hoisted(() => vi.fn(async () => null));
@@ -29,13 +29,7 @@ const summarySupported = vi.hoisted(() => vi.fn(async () => null));
 vi.mock("../ai/onnx.js", () => ({ classifyFeelings, summarySupported }));
 vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
-const ALL_ON = {
-  title: true,
-  summary: true,
-  mood: true,
-  feelings: true,
-  suggestions: true,
-};
+const ALL_ON = { enrich: true, feelings: true, suggestions: true };
 const getFeatures = vi.hoisted(() => vi.fn());
 vi.mock("../ai/features.js", async (orig) => ({
   ...(await orig()),
@@ -66,7 +60,7 @@ beforeEach(() => {
   getFeatures.mockReset().mockReturnValue(ALL_ON);
   classifyFeelings.mockReset().mockResolvedValue(null);
   summarySupported.mockReset().mockResolvedValue(null);
-  updateJournalEntry.mockClear();
+  setSuggestedTags.mockClear();
 });
 
 describe("the ONNX classifier and entailment gate (KAN-388)", () => {
@@ -82,59 +76,62 @@ describe("the ONNX classifier and entailment gate (KAN-388)", () => {
       expect(generate).not.toHaveBeenCalled();
       return ["Hurt", "Lonely"];
     });
-    generate.mockResolvedValueOnce(METADATA).mockResolvedValueOnce(SUMMARY);
+    generate
+      .mockResolvedValueOnce('{"title":"A walk","mood":"Good"}')
+      .mockResolvedValueOnce(SUMMARY);
     eventBus.emit("journal:created", { entry });
     await drained();
-    expect(completed.at(-1)).toMatchObject({
+    // The chat model is not asked for feeling words the classifier gave.
+    const { schema } = generate.mock.calls[0][1];
+    expect(Object.keys(schema.properties)).toEqual(["title", "mood"]);
+    expect(completed.at(-1)).toEqual({
       title: "A walk",
+      mood_score: 4,
       mood_tags: ["Hurt", "Lonely"],
     });
   });
 
-  it("keeps the classifier's words when no chat model can run", async () => {
-    getJournalById.mockReturnValue({ ...entry, mood_tags: [] });
-    classifyFeelings.mockResolvedValue(["Content"]);
+  it("still offers the classifier's words when no chat model can run", async () => {
+    // The user ticks "Content" while the chat model is tried.
+    getJournalById
+      .mockReturnValueOnce(entry)
+      .mockReturnValue({ ...entry, mood_tags: ["Content"] });
+    classifyFeelings.mockResolvedValue(["Content", "Proud"]);
     generate.mockRejectedValue(new Error("The built-in AI is not downloaded"));
-    eventBus.emit("journal:created", { entry: { ...entry, mood_tags: [] } });
+    eventBus.emit("journal:created", { entry });
     await drained();
-    expect(updateJournalEntry).toHaveBeenCalledWith(7, 1, {
-      content: entry.content,
-      mood_tags: ["Content"],
-    });
+    // Offered, not tagged (KAN-437); one already ticked is not offered again.
+    expect(setSuggestedTags).toHaveBeenCalledWith(7, 1, ["Proud"]);
   });
 
-  it("asks the chat model nothing when the classifier covers every switch on", async () => {
-    getFeatures.mockReturnValue({
-      ...ALL_ON,
-      title: false,
-      mood: false,
-      summary: false,
-    });
+  it("asks the chat model nothing when Enrich entries is off and the classifier ran", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, enrich: false });
     classifyFeelings.mockResolvedValue(["Proud"]);
     eventBus.emit("journal:created", { entry });
     await drained();
     expect(generate).not.toHaveBeenCalled();
-    expect(completed.at(-1).mood_tags).toEqual(["Proud"]);
+    expect(completed.at(-1)).toEqual({ mood_tags: ["Proud"] });
   });
 
   it("writes a rejected summary once more, then holds it", async () => {
-    getFeatures.mockReturnValue({ ...ALL_ON, title: false, mood: false });
     classifyFeelings.mockResolvedValue([]);
     summarySupported.mockResolvedValue(false);
-    generate.mockResolvedValue(SUMMARY);
+    generate
+      .mockResolvedValueOnce('{"title":"A walk","mood":"Good"}')
+      .mockResolvedValue(SUMMARY);
     const before = saved.length;
     eventBus.emit("journal:created", { entry });
     await drained();
-    expect(generate).toHaveBeenCalledTimes(2); // two summary drafts, no chat metadata
+    expect(generate).toHaveBeenCalledTimes(3); // metadata, then two drafts
     expect(saved.length).toBe(before);
     expect(failed.at(-1)).toMatch(/valid summary/);
   });
 
   it("saves the second draft when it passes the gate", async () => {
-    getFeatures.mockReturnValue({ ...ALL_ON, title: false, mood: false });
     classifyFeelings.mockResolvedValue([]);
     summarySupported.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     generate
+      .mockResolvedValueOnce('{"title":"A walk","mood":"Good"}')
       .mockResolvedValueOnce(
         "The writer went skiing in the mountains with friends.",
       )
@@ -145,35 +142,46 @@ describe("the ONNX classifier and entailment gate (KAN-388)", () => {
   });
 });
 
-describe("AI feature switches (KAN-70)", () => {
-  it("enqueues no summary job when summary is off", async () => {
-    getFeatures.mockReturnValue({ ...ALL_ON, summary: false });
-    generate.mockResolvedValueOnce(METADATA);
+describe("AI feature switches (KAN-70, KAN-437)", () => {
+  it("with Enrich entries off, asks for feeling words only and no summary", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, enrich: false });
+    generate.mockResolvedValueOnce('{"mood_tags":["Content"]}');
+    const completed = [];
+    eventBus.on("journal:aiCompleted", (e) => completed.push(e.metadata));
     eventBus.emit("journal:created", { entry });
     await drained();
     expect(generate).toHaveBeenCalledTimes(1);
-    expect(generate.mock.calls[0][1].schema).toBeDefined();
+    const [prompt, opts] = generate.mock.calls[0];
+    expect(Object.keys(opts.schema.properties)).toEqual(["mood_tags"]);
+    expect(prompt).not.toMatch(/Choose a Mood|Create a Title/);
+    expect(completed.at(-1)).toEqual({ mood_tags: ["Content"] });
   });
 
-  it("enqueues no title/mood/feelings job when all three are off", async () => {
-    getFeatures.mockReturnValue({
-      ...ALL_ON,
-      title: false,
-      mood: false,
-      feelings: false,
-    });
-    generate.mockResolvedValueOnce(SUMMARY);
+  it("with Suggest feelings off, sends no feeling word, the user's own included", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, feelings: false });
+    customFeelingWords.mockClear();
+    generate
+      .mockResolvedValueOnce('{"title":"A walk","mood":"Good"}')
+      .mockResolvedValueOnce(SUMMARY);
     eventBus.emit("journal:created", { entry });
     await drained();
-    expect(generate).toHaveBeenCalledTimes(1);
-    expect(generate.mock.calls[0][1].schema).toBeUndefined();
+    const [prompt, opts] = generate.mock.calls[0];
+    expect(Object.keys(opts.schema.properties)).toEqual(["title", "mood"]);
+    expect(prompt).not.toMatch(/Mood Tags|Playful/);
+    expect(customFeelingWords).not.toHaveBeenCalled();
+    expect(generate).toHaveBeenCalledTimes(2); // the summary still runs
+  });
+
+  it("enqueues no title/mood/feelings job when both are off", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, enrich: false, feelings: false });
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
   });
 
   it("enqueues nothing with every feature off", async () => {
     getFeatures.mockReturnValue({
-      title: false,
-      summary: false,
-      mood: false,
+      enrich: false,
       feelings: false,
       suggestions: false,
     });
@@ -186,13 +194,7 @@ describe("AI feature switches (KAN-70)", () => {
     let endAsk;
     const ask = foreground(() => new Promise((r) => (endAsk = r)));
     eventBus.emit("journal:created", { entry });
-    getFeatures.mockReturnValue({
-      ...ALL_ON,
-      title: false,
-      mood: false,
-      feelings: false,
-      summary: false,
-    });
+    getFeatures.mockReturnValue({ ...ALL_ON, enrich: false, feelings: false });
     endAsk();
     await ask;
     await drained();

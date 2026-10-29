@@ -69,6 +69,43 @@ describe("mood word schema (KAN-93)", () => {
   });
 });
 
+describe("asking for enrichment and feelings apart (KAN-437)", () => {
+  const own = [{ name: "खुशी", family: "Happy" }];
+  const enrichOnly = { enrich: true, feelings: false };
+  const feelingsOnly = { enrich: false, feelings: true };
+
+  it("leaves feeling words, the user's own included, out of an enrich-only call", () => {
+    const schema = journalMetadataSchema(own, enrichOnly);
+    expect(Object.keys(schema.properties)).toEqual(["title", "mood"]);
+    expect(schema.required).toEqual(["title", "mood"]);
+    const prompt = getAutoPopulateValues("text", own, enrichOnly);
+    expect(prompt).not.toMatch(/Mood Tags|Playful|खुशी/);
+    expect(prompt).toMatch(/exactly the keys `title` \(string\), `mood`/);
+    expect(
+      parseJournalMetadata('{"title":"A walk","mood":"Good"}', [], enrichOnly),
+    ).toEqual({ title: "A walk", mood_score: 4 });
+  });
+
+  it("asks a feelings-only call for no title or mood, and writes none", () => {
+    const schema = journalMetadataSchema(own, feelingsOnly);
+    expect(Object.keys(schema.properties)).toEqual(["mood_tags"]);
+    const prompt = getAutoPopulateValues("text", own, feelingsOnly);
+    expect(prompt).not.toMatch(/Create a Title|Choose a Mood/);
+    expect(prompt).toContain("खुशी");
+    expect(
+      parseJournalMetadata(
+        '{"title":"x","mood":"Good","mood_tags":["खुशी"]}',
+        own,
+        feelingsOnly,
+      ),
+    ).toEqual({ mood_tags: ["खुशी"] });
+    // Nothing usable is a failure, not an empty suggestion list.
+    expect(
+      parseJournalMetadata('{"mood_tags":["Invented"]}', own, feelingsOnly),
+    ).toBeNull();
+  });
+});
+
 describe("sanitizeMoodTags", () => {
   it("keeps only known tags, canonicalizes case, dedupes, caps at 5", () => {
     expect(sanitizeMoodTags(["playful", "PLAYFUL", "Lonely"])).toEqual([
