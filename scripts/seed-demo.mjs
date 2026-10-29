@@ -681,7 +681,7 @@ const { streak } = db
 log(`
 Done.
 
-  Login       ${PERSONA.email}  /  ${PERSONA.password}
+  Login       ${PERSONA.username}  /  ${PERSONA.password}
   Entries     ${stats.entries} across ${stats.days} distinct days
   Words       ${stats.words?.toLocaleString() ?? 0}
   Avg mood    ${stats.avgMood} / 5
@@ -689,7 +689,7 @@ Done.
   Images      ${imagesAttached}
 
 Next:
-  1. npm run dev, then log in as ${PERSONA.email}
+  1. npm run dev, then log in as ${PERSONA.username}
   2. In DevTools: localStorage.setItem("setup_complete", "1"); localStorage.setItem("zoom_scale", "100")
   3. With Ollama + nomic-embed-text running, the app indexes the entries by itself on start
 `);

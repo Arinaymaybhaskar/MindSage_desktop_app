@@ -12,17 +12,16 @@ export type AIState =
   | "ready";
 
 /**
- * When two states apply, the first in this list wins. Failures and states the
- * user must act on come before progress; downloading beats setup (the setup is
- * being done) and beats working (a model download is the longer wait).
+ * When two states apply, the first in this list wins (KAN-64): failures and
+ * states the user must act on come before progress.
  */
 export const AI_STATE_PRIORITY: readonly AIState[] = [
   "error",
-  "starting",
-  "paused",
-  "stopped",
-  "downloading",
   "setup",
+  "stopped",
+  "paused",
+  "downloading",
+  "starting",
   "working",
   "ready",
 ];
@@ -52,11 +51,11 @@ export interface AIStatusFacts {
 export function deriveAIState(f: AIStatusFacts): AIState {
   const applies: Record<AIState, boolean> = {
     error: f.restart === "error" || f.downloadFailed,
-    starting: f.restart === "starting",
-    paused: f.downloadPaused,
-    stopped: f.stopped,
-    downloading: f.downloading,
     setup: f.needsSetup,
+    stopped: f.stopped,
+    paused: f.downloadPaused,
+    downloading: f.downloading,
+    starting: f.restart === "starting",
     working: f.working,
     ready: true,
   };

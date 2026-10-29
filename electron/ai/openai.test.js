@@ -25,7 +25,7 @@ const { validateProvider } = await import("./providers.js");
 const { JOURNAL_METADATA_SCHEMA, parseJournalMetadata, sanitizeSummary } =
   await import("../methods/AIPrompts.js");
 
-const METADATA = '{"title":"A walk","mood_score":4,"mood_tags":["Content"]}';
+const METADATA = '{"title":"A walk","mood":"Good","mood_tags":["Content"]}';
 const SUMMARY = "The writer walked home in the rain and felt calm.";
 let server;
 let port;

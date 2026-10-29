@@ -11,6 +11,7 @@ import Store from "electron-store";
 import { BrowserWindow, powerMonitor } from "electron";
 import { eventBus } from "../eventBus.js";
 import { generate, modelName } from "../ai/client.js";
+import { background } from "../ai/queue.js";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
 import * as peopleDb from "../db/people.js";
@@ -260,10 +261,13 @@ async function processEntry(userId, entry) {
 
   let found = [];
   if (shouldExtract(text, peopleDb.trackedAliases(userId))) {
-    const raw = await aiJson(
-      buildExtractionPrompt({ sentences, knownPeople: known, ignored }),
-      EXTRACTION_SCHEMA,
-      400,
+    // Background work: waits behind Ask and earlier AI jobs (KAN-392).
+    const raw = await background(() =>
+      aiJson(
+        buildExtractionPrompt({ sentences, knownPeople: known, ignored }),
+        EXTRACTION_SCHEMA,
+        400,
+      ),
     );
     found = groundExtraction(raw, {
       text,
@@ -278,13 +282,15 @@ async function processEntry(userId, entry) {
       for (const f of found) {
         try {
           const second = parseFeeling(
-            await aiJson(
-              buildFeelingPrompt(
-                f.nameAsWritten,
-                feelingExcerpt(sentences, f.sentences),
+            await background(() =>
+              aiJson(
+                buildFeelingPrompt(
+                  f.nameAsWritten,
+                  feelingExcerpt(sentences, f.sentences),
+                ),
+                FEELING_SCHEMA,
+                80,
               ),
-              FEELING_SCHEMA,
-              80,
             ),
           );
           if (second) Object.assign(f, second);

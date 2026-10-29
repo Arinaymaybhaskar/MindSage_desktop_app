@@ -15,6 +15,7 @@ import {
   parseCsv,
   toIso,
 } from "../common.js";
+import { moodWord } from "../../moodWords.js";
 
 // Daylio's five default moods onto our 1 to 5 scale.
 const DAYLIO_MOODS = { rad: 5, good: 4, meh: 3, bad: 2, awful: 1 };
@@ -147,6 +148,8 @@ export const csv = {
         "title",
         "content",
         "mood",
+        // The number stays in "mood" so older imports still read it.
+        "mood_word",
         "tags",
         "created_at_utc",
       ].join(","),
@@ -160,6 +163,7 @@ export const csv = {
           e.title ?? "",
           e.content,
           e.mood ?? "",
+          moodWord(e.mood) ?? "",
           e.tags.join("|"),
           e.createdAt,
         ]

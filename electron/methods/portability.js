@@ -12,6 +12,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
+import Store from "electron-store";
+import { eventBus } from "../eventBus.js";
 import localDB from "../db/index.js";
 import { db } from "../db/connection.js";
 import { exportEverything } from "../db/exportData.js";
@@ -29,6 +31,8 @@ import { modelStore } from "../store.js";
 import { modelsReady } from "../ai/llama.js";
 import { importStatuses } from "./importBackfill.js";
 import { backfillEnrichment } from "./ollama.js";
+import { clampMoodLevel } from "../moodWords.js";
+import { log } from "../log.js";
 
 const requireUser = () => {
   const id = currentUserId();
@@ -65,6 +69,7 @@ function loadEntries(userId) {
     )
     .all(userId);
   let missingMedia = 0;
+  let outOfRange = 0;
   const media = (key) => {
     if (!key) return [];
     try {
@@ -74,17 +79,24 @@ function loadEntries(userId) {
       return [];
     }
   };
+  const mood = (score) => {
+    const level = clampMoodLevel(score);
+    if (level !== null && level !== score) outOfRange++;
+    return level;
+  };
   const entries = rows.map((r) => ({
     title: r.title || null,
     content: r.content ?? "",
     createdAt: r.created_at,
     updatedAt: r.updated_at || null,
-    // 1 to 5; 0 is how Quick Capture writes "none".
-    mood: r.mood_score || null,
+    // 1 to 5; a stored score outside that is clamped, as the app shows it.
+    mood: mood(r.mood_score),
     tags: r.tag_list ? r.tag_list.split("\u001f") : [],
     images: media(r.image_key),
     audio: media(r.audio_key),
   }));
+  if (outOfRange)
+    log.warn("export: mood scores out of 1 to 5 were clamped", { outOfRange });
   return { entries, missingMedia };
 }
 
@@ -132,7 +144,30 @@ export function importErrorText(err, name) {
 }
 
 let pending = null; // { userId, format, entries, duplicates }
-let lastImport = null; // { userId, ids, at }
+
+// Each profile's latest import, { at, source, ids, edited }, kept across
+// restarts so it can still be undone (KAN-74). Ids only, never entry text; a
+// newer import replaces it, so only the latest can be undone.
+let store; // lazy: importing this file must not open the store
+const imports = () =>
+  (store ??= new Store({ name: "last-import", defaults: { users: {} } }));
+const getLast = (userId) => imports().get(`users.${userId}`) ?? null;
+const setLast = (userId, last) =>
+  last
+    ? imports().set(`users.${userId}`, last)
+    : imports().delete(`users.${userId}`);
+
+// Only the editor's save emits journal:edited (AI fills do not), so an edit
+// here means the person changed an imported entry: Undo would lose that.
+eventBus.on("journal:edited", ({ userId, entry }) => {
+  try {
+    const last = userId && getLast(userId);
+    if (last && !last.edited && last.ids.includes(entry?.id))
+      setLast(userId, { ...last, edited: true });
+  } catch {
+    // The edit is saved either way; Undo stays as it was.
+  }
+});
 
 const dedupeKey = (createdAt, content, title) =>
   `${String(createdAt).slice(0, 16)}|${String(content || title || "")
@@ -269,6 +304,7 @@ const aiReady = () =>
 export async function handleCommitImport() {
   const userId = requireUser();
   if (importing) throw new Error("An import is already running");
+  if (undoing) throw new Error("Wait for the undo to finish");
   if (!pending || pending.userId !== userId)
     throw new Error("Nothing to import; pick a file first");
   const { entries, format } = pending;
@@ -289,9 +325,16 @@ export async function handleCommitImport() {
     return dest;
   };
 
-  // Set first: if a later chunk fails, the chunks already written can be undone.
+  // Saved after every chunk: if the app stops part way, what was written can
+  // still be undone. A failed import puts the previous one back.
   const ids = [];
-  lastImport = { userId, ids, at: new Date().toISOString() };
+  const previous = getLast(userId);
+  const last = {
+    at: new Date().toISOString(),
+    source: FORMAT_NAMES[format] ?? null,
+    ids,
+    edited: false,
+  };
   const statuses = importStatuses(entries);
   const fixUp = db.prepare(
     "UPDATE journal_entries SET mood_score = ?, updated_at = ? WHERE id = ?",
@@ -340,6 +383,7 @@ export async function handleCommitImport() {
     report("import:bulkStarted", { kind, total });
     for (let from = 0; from < total; from += CHUNK) {
       ids.push(...writeChunk(from));
+      setLast(userId, last);
       report("import:bulkProgress", { kind, done: ids.length, total });
       await new Promise((resolve) => setImmediate(resolve));
     }
@@ -349,7 +393,7 @@ export async function handleCommitImport() {
     const written = ids.splice(0);
     await removeEntries(userId, written).catch(() => undefined);
     for (const f of savedFiles) fs.rmSync(f, { force: true });
-    lastImport = null;
+    setLast(userId, previous);
     pending = { userId, format, entries };
     throw new Error(
       importErrorText(err) ??
@@ -372,14 +416,34 @@ export async function handleCommitImport() {
   return { imported: ids.length };
 }
 
+/** The signed-in profile's latest import, for the Import tab, or null. */
+export async function handleLastImport() {
+  const last = getLast(requireUser());
+  if (!last?.ids.length) return null;
+  const { at, source, ids, edited } = last;
+  return { at, source, count: ids.length, edited };
+}
+
+let undoing = false;
+
 export async function handleUndoImport() {
   const userId = requireUser();
   if (importing) throw new Error("Wait for the import to finish");
-  if (!lastImport || lastImport.userId !== userId)
-    throw new Error("No import to undo");
-  const removed = await removeEntries(userId, lastImport.ids);
-  lastImport = null;
-  return { removed };
+  if (undoing) throw new Error("Undo is already running");
+  const last = getLast(userId);
+  if (!last?.ids.length) throw new Error("No import to undo");
+  if (last.edited)
+    throw new Error(
+      "Undo is off because an entry from this import was edited since. Delete the entries you don't want instead.",
+    );
+  undoing = true;
+  try {
+    const removed = await removeEntries(userId, last.ids);
+    setLast(userId, null);
+    return { removed };
+  } finally {
+    undoing = false;
+  }
 }
 
 // Removes entries outright rather than filling the Trash with every one of

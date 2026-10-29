@@ -25,9 +25,21 @@ const DEFAULT_MAX_TOKENS = 512;
 // Set before the GPU is first used and cleared once a call has worked there or
 // the app quit cleanly; still set at launch means the GPU took the app down.
 const GPU_PENDING = "builtinGpuPending";
-const CPU_ONLY = "builtinCpuOnly"; // why the GPU is not used, kept across launches
+const CPU_ONLY = "builtinCpuOnly"; // { reason, at }: why the GPU is not used
+// The GPU is tried again after this, so an unclean exit while starting (a
+// kill, a crash, a shutdown) or a one-off load error does not pin the CPU for
+// good; a GPU that still fails is caught again the same way.
+const GPU_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 const GPU_CRASHED =
   "The GPU stopped MindSage last time, so the built-in AI runs on the CPU.";
+
+const rememberCpuOnly = (reason) =>
+  modelStore.set(CPU_ONLY, { reason, at: Date.now() });
+/** The saved reason while it is recent; a bare string (saved before expiry existed) has expired. */
+function savedCpuOnly() {
+  const saved = modelStore.get(CPU_ONLY);
+  return saved?.at > Date.now() - GPU_RETRY_MS ? saved.reason : null;
+}
 
 let modelsRoot = null;
 /** main.js sets this from userData before anything uses the engine. */
@@ -99,12 +111,15 @@ const ready = new Map(); // model id -> { model, ctx, sequence, queue, closed }
 function getEngine() {
   engine ??= (async () => {
     if (!gpuFallback && modelStore.get(GPU_PENDING)) {
-      modelStore.set(CPU_ONLY, GPU_CRASHED);
+      rememberCpuOnly(GPU_CRASHED);
       modelStore.delete(GPU_PENDING);
       log.warn("Built-in AI: the GPU crashed last launch, using the CPU");
     }
-    gpuFallback ??= modelStore.get(CPU_ONLY) ?? null;
-    if (!gpuFallback) modelStore.set(GPU_PENDING, true);
+    gpuFallback ??= savedCpuOnly();
+    if (!gpuFallback) {
+      modelStore.delete(CPU_ONLY);
+      modelStore.set(GPU_PENDING, true);
+    }
     lib ??= await import("node-llama-cpp");
     const llama = await lib.getLlama({
       // "auto" tries CUDA, then Vulkan, then the CPU build, whichever loads.
@@ -172,7 +187,7 @@ export async function shutdown() {
 /** A GPU that fails to load a model gets the CPU from then on, with a notice. */
 async function fallBackToCpu(reason) {
   gpuFallback = reason;
-  modelStore.set(CPU_ONLY, reason);
+  rememberCpuOnly(reason);
   modelStore.delete(GPU_PENDING);
   log.warn("Built-in AI: the GPU failed, running on the CPU", { reason });
   const old = engine;
@@ -208,7 +223,12 @@ async function open(id) {
     const sequence = spec.role === "embed" ? null : ctx.getSequence();
     const entry = { model, ctx, sequence, queue: Promise.resolve() };
     ready.set(id, entry);
-    log.info("Built-in AI model loaded", { id, gpu: llama.gpu });
+    log.info("Built-in AI model loaded", {
+      id,
+      gpu: llama.gpu,
+      gpuLayers: model.gpuLayers,
+      contextSize: spec.role === "embed" ? EMBED_CONTEXT : ctx.contextSize,
+    });
     return entry;
   } catch (err) {
     await model?.dispose().catch(() => {});
@@ -332,7 +352,7 @@ export async function status() {
   const llama = await engine?.catch(() => null);
   return {
     gpu: llama ? llama.gpu : null,
-    gpuFallback: gpuFallback ?? modelStore.get(CPU_ONLY) ?? null,
+    gpuFallback: gpuFallback ?? savedCpuOnly(),
     chatModel: chatModelId(),
     models: Object.entries(BUILTIN_MODELS).map(([id, spec]) => ({
       id,

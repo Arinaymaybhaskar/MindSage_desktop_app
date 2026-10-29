@@ -308,3 +308,33 @@ describe("merge and ignore with entries in the trash", () => {
     expect(mentionRows(p)).toHaveLength(0);
   });
 });
+
+describe("extraction and the shared AI queue (KAN-392)", () => {
+  it("waits while Ask answers, then runs", async () => {
+    const { foreground } = await import("../ai/queue.js");
+    entry(
+      "Had lunch with Priya today and she told me all about her new job in the city.",
+    );
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ response: JSON.stringify({ people: [] }) }),
+    }));
+    let endAsk;
+    const ask = foreground(() => new Promise((resolve) => (endAsk = resolve)));
+    people.handleRetryFailed(); // starts the People queue
+    await vi.waitFor(() => expect(peopleDb.jobCounts(alice).running).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(fetch).not.toHaveBeenCalled();
+
+    endAsk();
+    await ask;
+    await vi.waitFor(
+      () => {
+        const { queued, running } = peopleDb.jobCounts(alice);
+        expect(queued + running).toBe(0);
+      },
+      { timeout: 5000 },
+    );
+    expect(fetch).toHaveBeenCalled();
+  });
+});

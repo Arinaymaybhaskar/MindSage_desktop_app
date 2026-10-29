@@ -33,7 +33,7 @@ export default function Login() {
       login(res.userInfo);
       navigate("/");
     } catch (err) {
-      setError(errorMessage(err, "Invalid username or password"));
+      setError(errorMessage(err, "Invalid profile name or password"));
     } finally {
       setIsLoading(false);
     }
@@ -57,17 +57,17 @@ export default function Login() {
           )}
           <div>
             <label htmlFor="identifier" className={labelClasses}>
-              Username or Email
+              Profile name
             </label>
             <input
               id="identifier"
               name="identifier"
-              autoComplete="identifier"
+              autoComplete="username"
               required
               value={form.identifier}
               onChange={(e) => setForm({ ...form, identifier: e.target.value })}
               className={inputClasses}
-              placeholder="Enter your username or email"
+              placeholder="Enter your profile name"
             />
           </div>
           <div>

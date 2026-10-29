@@ -4,6 +4,7 @@ import isToday from "dayjs/plugin/isToday";
 import clsx from "clsx";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { moodWord } from "../../electron/moodWords";
 
 dayjs.extend(isToday);
 
@@ -21,7 +22,7 @@ type Props = {
 const MOOD_COLOR_CLASSES = [
   "bg-danger", // Mood 1 (Worst)
   "bg-warning", // Mood 2
-  "bg-light1 dark:bg-dark1", // Mood 3 (Neutral)
+  "bg-light1 dark:bg-dark1", // Mood 3 (Steady)
   "bg-success/80", // Mood 4 (A slightly lighter success)
   "bg-success", // Mood 5 (Best)
 ];
@@ -120,7 +121,7 @@ export const MoodCalendar: React.FC<Props> = ({
           </button>
           {moodScore !== undefined && (
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-base-dark text-text-dark text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-              Mood: {moodScore.toFixed(1)} / 5
+              Mood: {moodWord(moodScore)}
             </div>
           )}
         </div>,
