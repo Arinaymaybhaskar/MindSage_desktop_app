@@ -168,6 +168,34 @@ describe("the AI connection's profile guard", () => {
   });
 });
 
+describe("Ask's history as profile A (KAN-444)", () => {
+  it("reads only the asked chat, and never another profile's", () => {
+    const chat = (userId) =>
+      Number(
+        db
+          .prepare(`INSERT INTO chats (user_id, title) VALUES (?, 'c')`)
+          .run(userId).lastInsertRowid,
+      );
+    const say = (chatId, content) =>
+      db
+        .prepare(
+          `INSERT INTO messages (chat_id, sender, content) VALUES (?, 'user', ?)`,
+        )
+        .run(chatId, content);
+    const mine = chat(a);
+    const other = chat(a);
+    const theirs = chat(b);
+    for (let i = 1; i <= 10; i++) say(mine, `mine ${i}`);
+    say(other, "other chat");
+    say(theirs, "B secret");
+
+    expect(localDB.recentMessages(a, mine, 8).map((m) => m.content)).toEqual(
+      Array.from({ length: 8 }, (_, i) => `mine ${i + 3}`),
+    );
+    expect(localDB.recentMessages(a, theirs, 8)).toEqual([]);
+  });
+});
+
 describe("Ask's search as profile A", () => {
   it("returns A's entry and never B's, though both match", () => {
     const hits = search.semanticSearch(vec(), a, 10, { threshold: 0 });

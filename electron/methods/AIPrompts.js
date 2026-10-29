@@ -360,12 +360,57 @@ Relevance Score: ${item.score?.toFixed?.(3) ?? "N/A"}
     .join("\n");
 }
 
+// --- Conversation history (KAN-444) ---
+export const HISTORY_MESSAGES = 8;
+export const HISTORY_MESSAGE_CHARS = 500;
+// shortcut: a fixed budget sized for the smallest context (2048 tokens, the
+// built-in engine's floor); count tokens per model if answers get cut short.
+export const HISTORY_CHARS = 2400;
+
+/**
+ * The earlier turns to send, oldest first: the last HISTORY_MESSAGES, each cut
+ * to a fixed size (an answer loses its stored "Follow-up:" line), then the
+ * oldest dropped until the whole fits HISTORY_CHARS.
+ * @param {Array<{ sender: "user"|"ai", content: string }>} messages oldest first
+ */
+export function trimHistory(messages = []) {
+  const turns = messages.slice(-HISTORY_MESSAGES).map(({ sender, content }) => {
+    const text = String(content ?? "")
+      .split("\n\nFollow-up: ")[0]
+      .trim();
+    return {
+      sender,
+      content:
+        text.length > HISTORY_MESSAGE_CHARS
+          ? `${text.slice(0, HISTORY_MESSAGE_CHARS).trimEnd()}...`
+          : text,
+    };
+  });
+  let total = turns.reduce((n, t) => n + t.content.length, 0);
+  while (turns.length && total > HISTORY_CHARS) {
+    total -= turns.shift().content.length;
+  }
+  return turns;
+}
+
+/** The history block for a prompt; empty for the first message of a chat. */
+export function formatHistory(history = []) {
+  if (!history.length) return "";
+  const lines = history.map(
+    (t) => `${t.sender === "user" ? "Person" : "MindSage"}: ${t.content}`,
+  );
+  return `
+Earlier in this conversation (oldest first). Use it to understand what the new question refers to:
+${lines.join("\n")}
+`;
+}
+
 // Ask is a reflection tool, not advice or therapy (KAN-51): both Ask prompts
 // carry this rule.
 export const NO_ADVICE_RULE = `- You are a reflection tool, not a therapist or an adviser. Do NOT give advice, instructions, diagnoses or recommendations about what the user should do. Reflect what the entries show and ask what matters to them. If the user seems to be in danger or distress, say gently that talking to someone they trust or a local support line can help, without giving clinical guidance.`;
 
 // --- 2. Respond with context ---
-export function respondWithContext(entry, context) {
+export function respondWithContext(entry, context, history = []) {
   // REVISED instruction block for clarity and perspective control.
   const followUpInstruction = `
 - Include a "suggested_user_prompt" the user can copy/paste and send to the AI next.
@@ -396,7 +441,7 @@ ${followUpInstruction}
   }
 
 ---
-
+${formatHistory(history)}
 User Query:
 "${entry}"
 
@@ -412,7 +457,7 @@ MindSage Response (JSON):
 }
 
 // --- 3. Respond without context ---
-export function respondWithoutContext(entry) {
+export function respondWithoutContext(entry, history = []) {
   // REVISED instruction block for clarity and perspective control.
   const followUpInstruction = `
 - Include a "suggested_user_prompt" the user can copy/paste and send to the AI next.
@@ -439,7 +484,7 @@ ${followUpInstruction}
   }
 
 ---
-
+${formatHistory(history)}
 User Query:
 "${entry}"
 
@@ -452,6 +497,7 @@ MindSage Response (JSON):
 export function generateContextTimeAndBaseQueryPrompt(
   userQuery,
   currentTimeISO,
+  history = [],
 ) {
   log.info(currentTimeISO, "current time");
   return `
@@ -461,7 +507,7 @@ Your tasks:
 1. Decide if the query requires past journal entries for context.
 2. Decide if the query should be restricted to a specific time range.
 3. If a time filter is required, provide "time_filter_from" and "time_filter_to" in ISO 8601 format using the provided current time as reference.
-4. Extract the "base_query" for semantic search by removing temporal references (e.g., "last week", "yesterday", "in October") but keep the core meaning.
+4. Extract the "base_query" for semantic search by removing temporal references (e.g., "last week", "yesterday", "in October") but keep the core meaning. If the query is a follow-up to the conversation (e.g., "and in September?", "why is that?"), write base_query about the topic it refers to, taken from the earlier turns.
 5. Provide optional notes explaining your reasoning.
 
 Always respond in **strict JSON** with the following keys:
@@ -476,7 +522,7 @@ Always respond in **strict JSON** with the following keys:
 }
 
 Current time reference: "${currentTimeISO}"
-
+${formatHistory(history)}
 User Query:
 "${userQuery}"
 

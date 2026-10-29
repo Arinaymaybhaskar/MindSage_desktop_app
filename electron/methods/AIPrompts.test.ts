@@ -218,3 +218,41 @@ describe("Ask prompts carry the no-advice rule", () => {
     expect(m.respondWithoutContext("q")).toContain(m.NO_ADVICE_RULE);
   });
 });
+
+describe("Ask history (KAN-444)", () => {
+  it("keeps the newest turns, cuts long answers and drops the oldest to fit", async () => {
+    // @ts-expect-error plain JS module without type declarations
+    const m = await import("./AIPrompts.js");
+    const long = "word ".repeat(400);
+    const messages = Array.from({ length: 12 }, (_, i) => ({
+      sender: i % 2 ? "ai" : "user",
+      content: i % 2 ? `${long}\n\nFollow-up: more?` : `question ${i}`,
+    }));
+
+    const turns = m.trimHistory(messages);
+
+    expect(turns.length).toBeLessThanOrEqual(m.HISTORY_MESSAGES);
+    expect(turns.at(-1).content).toBe(`${long.slice(0, 500).trimEnd()}...`);
+    expect(
+      turns.map((t: { content: string }) => t.content).join(""),
+    ).not.toContain("Follow-up");
+    const total = turns.reduce(
+      (n: number, t: { content: string }) => n + t.content.length,
+      0,
+    );
+    expect(total).toBeLessThanOrEqual(m.HISTORY_CHARS);
+    // Oldest first, and only the newest survive.
+    expect(turns.at(-2).content).toBe("question 10");
+    expect(m.trimHistory([])).toEqual([]);
+
+    // Eight long turns are over the budget: the oldest go first.
+    const all = Array.from({ length: 8 }, (_, i) => ({
+      sender: "ai",
+      content: `${i}${long}`,
+    }));
+    const kept = m.trimHistory(all);
+    expect(kept.length).toBeLessThan(8);
+    expect(kept.at(-1).content.startsWith("7")).toBe(true);
+    expect(kept[0].content.startsWith(String(8 - kept.length))).toBe(true);
+  });
+});
