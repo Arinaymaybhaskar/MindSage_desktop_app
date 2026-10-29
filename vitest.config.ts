@@ -23,5 +23,15 @@ export default defineConfig({
     // The default "forks" pool times out starting workers on Node 26; threads
     // is reliable here. Revisit once the toolchain targets an LTS Node.
     pool: "threads",
+    // Local only (`npm run test:coverage`); CI runs plain `npm test`.
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}", "electron/**/*.js"],
+      exclude: ["**/*.test.*", "**/*.d.ts", "src/test/**"],
+      reporter: ["text-summary", "html"],
+      reportsDirectory: "coverage",
+      // Timing-flaky tests (log, hooks) must not hide the report.
+      reportOnFailure: true,
+    },
   },
 });

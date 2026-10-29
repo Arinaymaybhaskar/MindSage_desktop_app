@@ -73,3 +73,4 @@ npm run gen:images             # regenerate demo imagery
 ```
 
 Capture drives the real Electron window over CDP — pointing a browser at the Vite URL gives you no `window.electron`, so every IPC call rejects and the app renders empty.
+- `npm run test:coverage` writes a v8 coverage report (text summary plus `coverage/index.html`). Local only, not in CI; `test:db` is not covered.
