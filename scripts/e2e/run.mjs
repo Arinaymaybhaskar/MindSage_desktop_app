@@ -97,6 +97,7 @@ async function main() {
     await page.getByText("Welcome to MindSage").waitFor();
     await page.getByText("Get started").click();
     await page.getByText("Create your profile").waitFor();
+    await page.getByText("Step 1 of 2: Profile").waitFor();
   });
 
   await step("sign up", async () => {

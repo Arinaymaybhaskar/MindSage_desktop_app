@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { MindSageMark } from "../components/ui/MindSageMark";
+import { SetupStepBar } from "../components/SetupStepBar";
 import {
   setupService,
   appPrefsService,
@@ -222,6 +223,7 @@ export default function Onboarding() {
     <div className="h-full overflow-y-auto bg-base-light dark:bg-base-dark">
       <div className="mx-auto max-w-2xl px-6 py-12">
         <div className="mb-8 text-center">
+          <SetupStepBar step={2} />
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-dark1/10 dark:bg-light1/10">
             <MindSageMark size={28} className="text-dark1 dark:text-light1" />
           </div>
