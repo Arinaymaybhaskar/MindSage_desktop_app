@@ -15,6 +15,8 @@ export default defineConfig({
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       "electron/**/*.{test,spec}.{js,ts}",
+      // The Ask test set's journal, questions and scoring (pure modules).
+      "scripts/ask-eval/**/*.test.js",
       // Claude Code project hooks (plain Node scripts, spawned by the tests).
       ".claude/hooks/**/*.test.mjs",
     ],

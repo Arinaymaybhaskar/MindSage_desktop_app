@@ -63,3 +63,6 @@ e2e-artifacts/
 resources/*
 !resources/binaries.json
 coverage/
+
+# Ask test set reports and scores (npm run ask:eval)
+.ask-eval/

@@ -177,14 +177,24 @@ async function lookUp(plan, content) {
       .filter(([, value]) => value != null && value !== ""),
   );
   const result = await runTool(name, args);
-  if (result.ok) return result;
+  if (result.ok) return { ...result, tool: { name, args } };
   log.info("Ask tool refused its arguments; searching the question", {
     tool: name,
   });
-  return runTool("search_entries", { query: content });
+  const fallback = { query: content };
+  return {
+    ...(await runTool("search_entries", fallback)),
+    tool: { name: "search_entries", args: fallback },
+  };
 }
 
-async function aiResponse(content, chatId, messageId, model, hooks = {}) {
+export async function aiResponse(
+  content,
+  chatId,
+  messageId,
+  model,
+  hooks = {},
+) {
   const {
     onPhase = () => {},
     onDelta = () => {},
@@ -270,7 +280,15 @@ async function aiResponse(content, chatId, messageId, model, hooks = {}) {
     });
     stillAsker();
     chatResponse.response = lead + chatResponse.response;
-    return { chatResponse, chatId, messageId, semanticResult };
+    // plan and tool: what ran, for the Ask test set (KAN-445).
+    return {
+      chatResponse,
+      chatId,
+      messageId,
+      semanticResult,
+      plan,
+      tool: found?.tool ?? null,
+    };
   } catch (error) {
     // The caller tells the renderer this one in plain words; every other
     // failure keeps the old swallow-and-report behaviour.
