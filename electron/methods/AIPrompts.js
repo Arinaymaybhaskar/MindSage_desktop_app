@@ -1,5 +1,4 @@
-import { log } from "../log.js";
-import { MOOD_WORDS, moodScoreFromWord, moodWord } from "../moodWords.js";
+import { MOOD_WORDS, moodScoreFromWord } from "../moodWords.js";
 // Single source of truth for the mood taxonomy. Used both to build the prompt
 // and to validate/sanitize whatever the model returns, so the two can't drift.
 export const MOOD_TAG_GROUPS = {
@@ -335,29 +334,49 @@ export function isSummarizable(content) {
   return countWords(content) >= MIN_SUMMARY_WORDS;
 }
 
-// --- 1. Format journal context ---
-export function formatContext(context = []) {
-  if (!context || context.length === 0) return "";
+// --- Conversation history (KAN-444) ---
+export const HISTORY_MESSAGES = 8;
+export const HISTORY_MESSAGE_CHARS = 500;
+// shortcut: a fixed budget sized for the smallest context (2048 tokens, the
+// built-in engine's floor); count tokens per model if answers get cut short.
+export const HISTORY_CHARS = 2400;
 
-  return context
-    .map((item, index) => {
-      const p = item.payload || {};
-      const type = p.source_type || "unknown";
-      const title = p.title || p.goal_title || "Untitled";
-      const text = p.content || p.description || "(no content provided)";
-      const word = moodWord(p.mood_score);
-      const mood = word ? `Mood: ${word}` : "";
-      const created = p.created_at
-        ? new Date(p.created_at).toISOString().split("T")[0]
-        : "";
+/**
+ * The earlier turns to send, oldest first: the last HISTORY_MESSAGES, each cut
+ * to a fixed size (an answer loses its stored "Follow-up:" line), then the
+ * oldest dropped until the whole fits HISTORY_CHARS.
+ * @param {Array<{ sender: "user"|"ai", content: string }>} messages oldest first
+ */
+export function trimHistory(messages = []) {
+  const turns = messages.slice(-HISTORY_MESSAGES).map(({ sender, content }) => {
+    const text = String(content ?? "")
+      .split("\n\nFollow-up: ")[0]
+      .trim();
+    return {
+      sender,
+      content:
+        text.length > HISTORY_MESSAGE_CHARS
+          ? `${text.slice(0, HISTORY_MESSAGE_CHARS).trimEnd()}...`
+          : text,
+    };
+  });
+  let total = turns.reduce((n, t) => n + t.content.length, 0);
+  while (turns.length && total > HISTORY_CHARS) {
+    total -= turns.shift().content.length;
+  }
+  return turns;
+}
 
-      return `${index + 1}. [${type.toUpperCase()}] ${title} (${created})
-${text}
-${mood}
-Relevance Score: ${item.score?.toFixed?.(3) ?? "N/A"}
+/** The history block for a prompt; empty for the first message of a chat. */
+export function formatHistory(history = []) {
+  if (!history.length) return "";
+  const lines = history.map(
+    (t) => `${t.sender === "user" ? "Person" : "MindSage"}: ${t.content}`,
+  );
+  return `
+Earlier in this conversation (oldest first). Use it to understand what the new question refers to:
+${lines.join("\n")}
 `;
-    })
-    .join("\n");
 }
 
 // Ask is a reflection tool, not advice or therapy (KAN-51): both Ask prompts
@@ -365,7 +384,16 @@ Relevance Score: ${item.score?.toFixed?.(3) ?? "N/A"}
 export const NO_ADVICE_RULE = `- You are a reflection tool, not a therapist or an adviser. Do NOT give advice, instructions, diagnoses or recommendations about what the user should do. Reflect what the entries show and ask what matters to them. If the user seems to be in danger or distress, say gently that talking to someone they trust or a local support line can help, without giving clinical guidance.`;
 
 // --- 2. Respond with context ---
-export function respondWithContext(entry, context) {
+/**
+ * @param {string} journal - what the one tool returned, already wrapped as data
+ * @param {string} [unchecked] - what the question also asked that no tool looked at
+ */
+export function respondWithContext(
+  entry,
+  journal,
+  history = [],
+  unchecked = "",
+) {
   // REVISED instruction block for clarity and perspective control.
   const followUpInstruction = `
 - Include a "suggested_user_prompt" the user can copy/paste and send to the AI next.
@@ -374,19 +402,22 @@ export function respondWithContext(entry, context) {
 - Correct Example (from user to AI): "Based on my past entries, what is the biggest obstacle I seem to face when starting new projects?"
 - Incorrect Example (from AI to user): "What do you think is your biggest obstacle when starting new projects?"`;
 
-  const formattedEntries = formatContext(context);
+  const uncheckedRule = unchecked
+    ? `\n- Only part of the question was looked up. Say in one short sentence that you did not check: ${unchecked}.`
+    : "";
 
   const prompt = `
 You are MindSage, an AI journaling assistant that helps users reflect, gain insights, and find emotional or cognitive clarity through their journal entries.
 
 You will be given:
 1. A user query (what the user is currently asking or thinking about).
-2. Several most relevant past journal entries (these provide emotional and contextual background).
+2. What was looked up in their journal for it (entries, goals or mood figures).
 
 Your job:
 - Understand the core meaning of the query.
 - Carefully analyze the past entries for emotional patterns, recurring themes, goals, or mindset shifts related to the query.
 - Generate a thoughtful, context-aware, and psychologically insightful response (2–3 sentences maximum).
+- Use only what was looked up. Repeat numbers exactly as given; never calculate your own.${uncheckedRule}
 ${NO_ADVICE_RULE}
 ${followUpInstruction}
 - Respond strictly in JSON with the following keys:
@@ -396,12 +427,12 @@ ${followUpInstruction}
   }
 
 ---
-
+${formatHistory(history)}
 User Query:
 "${entry}"
 
-Relevant Journal Entries:
-${formattedEntries}
+From the journal:
+${journal}
 
 ---
 
@@ -412,7 +443,7 @@ MindSage Response (JSON):
 }
 
 // --- 3. Respond without context ---
-export function respondWithoutContext(entry) {
+export function respondWithoutContext(entry, history = []) {
   // REVISED instruction block for clarity and perspective control.
   const followUpInstruction = `
 - Include a "suggested_user_prompt" the user can copy/paste and send to the AI next.
@@ -439,7 +470,7 @@ ${followUpInstruction}
   }
 
 ---
-
+${formatHistory(history)}
 User Query:
 "${entry}"
 
@@ -449,37 +480,43 @@ MindSage Response (JSON):
   return prompt;
 }
 
-export function generateContextTimeAndBaseQueryPrompt(
-  userQuery,
-  currentTimeISO,
-) {
-  log.info(currentTimeISO, "current time");
+// --- 4. Plan: pick one way to look in the journal (KAN-447) ---
+export const ASK_INTENTS = [
+  "search",
+  "date_range",
+  "mood_stats",
+  "count",
+  "goals",
+  "none",
+];
+
+/**
+ * The planning prompt: one intent from ASK_INTENTS plus its arguments. Small
+ * models only choose; code runs the query.
+ * @param {{ today: string, timeZone: string, history?: object[] }} when
+ *   today as YYYY-MM-DD in the person's timezone
+ */
+export function askPlanPrompt(question, { today, timeZone, history = [] }) {
   return `
-You are MindSage, an AI journaling assistant that analyzes user queries to determine search requirements.
+You are MindSage's planner. Choose ONE way to look in the person's journal for their question and fill in its arguments. Do not answer the question.
 
-Your tasks:
-1. Decide if the query requires past journal entries for context.
-2. Decide if the query should be restricted to a specific time range.
-3. If a time filter is required, provide "time_filter_from" and "time_filter_to" in ISO 8601 format using the provided current time as reference.
-4. Extract the "base_query" for semantic search by removing temporal references (e.g., "last week", "yesterday", "in October") but keep the core meaning.
-5. Provide optional notes explaining your reasoning.
+Today is ${today} (${timeZone}). Write every date as YYYY-MM-DD and turn words like "last week" or "in October" into from and to dates. A range never starts after today.
 
-Always respond in **strict JSON** with the following keys:
+Intents and their arguments:
+- "search": entries about a topic. query (the topic without dates; for a follow-up, the topic from the earlier turns), and optionally from, to, mood_min and mood_max (1 Heavy to 5 Bright), feelings (feeling words), limit (1 to 10).
+- "date_range": what was written in a period. from, to, and optionally order ("newest" or "oldest"), limit (1 to 10).
+- "mood_stats": how mood went over a period. from, to, group_by ("day", "week", "month", "weekday" or "feeling").
+- "count": how often something happened. query, and optionally from, to.
+- "goals": the person's goals. status ("active", "completed" or "all"), and optionally category.
+- "none": the question does not need the journal (a greeting, a general question). No arguments.
 
-{
-  "requires_context": <true|false>,
-  "requires_time_filter": <true|false>,
-  "time_filter_from": "<ISO string or null>",
-  "time_filter_to": "<ISO string or null>",
-  "base_query": "<string, cleaned of temporal references>",
-  "notes": "<optional short explanation>"
-}
+If the question needs two of these, choose the main one and name the part it leaves out in "unchecked" (for example "your running goal"). Otherwise "unchecked" is "".
 
-Current time reference: "${currentTimeISO}"
+Respond in strict JSON: {"intent": "...", "arguments": {...}, "unchecked": "..."}
+${formatHistory(history)}
+Question:
+"${question}"
 
-User Query:
-"${userQuery}"
-
-MindSage Response (JSON):
+Plan (JSON):
 `;
 }

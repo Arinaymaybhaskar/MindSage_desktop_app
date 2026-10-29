@@ -5,6 +5,7 @@ import { Shield, X, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import type { ZXCVBNResult } from "zxcvbn";
 import { authService } from "../../api/authService";
 import { errorText } from "../../api/portabilityService";
+import { SetupStepBar } from "../../components/SetupStepBar";
 
 type Zxcvbn = (password: string, userInputs?: string[]) => ZXCVBNResult;
 
@@ -138,6 +139,7 @@ export default function Register() {
 
   return (
     <AuthLayout title="Create your profile">
+      <SetupStepBar step={1} />
       <form onSubmit={handleSubmit} className="space-y-5 my-3" noValidate>
         <div>
           <label htmlFor="username" className={labelClasses}>

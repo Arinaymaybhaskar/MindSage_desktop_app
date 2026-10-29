@@ -12,10 +12,13 @@ vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 const db = {
   AddChat: vi.fn(async () => ({ id: 11 })),
   addMessage: vi.fn(),
+  isOwnChat: () => true,
+  recentMessages: () => [],
 };
 vi.mock("../db/index.js", () => ({ default: db }));
 const semanticSearch = vi.fn();
 vi.mock("./search.js", () => ({ semanticSearch }));
+vi.mock("../db/aiConnection.js", () => ({ aiDb: () => null }));
 
 const { handleUserMessage } = await import("./chat.js");
 
@@ -96,7 +99,7 @@ describe("Ask through the real Ollama client (KAN-367)", () => {
     expect(db.addMessage).toHaveBeenLastCalledWith(
       11,
       "ai",
-      "The river came up twice.\n\nFollow-up: What else calms me?",
+      `Looked at 1 entry about "${QUESTION}".\n\nThe river came up twice.\n\nFollow-up: What else calms me?`,
       [{ source_type: "journal", source_id: "3", source_title: "River" }],
       [],
     );

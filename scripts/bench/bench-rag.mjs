@@ -31,7 +31,7 @@ import { summarise, fmt } from "./lib/stats.mjs";
 import * as ollama from "./lib/ollama.mjs";
 import { openVecStore } from "./lib/vecstore.mjs";
 import {
-  generateContextTimeAndBaseQueryPrompt,
+  askPlanPrompt,
   respondWithContext,
 } from "../../electron/methods/AIPrompts.js";
 import {
@@ -100,22 +100,21 @@ try {
     for (const query of CHAT_QUERIES.slice(0, 3)) {
       const runStart = performance.now();
 
-      // 1. Query planning (JSON mode, the call parseAIWithRetries wraps).
+      // 1. Query planning: one intent and its arguments (JSON mode).
       const t1 = performance.now();
       const planned = await ollama.generate({
         model: CHAT_MODEL,
-        prompt: generateContextTimeAndBaseQueryPrompt(
-          query,
-          new Date().toISOString(),
-        ),
+        prompt: askPlanPrompt(query, {
+          today: new Date().toISOString().slice(0, 10),
+          timeZone: "UTC",
+        }),
         jsonMode: true,
         numPredict: 300,
       });
       stage1.push(performance.now() - t1);
       planAttempts++;
 
-      // The app parses this with a schema and retries up to three times; a
-      // parse failure therefore costs a whole extra generation.
+      // The app parses this once; a plan it cannot read searches the question.
       let plan = null;
       try {
         plan = JSON.parse(planned.text);
@@ -123,7 +122,7 @@ try {
       } catch {
         /* counted as a failure below */
       }
-      const baseQuery = plan?.base_query || query;
+      const baseQuery = plan?.arguments?.query || query;
 
       // 2. Embedding.
       const t2 = performance.now();
@@ -135,17 +134,18 @@ try {
       const found = store.search(vector, 5);
       stage3.push(performance.now() - t3);
 
-      const context = found.map((hit) => ({
-        content: contentById.get(hit.id) ?? JOURNAL_MEDIUM,
-        created_at: new Date().toISOString(),
-      }));
+      // The app sends the tool's text: each entry wrapped in an entry tag.
+      const context = found
+        .map(
+          (hit) =>
+            `<entry>\n${contentById.get(hit.id) ?? JOURNAL_MEDIUM}\n</entry>`,
+        )
+        .join("\n");
 
       // 4. The answering generation, with retrieved entries in the prompt.
       const t4 = performance.now();
       await ollama.generate({
         model: CHAT_MODEL,
-        // respondWithContext calls formatContext itself, so the raw array goes in.
-        // Passing a pre-formatted string makes it call .map on a string.
         prompt: respondWithContext(query, context),
         jsonMode: true,
         numPredict: 300,

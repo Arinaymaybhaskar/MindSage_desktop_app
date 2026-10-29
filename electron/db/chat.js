@@ -183,6 +183,24 @@ export const getChatById = async (userId, chatId) => {
   });
 };
 
+/** True when the chat exists and is this profile's. */
+export const isOwnChat = (userId, chatId) =>
+  db
+    .prepare(`SELECT 1 FROM chats WHERE id = ? AND user_id = ?`)
+    .get(chatId, userId) !== undefined;
+
+/** The last `limit` messages of one of this profile's chats, oldest first. */
+export const recentMessages = (userId, chatId, limit) =>
+  db
+    .prepare(
+      `SELECT m.sender, m.content FROM messages m
+         JOIN chats c ON c.id = m.chat_id
+        WHERE m.chat_id = ? AND c.user_id = ?
+        ORDER BY m.id DESC LIMIT ?`,
+    )
+    .all(chatId, userId, limit)
+    .reverse();
+
 export const AddChat = async (userId, chatData) => {
   try {
     const { title, model } = chatData;
