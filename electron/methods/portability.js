@@ -12,7 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
-import Store from "electron-store";
+import { getLast, setLast } from "../lastImport.js";
 import { eventBus } from "../eventBus.js";
 import localDB from "../db/index.js";
 import { db } from "../db/connection.js";
@@ -144,18 +144,6 @@ export function importErrorText(err, name) {
 }
 
 let pending = null; // { userId, format, entries, duplicates }
-
-// Each profile's latest import, { at, source, ids, edited }, kept across
-// restarts so it can still be undone (KAN-74). Ids only, never entry text; a
-// newer import replaces it, so only the latest can be undone.
-let store; // lazy: importing this file must not open the store
-const imports = () =>
-  (store ??= new Store({ name: "last-import", defaults: { users: {} } }));
-const getLast = (userId) => imports().get(`users.${userId}`) ?? null;
-const setLast = (userId, last) =>
-  last
-    ? imports().set(`users.${userId}`, last)
-    : imports().delete(`users.${userId}`);
 
 // Only the editor's save emits journal:edited (AI fills do not), so an edit
 // here means the person changed an imported entry: Undo would lose that.
