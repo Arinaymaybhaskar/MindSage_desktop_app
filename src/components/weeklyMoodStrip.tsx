@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import isToday from "dayjs/plugin/isToday";
 import { motion } from "framer-motion";
 import clsx from "clsx";
+import { moodWord } from "../../electron/moodWords";
 
 dayjs.extend(isToday);
 
@@ -95,7 +96,7 @@ const WeeklyMoodStrip: React.FC<Props> = ({ moodData, selectedDate }) => {
                 {moodScore && (
                   // --- CHANGE: Themed tooltip ---
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-base-dark text-text-dark text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                    {moodScore.toFixed(1)}
+                    {moodWord(moodScore)}
                   </div>
                 )}
               </motion.div>

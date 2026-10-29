@@ -20,12 +20,20 @@ vi.mock("electron", () => ({
     ],
   },
 }));
+// One map for every instance, so a fresh module (a restart) reads what the
+// last one saved, like the store file on disk.
+const saved = vi.hoisted(() => new Map());
 vi.mock("electron-store", () => ({
   default: class {
-    get() {
-      return undefined;
+    get(key) {
+      return saved.has(key) ? structuredClone(saved.get(key)) : undefined;
     }
-    set() {}
+    set(key, value) {
+      saved.set(key, structuredClone(value));
+    }
+    delete(key) {
+      saved.delete(key);
+    }
   },
 }));
 const session = vi.hoisted(() => ({ userId: null }));
@@ -111,5 +119,102 @@ describe("import of 5,000 entries (KAN-80)", () => {
     // No models yet: enrichment waits for ai:models-ready; search indexes once.
     expect(backfillEnrichment).not.toHaveBeenCalled();
     expect(sweep).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("last import with Undo (KAN-74)", () => {
+  let n = 0;
+  // A CSV of `count` entries with text no other test uses.
+  const importCsv = async (count) => {
+    const tag = `batch${++n}`;
+    const file = path.join(dir, `${tag}.csv`);
+    const rows = Array.from(
+      { length: count },
+      (_, i) => `2020-0${n}-1${i}T10:00:00Z,"${tag} entry ${i}"`,
+    );
+    fs.writeFileSync(file, ["date,text", ...rows].join("\n"));
+    await portability.handleReadImport(null, [file]);
+    await portability.handleCommitImport();
+    return db
+      .prepare(
+        "SELECT id FROM journal_entries WHERE user_id = ? AND content LIKE ? ORDER BY id",
+      )
+      .all(session.userId, `${tag} %`)
+      .map((r) => r.id);
+  };
+  const live = (ids) =>
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM journal_entries WHERE id IN (${ids.join(",")})`,
+      )
+      .get().n;
+
+  it("undoes only the latest import, with its AI data and index rows, after a restart", async () => {
+    const first = await importCsv(2);
+    const second = await importCsv(3);
+    const own = Number(
+      db
+        .prepare(
+          "INSERT INTO journal_entries (user_id, content) VALUES (?, 'written here')",
+        )
+        .run(session.userId).lastInsertRowid,
+    );
+    db.prepare(
+      "INSERT INTO search_index (user_id, source_type, source_id) VALUES (?, 'journal', ?)",
+    ).run(session.userId, second[0]);
+    db.prepare(
+      "INSERT INTO journal_analysis (journal_id, sentiment) VALUES (?, 'calm')",
+    ).run(second[0]);
+
+    // A restart: a fresh module with nothing in memory, the store on disk.
+    vi.resetModules();
+    const restarted = await import("./portability.js");
+    expect(await restarted.handleLastImport()).toEqual({
+      at: expect.any(String),
+      source: "CSV",
+      count: 3,
+      edited: false,
+    });
+    expect(await restarted.handleUndoImport()).toEqual({ removed: 3 });
+
+    expect(live(second)).toBe(0);
+    expect(live(first)).toBe(2);
+    expect(live([own])).toBe(1);
+    expect(
+      db
+        .prepare(
+          "SELECT COUNT(*) AS n FROM search_index WHERE source_type = 'journal' AND source_id = ?",
+        )
+        .get(second[0]).n,
+    ).toBe(0);
+    expect(
+      db
+        .prepare(
+          "SELECT COUNT(*) AS n FROM journal_analysis WHERE journal_id = ?",
+        )
+        .get(second[0]).n,
+    ).toBe(0);
+    // The earlier import was replaced, so there is nothing left to undo.
+    expect(await restarted.handleLastImport()).toBeNull();
+    await expect(restarted.handleUndoImport()).rejects.toThrow(
+      /No import to undo/,
+    );
+    (await import("../db/connection.js")).db.close();
+  });
+
+  it("turns Undo off once an imported entry is edited", async () => {
+    const ids = await importCsv(2);
+    const { eventBus } = await import("../eventBus.js");
+    // What handleUpdateJournal emits when the person saves an entry.
+    eventBus.emit("journal:edited", {
+      userId: session.userId,
+      entry: { id: ids[1] },
+    });
+    expect(await portability.handleLastImport()).toMatchObject({
+      count: 2,
+      edited: true,
+    });
+    await expect(portability.handleUndoImport()).rejects.toThrow(/edited/);
+    expect(live(ids)).toBe(2);
   });
 });

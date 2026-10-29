@@ -1,4 +1,5 @@
 import { log } from "../log.js";
+import { MOOD_WORDS, moodScoreFromWord, moodWord } from "../moodWords.js";
 // Single source of truth for the mood taxonomy. Used both to build the prompt
 // and to validate/sanitize whatever the model returns, so the two can't drift.
 export const MOOD_TAG_GROUPS = {
@@ -79,13 +80,6 @@ export function cleanFeelingWord(raw) {
   return /[,;|\p{Cc}]/u.test(word) ? null : word;
 }
 
-/** Coerce an AI mood score to an integer in [1, 5], or null if unusable. */
-export function clampMoodScore(score) {
-  const n = Math.round(Number(score));
-  if (!Number.isFinite(n)) return null;
-  return Math.min(5, Math.max(1, n));
-}
-
 /**
  * Keep only tags that are in the taxonomy (case-insensitive), de-duplicated and
  * capped at 5. Anything the model invented or a category name is dropped.
@@ -110,7 +104,8 @@ export function sanitizeMoodTags(tags, custom = []) {
 }
 
 /**
- * Parse + validate the AI metadata response. Returns a sanitized
+ * Parse + validate the AI metadata response. The model answers with one of
+ * the five mood words; anything else is unusable. Returns a sanitized
  * { title, mood_score, mood_tags } object, or null when the output is unusable
  * (so callers can mark the entry failed instead of silently writing garbage).
  * `custom` is the user's own words that were offered in the prompt.
@@ -135,7 +130,7 @@ export function parseJournalMetadata(rawResponse, custom = []) {
     typeof parsed.title === "string"
       ? parsed.title.trim().slice(0, MAX_TITLE_CHARS).trim()
       : "";
-  const mood_score = clampMoodScore(parsed.mood_score);
+  const mood_score = moodScoreFromWord(parsed.mood);
   const mood_tags = sanitizeMoodTags(parsed.mood_tags, custom);
 
   // Require at least a title and a mood score to consider it usable.
@@ -143,8 +138,14 @@ export function parseJournalMetadata(rawResponse, custom = []) {
   return { title, mood_score, mood_tags };
 }
 
-/** Every journal and Ask call stops after this many tokens, on either provider. */
+/** Every journal call and Ask's planning step stop after this many tokens, on either provider. */
 export const MAX_OUTPUT_TOKENS = 300;
+/**
+ * Ask's answer is grammar-forced JSON, so a cap that cuts it leaves JSON that
+ * cannot be parsed. About 4,000 characters; each retry after a failed parse
+ * gets this much more.
+ */
+export const ASK_ANSWER_MAX_TOKENS = 1024;
 /** A title longer than this is cut before it reaches the journal. */
 export const MAX_TITLE_CHARS = 80;
 
@@ -157,7 +158,7 @@ export function journalMetadataSchema(custom = []) {
     type: "object",
     properties: {
       title: { type: "string", maxLength: MAX_TITLE_CHARS },
-      mood_score: { enum: [1, 2, 3, 4, 5] },
+      mood: { enum: MOOD_WORDS },
       mood_tags: {
         type: "array",
         items: {
@@ -167,14 +168,14 @@ export function journalMetadataSchema(custom = []) {
         maxItems: 5,
       },
     },
-    required: ["title", "mood_score", "mood_tags"],
+    required: ["title", "mood", "mood_tags"],
   };
 }
 export const JOURNAL_METADATA_SCHEMA = journalMetadataSchema();
 
 export function getAutoPopulateValues(content, custom = []) {
   // Constructs the prompt asking the model to analyze a journal entry and
-  // return a structured JSON object with a title, mood score, and tags.
+  // return a structured JSON object with a title, a mood word, and tags.
   // Callers send this with journalMetadataSchema(custom) so the output always
   // parses; parseJournalMetadata then validates the values. The user's own
   // words are listed under the family they picked.
@@ -192,26 +193,18 @@ You are an expert AI assistant specializing in emotional analysis and sentiment 
 
 1.  **Read and Analyze:** Carefully read the journal entry provided at the end of this prompt.
 2.  **Create a Title:** Generate a concise, evocative title (3 to 7 words) capturing the main theme or feeling.
-3.  **Assign a Mood Score:** An integer from 1 to 5:
-    * \`1\`: Extremely Negative (despair, grief, intense anger)
-    * \`2\`: Negative (sadness, frustration, anxiety)
-    * \`3\`: Neutral or Mixed Feelings
-    * \`4\`: Positive (content, hopeful, peaceful)
-    * \`5\`: Extremely Positive (joyful, inspired, triumphant)
+3.  **Choose a Mood:** Exactly one of these words:
+    * \`${MOOD_WORDS[0]}\`: despair, grief, intense anger
+    * \`${MOOD_WORDS[1]}\`: sadness, frustration, anxiety
+    * \`${MOOD_WORDS[2]}\`: neutral or mixed feelings
+    * \`${MOOD_WORDS[3]}\`: content, hopeful, peaceful
+    * \`${MOOD_WORDS[4]}\`: joyful, inspired, triumphant
 4.  **Select Mood Tags:** Choose 1 to 5 of the most relevant tags. You **MUST** copy tags verbatim from the specific moods listed below (e.g., "Playful", "Lonely", "Frustrated"). Do **not** use the top-level category names (e.g., "Happy", "Sad") and do **not** invent new tags.
-5.  **Output:** Return a single valid JSON object with exactly the keys \`title\` (string), \`mood_score\` (integer 1-5), and \`mood_tags\` (array of strings). No prose, no markdown, no text outside the JSON.
+5.  **Output:** Return a single valid JSON object with exactly the keys \`title\` (string), \`mood\` (one of the five mood words above), and \`mood_tags\` (array of strings). No prose, no markdown, no text outside the JSON.
 
 ### Allowed Mood Tags (choose only from the specific values):
 
 ${moodTagsJson}
-
-### Required JSON shape:
-
-{
-  "title": "A Creative and Representative Title",
-  "mood_score": 3,
-  "mood_tags": ["RelevantTag1", "RelevantTag2"]
-}
 
 ### Journal Content to Analyze:
 
@@ -312,10 +305,8 @@ export function formatContext(context = []) {
       const type = p.source_type || "unknown";
       const title = p.title || p.goal_title || "Untitled";
       const text = p.content || p.description || "(no content provided)";
-      const mood =
-        p.mood_score !== null && p.mood_score !== undefined
-          ? `Mood Score: ${p.mood_score}`
-          : "";
+      const word = moodWord(p.mood_score);
+      const mood = word ? `Mood: ${word}` : "";
       const created = p.created_at
         ? new Date(p.created_at).toISOString().split("T")[0]
         : "";

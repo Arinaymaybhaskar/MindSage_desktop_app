@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { MOOD_WORDS, moodWord } from "../../../electron/moodWords";
 
 /**
  * A year of days, one square each, coloured by that day's average mood.
@@ -117,7 +118,7 @@ export const MoodHeatmap: React.FC<MoodHeatmapProps> = ({ scores }) => {
           <span className="hidden w-[150px] text-right text-xs tabular-nums text-text-light-sub dark:text-text-dark-sub sm:inline">
             {hovered
               ? hovered.mood != null && hovered.mood > 0
-                ? `${dayjs(hovered.day).format("D MMM")} · mood ${hovered.mood.toFixed(1)}`
+                ? `${dayjs(hovered.day).format("D MMM")} · ${moodWord(hovered.mood)}`
                 : `${dayjs(hovered.day).format("D MMM")} · no entry`
               : ""}
           </span>
@@ -181,7 +182,7 @@ export const MoodHeatmap: React.FC<MoodHeatmapProps> = ({ scores }) => {
                       ? ""
                       : `${cell.iso}${
                           cell.mood
-                            ? ` · mood ${cell.mood.toFixed(1)}`
+                            ? ` · ${moodWord(cell.mood)}`
                             : " · no entry"
                         }`
                   }
@@ -201,11 +202,11 @@ export const MoodHeatmap: React.FC<MoodHeatmapProps> = ({ scores }) => {
 
       {/* Legend */}
       <div className="mt-4 flex items-center gap-1.5 text-[10px] text-text-light-sub dark:text-text-dark-sub">
-        <span className="mr-1">Rough</span>
+        <span className="mr-1">{MOOD_WORDS[0]}</span>
         {MOOD_CLASS.map((c) => (
           <span key={c} className={`h-2.5 w-2.5 rounded-[2px] ${c}`} />
         ))}
-        <span className="ml-1">Great</span>
+        <span className="ml-1">{MOOD_WORDS[4]}</span>
         <span className="ml-auto flex items-center gap-1.5">
           <span className={`h-2.5 w-2.5 rounded-[2px] ${EMPTY_CLASS}`} />
           No entry

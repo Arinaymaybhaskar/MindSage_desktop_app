@@ -11,7 +11,7 @@ import {
   sanitizeSummary,
 } from "./AIPrompts.js";
 import { generate, taskModel } from "../ai/client.js";
-import { background } from "../ai/queue.js";
+import { background, yieldToAsk } from "../ai/queue.js";
 import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
@@ -154,6 +154,9 @@ export const handleOllamaImagePrompt = async (
 
 // One stuck call would hold up every entry queued behind it.
 const ENRICH_TIMEOUT_MS = 5 * 60_000;
+/** Ask's abort (yieldToAsk) or the timeout, whichever comes first. */
+const enrichSignal = (signal) =>
+  AbortSignal.any([signal, AbortSignal.timeout(ENRICH_TIMEOUT_MS)]);
 
 /**
  * Title, mood and tags: one JSON-schema call (KAN-89). Throws when unusable.
@@ -162,12 +165,14 @@ const ENRICH_TIMEOUT_MS = 5 * 60_000;
 export async function generateMetadata(content, userId) {
   const custom = localDB.customFeelingWords(userId, MAX_CUSTOM_IN_PROMPT);
   const metadata = parseJournalMetadata(
-    await generate(getAutoPopulateValues(content, custom), {
-      schema: journalMetadataSchema(custom),
-      maxTokens: MAX_OUTPUT_TOKENS,
-      model: taskModel("metadata"),
-      signal: AbortSignal.timeout(ENRICH_TIMEOUT_MS),
-    }),
+    await yieldToAsk((signal) =>
+      generate(getAutoPopulateValues(content, custom), {
+        schema: journalMetadataSchema(custom),
+        maxTokens: MAX_OUTPUT_TOKENS,
+        model: taskModel("metadata"),
+        signal: enrichSignal(signal),
+      }),
+    ),
     custom,
   );
   if (!metadata) throw new Error("AI returned incomplete or invalid metadata");
@@ -177,11 +182,13 @@ export async function generateMetadata(content, userId) {
 /** The summary, its own call (KAN-89); null when the model gave no usable one. */
 export async function generateSummary(content) {
   return sanitizeSummary(
-    await generate(AISummaryPrompt(content), {
-      maxTokens: MAX_OUTPUT_TOKENS,
-      model: taskModel("summary"),
-      signal: AbortSignal.timeout(ENRICH_TIMEOUT_MS),
-    }),
+    await yieldToAsk((signal) =>
+      generate(AISummaryPrompt(content), {
+        maxTokens: MAX_OUTPUT_TOKENS,
+        model: taskModel("summary"),
+        signal: enrichSignal(signal),
+      }),
+    ),
   );
 }
 
@@ -222,7 +229,7 @@ eventBus.on("journal:created", ({ entry }) => {
       // The job may have waited: work on the entry as it is now, and not at
       // all if it went to the Trash.
       const current = localDB.getJournalById(entry.user_id, entry.id);
-      if (!current) return;
+      if (!current) return markTrashedNotRun(entry.id);
       // A switch turned off while the job waited stops it (KAN-70).
       const now = getFeatures(entry.user_id);
       if (needsAiCompletion && metadataOn(now))
@@ -231,6 +238,21 @@ eventBus.on("journal:created", ({ entry }) => {
     }).catch((err) => log.error("AI enrichment failed:", err));
   }
 });
+
+// A job skipped because its entry went to the Trash leaves nothing 'pending':
+// after a restore the entry offers Retry, and the next backfill picks it up
+// (KAN-393).
+const TRASHED_ERROR = "Moved to the Trash before the AI ran";
+function markTrashedNotRun(id) {
+  db.prepare(
+    `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ?
+     WHERE id = ? AND ai_metadata_status = 'pending'`,
+  ).run(TRASHED_ERROR, id);
+  db.prepare(
+    `UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ?
+     WHERE id = ? AND ai_summary_status = 'pending'`,
+  ).run(TRASHED_ERROR, id);
+}
 
 /**
  * Runs the fill-in again, once, in the queue, for the newest entries whose

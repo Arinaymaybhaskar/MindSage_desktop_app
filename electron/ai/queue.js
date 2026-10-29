@@ -1,7 +1,8 @@
 // The shared AI queue (KAN-89). Background work (filling in an entry's title,
 // mood, tags and summary) runs one job at a time, so an entry's calls run in
 // order and only one model needs to be loaded; a job never starts while Ask is
-// answering. Pure: no electron or native imports.
+// answering, and a call run through yieldToAsk stops for it. Pure: no electron
+// or native imports.
 
 let asking = 0;
 let askDone = Promise.resolve();
@@ -21,9 +22,32 @@ export function resume() {
   gate = null;
 }
 
+const yielding = new Set(); // controllers of background AI calls running now
+
+/**
+ * Runs one AI call of a background job so that an Ask stops it at once
+ * (KAN-390): a running call cannot be overtaken, only aborted. The call runs
+ * again, with a fresh signal, once no Ask is running.
+ */
+export async function yieldToAsk(call) {
+  for (;;) {
+    while (asking) await askDone;
+    const controller = new AbortController();
+    yielding.add(controller);
+    try {
+      return await call(controller.signal);
+    } catch (err) {
+      if (!controller.signal.aborted) throw err;
+    } finally {
+      yielding.delete(controller);
+    }
+  }
+}
+
 /** Runs an Ask; background jobs wait until no Ask is running. */
 export async function foreground(task) {
   if (asking++ === 0) askDone = new Promise((resolve) => (endAsk = resolve));
+  for (const controller of yielding) controller.abort();
   try {
     return await task();
   } finally {

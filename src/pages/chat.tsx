@@ -7,7 +7,7 @@ import type { SelectedModels } from "../types/Ollama";
 import { useAuth } from "../hooks/useAuth";
 import whisperService from "../api/whisperService";
 import { LOADING_MESSAGES, STARTER_PROMPTS } from "../constants/chatConstants";
-import { getGreeting } from "../utils/chatutils";
+import { cachedProfileName, getGreeting } from "../utils/chatutils";
 import { MessageList } from "../components/chat/MessageList";
 import { ChatWelcome } from "../components/chat/ChatWelcome";
 import { ChatInput } from "../components/chat/ChatInput";
@@ -99,9 +99,9 @@ export const ChatPage: React.FC = () => {
       }
     };
     fetchSettings();
-    const user = localStorage.getItem("userInfo");
-    const userName = user ? JSON.parse(user).full_name.split(" ")[0] : "User";
-    setGreeting(getGreeting(userName));
+    setGreeting(
+      getGreeting(cachedProfileName(localStorage.getItem("userInfo"))),
+    );
   }, []);
 
   useEffect(() => {

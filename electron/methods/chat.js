@@ -1,6 +1,7 @@
 import localDB from "../db/index.js";
 import { eventBus } from "../eventBus.js";
 import {
+  ASK_ANSWER_MAX_TOKENS,
   MAX_OUTPUT_TOKENS,
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
@@ -89,7 +90,7 @@ async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       log.debug("calling ai");
-      const raw = await rawFn();
+      const raw = await rawFn(attempt);
       log.debug("ai response", { chars: raw?.length });
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("No JSON found");
@@ -179,7 +180,7 @@ async function aiResponse(
     // 4️⃣ Get final chat response, streaming it to the renderer as it forms.
     onPhase("writing", { sources: semanticResult });
     const chatResponse = await parseAIWithRetries(
-      () => {
+      (attempt) => {
         // A failed attempt may already have streamed a partial answer.
         // Tell the renderer to throw it away before the retry starts,
         // otherwise the second attempt appends to the first.
@@ -188,7 +189,7 @@ async function aiResponse(
         return generate(mainPrompt, {
           schema: CHAT_RESPONSE_JSON_SCHEMA,
           ollamaModel: model,
-          maxTokens: MAX_OUTPUT_TOKENS,
+          maxTokens: ASK_ANSWER_MAX_TOKENS * attempt,
           onToken: (_fragment, full) => {
             const partial = partialJsonString(full, "response");
             if (partial === null || partial.length <= emitted) return;

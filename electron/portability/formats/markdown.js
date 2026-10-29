@@ -21,6 +21,7 @@ import {
   toIso,
   yamlString,
 } from "../common.js";
+import { moodWord } from "../../moodWords.js";
 
 const TITLE_KEYS = ["title", "name"];
 const DATE_KEYS = [
@@ -151,7 +152,7 @@ export const markdown = {
       front.push(`date: ${e.createdAt}`);
       if (e.updatedAt) front.push(`updated: ${e.updatedAt}`);
       if (e.mood !== null && e.mood !== undefined)
-        front.push(`mood: ${e.mood}`);
+        front.push(`mood: ${e.mood}`, `mood_word: ${moodWord(e.mood)}`);
       if (e.tags.length) {
         front.push("tags:");
         for (const t of e.tags) front.push(`  - ${yamlString(t)}`);

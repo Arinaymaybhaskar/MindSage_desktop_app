@@ -189,6 +189,56 @@ describe("the indexer", () => {
     expect(stateOf(e.id)).toMatchObject({ state: "pending", attempts: 0 });
   });
 
+  it("marks a blank entry done without embedding it, and drops its old vector (KAN-391)", async () => {
+    const e = entry({ title: "", content: "had words" });
+    const sent = [];
+    const indexer = make(async (text) => {
+      sent.push(text);
+      // What Ollama answers for an empty prompt.
+      return text.trim() ? unit(7) : [];
+    });
+    indexer.noteChanged("journal", e.id);
+    advance(10_000);
+    await indexer.drain();
+    const rowid = BigInt(stateOf(e.id).id);
+    const vectors = () =>
+      db
+        .prepare("SELECT COUNT(*) AS n FROM vec_entries WHERE rowid = ?")
+        .get(rowid).n;
+    expect(vectors()).toBe(1);
+
+    db.prepare("UPDATE journal_entries SET content = ' \n ' WHERE id = ?").run(
+      e.id,
+    );
+    indexer.noteChanged("journal", e.id);
+    advance(10_000);
+    await indexer.drain();
+    expect(sent.filter((t) => !t.trim())).toEqual([]);
+    expect(stateOf(e.id)).toMatchObject({ state: "ok", attempts: 0 });
+    expect(vectors()).toBe(0);
+    // Nothing left to retry: another change notice queues nothing.
+    expect(idx.noteChanged("journal", e.id)).toBe(false);
+  });
+
+  it("embeds a shorter start of an entry too long for the model (KAN-391)", async () => {
+    const e = entry({ content: "word ".repeat(10_000) });
+    const sent = [];
+    const indexer = make(async (text) => {
+      if (text.length > 1_000) sent.push(text.length);
+      if (text.length > 3_000) {
+        throw new Error(
+          "Ollama embedding API error: 500 Internal Server Error",
+        );
+      }
+      return unit(8);
+    });
+    indexer.noteChanged("journal", e.id);
+    advance(10_000);
+    await indexer.drain();
+    expect(sent).toEqual([8_000, 4_000, 2_000]);
+    expect(stateOf(e.id)).toMatchObject({ state: "ok", attempts: 0 });
+  });
+
   it("drops an item purged while its embedding was being made", async () => {
     const e = entry({ content: "purged midway" });
     const indexer = make(async () => {
