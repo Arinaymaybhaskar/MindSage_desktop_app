@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 import { FileUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { aiFeaturesService } from "../api/aiFeaturesService";
-import { helloAvailable } from "../api/helloService";
 import {
   errorText,
   portabilityService,
   type ImportPreview,
 } from "../api/portabilityService";
-import { userService } from "../api/userService";
-
-const SAVE_FAILED = "Could not save that. Please try again.";
+import { setupService, type SetupProgress } from "../api/setupService";
 
 type ImportStage = "idle" | "reading" | "preview" | "importing" | "done";
 
@@ -138,104 +134,37 @@ function ImportLine() {
   );
 }
 
-/** Last setup screen (KAN-81). Each toggle saves the moment it changes. */
+/** Model download progress; gone once it finishes or fails. */
+function DownloadLine() {
+  const [p, setP] = useState<SetupProgress | null>(null);
+  useEffect(() => setupService.onProgress(setP), []);
+  if (!p || p.error || (p.percent ?? 0) >= 100) return null;
+  const what = p.phase === "pulling-model" ? p.model : "the local AI engine";
+  const pct = Math.round(p.percent ?? 0);
+  return (
+    <div className="mt-6 text-sm" role="status">
+      <p>
+        Downloading {what}: {pct}%. This keeps going while you write.
+      </p>
+      <progress className="mt-2 w-full" max={100} value={pct} />
+    </div>
+  );
+}
+
+/** Last setup screen (KAN-81, KAN-433): download progress, import, one button. */
 export default function YoureSet() {
   const navigate = useNavigate();
-  const [reminder, setReminder] = useState(false);
-  const [time, setTime] = useState("20:00");
-  const [suggestions, setSuggestions] = useState(true);
-  const [hello, setHello] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    userService
-      .getSettings()
-      .then((s) => {
-        setReminder(!!s.journal_reminder);
-        setTime(s.reminder_time || "20:00");
-      })
-      .catch(() => {});
-    aiFeaturesService
-      .get()
-      .then((f) => f && setSuggestions(f.suggestions))
-      .catch(() => {});
-    helloAvailable().then(setHello);
-  }, []);
-
-  const saveReminder = (patch: {
-    journal_reminder?: boolean;
-    reminder_time?: string;
-  }) =>
-    userService
-      .updateSettings(patch)
-      .then(() => setError(""))
-      .catch(() => setError(SAVE_FAILED));
-
   return (
     <div className="mx-auto max-w-md px-6 py-12">
       <h1 className="text-2xl font-bold">You're set</h1>
-      <p className="mt-2 text-sm">Change any of this later in Settings.</p>
-      {error && (
-        <p role="alert" className="mt-3 text-sm text-danger">
-          {error}
-        </p>
-      )}
-
-      <label className="mt-6 flex items-center gap-3">
-        <input
-          type="checkbox"
-          checked={reminder}
-          onChange={(e) => {
-            setReminder(e.target.checked);
-            void saveReminder({ journal_reminder: e.target.checked });
-          }}
-        />
-        Remind me to write each day
-      </label>
-      {reminder && (
-        <label className="mt-3 flex items-center gap-3">
-          Reminder time
-          <input
-            type="time"
-            value={time}
-            onChange={(e) => {
-              setTime(e.target.value);
-              if (e.target.value)
-                void saveReminder({ reminder_time: e.target.value });
-            }}
-          />
-        </label>
-      )}
-
-      <label className="mt-4 flex items-center gap-3">
-        <input
-          type="checkbox"
-          checked={suggestions}
-          onChange={(e) => {
-            setSuggestions(e.target.checked);
-            aiFeaturesService
-              .set("suggestions", e.target.checked)
-              .catch(() => setError(SAVE_FAILED));
-          }}
-        />
-        Suggest prompts and ideas while I write
-      </label>
-
-      {hello && (
-        <label className="mt-4 flex items-center gap-3">
-          <input type="checkbox" />
-          Unlock with Windows Hello
-        </label>
-      )}
-
+      <DownloadLine />
       <ImportLine />
-
       <button
         type="button"
         onClick={() => navigate("/", { replace: true })}
         className="mt-8 rounded-lg bg-dark1 px-6 py-2.5 font-semibold text-white dark:bg-light1 dark:text-dark1"
       >
-        Continue
+        Start writing
       </button>
     </div>
   );
