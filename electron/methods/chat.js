@@ -2,7 +2,9 @@ import localDB from "../db/index.js";
 import { eventBus } from "../eventBus.js";
 import {
   ASK_ANSWER_MAX_TOKENS,
+  HISTORY_MESSAGES,
   MAX_OUTPUT_TOKENS,
+  trimHistory,
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
   respondWithoutContext,
@@ -120,6 +122,7 @@ async function aiResponse(content, chatId, messageId, model, hooks = {}) {
     onReset = () => {},
     signal,
     userId: askedBy,
+    history = [],
   } = hooks;
   // Every tool reads the session; once the profile that asked is gone, the
   // next step stops instead of reading for, or showing to, another profile.
@@ -144,6 +147,7 @@ async function aiResponse(content, chatId, messageId, model, hooks = {}) {
     const queryPropsPrompt = generateContextTimeAndBaseQueryPrompt(
       content,
       currentTimeISO,
+      history,
     );
     const propsRes = await parseAIWithRetries(
       () =>
@@ -165,10 +169,12 @@ async function aiResponse(content, chatId, messageId, model, hooks = {}) {
 
     // 2️⃣ Semantic search logic
     if (propsRes.requires_context) {
-      // Use original user content
+      // The question as asked; a follow-up ("and in September?") searches
+      // with the topic the planner took from the earlier turns.
       log.debug("requires context");
       onPhase("searching");
-      const vector = await embedFitting(embed, content);
+      const query = history.length ? propsRes.base_query.trim() : "";
+      const vector = await embedFitting(embed, query || content);
       if (vector) semanticResult = semanticSearch(vector, stillAsker(), 5);
     } else if (propsRes.requires_time_filter) {
       log.debug("requires context with time filter");
@@ -193,10 +199,10 @@ async function aiResponse(content, chatId, messageId, model, hooks = {}) {
 
     if (!propsRes.requires_context && semanticResult.length == 0) {
       log.debug("No context needed");
-      mainPrompt = respondWithoutContext(content);
+      mainPrompt = respondWithoutContext(content, history);
     } else {
       // 3️⃣ Generate prompt for main AI response
-      mainPrompt = respondWithContext(content, semanticResult);
+      mainPrompt = respondWithContext(content, semanticResult, history);
     }
 
     // 4️⃣ Get final chat response, streaming it to the renderer as it forms.
@@ -318,6 +324,11 @@ export const handleUserMessage = async (
   if (chatId && !(await localDB.isOwnChat(userId, chatId))) {
     return { error: "Chat not found" };
   }
+  // Read before the new question is saved, from the chat it was asked in, so
+  // a chat switch mid-answer cannot change it (KAN-444).
+  const history = chatId
+    ? trimHistory(localDB.recentMessages(userId, chatId, HISTORY_MESSAGES))
+    : [];
   if (!chatId) {
     const title = message.length < 20 ? message : "chat";
     const newChat = await localDB.AddChat(userId, { title, model });
@@ -359,6 +370,7 @@ export const handleUserMessage = async (
     aiRes = await foreground(() =>
       aiResponse(message, chatId, messageId, model, {
         userId,
+        history,
         signal: stop.signal,
         onPhase: (phase, extra) => emit("phase", { phase, ...extra }),
         onDelta: (text) => emit("delta", { text }),

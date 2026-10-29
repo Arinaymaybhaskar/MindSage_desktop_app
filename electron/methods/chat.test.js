@@ -8,6 +8,7 @@ const db = {
   addMessage: vi.fn(async () => ({ id: 21 })),
   addAIMessage: vi.fn(),
   isOwnChat: vi.fn((userId, chatId) => chatId !== 99),
+  recentMessages: vi.fn(() => []),
 };
 vi.mock("../db/index.js", () => ({ default: db }));
 
@@ -263,5 +264,51 @@ describe("Ask stays with the profile that asked (KAN-454)", () => {
       .join("");
     expect(text).not.toContain("secret");
     expect(eventBus.listenerCount("session:changed")).toBe(0);
+  });
+});
+
+describe("Ask remembers the conversation (KAN-444)", () => {
+  it("sends earlier turns to both calls and searches a follow-up by its topic", async () => {
+    db.recentMessages.mockReturnValueOnce([
+      { sender: "user", content: "How was my sleep in August?" },
+      {
+        sender: "ai",
+        content: "You slept badly early in August.\n\nFollow-up: Why?",
+      },
+    ]);
+    semanticSearch.mockReturnValue([]);
+    answer = JSON.stringify({ response: "ok", suggested_user_prompt: "next" });
+    ai.embed.mockResolvedValue([0.1, 0.2]);
+    ai.generate.mockImplementation(async (_p, { onToken } = {}) =>
+      onToken
+        ? answer
+        : JSON.stringify({ requires_context: true, base_query: "sleep" }),
+    );
+
+    await handleUserMessage(null, 5, "and in September?", "m");
+
+    expect(db.recentMessages).toHaveBeenCalledWith(7, 5, 8);
+    for (const [prompt] of ai.generate.mock.calls) {
+      expect(prompt).toContain("Person: How was my sleep in August?");
+      expect(prompt).toContain("MindSage: You slept badly early in August.");
+      expect(prompt).not.toContain("Follow-up: Why?");
+      expect(prompt).toContain("and in September?");
+    }
+    expect(ai.embed).toHaveBeenCalledWith("sleep");
+  });
+
+  it("a new chat has no history and searches with the question", async () => {
+    semanticSearch.mockReturnValue([]);
+    ai.generate.mockImplementation(async (_p, { onToken } = {}) =>
+      onToken
+        ? answer
+        : JSON.stringify({ requires_context: true, base_query: "sleep" }),
+    );
+
+    await handleUserMessage(null, null, "How did I sleep?", "m");
+
+    expect(db.recentMessages).not.toHaveBeenCalled();
+    expect(ai.generate.mock.calls[0][0]).not.toContain("Earlier in this");
+    expect(ai.embed).toHaveBeenCalledWith("How did I sleep?");
   });
 });

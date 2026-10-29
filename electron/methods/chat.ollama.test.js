@@ -13,6 +13,7 @@ const db = {
   AddChat: vi.fn(async () => ({ id: 11 })),
   addMessage: vi.fn(),
   isOwnChat: () => true,
+  recentMessages: () => [],
 };
 vi.mock("../db/index.js", () => ({ default: db }));
 const semanticSearch = vi.fn();
