@@ -24,13 +24,7 @@ vi.mock("../db/index.js", () => ({
 }));
 vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
 vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
-const ALL_ON = {
-  title: true,
-  summary: true,
-  mood: true,
-  feelings: true,
-  suggestions: true,
-};
+const ALL_ON = { enrich: true, feelings: true, suggestions: true };
 const getFeatures = vi.hoisted(() => vi.fn());
 vi.mock("../ai/features.js", async (orig) => ({
   ...(await orig()),
@@ -61,35 +55,46 @@ beforeEach(() => {
   getFeatures.mockReset().mockReturnValue(ALL_ON);
 });
 
-describe("AI feature switches (KAN-70)", () => {
-  it("enqueues no summary job when summary is off", async () => {
-    getFeatures.mockReturnValue({ ...ALL_ON, summary: false });
-    generate.mockResolvedValueOnce(METADATA);
+describe("AI feature switches (KAN-70, KAN-437)", () => {
+  it("with Enrich entries off, asks for feeling words only and no summary", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, enrich: false });
+    generate.mockResolvedValueOnce('{"mood_tags":["Content"]}');
+    const completed = [];
+    eventBus.on("journal:aiCompleted", (e) => completed.push(e.metadata));
     eventBus.emit("journal:created", { entry });
     await drained();
     expect(generate).toHaveBeenCalledTimes(1);
-    expect(generate.mock.calls[0][1].schema).toBeDefined();
+    const [prompt, opts] = generate.mock.calls[0];
+    expect(Object.keys(opts.schema.properties)).toEqual(["mood_tags"]);
+    expect(prompt).not.toMatch(/Choose a Mood|Create a Title/);
+    expect(completed.at(-1)).toEqual({ mood_tags: ["Content"] });
   });
 
-  it("enqueues no title/mood/feelings job when all three are off", async () => {
-    getFeatures.mockReturnValue({
-      ...ALL_ON,
-      title: false,
-      mood: false,
-      feelings: false,
-    });
-    generate.mockResolvedValueOnce(SUMMARY);
+  it("with Suggest feelings off, sends no feeling word, the user's own included", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, feelings: false });
+    customFeelingWords.mockClear();
+    generate
+      .mockResolvedValueOnce('{"title":"A walk","mood":"Good"}')
+      .mockResolvedValueOnce(SUMMARY);
     eventBus.emit("journal:created", { entry });
     await drained();
-    expect(generate).toHaveBeenCalledTimes(1);
-    expect(generate.mock.calls[0][1].schema).toBeUndefined();
+    const [prompt, opts] = generate.mock.calls[0];
+    expect(Object.keys(opts.schema.properties)).toEqual(["title", "mood"]);
+    expect(prompt).not.toMatch(/Mood Tags|Playful/);
+    expect(customFeelingWords).not.toHaveBeenCalled();
+    expect(generate).toHaveBeenCalledTimes(2); // the summary still runs
+  });
+
+  it("enqueues no title/mood/feelings job when both are off", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, enrich: false, feelings: false });
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
   });
 
   it("enqueues nothing with every feature off", async () => {
     getFeatures.mockReturnValue({
-      title: false,
-      summary: false,
-      mood: false,
+      enrich: false,
       feelings: false,
       suggestions: false,
     });
@@ -102,13 +107,7 @@ describe("AI feature switches (KAN-70)", () => {
     let endAsk;
     const ask = foreground(() => new Promise((r) => (endAsk = r)));
     eventBus.emit("journal:created", { entry });
-    getFeatures.mockReturnValue({
-      ...ALL_ON,
-      title: false,
-      mood: false,
-      feelings: false,
-      summary: false,
-    });
+    getFeatures.mockReturnValue({ ...ALL_ON, enrich: false, feelings: false });
     endAsk();
     await ask;
     await drained();

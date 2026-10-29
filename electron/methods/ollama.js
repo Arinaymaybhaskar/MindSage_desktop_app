@@ -2,6 +2,7 @@ import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
 import {
   AISummaryPrompt,
+  ALL_METADATA,
   MAX_CUSTOM_IN_PROMPT,
   MAX_OUTPUT_TOKENS,
   getAutoPopulateValues,
@@ -12,7 +13,7 @@ import {
 } from "./AIPrompts.js";
 import { generate, taskModel } from "../ai/client.js";
 import { background, yieldToAsk } from "../ai/queue.js";
-import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
+import { getFeatures, metadataOn, metadataParts } from "../ai/features.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { db } from "../db/connection.js";
@@ -160,20 +161,25 @@ const enrichSignal = (signal) =>
 
 /**
  * Title, mood and tags: one JSON-schema call (KAN-89). Throws when unusable.
- * The user's most used own words join the tags it may pick (KAN-94).
+ * The user's most used own words join the tags it may pick (KAN-94). `parts`
+ * leaves out the title and mood or the feeling words (KAN-437); with feelings
+ * left out, no feeling word, the user's own included, reaches the model.
  */
-export async function generateMetadata(content, userId) {
-  const custom = localDB.customFeelingWords(userId, MAX_CUSTOM_IN_PROMPT);
+export async function generateMetadata(content, userId, parts = ALL_METADATA) {
+  const custom = parts.feelings
+    ? localDB.customFeelingWords(userId, MAX_CUSTOM_IN_PROMPT)
+    : [];
   const metadata = parseJournalMetadata(
     await yieldToAsk((signal) =>
-      generate(getAutoPopulateValues(content, custom), {
-        schema: journalMetadataSchema(custom),
+      generate(getAutoPopulateValues(content, custom, parts), {
+        schema: journalMetadataSchema(custom, parts),
         maxTokens: MAX_OUTPUT_TOKENS,
         model: taskModel("metadata"),
         signal: enrichSignal(signal),
       }),
     ),
     custom,
+    parts,
   );
   if (!metadata) throw new Error("AI returned incomplete or invalid metadata");
   return metadata;
@@ -198,8 +204,8 @@ export async function generateSummary(content) {
 eventBus.on("journal:created", ({ entry }) => {
   const features = getFeatures(entry.user_id);
   const needsAiCompletion =
-    (features.title && !entry?.title?.trim()) ||
-    (features.mood && entry?.mood_score === undefined) ||
+    (features.enrich &&
+      (!entry?.title?.trim() || entry?.mood_score === undefined)) ||
     (features.feelings && !entry?.mood_tags?.length);
   if (needsAiCompletion) {
     eventBus.emit("journal:aiStarted", { entryId: entry.id });
@@ -216,7 +222,7 @@ eventBus.on("journal:created", ({ entry }) => {
   db.prepare(
     `UPDATE journal_entries SET ai_summary_status = 'pending' WHERE id = ?`,
   ).run(entry.id);
-  const summarizable = features.summary && isSummarizable(entry.content);
+  const summarizable = features.enrich && isSummarizable(entry.content);
   if (!summarizable) {
     db.prepare(
       `UPDATE journal_entries SET ai_summary_status = 'skipped' WHERE id = ?`,
@@ -234,7 +240,7 @@ eventBus.on("journal:created", ({ entry }) => {
       const now = getFeatures(entry.user_id);
       if (needsAiCompletion && metadataOn(now))
         await fillMetadata(current, now);
-      if (summarizable && now.summary) await fillSummary(current);
+      if (summarizable && now.enrich) await fillSummary(current);
     }).catch((err) => log.error("AI enrichment failed:", err));
   }
 });
@@ -277,7 +283,7 @@ export function backfillEnrichment() {
         await fillMetadata(current, now);
       if (
         current.ai_summary_status === "failed" &&
-        now.summary &&
+        now.enrich &&
         isSummarizable(current.content)
       )
         await fillSummary(current);
@@ -291,10 +297,10 @@ eventBus.on("ai:models-ready", backfillEnrichment);
 async function fillMetadata(entry, features) {
   log.debug("Filling in missing details", { entryId: entry.id });
   try {
-    const metadata = maskMetadata(
-      await generateMetadata(entry.content, entry.user_id),
-      entry,
-      features,
+    const metadata = await generateMetadata(
+      entry.content,
+      entry.user_id,
+      metadataParts(features),
     );
     // Status is set to 'completed' by the journal:aiCompleted persister
     // once the sanitized metadata is written, so it can't be marked

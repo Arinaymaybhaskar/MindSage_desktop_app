@@ -324,7 +324,51 @@ describe("an entry's date", () => {
         mood_score: 7,
         ai_metadata_status: "completed",
       });
+      // Feeling words are offered, never saved as tags by the AI (KAN-437).
+      expect(after.mood_tags).toEqual([]);
+      expect(after.suggested_tags).toEqual(["hopeful", "tired"]);
+    });
+
+    it("a ticked feeling becomes a tag and leaves the offered list (KAN-437)", () => {
+      const created = localDB.createJournalEntry(alice, {
+        content: "Offered feelings.",
+        mood_tags: ["tired"],
+      });
+      eventBus.emit("journal:aiCompleted", {
+        entry: created,
+        metadata,
+        entryId: created.id,
+      });
+      // One already ticked is not offered again.
+      expect(localDB.getJournalById(alice, created.id).suggested_tags).toEqual([
+        "hopeful",
+      ]);
+      const after = localDB.acceptSuggestedTag(alice, created.id, "hopeful");
       expect([...after.mood_tags].sort()).toEqual(["hopeful", "tired"]);
+      expect(after.suggested_tags).toEqual([]);
+      // Not offered (or another profile's entry): nothing changes.
+      expect(
+        localDB.acceptSuggestedTag(alice, created.id, "Bitter"),
+      ).toBeNull();
+      expect(localDB.acceptSuggestedTag(bob, created.id, "tired")).toBeNull();
+    });
+
+    it("a feelings-only result writes no title or mood", () => {
+      const created = localDB.createJournalEntry(alice, {
+        content: "Enrichment off.",
+      });
+      eventBus.emit("journal:aiCompleted", {
+        entry: created,
+        metadata: { mood_tags: ["hopeful"] },
+        entryId: created.id,
+      });
+      expect(localDB.getJournalById(alice, created.id)).toMatchObject({
+        title: null,
+        mood_score: null,
+        mood_tags: [],
+        suggested_tags: ["hopeful"],
+        ai_metadata_status: "completed",
+      });
     });
 
     it("an explicit regenerate keeps the date and the transcription", () => {

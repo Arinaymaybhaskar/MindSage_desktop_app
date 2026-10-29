@@ -34,6 +34,7 @@ import {
   handleUpdateJournal,
   handleRetryAIMetadata,
   handleUpdateAIStatus,
+  handleAcceptFeeling,
 } from "./methods/journal.js";
 import {
   getAudioBase64,
@@ -198,6 +199,7 @@ export function registerIPCHandlers() {
   ipcMain.handle("journal:get-chart-data", handleGetChartData);
   ipcMain.handle("journal:retry-ai-metadata", handleRetryAIMetadata);
   ipcMain.handle("journal:update-ai-status", handleUpdateAIStatus);
+  ipcMain.handle("journal:accept-feeling", handleAcceptFeeling);
   ipcMain.handle("tags:custom-list", handleListCustomWords);
   ipcMain.handle("tags:custom-add", handleAddCustomWord);
   ipcMain.handle("chat:send", handleChat);

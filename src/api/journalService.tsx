@@ -9,6 +9,8 @@ export interface JournalEntry {
   mood_score?: number | null;
   sentiment_score?: number;
   mood_tags?: string[];
+  /** Feeling words the AI offers (KAN-437); none is a tag until ticked. */
+  suggested_tags?: string[];
   created_at?: string;
   image_key?: string | null;
   audio_key?: string | null;
@@ -127,6 +129,17 @@ export const journalService = {
       journalId,
       type,
     );
+  },
+
+  /** Ticks a feeling word the AI offered: it becomes one of the entry's tags. */
+  acceptFeeling: async (
+    journalId: number,
+    name: string,
+  ): Promise<JournalEntry | { error: string }> => {
+    checkElectron();
+    return await window.electron.ipcRenderer.invoke<
+      JournalEntry | { error: string }
+    >("journal:accept-feeling", journalId, name);
   },
 };
 
