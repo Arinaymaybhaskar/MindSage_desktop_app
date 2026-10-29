@@ -4,6 +4,7 @@ import { AuthLayout } from "../../layouts/AuthLayout";
 import { Shield, X, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import type { ZXCVBNResult } from "zxcvbn";
 import { authService } from "../../api/authService";
+import { errorText } from "../../api/portabilityService";
 
 type Zxcvbn = (password: string, userInputs?: string[]) => ZXCVBNResult;
 
@@ -28,6 +29,8 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [nameAvailable, setNameAvailable] = useState<null | boolean>(null);
+  // The main process's reason a name is refused (the one rule lives there).
+  const [nameError, setNameError] = useState("");
   const [zxcvbn, setZxcvbn] = useState<Zxcvbn | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -48,27 +51,28 @@ export default function Register() {
     };
   }, []);
 
-  const nameError =
-    name && name.length < 3
-      ? "Profile name must be at least 3 characters."
-      : "";
-
-  // Live duplicate check, debounced; a stale answer for an older name is ignored.
+  // Live rule and duplicate check, debounced; a stale answer for an older
+  // name is ignored.
   useEffect(() => {
     setNameAvailable(null);
-    if (!name || nameError) return;
+    setNameError("");
+    if (!name.trim()) return;
     let live = true;
     const timer = setTimeout(() => {
       authService
         .checkUsername(name)
-        .then(({ available }) => live && setNameAvailable(available))
+        .then(({ available, error }) => {
+          if (!live) return;
+          setNameAvailable(available);
+          setNameError(error ?? "");
+        })
         .catch(() => live && setNameAvailable(null));
     }, 400);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [name, nameError]);
+  }, [name]);
 
   const strength = useMemo(
     () => (zxcvbn && password ? zxcvbn(password, [name]) : null),
@@ -103,7 +107,7 @@ export default function Register() {
     setError("");
     setSubmitting(true);
     try {
-      await authService.register({
+      const { user } = await authService.register({
         username: name,
         password,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -112,10 +116,15 @@ export default function Register() {
           : undefined,
       });
       // Straight to the new profile's password, not back to the full grid.
-      navigate("/profiles", { state: { select: name, restore } });
+      // The stored name is the trimmed one.
+      navigate("/profiles", {
+        state: { select: user?.username ?? name, restore },
+      });
     } catch (err) {
-      if (String(err).includes("already exists")) setNameAvailable(false);
-      else setError("Could not create the profile. Please try again.");
+      if (String(err).includes("already exists")) {
+        setNameAvailable(false);
+        setNameError(errorText(err));
+      } else setError("Could not create the profile. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -139,10 +148,11 @@ export default function Register() {
             type="text"
             required
             autoFocus
-            placeholder="Letters, numbers and underscores"
+            placeholder="Any name, in any language. Emoji welcome."
+            maxLength={80}
             value={name}
-            onChange={(e) => setName(e.target.value.replace(/[^\w]/g, ""))}
-            aria-invalid={!!nameError || nameAvailable === false}
+            onChange={(e) => setName(e.target.value)}
+            aria-invalid={nameAvailable === false}
             aria-describedby="username-status"
             className={inputClasses}
           />
@@ -152,15 +162,13 @@ export default function Register() {
             aria-live="polite"
             className="mt-2 text-sm"
           >
-            {nameError ? (
-              <span className="text-danger">{nameError}</span>
-            ) : !name ? null : nameAvailable === null ? (
+            {!name.trim() ? null : nameAvailable === null ? (
               <span className={subText}>Checking...</span>
             ) : nameAvailable ? (
               <span className="text-success">This name is free.</span>
             ) : (
               <span className="text-danger">
-                This name is already used on this PC.
+                {nameError || "This name is already used on this PC."}
               </span>
             )}
           </div>

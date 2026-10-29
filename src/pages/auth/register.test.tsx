@@ -58,6 +58,17 @@ describe("Register", () => {
     expect(checkUsername).toHaveBeenCalledWith("ada");
   });
 
+  it("sends an emoji or non-Latin name as typed and shows the rule's reason", async () => {
+    checkUsername.mockResolvedValue({
+      available: false,
+      error: "Profile name can use letters, numbers, emoji, spaces and _ . ' -",
+    });
+    renderPage();
+    type("Profile name", "मीरा 🌙/");
+    expect(await screen.findByText(/can use letters/)).toBeTruthy();
+    expect(checkUsername).toHaveBeenCalledWith("मीरा 🌙/");
+  });
+
   it("blocks a weak password inline, then creates the profile", async () => {
     renderPage();
     type("Profile name", "ada");

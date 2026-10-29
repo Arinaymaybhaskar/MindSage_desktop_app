@@ -31,37 +31,40 @@ export function getUserById(userId) {
 
   // This goes to the renderer, which caches it in localStorage for the title
   // bar and profile menu. The bcrypt hash used to ride along into that cache.
-  const { password_hash: _hash, ...safe } = user;
+  // Email and full name are unused since KAN-67 (columns kept one release).
+  const {
+    password_hash: _hash,
+    email: _email,
+    full_name: _fullName,
+    ...safe
+  } = user;
   return safe;
 }
 
-export function updateUserProfile(
-  userId,
-  { username, email, full_name, profile_picture },
-) {
-  // profile_picture was previously dropped by the destructure - it never
-  // reached the UPDATE, and was missing from the SELECT that builds the
-  // return value. The DB row itself survived (the column just wasn't in the
-  // SET clause), but the object handed back to the renderer had no
-  // profile_picture key at all, and that object is what overwrites the
-  // cached `userInfo` in localStorage that the dashboard's avatar reads
-  // from. The practical effect: save a new picture, and the very next write
-  // to localStorage - triggered by this same save - wiped it from the
-  // avatar until something else happened to refetch the full user record.
-  // It also meant removing a picture (which sends profile_picture: null)
-  // never actually cleared it from the database.
-  const stmt = db.prepare(
-    "UPDATE users SET username = ?, email = ?, full_name = ?, profile_picture = ? WHERE id = ?",
+/**
+ * Renames the profile and/or sets its picture; a key left out is unchanged.
+ * The name is already cleaned and checked by the caller.
+ */
+export function updateUserProfile(userId, changes) {
+  if ("username" in changes) {
+    db.prepare("UPDATE users SET username = ? WHERE id = ?").run(
+      changes.username,
+      userId,
+    );
+  }
+  if ("profile_picture" in changes) {
+    db.prepare("UPDATE users SET profile_picture = ? WHERE id = ?").run(
+      changes.profile_picture ?? null,
+      userId,
+    );
+  }
+  return (
+    db
+      .prepare(
+        "SELECT id, username, created_at, timezone, profile_picture FROM users WHERE id = ?",
+      )
+      .get(userId) ?? null
   );
-  // A blank email is stored as NULL: UNIQUE allows many NULLs, not many "".
-  stmt.run(username, email || null, full_name, profile_picture ?? null, userId);
-  const user = db
-    .prepare(
-      "SELECT id, username, email, created_at, full_name, timezone, profile_picture FROM users WHERE id = ?",
-    )
-    .get(userId);
-  if (!user) return null;
-  return user;
 }
 
 export function getUserSettings(userId) {

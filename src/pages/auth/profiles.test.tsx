@@ -26,11 +26,11 @@ vi.mock("../../hooks/useAuth", () => ({
 const PROFILES = [
   {
     id: 1,
-    username: "ada",
-    full_name: "Ada Lovelace",
+    username: "Ada 🌙",
     avatar: "data:image/png;base64,AAAA",
   },
-  { id: 2, username: "grace", full_name: null, avatar: null },
+  { id: 2, username: "grace", avatar: null },
+  { id: 3, username: "🌙 मीरा", avatar: null },
 ];
 
 function renderAt(state?: { select: string }) {
@@ -54,13 +54,14 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Profiles picker", () => {
-  it("shows every profile with its picture or initials, and an add tile", async () => {
+  it("shows every profile by its profile name with its picture or initial, and an add tile", async () => {
     renderAt();
-    expect(await screen.findByText("Ada Lovelace")).toBeTruthy();
-    expect(screen.getByText("@ada")).toBeTruthy();
+    expect(await screen.findByText("Ada 🌙")).toBeTruthy();
     expect(screen.getByText("grace")).toBeTruthy();
-    // Grace has no picture, so her initial stands in.
+    expect(screen.getByText("🌙 मीरा")).toBeTruthy();
+    // No picture: the first character stands in, an emoji kept whole.
     expect(screen.getByText("G")).toBeTruthy();
+    expect(screen.getByText("🌙")).toBeTruthy();
     expect(document.querySelector('img[src^="data:image/png"]')).toBeTruthy();
 
     fireEvent.click(screen.getByText("Add new user"));
@@ -68,11 +69,11 @@ describe("Profiles picker", () => {
   });
 
   it("asks for the chosen profile's password, then signs in", async () => {
-    loginCall.mockResolvedValue({ userInfo: { username: "ada" } });
+    loginCall.mockResolvedValue({ userInfo: { username: "Ada 🌙" } });
     renderAt();
-    fireEvent.click(await screen.findByText("Ada Lovelace"));
+    fireEvent.click(await screen.findByText("Ada 🌙"));
 
-    expect(screen.getByText("Welcome back, Ada Lovelace")).toBeTruthy();
+    expect(screen.getByText("Welcome back, Ada 🌙")).toBeTruthy();
     fireEvent.change(await screen.findByPlaceholderText("Password"), {
       target: { value: "secret" },
     });
@@ -81,11 +82,11 @@ describe("Profiles picker", () => {
 
     await screen.findByText("home");
     expect(loginCall).toHaveBeenCalledWith({
-      identifier: "ada",
+      identifier: "Ada 🌙",
       password: "secret",
       rememberMe: true,
     });
-    expect(authLogin).toHaveBeenCalledWith({ username: "ada" });
+    expect(authLogin).toHaveBeenCalledWith({ username: "Ada 🌙" });
   });
 
   it("says so when the password is wrong, and stays on the profile", async () => {

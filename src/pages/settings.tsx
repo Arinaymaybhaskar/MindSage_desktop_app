@@ -14,6 +14,7 @@ import SettingsSkeleton from "../components/Skeletons/SettingsSkeleton";
 import { motion } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
+import { errorText } from "../api/portabilityService";
 import type {
   ProfileUpdate,
   SettingsPanelProps,
@@ -115,10 +116,12 @@ const Settings = () => {
       const updatedUser = await userService.updateProfile(newProfile);
       setUser(updatedUser.user);
       localStorage.setItem("userInfo", JSON.stringify(updatedUser.user));
+      window.dispatchEvent(new Event("user:updated")); // the profile menu
       showToast("Profile updated!", "success");
     } catch (error) {
       console.error("Failed to update profile:", error);
-      showToast("Failed to update profile.", "danger");
+      showToast(errorText(error) || "Failed to update profile.", "danger");
+      throw error;
     }
   };
 
