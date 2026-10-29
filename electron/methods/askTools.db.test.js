@@ -203,6 +203,8 @@ describe("results", () => {
     ]);
     const all = await tools.runTool("get_entries_by_date", SEPT);
     expect(all.total).toBe(5);
+    // The line the person sees above the answer (KAN-447).
+    expect(all.summary).toMatch(/^Looked at 5 entries from 1 to 30 September/);
     expect(all.text).not.toContain("trashed");
   });
 
@@ -239,6 +241,7 @@ describe("results", () => {
       { group: "tired", entries: 1, average: 2 },
     ]);
     expect(out.skipped).toBe(1);
+    expect(out.summary).toMatch(/^Looked at the mood of 4 entries from 1 to/);
     expect(out.text).toContain("1 entries had no mood");
     expect(out.text).toContain("calm: average mood 4.5");
   });

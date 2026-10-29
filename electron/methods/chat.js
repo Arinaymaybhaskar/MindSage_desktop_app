@@ -2,36 +2,48 @@ import localDB from "../db/index.js";
 import { eventBus } from "../eventBus.js";
 import {
   ASK_ANSWER_MAX_TOKENS,
+  ASK_INTENTS,
   HISTORY_MESSAGES,
   MAX_OUTPUT_TOKENS,
+  askPlanPrompt,
   trimHistory,
-  generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
   respondWithoutContext,
 } from "./AIPrompts.js";
-import { embed, generate } from "../ai/client.js";
-import { embedFitting } from "../ai/embedFitting.js";
+import { generate } from "../ai/client.js";
 import { foreground } from "../ai/queue.js";
 import { partialJsonString } from "./jsonStream.js";
-import { semanticSearch } from "./search.js";
+import { localDay, runTool } from "./askTools.js";
 import { isIndexUnavailable } from "../services/searchIndex.js";
 import z from "zod";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
 
-// Schemas
-// Be lenient about optional-ish fields: small local models routinely omit
-// `notes` or send null time filters. Only requires_context is truly required;
-// everything else has a sane fallback so a missing field doesn't fail parsing
-// (and blow up the whole chat after 3 retries).
-const propsResSchema = z.object({
-  requires_context: z.boolean(),
-  requires_time_filter: z.boolean().optional().default(false),
-  time_filter_from: z.string().nullish().default(null),
-  time_filter_to: z.string().nullish().default(null),
-  base_query: z.string().optional().default(""),
-  notes: z.string().optional().default(""),
+// Router mode (KAN-447): the planning call picks one intent and its
+// arguments, code runs exactly one read tool, the answer call writes the reply.
+const planSchema = z.object({
+  intent: z.enum(ASK_INTENTS),
+  arguments: z.record(z.unknown()).nullish(),
+  unchecked: z.string().nullish(),
 });
+
+/** Which tool each intent runs, and the plan arguments it takes. */
+const ROUTES = {
+  search: [
+    "search_entries",
+    ["query", "from", "to", "mood_min", "mood_max", "feelings", "limit"],
+  ],
+  date_range: ["get_entries_by_date", ["from", "to", "order", "limit"]],
+  mood_stats: ["mood_stats", ["from", "to", "group_by"]],
+  // shortcut: counting needs its own tool (KAN-143, a later phase); until
+  // then a count question searches.
+  count: ["search_entries", ["query", "from", "to"]],
+  goals: ["get_goals", ["status", "category"]],
+};
+
+/** What a plan that failed or timed out turns into: search the question. */
+const SEARCH_INSTEAD = { intent: "search", arguments: {}, unchecked: "" };
+export const PLAN_TIMEOUT_MS = 60_000;
 
 const chatResponseSchema = z.object({
   response: z.string(),
@@ -39,24 +51,32 @@ const chatResponseSchema = z.object({
 });
 
 // The same two shapes as JSON schemas, forced on the model as a grammar.
-const PROPS_JSON_SCHEMA = {
+const PLAN_JSON_SCHEMA = {
   type: "object",
   properties: {
-    requires_context: { type: "boolean" },
-    requires_time_filter: { type: "boolean" },
-    time_filter_from: { type: ["string", "null"] },
-    time_filter_to: { type: ["string", "null"] },
-    base_query: { type: "string" },
-    notes: { type: "string" },
+    intent: { type: "string", enum: ASK_INTENTS },
+    arguments: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        from: { type: "string" },
+        to: { type: "string" },
+        mood_min: { type: "integer" },
+        mood_max: { type: "integer" },
+        feelings: { type: "array", items: { type: "string" } },
+        limit: { type: "integer" },
+        order: { type: "string", enum: ["newest", "oldest"] },
+        group_by: {
+          type: "string",
+          enum: ["day", "week", "month", "weekday", "feeling"],
+        },
+        status: { type: "string", enum: ["active", "completed", "all"] },
+        category: { type: "string" },
+      },
+    },
+    unchecked: { type: "string" },
   },
-  required: [
-    "requires_context",
-    "requires_time_filter",
-    "time_filter_from",
-    "time_filter_to",
-    "base_query",
-    "notes",
-  ],
+  required: ["intent", "arguments", "unchecked"],
 };
 const CHAT_RESPONSE_JSON_SCHEMA = {
   type: "object",
@@ -115,6 +135,55 @@ class ProfileChangedError extends Error {
   }
 }
 
+/**
+ * The planning call. Never throws for a bad or slow plan: a timeout, an
+ * unreadable answer or an unknown intent searches the question instead.
+ */
+async function planQuestion(content, history, model, signal) {
+  const prompt = askPlanPrompt(content, {
+    today: localDay(),
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    history,
+  });
+  const timeout = AbortSignal.timeout(PLAN_TIMEOUT_MS);
+  try {
+    const raw = await generate(prompt, {
+      schema: PLAN_JSON_SCHEMA,
+      ollamaModel: model,
+      maxTokens: MAX_OUTPUT_TOKENS,
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+    const json = String(raw ?? "").match(/\{[\s\S]*\}/);
+    if (!json) throw new SyntaxError("No JSON found");
+    return planSchema.parse(JSON.parse(json[0]));
+  } catch (error) {
+    if (signal?.aborted) throw new ProfileChangedError();
+    log.warn("Ask plan failed; searching the question", {
+      reason: error?.name,
+    });
+    return SEARCH_INSTEAD;
+  }
+}
+
+/**
+ * Runs the plan's one tool. Arguments the tool's schema refuses fall back to
+ * searching the question text.
+ */
+async function lookUp(plan, content) {
+  const [name, keys] = ROUTES[plan.intent];
+  const args = Object.fromEntries(
+    keys
+      .map((key) => [key, plan.arguments?.[key]])
+      .filter(([, value]) => value != null && value !== ""),
+  );
+  const result = await runTool(name, args);
+  if (result.ok) return result;
+  log.info("Ask tool refused its arguments; searching the question", {
+    tool: name,
+  });
+  return runTool("search_entries", { query: content });
+}
+
 async function aiResponse(content, chatId, messageId, model, hooks = {}) {
   const {
     onPhase = () => {},
@@ -139,73 +208,36 @@ async function aiResponse(content, chatId, messageId, model, hooks = {}) {
       model,
       contentChars: content?.length,
     });
-    const now = new Date();
-    const currentTimeISO = now.toISOString();
-
-    // 1️⃣ Generate propsRes
+    // 1️⃣ Plan: one intent and its arguments.
     onPhase("thinking");
-    const queryPropsPrompt = generateContextTimeAndBaseQueryPrompt(
-      content,
-      currentTimeISO,
-      history,
-    );
-    const propsRes = await parseAIWithRetries(
-      () =>
-        generate(queryPropsPrompt, {
-          schema: PROPS_JSON_SCHEMA,
-          ollamaModel: model,
-          maxTokens: MAX_OUTPUT_TOKENS,
-          signal,
-        }),
-      propsResSchema,
-      3,
-    );
-    log.debug("Validated propsRes", {
-      requiresContext: propsRes.requires_context,
-      requiresTimeFilter: propsRes.requires_time_filter,
-    });
+    const plan = await planQuestion(content, history, model, signal);
+    log.debug("Ask plan", { intent: plan.intent });
 
-    let semanticResult = [];
-
-    // 2️⃣ Semantic search logic
-    if (propsRes.requires_context) {
-      // The question as asked; a follow-up ("and in September?") searches
-      // with the topic the planner took from the earlier turns.
-      log.debug("requires context");
+    // 2️⃣ Run exactly one read tool; intent "none" answers without the journal.
+    let found = null;
+    if (plan.intent !== "none") {
       onPhase("searching");
-      const query = history.length ? propsRes.base_query.trim() : "";
-      const vector = await embedFitting(embed, query || content);
-      if (vector) semanticResult = semanticSearch(vector, stillAsker(), 5);
-    } else if (propsRes.requires_time_filter) {
-      log.debug("requires context with time filter");
-      onPhase("searching");
-      // Use base_query and time filter
-      // A blank base_query (the model's choice) searches with the question.
-      const vector = await embedFitting(
-        embed,
-        propsRes.base_query.trim() || content,
-      );
-      if (vector) {
-        semanticResult = semanticSearch(vector, stillAsker(), 5, {
-          range: {
-            from: propsRes.time_filter_from,
-            to: propsRes.time_filter_to,
-          },
-        });
-      }
+      stillAsker();
+      found = await lookUp(plan, content);
+      stillAsker();
     }
-    log.debug("Semantic result", { count: semanticResult.length });
-    let mainPrompt;
+    const sources = found?.ok ? found.sources : [];
+    // The shape the renderer and storeAIResponse read.
+    const semanticResult = sources.map((s) => ({
+      id: s.source_id,
+      payload: {
+        source_type: s.source_type,
+        source_id: s.source_id,
+        title: s.source_title,
+      },
+    }));
+    // Shown above the answer: which tool ran and over what.
+    const lead = found?.ok ? `${found.summary}\n\n` : "";
+    const mainPrompt = found?.ok
+      ? respondWithContext(content, found.text, history, plan.unchecked ?? "")
+      : respondWithoutContext(content, history);
 
-    if (!propsRes.requires_context && semanticResult.length == 0) {
-      log.debug("No context needed");
-      mainPrompt = respondWithoutContext(content, history);
-    } else {
-      // 3️⃣ Generate prompt for main AI response
-      mainPrompt = respondWithContext(content, semanticResult, history);
-    }
-
-    // 4️⃣ Get final chat response, streaming it to the renderer as it forms.
+    // 3️⃣ Get final chat response, streaming it to the renderer as it forms.
     stillAsker();
     onPhase("writing", { sources: semanticResult });
     const chatResponse = await parseAIWithRetries(
@@ -214,6 +246,7 @@ async function aiResponse(content, chatId, messageId, model, hooks = {}) {
         // Tell the renderer to throw it away before the retry starts,
         // otherwise the second attempt appends to the first.
         onReset();
+        if (lead) onDelta(lead);
         let emitted = 0;
         return generate(mainPrompt, {
           schema: CHAT_RESPONSE_JSON_SCHEMA,
@@ -236,6 +269,7 @@ async function aiResponse(content, chatId, messageId, model, hooks = {}) {
       chars: JSON.stringify(chatResponse ?? "").length,
     });
     stillAsker();
+    chatResponse.response = lead + chatResponse.response;
     return { chatResponse, chatId, messageId, semanticResult };
   } catch (error) {
     // The caller tells the renderer this one in plain words; every other

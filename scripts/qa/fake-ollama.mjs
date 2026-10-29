@@ -85,14 +85,12 @@ function embed(text) {
 
 // Which reply the app wants, told apart by its own prompts (AIPrompts.js).
 function reply(prompt, jsonMode) {
-  if (prompt.includes("requires_context"))
+  // Ask's plan (KAN-447): with no query, the app searches the question.
+  if (prompt.includes("You are MindSage's planner"))
     return JSON.stringify({
-      requires_context: v["requires-context"],
-      requires_time_filter: false,
-      time_filter_from: null,
-      time_filter_to: null,
-      base_query: "",
-      notes: "",
+      intent: v["requires-context"] ? "search" : "none",
+      arguments: {},
+      unchecked: "",
     });
   if (prompt.includes("emotional analysis and sentiment extraction"))
     return JSON.stringify({
