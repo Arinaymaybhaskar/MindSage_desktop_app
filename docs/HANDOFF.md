@@ -1,4 +1,14 @@
-# MindSage handoff (2026-10-22 c, P2 waves 2 and 3 built, wave 4 started)
+# MindSage handoff (2026-10-29, P2 wave 4 built, owner decisions taken, new tickets filed)
+
+## 2026-10-29 decisions (owner) and new tickets
+- Installer ships CPU and Vulkan engine binaries only. CUDA becomes an optional post-install download for Nvidia GPUs: KAN-434 (no fix version yet). This unblocks KAN-388 (ONNX).
+- The password only locks the profile; it encrypts nothing. KAN-77, 177, 178, 181, 183 moved to fix version P5 (label release-p5). Their descriptions still say "encrypts" and name old releases; rewrite when the real encryption project is scoped.
+- KAN-80 import placement: after sign-up, optional, never blocking (a skippable line on You're set). Ticket KAN-436.
+- KAN-70 "feelings" means the KAN-94 feeling words (built-in plus custom). Mood stays the KAN-93 five words under "Enrich entries". The merged KAN-70 build read it as mood tags, so rework is KAN-437, after #90 merges. The owner already edited KAN-70's description.
+- KAN-64 status card wording is the table in KAN-64's own description (title plus second line per state). The agent said the wording was unavailable; it was in Jira. The built card does not match it. Ticket KAN-435.
+- Follow-ups, all filed as P2 bugs with `found-in-phase-2`, `phase-2-closeout`: KAN-438 People extraction yields to Ask (after #86 merges), KAN-439 chat and search query embeds untruncated, KAN-440 profile names case-insensitive, KAN-441 last-import record deleted with its profile.
+- Owner said not to worry about timelines.
+- Not done: the owner's own actions (release `binaries-whisper-v1` for PR #51; delete KAN-389 in the Jira UI). All 11 PRs (#82, #84 to #92) are CI green and unmerged, mergeable and clean individually; #89 and #90 will conflict in AIPrompts.js, and #90 uses migration 12. Merge only when the owner says "merge", #83 first.
 
 You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin` and `git pull` (merge, never rebase), then read this file again if the pull changed it.
 
@@ -11,11 +21,12 @@ You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and do
 - KAN-81 was built WITHOUT its blockers: KAN-162 (daily nudge, fix version P3) and KAN-313 (Windows Hello, release-later) are still To Do and unbuilt. The screen's reminder toggle only stores `journal_reminder` and `reminder_time` and fires nothing; Windows Hello is hidden behind `helloAvailable()`, which returns false. Do not build 162/313 in P2 unless the owner says so.
 
 ## Next
-1. Wave 4 housekeeping: KAN-169 (lint electron/ and scripts/) and KAN-394 (11 unused packages removed) are merged. Next candidates: KAN-388, bugs 386/387/390/392/393, KAN-191, KAN-60. No review or test per the owner.
-2. Review first, when the owner lifts the pause: KAN-76 migration 10 (rebuilds `users`, email nullable; the migration runner now turns foreign keys off around migrations marked `rebuildsTables` and runs foreign_key_check; a mistake would delete journal entries via cascade). Never run on a real profile yet.
-3. KAN-80 placement conflict: first-run /setup runs before sign-up, so its import step only works with a signed-in profile (new installs see a pointer to Settings). The design changes list (2026-10-20) moved WIN-145 to after the first saved entry. Owner decides where the screen goes.
-4. Bugs filed this phase (P2, phase-2-closeout): KAN-386, 387, 390, 392, 393; KAN-391 by someone else. Confirm the fix version on KAN-392 and KAN-393. The two CI fixes in #71 were committed under Refs KAN-70/KAN-75 with no bug ticket.
-5. KAN-388: ONNX runtime feelings classifier and NLI gate; KAN-69 has a TODO(KAN-388) hook. Measure added size.
+1. Open PRs against the phase branch, all built, unreviewed, untested, NOT merged (owner said do not merge): #82 KAN-393, #84 KAN-386, #85 KAN-387, #86 KAN-390, #87 KAN-392, #88 KAN-391, #89 KAN-93, #90 KAN-94, #91 KAN-67, #92 KAN-74 (#92 CI was pending). CI green on #82 and #84 to #91. All their Jira tickets carry `not-reviewed` and sit in Not reviewed. Merge only when the owner says "merge". Expect conflicts: AIPrompts.js between #89 and #90; migration numbering (#90 uses 12). Merge #83 (this handoff) first.
+2. Follow-ups noted by agents: after #86 merges, People extraction (#87) should also use `yieldToAsk`. Chat and search query embeds (`methods/chat.js`, `methods/search.js`) still send untruncated text (KAN-391 covered the indexer only). `scripts/qa/app.mjs` sign-up still fills #email and #full_name (removed by KAN-76). KAN-74: the last-import record is not deleted when its profile is deleted. KAN-67: names compare case-sensitively ("Maya" and "maya" both allowed). Custom feeling words with comma, ; or | are refused (KAN-94). No tag filter exists in the app, so KAN-94 "appears in filters" had nothing to extend.
+3. Remaining P2 To Do: KAN-388 (ONNX, waits on installer-size decision), KAN-77/177/178/181/183 (encryption/recovery, clash with "password encrypts nothing", re-scope), KAN-83 (landing page), KAN-191 and KAN-193 (blocked on owner), KAN-385 (needs hardware). Nothing else buildable in P2 without an owner decision.
+4. Review first, when the owner lifts the pause: KAN-76 migration 10 and KAN-94 migration 12 (never run on a real profile yet).
+5. KAN-80 placement conflict: first-run /setup runs before sign-up, so its import step only works with a signed-in profile. Owner decides where the screen goes.
+6. The phase branch has no CI run of its own (CI triggers on push to main and on PRs only).
 
 ## Facts from this session's agents (things later work must know)
 - KAN-76: profile name is the existing `username` column; sign-up is one screen (`/register`), zxcvbn lazy-loaded (main chunk 1,871 kB to 1,046 kB, zxcvbn own 819 kB chunk); weak passwords blocked (score >= 3). `media:save-profile` path traversal fixed. Stepper.tsx deleted.
@@ -38,11 +49,9 @@ You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and do
 
 ## Needs the owner
 1. Create release `binaries-whisper-v1` and upload the files (PR #51). History removal waits for KAN-191.
-2. Installer size: win-x64 prebuilts are 632 MB unpacked (cpu 30, vulkan 71, cuda 169, cuda-ext 351, arm64 11). Agent recommends CPU and Vulkan only.
-3. Encryption/recovery tickets (KAN-177, 178, 181, 183, 77) clash with the rule that the password encrypts nothing. Re-scope before building.
-4. Delete KAN-389 in the Jira UI (duplicate of KAN-388; the connector cannot delete issues).
-5. Confirm "feelings" = mood tags (KAN-70) and give the status-card wording (KAN-64).
-6. The owner's checkout had an incomplete node_modules (no .bin): `git switch phase/p2-remove-the-setup-wall`, `git pull`, `npm ci` (without --ignore-scripts), then `npm run dev`.
+2. Delete KAN-389 in the Jira UI (duplicate of KAN-388; the connector cannot delete issues).
+3. Say "merge" when ready (see 2026-10-29 section above).
+4. The owner's checkout had an incomplete node_modules (no .bin): `git switch phase/p2-remove-the-setup-wall`, `git pull`, `npm ci` (without --ignore-scripts), then `npm run dev`.
 
 ## Decisions made
 - Provider rule (KAN-68): built-in engine only when aiProvider is set to it or both GGUFs are on disk at verified size; otherwise Ollama. Ollama stays a full provider.
