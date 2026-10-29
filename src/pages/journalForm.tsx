@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import journalService, { type JournalEntry } from "../api/journalService";
 import whisperService from "../api/whisperService";
+import VoiceModelPrompt from "../components/VoiceModelPrompt";
 import {
   ArrowLeft,
   BrainCircuit,
@@ -30,6 +31,8 @@ import { SidebarPanel } from "../components/journal/SidebarPanel";
 import type { SelectedModels } from "../types/Ollama";
 import { registerUnsavedWork } from "../utils/unsavedWork";
 import { draftKey } from "../utils/draftKeys";
+import { tagService } from "../api/tagService";
+import type { CustomFeelingWord } from "../api/tagService";
 
 const emptyJournal: JournalEntry = {
   title: "",
@@ -40,6 +43,13 @@ const emptyJournal: JournalEntry = {
 
 export default function JournalForm() {
   const [entry, setEntry] = useState<JournalEntry>(emptyJournal);
+  const [customWords, setCustomWords] = useState<CustomFeelingWord[]>([]);
+  useEffect(() => {
+    tagService
+      .listCustomWords()
+      .then((w) => setCustomWords(Array.isArray(w) ? w : []))
+      .catch(() => {});
+  }, []);
   const { id } = useParams();
   const navigate = useNavigate();
   const [showSaved, setShowSaved] = useState(false);
@@ -83,6 +93,7 @@ export default function JournalForm() {
   const [isDragging, setIsDragging] = useState(false);
 
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [askVoiceModel, setAskVoiceModel] = useState(false);
   const [editedDate, setEditedDate] = useState<string>("");
 
   // START: Added state for inline autocomplete suggestions
@@ -318,7 +329,8 @@ export default function JournalForm() {
       await whisperService.stopLive();
       setIsTranscribing(false);
     } else {
-      await whisperService.startLive();
+      const res = await whisperService.startLive();
+      if (res && res.needsModel) return setAskVoiceModel(true);
       setIsTranscribing(true);
     }
   };
@@ -549,6 +561,9 @@ export default function JournalForm() {
                 </motion.div>
               )}
             </AnimatePresence>
+            {askVoiceModel && (
+              <VoiceModelPrompt onClose={() => setAskVoiceModel(false)} />
+            )}
             <button
               type="button"
               onClick={toggleLiveTranscription}
@@ -659,6 +674,10 @@ export default function JournalForm() {
               <MoodTagSelector
                 key={JSON.stringify(entry.mood_tags)}
                 selected={entry.mood_tags ?? []}
+                customWords={customWords}
+                onCustomWordAdded={(w) =>
+                  setCustomWords((prev) => [...prev, w])
+                }
                 onChange={(tags) => {
                   setEntry({ ...entry, mood_tags: tags });
                 }}

@@ -11,12 +11,18 @@ vi.mock("electron", () => ({
   ipcMain: { handle: () => {}, on: () => {} },
   BrowserWindow: { getAllWindows: () => [] },
 }));
+const storeData = vi.hoisted(() => new Map());
 vi.mock("electron-store", () => ({
   default: class {
-    get() {
-      return null;
+    get(key) {
+      return storeData.get(key) ?? null;
     }
-    set() {}
+    set(key, value) {
+      storeData.set(key, value);
+    }
+    delete(key) {
+      storeData.delete(key);
+    }
   },
 }));
 
@@ -262,6 +268,20 @@ describe("deleting a profile", () => {
     );
     // Another profile's vector is untouched.
     expect(idx.getState("journal", keep.live)).not.toBeNull();
+  });
+
+  it("drops the profile's last-import record and keeps others' (KAN-441)", async () => {
+    const { getLast, setLast } = await import("../lastImport.js");
+    const gone = makeUser("importgone");
+    const kept = makeUser("importkept");
+    const record = { at: "2026-01-01", source: "x", ids: [1], edited: false };
+    setLast(gone, record);
+    setLast(kept, record);
+    const { deleteProfileEverything } =
+      await import("../methods/profileDelete.js");
+    await deleteProfileEverything(gone);
+    expect(getLast(gone)).toBeNull();
+    expect(getLast(kept)).toEqual(record);
   });
 
   it("says when it was the last profile on this computer", () => {

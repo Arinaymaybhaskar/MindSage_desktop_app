@@ -107,7 +107,7 @@ describe("LocalAIPanel", () => {
     await act(async () => {
       fireEvent.click(within(panel).getByRole("button", { name: "Install" }));
     });
-    expect(navigate).toHaveBeenCalledWith("/ollama-tutorial");
+    expect(navigate).toHaveBeenCalledWith("/settings/models");
   });
 
   it("falls back to the engine state once work is done", () => {
@@ -183,6 +183,21 @@ describe("LocalAIPanel", () => {
     const panel = await openPanel();
     expect(within(panel).getByText(/Re-indexing journals/)).toBeInTheDocument();
     expect(within(panel).getByText("12/40")).toBeInTheDocument();
+  });
+
+  it("names a running import and its source app (KAN-80)", async () => {
+    send("import:bulkStarted", { kind: "Day One entries", total: 5000 });
+    send("import:bulkProgress", {
+      kind: "Day One entries",
+      done: 1250,
+      total: 5000,
+    });
+    expect(pill()).toHaveTextContent("Importing 1250/5000");
+
+    const panel = await openPanel();
+    expect(
+      within(panel).getByText(/Importing Day One entries/),
+    ).toBeInTheDocument();
   });
 
   it("retries a failed job from the panel", async () => {

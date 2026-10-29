@@ -196,6 +196,8 @@ export function getState(type, id) {
  * first looks at the item again. That is what keeps an item deleted (or edited)
  * while its embedding was being made from landing in the index afterwards.
  *
+ * @param {number[] | null} vector - null for a blank item: it is done, with
+ *   no vector (KAN-391)
  * @param {string} hash - hash of the text the vector was made from
  * @returns {"ok" | "stale" | "gone"}
  *   stale: the text changed meanwhile, so the row stays pending and a new
@@ -215,16 +217,18 @@ export function storeVector(type, id, vector, hash) {
     const row = getState(type, id);
     const rowid = BigInt(row.id);
     db.prepare("DELETE FROM vec_entries WHERE rowid = ?").run(rowid);
-    db.prepare(
-      "INSERT INTO vec_entries(rowid, embedding, user_id) VALUES (?, ?, ?)",
-    ).run(rowid, vectorBuffer(vector), BigInt(current.userId));
+    if (vector) {
+      db.prepare(
+        "INSERT INTO vec_entries(rowid, embedding, user_id) VALUES (?, ?, ?)",
+      ).run(rowid, vectorBuffer(vector), BigInt(current.userId));
+    }
     db.prepare(
       `UPDATE search_index
           SET content_hash = ?, state = 'ok', attempts = 0,
               next_attempt_at = NULL, last_error = NULL,
-              indexed_at = datetime('now'), user_id = ?
+              indexed_at = CASE WHEN ? THEN datetime('now') END, user_id = ?
         WHERE id = ?`,
-    ).run(hash, current.userId, row.id);
+    ).run(hash, vector ? 1 : 0, current.userId, row.id);
     return "ok";
   })();
 }

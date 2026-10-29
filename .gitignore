@@ -62,3 +62,4 @@ e2e-artifacts/
 # manifest is tracked.
 resources/*
 !resources/binaries.json
+coverage/

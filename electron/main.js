@@ -3,7 +3,7 @@
 import "./userDataOverride.js";
 import "./logSetup.js";
 import { app, BrowserWindow, globalShortcut, ipcMain, shell } from "electron";
-import path, { dirname, join } from "node:path";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import localDB from "./db/index.js";
@@ -18,7 +18,9 @@ import { createServiceAnnouncer } from "./services/serviceAnnouncer.js";
 import { removeLegacyQdrantData } from "./legacyQdrant.js";
 import { isIndexReady, setIndexer } from "./methods/search.js";
 import { createIndexer } from "./services/indexer.js";
-import { generateEmbedding } from "./methods/ollama.js";
+import { activeProvider, embed } from "./ai/client.js";
+import * as builtinAI from "./ai/llama.js";
+import { resumeSetupOnLaunch } from "./methods/aiSetup.js";
 import { vectorSupport } from "./db/connection.js";
 import { registerTrashIPC, startTrashJob } from "./methods/trash.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
@@ -159,6 +161,7 @@ app.whenReady().then(async () => {
   const log = (message) => appLog.info(message);
 
   log("App ready");
+  builtinAI.setModelsDir(path.join(app.getPath("userData"), "models"));
 
   // Sticky so it can be replayed to renderers that load later.
   let servicesReady = false;
@@ -264,13 +267,22 @@ app.whenReady().then(async () => {
     log(`localDB init error: ${e?.stack || e}`);
   }
 
-  try {
-    log("Running OllamaEmbeddingModelSetup");
-    splashStatus("Preparing AI models…");
-    OllamaEmbeddingModelSetup();
-  } catch (e) {
-    log(`Ollama setup error: ${e?.stack || e}`);
+  // Ollama is the advanced option: it is only set up when it is the provider.
+  // The built-in engine loads its chat model once startup has settled, so the
+  // first AI call does not pay the load.
+  if (activeProvider() === "ollama") {
+    try {
+      log("Running OllamaEmbeddingModelSetup");
+      splashStatus("Preparing AI models…");
+      OllamaEmbeddingModelSetup();
+    } catch (e) {
+      log(`Ollama setup error: ${e?.stack || e}`);
+    }
+  } else if (["builtin", "gguf"].includes(activeProvider())) {
+    setTimeout(builtinAI.warmUp, 10_000);
   }
+  // A setup the user began (or an offline one) resumes by itself; it never blocks startup.
+  setTimeout(resumeSetupOnLaunch, 15_000);
 
   // The renderer pings this once it has actually painted (see App.tsx),
   // after waiting a couple of animation frames past mount so this isn't just
@@ -319,7 +331,7 @@ app.whenReady().then(async () => {
     },
     onIndexReady: () => {
       const indexer = createIndexer({
-        embed: generateEmbedding,
+        embed,
         report: reportIndexActivity,
       });
       setIndexer(indexer);
@@ -420,3 +432,18 @@ app.on("before-quit", () => {
 // them at both events: a probe started between them is caught by will-quit.
 app.on("before-quit", killOllamaCliChildren);
 app.on("will-quit", killOllamaCliChildren);
+
+// The built-in AI engine holds native memory and GPU state: free it before the
+// process exits, giving it a few seconds at most.
+let builtinAIStopped = false;
+app.on("before-quit", (event) => {
+  if (builtinAIStopped || !builtinAI.isStarted()) return;
+  event.preventDefault();
+  builtinAIStopped = true;
+  Promise.race([
+    builtinAI.shutdown(),
+    new Promise((resolve) => setTimeout(resolve, 3000)),
+  ])
+    .catch((e) => appLog.warn("Built-in AI shutdown failed", e))
+    .finally(() => app.quit());
+});

@@ -13,12 +13,11 @@ import { AuthLayout } from "../../layouts/AuthLayout";
 import { authService, type Profile } from "../../api/authService";
 import { useAuth } from "../../hooks/useAuth";
 import { errorMessage } from "../../utils/errors";
+import Welcome from "./welcome";
 
-/** Two initials from the full name, or the first letter of the username. */
+/** The profile name's first character, kept whole when it is an emoji. */
 function initials(p: Profile) {
-  const words = (p.full_name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
-  return (words[0]?.[0] ?? p.username[0] ?? "?").toUpperCase();
+  return (Array.from(p.username)[0] ?? "?").toUpperCase();
 }
 
 function Avatar({ profile, size }: { profile: Profile; size: number }) {
@@ -39,8 +38,6 @@ function Avatar({ profile, size }: { profile: Profile; size: number }) {
     </div>
   );
 }
-
-const displayName = (p: Profile) => p.full_name || p.username;
 
 /**
  * The signed-out front door: every account on this install, then a password
@@ -63,7 +60,12 @@ export default function Profiles() {
 
   // Registration sends people back here with the new username, so the
   // picker can open straight on their password.
-  const preselect = (location.state as { select?: string } | null)?.select;
+  const navState = location.state as {
+    select?: string;
+    restore?: boolean;
+  } | null;
+  const preselect = navState?.select;
+  const restore = navState?.restore;
 
   useEffect(() => {
     authService
@@ -103,7 +105,8 @@ export default function Profiles() {
         rememberMe,
       });
       login(res.userInfo);
-      navigate("/");
+      // A restore starts from a new profile; its import lives in Settings.
+      navigate(restore ? "/settings/export" : "/");
     } catch (err) {
       setError(
         /Incorrect password/i.test(errorMessage(err, ""))
@@ -120,12 +123,14 @@ export default function Profiles() {
   const inputClasses =
     "w-full p-2.5 bg-tertiary-light dark:bg-tertiary-dark border border-border-light dark:border-border-dark rounded-lg text-text-light dark:text-text-dark focus:ring-2 focus:ring-info focus:border-info outline-none transition";
 
+  // No profile on this install yet: the first-run welcome. Once any profile
+  // exists (including a second one added later) this never shows again.
+  if (profiles?.length === 0) return <Welcome />;
+
   return (
     <AuthLayout
       title={
-        selected
-          ? `Welcome back, ${displayName(selected)}`
-          : "Who's journaling?"
+        selected ? `Welcome back, ${selected.username}` : "Who's journaling?"
       }
       subtitle={
         selected
@@ -160,13 +165,8 @@ export default function Profiles() {
                         <Avatar profile={p} size={72} />
                       </div>
                       <span className="w-full truncate text-sm font-medium text-text-light dark:text-text-dark">
-                        {displayName(p)}
+                        {p.username}
                       </span>
-                      {p.full_name && (
-                        <span className="-mt-2 w-full truncate text-xs text-text-light-sub dark:text-text-dark-sub">
-                          @{p.username}
-                        </span>
-                      )}
                     </button>
                   </li>
                 ))}
@@ -188,11 +188,6 @@ export default function Profiles() {
                 </li>
               </ul>
             )}
-            {profiles?.length === 0 && (
-              <p className="mt-4 text-center text-sm text-text-light-sub dark:text-text-dark-sub">
-                No profiles yet. Add one to start your journal.
-              </p>
-            )}
           </motion.div>
         ) : (
           <motion.form
@@ -206,11 +201,6 @@ export default function Profiles() {
           >
             <div className="flex flex-col items-center gap-2">
               <Avatar profile={selected} size={88} />
-              {selected.full_name && (
-                <span className="text-sm text-text-light-sub dark:text-text-dark-sub">
-                  @{selected.username}
-                </span>
-              )}
             </div>
 
             {error && (

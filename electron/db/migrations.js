@@ -625,6 +625,64 @@ export const MIGRATIONS = [
           ON people_jobs(user_id, status);
       `),
   },
+  {
+    // Sign-up asks for no email any more (KAN-76), so users.email loses its
+    // NOT NULL; UNIQUE stays, and SQLite lets any number of rows be NULL under
+    // it. SQLite cannot drop NOT NULL in place, so the table is rebuilt from its
+    // own stored DDL (every column any install has, in order), keeping each id
+    // and the AUTOINCREMENT counter so a deleted profile's id is never reused.
+    // rebuildsTables makes the runner turn foreign keys off around it, or the
+    // DROP would cascade into every journal.
+    version: 10,
+    name: "users-email-optional",
+    rebuildsTables: true,
+    up: (d) => {
+      const { sql } = d
+        .prepare(`SELECT sql FROM sqlite_master WHERE name = 'users'`)
+        .get();
+      const email = /\bemail\s+TEXT\s+NOT\s+NULL\s+UNIQUE\b/i;
+      if (!email.test(sql)) throw new Error("users.email has an unknown shape");
+      const ddl = sql
+        .replace(email, "email TEXT UNIQUE")
+        .replace(/^CREATE TABLE\s+"?users"?/i, "CREATE TABLE users_new");
+      const seq = () =>
+        d
+          .prepare(`SELECT max(seq) AS seq FROM sqlite_sequence WHERE name = ?`)
+          .get("users")?.seq ?? null;
+      const before = seq();
+      d.exec(ddl);
+      d.exec(`
+        INSERT INTO users_new SELECT * FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+      `);
+      const after = seq();
+      if (before != null && (after == null || after < before)) {
+        d.prepare(`DELETE FROM sqlite_sequence WHERE name = 'users'`).run();
+        d.prepare(
+          `INSERT INTO sqlite_sequence (name, seq) VALUES ('users', ?)`,
+        ).run(before);
+      }
+    },
+  },
+  {
+    // The "You're set" screen (KAN-81) stores the daily reminder time next to
+    // journal_reminder. Nothing fires it yet.
+    version: 11,
+    name: "reminder-time",
+    up: (d) =>
+      d.exec(
+        `ALTER TABLE user_settings ADD COLUMN reminder_time TEXT DEFAULT '20:00'`,
+      ),
+  },
+  {
+    // A feeling word the user writes in their own words (KAN-94) keeps the
+    // family they pick. Built-in words stay NULL: their family is the one in
+    // MOOD_TAG_GROUPS.
+    version: 12,
+    name: "tag-family",
+    up: (d) => d.exec(`ALTER TABLE tags ADD COLUMN family TEXT`),
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
@@ -654,12 +712,25 @@ export function runMigrations(d, migrations = MIGRATIONS, options = {}) {
   const applied = [];
   for (const migration of migrations) {
     if (migration.version <= from) continue;
-    d.transaction(() => {
-      migration.up(d);
-      // PRAGMA takes no bound parameters, hence the interpolation. The value
-      // comes from this hardcoded list, never from input.
-      d.pragma(`user_version = ${migration.version}`);
-    })();
+    // A table rebuild needs foreign keys off, or dropping the old table
+    // cascades into its children, and the pragma is a no-op inside a
+    // transaction (sqlite.org/lang_altertable.html, "other kinds of changes").
+    const fkOff =
+      migration.rebuildsTables && d.pragma("foreign_keys", { simple: true });
+    if (fkOff) d.pragma("foreign_keys = OFF");
+    try {
+      d.transaction(() => {
+        migration.up(d);
+        if (migration.rebuildsTables && d.pragma("foreign_key_check").length) {
+          throw new Error(`${migration.name} left a broken foreign key`);
+        }
+        // PRAGMA takes no bound parameters, hence the interpolation. The value
+        // comes from this hardcoded list, never from input.
+        d.pragma(`user_version = ${migration.version}`);
+      })();
+    } finally {
+      if (fkOff) d.pragma("foreign_keys = ON");
+    }
     applied.push(migration.name);
   }
 

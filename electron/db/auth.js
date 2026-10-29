@@ -2,13 +2,23 @@ import bcrypt from "bcryptjs";
 import { db } from "./connection.js"; // Import the db connection
 
 /**
- * Finds a user by their email or username for login.
+ * Finds a user by profile name (the username column), for sign-in and the
+ * duplicate check. Email is no longer a way in (KAN-67).
  */
-export function findUserByIdentifier(identifier) {
-  const stmt = db.prepare(
-    "SELECT * FROM users WHERE email = ? OR username = ?",
+export function findUserByName(name) {
+  return db.prepare("SELECT * FROM users WHERE username = ?").get(name);
+}
+
+/**
+ * Whether another profile (not `exceptId`) already has this name, ignoring
+ * case (KAN-440). Done in JS so non-ASCII letters fold too; profiles are few.
+ * Sign-in still matches the stored name exactly, so old clashing pairs work.
+ */
+export function profileNameTaken(name, exceptId = null) {
+  const key = name.toLowerCase();
+  return listProfiles().some(
+    (p) => p.id !== exceptId && p.username.toLowerCase() === key,
   );
-  return stmt.get(identifier, identifier);
 }
 
 /**
@@ -27,32 +37,29 @@ export function findUserById(id) {
 export function listProfiles() {
   return db
     .prepare(
-      `SELECT id, username, full_name, profile_picture
+      `SELECT id, username, profile_picture
          FROM users WHERE id != 0 ORDER BY id`,
     )
     .all();
 }
 
 /**
- * Finds a user by email or username to check for uniqueness during registration.
- */
-export function findUserForCheck(email, username) {
-  const stmt = db.prepare(
-    "SELECT * FROM users WHERE email = ? OR username = ?",
-  );
-  return stmt.get(email, username);
-}
-
-/**
  * Creates a new user in the local SQLite database.
  */
 export function createUser(details) {
-  const { username, email, password, full_name, timezone } = details;
+  const {
+    username,
+    email = null,
+    password,
+    full_name = null,
+    timezone,
+    profile_picture = null,
+  } = details;
   const hashedPassword = bcrypt.hashSync(password, 10);
 
   const userStmt = db.prepare(`
-        INSERT INTO users (username, email, password_hash, full_name, timezone)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (username, email, password_hash, full_name, timezone, profile_picture)
+        VALUES (?, ?, ?, ?, ?, ?)
     `);
   const settingsStmt = db.prepare(
     "INSERT INTO user_settings (user_id) VALUES (?)",
@@ -65,6 +72,7 @@ export function createUser(details) {
       user.hashedPassword,
       user.full_name,
       user.timezone,
+      user.profile_picture,
     );
     const userId = result.lastInsertRowid;
     settingsStmt.run(userId);
@@ -77,5 +85,6 @@ export function createUser(details) {
     hashedPassword,
     full_name,
     timezone,
+    profile_picture,
   });
 }

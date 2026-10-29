@@ -10,15 +10,16 @@ const db = {
 };
 vi.mock("../db/index.js", () => ({ default: db }));
 
-const ollama = {
-  generateEmbedding: vi.fn(async () => [0.1, 0.2]),
-  // The first model call decides whether the question needs the journal.
-  handleOllamaPrompt: vi.fn(async () =>
-    JSON.stringify({ requires_context: true }),
+// The first model call decides whether the question needs the journal; the
+// streamed one (with onToken) answers with whatever a test put in `answer`.
+let answer = "";
+const ai = {
+  embed: vi.fn(async () => [0.1, 0.2]),
+  generate: vi.fn(async (_prompt, { onToken } = {}) =>
+    onToken ? answer : JSON.stringify({ requires_context: true }),
   ),
-  streamOllamaPrompt: vi.fn(),
 };
-vi.mock("./ollama.js", () => ollama);
+vi.mock("../ai/client.js", () => ai);
 
 const semanticSearch = vi.fn();
 vi.mock("./search.js", () => ({ semanticSearch }));
@@ -83,7 +84,8 @@ describe("Ask when the search index is unavailable", () => {
       [],
     );
     expect(db.addAIMessage).not.toHaveBeenCalled();
-    expect(ollama.streamOllamaPrompt).not.toHaveBeenCalled();
+    // Only the planning call ran; nothing was streamed.
+    expect(ai.generate).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the old behaviour for any other search failure", async () => {
@@ -108,21 +110,18 @@ describe("Ask when the search index is unavailable", () => {
   });
 });
 
-describe("Ask passes the model and prompt to Ollama in order (KAN-367)", () => {
-  it("calls the planning step as (event, model, prompt, jsonMode)", async () => {
+describe("Ask passes the model and prompt to the AI client (KAN-367)", () => {
+  it("calls the planning step with the prompt, its schema and the model", async () => {
     semanticSearch.mockReturnValue([]);
-    ollama.streamOllamaPrompt.mockResolvedValue(
-      JSON.stringify({ response: "ok", suggested_user_prompt: "next" }),
-    );
+    answer = JSON.stringify({ response: "ok", suggested_user_prompt: "next" });
 
     await handleUserMessage(null, 5, "What about the river?", "llama3.2");
 
-    expect(ollama.handleOllamaPrompt).toHaveBeenCalledTimes(1);
-    const [, model, prompt, jsonMode, ...extra] =
-      ollama.handleOllamaPrompt.mock.calls[0];
-    expect(model).toBe("llama3.2");
+    expect(ai.generate).toHaveBeenCalledTimes(2);
+    const [prompt, options, ...extra] = ai.generate.mock.calls[0];
     expect(prompt).toContain("What about the river?");
-    expect(jsonMode).toBe(true);
+    expect(options.ollamaModel).toBe("llama3.2");
+    expect(options.schema.properties).toHaveProperty("requires_context");
     expect(extra).toEqual([]);
   });
 
@@ -139,12 +138,10 @@ describe("Ask passes the model and prompt to Ollama in order (KAN-367)", () => {
         },
       },
     ]);
-    ollama.streamOllamaPrompt.mockResolvedValue(
-      JSON.stringify({
-        response: "You found calm by the river.",
-        suggested_user_prompt: "When else did I feel calm?",
-      }),
-    );
+    answer = JSON.stringify({
+      response: "You found calm by the river.",
+      suggested_user_prompt: "When else did I feel calm?",
+    });
     db.addMessage.mockResolvedValueOnce({ id: 21 });
     db.addMessage.mockResolvedValueOnce({ id: 22 });
 
@@ -155,10 +152,11 @@ describe("Ask passes the model and prompt to Ollama in order (KAN-367)", () => {
       "llama3.2",
     );
 
-    const [model, prompt, options] = ollama.streamOllamaPrompt.mock.calls[0];
-    expect(model).toBe("llama3.2");
+    const [prompt, options] = ai.generate.mock.calls[1];
     expect(prompt).toContain("What about the river?");
-    expect(options).toMatchObject({ jsonMode: true });
+    expect(options.ollamaModel).toBe("llama3.2");
+    expect(options.onToken).toBeTypeOf("function");
+    expect(options.schema.properties).toHaveProperty("response");
 
     expect(result).toMatchObject({ chatId: 5, messageId: 21, aiMessageId: 22 });
     expect(db.addMessage).toHaveBeenLastCalledWith(
@@ -174,5 +172,54 @@ describe("Ask passes the model and prompt to Ollama in order (KAN-367)", () => {
       ],
       [],
     );
+  });
+});
+
+describe("Ask with a question too long for the embedding model (KAN-439)", () => {
+  it("searches with a shorter start of the question", async () => {
+    const sent = [];
+    ai.embed.mockImplementation(async (text) => {
+      sent.push(text.length);
+      if (text.length > 3_000) {
+        throw new Error(
+          "Ollama embedding API error: 500 Internal Server Error",
+        );
+      }
+      return [0.1, 0.2];
+    });
+    semanticSearch.mockReturnValue([]);
+    answer = JSON.stringify({ response: "ok", suggested_user_prompt: "next" });
+
+    const result = await handleUserMessage(
+      null,
+      5,
+      "word ".repeat(10_000),
+      "llama3.2",
+    );
+
+    expect(sent).toEqual([8_000, 4_000, 2_000]);
+    expect(semanticSearch).toHaveBeenCalledWith([0.1, 0.2], 7, 5);
+    expect(result.error).toBeUndefined();
+  });
+});
+
+describe("Ask's answer cap (KAN-387)", () => {
+  it("lets an answer over 1,200 characters finish as parseable JSON", async () => {
+    semanticSearch.mockReturnValue([]);
+    const long = "I noticed you wrote about the river often. ".repeat(40);
+    expect(long.length).toBeGreaterThan(1200);
+    answer = JSON.stringify({ response: long, suggested_user_prompt: "More?" });
+    // A model cut at its cap, at about 4 characters a token.
+    ai.generate.mockImplementation(async (_p, { onToken, maxTokens }) =>
+      onToken
+        ? answer.slice(0, maxTokens * 4)
+        : JSON.stringify({ requires_context: false }),
+    );
+
+    const result = await handleUserMessage(null, 5, "The river?", "llama3.2");
+
+    expect(result.error).toBeUndefined();
+    expect(result.aiRes.chatResponse.response).toBe(long);
+    expect(ai.generate).toHaveBeenCalledTimes(2); // no retry was needed
   });
 });

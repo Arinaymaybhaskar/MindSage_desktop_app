@@ -12,7 +12,7 @@ Read this before you touch search, Ask, embeddings, `electron/db/searchIndex.js`
 - A model swap is `resetAll(dim)` plus the same loop.
 - **New handlers that create or edit entries, goals or progress logs must emit the matching event with the row's `id`**; the renderer no longer asks for a sync.
 - Progress reaches the renderer as `ai-status-event` `index:bulkStarted/Progress/Completed` and the per-entry `journal:indexStarted/Completed/Failed`.
-- IPC is `search:query`, `search:sync`, `search:bulk-sync`, `search:status`.
+- IPC is `search:query`, `search:sync`, `search:status`.
 - Journal lists carry `index_state` (ok / pending / failed / null) computed from `search_index`.
 - Install upgrades drop the old Qdrant bookkeeping in migration 8 and delete `<userData>/qdrant-data` ([electron/legacyQdrant.js](../../electron/legacyQdrant.js)); nothing from Qdrant is needed because every vector is made again from the journal text.
 - Trashed items: results are joined back to the base tables, which filter `is_deleted = 0`, and the purge removes vectors and `search_index` rows; see [trash-and-deletion.md](trash-and-deletion.md).

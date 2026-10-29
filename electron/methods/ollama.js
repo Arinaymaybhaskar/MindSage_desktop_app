@@ -2,16 +2,66 @@ import { eventBus } from "../eventBus.js";
 import { spawn } from "child_process";
 import {
   AISummaryPrompt,
+  MAX_CUSTOM_IN_PROMPT,
+  MAX_OUTPUT_TOKENS,
   getAutoPopulateValues,
   isSummarizable,
+  journalMetadataSchema,
   parseJournalMetadata,
   sanitizeSummary,
 } from "./AIPrompts.js";
+import { generate, taskModel } from "../ai/client.js";
+import { background, yieldToAsk } from "../ai/queue.js";
+import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
 import { db } from "../db/connection.js";
+import localDB from "../db/index.js";
 import { log } from "../log.js";
-import { listOllamaModels } from "./ollamaList.js";
+import { humanBytes, listOllamaModels } from "./ollamaList.js";
+import { BUILTIN_MODELS } from "../ai/models.js";
+import { isDownloaded } from "../ai/llama.js";
+import { BACKFILL_LIMIT } from "./importBackfill.js";
+
+/** How long a good list is reused; a pull or delete drops it sooner. */
+export const MODEL_LIST_TTL_MS = 45_000;
+
+let cached = null; // { at, rows }
+let inFlight = null;
+let generation = 0; // a list that started before an invalidation is not kept
+
+/** Drops the cached list; called when a model is pulled or deleted. */
+export const clearModelListCache = () => {
+  cached = null;
+  inFlight = null;
+  generation++;
+};
+
+/** Built-in engine mode: the models on disk, in the row shape Settings reads. */
+const builtinRows = () =>
+  Object.entries(BUILTIN_MODELS)
+    .filter(([id, m]) => m.role !== "voice" && isDownloaded(id))
+    .map(([id, m]) => ({ name: id, size: "", modified: humanBytes(m.bytes) }));
+
+const fetchModelList = () => {
+  const started = generation;
+  const pending = listOllamaModels({
+    onShowError: (name, err) =>
+      log.error(`Error fetching info for ${name}`, err),
+  })
+    .then((result) => {
+      if (!Array.isArray(result)) {
+        log.warn("Could not list Ollama models", { reason: result.reason });
+      } else if (started === generation) {
+        cached = { at: Date.now(), rows: result };
+      }
+      return result;
+    })
+    .finally(() => {
+      if (inFlight === pending) inFlight = null;
+    });
+  return pending;
+};
 
 /**
  * `ollama:models`: the installed models for Settings > Models.
@@ -19,110 +69,21 @@ import { listOllamaModels } from "./ollamaList.js";
  * Asynchronous and bounded (see `ollamaList.js`): a hung Ollama answers
  * `{ error, reason: "timeout" }` after a few seconds instead of freezing the
  * main process (KAN-369), and one that is not running answers
- * `{ error, reason: "unreachable" }`.
+ * `{ error, reason: "unreachable" }`. A good list is cached for
+ * `MODEL_LIST_TTL_MS` and concurrent calls share one request (KAN-90);
+ * failures are never cached. With the built-in engine chosen, the list is
+ * the downloaded model files and Ollama is not asked.
  */
 export const handleGetOllamaModels = async () => {
   const userId = currentUserId();
   if (!userId) return { error: "Not signed in" };
 
-  const result = await listOllamaModels({
-    onShowError: (name, err) =>
-      log.error(`Error fetching info for ${name}`, err),
-  });
-  if (!Array.isArray(result)) {
-    log.warn("Could not list Ollama models", { reason: result.reason });
-  }
-  return result;
+  if (modelStore.get("aiProvider") === "builtin") return builtinRows();
+  if (cached && Date.now() - cached.at < MODEL_LIST_TTL_MS) return cached.rows;
+  return (inFlight ??= fetchModelList());
 };
 
-/**
- * Streaming counterpart to `handleOllamaPrompt`.
- *
- * `/api/generate` with `stream: true` answers NDJSON - one JSON object per
- * line, each carrying the next fragment in its `response` field - so the body
- * has to be read incrementally and split on newlines with a carry buffer; a
- * single chunk from the socket routinely ends mid-line.
- *
- * `onToken` receives each fragment as it arrives. The full concatenated text is
- * returned at the end, so a caller that also needs to parse the finished output
- * (JSON mode, retries) can use this as a drop-in for the non-streaming call.
- *
- * Deliberately not an IPC handler: the renderer must not be able to open a
- * generation stream directly, and callers need the per-token callback, which
- * cannot cross the IPC boundary as a function.
- */
-export const streamOllamaPrompt = async (
-  model,
-  prompt,
-  { jsonMode = false, numPredict = 300, onToken, signal } = {},
-) => {
-  if (!model || !prompt) throw new Error("Model name and prompt are required.");
-
-  const requestBody = { model, prompt, stream: true, num_predict: numPredict };
-  if (jsonMode) requestBody.format = "json";
-
-  const res = await fetch("http://127.0.0.1:11434/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(requestBody),
-    signal,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Ollama HTTP error: ${res.status} ${res.statusText}`);
-  }
-  if (!res.body) throw new Error("Ollama returned no response body.");
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let carry = "";
-  let full = "";
-
-  /** Handles one complete NDJSON line. */
-  const consumeLine = (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    let parsed;
-    try {
-      parsed = JSON.parse(trimmed);
-    } catch {
-      // A malformed line is not worth aborting a whole generation over.
-      return;
-    }
-    if (parsed.error) throw new Error(`Ollama error: ${parsed.error}`);
-    if (typeof parsed.response === "string" && parsed.response.length > 0) {
-      full += parsed.response;
-      onToken?.(parsed.response, full);
-    }
-  };
-
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      carry += decoder.decode(value, { stream: true });
-
-      let newlineAt;
-      while ((newlineAt = carry.indexOf("\n")) !== -1) {
-        consumeLine(carry.slice(0, newlineAt));
-        carry = carry.slice(newlineAt + 1);
-      }
-    }
-    // The final line may arrive without a trailing newline.
-    consumeLine(carry + decoder.decode());
-  } finally {
-    // Releasing matters on the abort path: an unreleased reader keeps the
-    // socket open and the model loaded.
-    try {
-      reader.releaseLock();
-    } catch {
-      /* already released */
-    }
-  }
-
-  return full;
-};
-
+/** `ollama:get-response`: one generation through the AI client. */
 export const handleOllamaPrompt = async (
   event,
   model,
@@ -133,38 +94,19 @@ export const handleOllamaPrompt = async (
   // if (!userId) {
   //     return { error: "Not signed in" };
   // }
-  log.debug("Ollama prompt", { model, promptChars: prompt?.length });
-  if (!model || !prompt) {
-    return { error: "Model name and prompt are required." };
-  }
+  log.debug("AI prompt", { model, promptChars: prompt?.length });
+  // No model is fine: the built-in engine picks its own, and Ollama falls
+  // back to the selected chat model.
+  if (!prompt) return { error: "A prompt is required." };
 
   try {
-    const requestBody = {
-      model,
-      prompt,
-      stream: false, // full output as one JSON
-      num_predict: 300, // limit tokens for speed
-    };
-
-    // Enable JSON mode if requested
-    if (jsonMode) {
-      requestBody.format = "json";
-    }
-
-    const res = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
+    return await generate(prompt, {
+      json: jsonMode,
+      ollamaModel: model,
+      maxTokens: MAX_OUTPUT_TOKENS,
     });
-
-    if (!res.ok) {
-      throw new Error(`Ollama HTTP error: ${res.status} ${res.statusText}`);
-    }
-
-    const data = await res.json();
-    return data.response;
   } catch (err) {
-    log.error("Ollama error:", err);
+    log.error("AI prompt error:", err);
     return { error: err.message };
   }
 };
@@ -210,111 +152,173 @@ export const handleOllamaImagePrompt = async (
   }
 };
 
-// Define a TypeScript type for the journal:created event payload
-/**
- * @typedef {Object} JournalCreatedEvent
- * @property {string} userId
- * @property {any} entry
- * @property {string} mode
- */
+// One stuck call would hold up every entry queued behind it.
+const ENRICH_TIMEOUT_MS = 5 * 60_000;
+/** Ask's abort (yieldToAsk) or the timeout, whichever comes first. */
+const enrichSignal = (signal) =>
+  AbortSignal.any([signal, AbortSignal.timeout(ENRICH_TIMEOUT_MS)]);
 
-// Only destructure 'entry' since 'userId' and 'mode' are unused
-eventBus.on("journal:created", async ({ entry }) => {
+/**
+ * Title, mood and tags: one JSON-schema call (KAN-89). Throws when unusable.
+ * The user's most used own words join the tags it may pick (KAN-94).
+ */
+export async function generateMetadata(content, userId) {
+  const custom = localDB.customFeelingWords(userId, MAX_CUSTOM_IN_PROMPT);
+  const metadata = parseJournalMetadata(
+    await yieldToAsk((signal) =>
+      generate(getAutoPopulateValues(content, custom), {
+        schema: journalMetadataSchema(custom),
+        maxTokens: MAX_OUTPUT_TOKENS,
+        model: taskModel("metadata"),
+        signal: enrichSignal(signal),
+      }),
+    ),
+    custom,
+  );
+  if (!metadata) throw new Error("AI returned incomplete or invalid metadata");
+  return metadata;
+}
+
+/** The summary, its own call (KAN-89); null when the model gave no usable one. */
+export async function generateSummary(content) {
+  return sanitizeSummary(
+    await yieldToAsk((signal) =>
+      generate(AISummaryPrompt(content), {
+        maxTokens: MAX_OUTPUT_TOKENS,
+        model: taskModel("summary"),
+        signal: enrichSignal(signal),
+      }),
+    ),
+  );
+}
+
+// Title, mood and tags first, then the summary, as one job in the shared AI
+// queue: the two calls never overlap, so a PC with room for one model swaps
+// between them instead of loading both, and Ask goes first.
+eventBus.on("journal:created", ({ entry }) => {
+  const features = getFeatures(entry.user_id);
   const needsAiCompletion =
-    !entry?.title?.trim() ||
-    entry?.mood_score === undefined ||
-    !entry?.mood_tags?.length;
+    (features.title && !entry?.title?.trim()) ||
+    (features.mood && entry?.mood_score === undefined) ||
+    (features.feelings && !entry?.mood_tags?.length);
   if (needsAiCompletion) {
     eventBus.emit("journal:aiStarted", { entryId: entry.id });
     db.prepare(
       `UPDATE journal_entries SET ai_metadata_status = 'pending' WHERE id = ?`,
     ).run(entry.id);
-    const prompt = getAutoPopulateValues(entry.content);
-
-    // Get the selected chat model from settings
-    const selectedModels = modelStore.get("selectedModels");
-    const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
-    log.debug("Filling in missing details", { model });
-    try {
-      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          prompt,
-          stream: false,
-          format: "json", // constrain the model to valid JSON
-          num_predict: 300,
-        }),
-      });
-      if (!res2.ok) {
-        throw new Error(`Ollama HTTP error: ${res2.status} ${res2.statusText}`);
-      }
-      const aiRes = await res2.json();
-      const metadata = parseJournalMetadata(aiRes.response);
-      if (!metadata) {
-        throw new Error("AI returned incomplete or invalid metadata");
-      }
-      // Status is set to 'completed' by the journal:aiCompleted persister
-      // once the sanitized metadata is written, so it can't be marked
-      // completed with empty fields.
-      eventBus.emit("journal:aiCompleted", {
-        entry,
-        metadata,
-        entryId: entry.id,
-      });
-    } catch (err) {
-      log.error("AI metadata generation failed:", err);
-      db.prepare(
-        `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`,
-      ).run(err.message, entry.id);
-      eventBus.emit("journal:aiFailed", {
-        entryId: entry.id,
-        error: err.message,
-      });
-    }
   } else {
     db.prepare(
       `UPDATE journal_entries SET ai_metadata_status = 'completed' WHERE id = ?`,
     ).run(entry.id);
   }
-});
 
-// Update the journal:created event handler for summary generation
-eventBus.on("journal:created", async ({ entry }) => {
   eventBus.emit("ollama:summary-started", { entryId: entry.id });
   db.prepare(
     `UPDATE journal_entries SET ai_summary_status = 'pending' WHERE id = ?`,
   ).run(entry.id);
-  const prompt = AISummaryPrompt(entry.content);
-  if (!isSummarizable(entry.content)) {
+  const summarizable = features.summary && isSummarizable(entry.content);
+  if (!summarizable) {
     db.prepare(
       `UPDATE journal_entries SET ai_summary_status = 'skipped' WHERE id = ?`,
     ).run(entry.id);
     eventBus.emit("ollama:summary-skipped", { entryId: entry.id });
-    return; // Too few words to produce a meaningful summary
   }
-  // Get the selected chat model from settings
-  const selectedModels = modelStore.get("selectedModels");
-  const model = selectedModels?.chat || "llama3.2:latest"; // Fallback model
 
+  if (needsAiCompletion || summarizable) {
+    background(async () => {
+      // The job may have waited: work on the entry as it is now, and not at
+      // all if it went to the Trash.
+      const current = localDB.getJournalById(entry.user_id, entry.id);
+      if (!current) return markTrashedNotRun(entry.id);
+      // A switch turned off while the job waited stops it (KAN-70).
+      const now = getFeatures(entry.user_id);
+      if (needsAiCompletion && metadataOn(now))
+        await fillMetadata(current, now);
+      if (summarizable && now.summary) await fillSummary(current);
+    }).catch((err) => log.error("AI enrichment failed:", err));
+  }
+});
+
+// A job skipped because its entry went to the Trash leaves nothing 'pending':
+// after a restore the entry offers Retry, and the next backfill picks it up
+// (KAN-393).
+const TRASHED_ERROR = "Moved to the Trash before the AI ran";
+function markTrashedNotRun(id) {
+  db.prepare(
+    `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ?
+     WHERE id = ? AND ai_metadata_status = 'pending'`,
+  ).run(TRASHED_ERROR, id);
+  db.prepare(
+    `UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ?
+     WHERE id = ? AND ai_summary_status = 'pending'`,
+  ).run(TRASHED_ERROR, id);
+}
+
+/**
+ * Runs the fill-in again, once, in the queue, for the newest entries whose
+ * enrichment failed: saved while the models were missing, or imported (KAN-80,
+ * see importBackfill.js). Bounded by BACKFILL_LIMIT; safe to call twice.
+ */
+export function backfillEnrichment() {
+  const rows = db
+    .prepare(
+      `SELECT id, user_id FROM journal_entries
+       WHERE is_deleted = 0 AND (ai_metadata_status = 'failed' OR ai_summary_status = 'failed')
+       ORDER BY created_at DESC LIMIT ?`,
+    )
+    .all(BACKFILL_LIMIT);
+  for (const row of rows) {
+    background(async () => {
+      const current = localDB.getJournalById(row.user_id, row.id);
+      if (!current) return;
+      const now = getFeatures(row.user_id);
+      // Statuses as they are now: an earlier backfill or a retry may have filled them.
+      if (current.ai_metadata_status === "failed" && metadataOn(now))
+        await fillMetadata(current, now);
+      if (
+        current.ai_summary_status === "failed" &&
+        now.summary &&
+        isSummarizable(current.content)
+      )
+        await fillSummary(current);
+    }).catch((err) => log.error("AI backfill failed:", err));
+  }
+}
+
+// The models just arrived (setup finished after an offline start).
+eventBus.on("ai:models-ready", backfillEnrichment);
+
+async function fillMetadata(entry, features) {
+  log.debug("Filling in missing details", { entryId: entry.id });
   try {
-    const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        prompt,
-        stream: false,
-        num_predict: 300,
-      }),
+    const metadata = maskMetadata(
+      await generateMetadata(entry.content, entry.user_id),
+      entry,
+      features,
+    );
+    // Status is set to 'completed' by the journal:aiCompleted persister
+    // once the sanitized metadata is written, so it can't be marked
+    // completed with empty fields.
+    eventBus.emit("journal:aiCompleted", {
+      entry,
+      metadata,
+      entryId: entry.id,
     });
-    if (!res2.ok) {
-      throw new Error(`Ollama HTTP error: ${res2.status} ${res2.statusText}`);
-    }
+  } catch (err) {
+    log.error("AI metadata generation failed:", err);
+    db.prepare(
+      `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ? WHERE id = ?`,
+    ).run(err.message, entry.id);
+    eventBus.emit("journal:aiFailed", {
+      entryId: entry.id,
+      error: err.message,
+    });
+  }
+}
 
-    const aiRes = await res2.json();
-    const summary = sanitizeSummary(aiRes.response);
+async function fillSummary(entry) {
+  try {
+    const summary = await generateSummary(entry.content);
     if (!summary) {
       const error = "AI could not produce a valid summary";
       db.prepare(
@@ -345,41 +349,25 @@ eventBus.on("journal:created", async ({ entry }) => {
       error: err.message,
     });
   }
-});
+}
 
 // Update generateSuggestion to use selected model
 export async function generateSuggestion(prompt, maxTokens = 20) {
+  const userId = currentUserId();
+  if (userId && !getFeatures(userId).suggestions) return "";
   try {
     // Get the selected chat model from settings
     const selectedModels = modelStore.get("selectedModels");
-    const model = selectedModels?.decision || "llama3.2:latest"; // Fallback model
+    const ollamaModel = selectedModels?.decision || "llama3.2:latest"; // Fallback model
 
-    const response = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        prompt,
-        options: {
-          num_predict: maxTokens,
-        },
-        system:
-          "You are a raw text completion model. Your only job is to continue the user's text. Do not add any commentary, greetings, or conversational filler. Directly output the next sequence of words.",
-        temperature: 0.2,
-        stream: false,
-      }),
+    const text = await generate(prompt, {
+      ollamaModel,
+      maxTokens,
+      system:
+        "You are a raw text completion model. Your only job is to continue the user's text. Do not add any commentary, greetings, or conversational filler. Directly output the next sequence of words.",
+      temperature: 0.2,
     });
-
-    // Handle non-successful HTTP responses
-    if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
-    }
-
-    // Since stream is false, parse the entire JSON body at once
-    const data = await response.json();
-
-    // The generated text is in the 'response' property
-    return data.response.trim();
+    return text.trim();
   } catch (error) {
     log.error("[generateSuggestion] Error fetching suggestion:", error);
     // Return an empty string on failure so the frontend doesn't break
@@ -399,11 +387,9 @@ export const handleDownloadOllamaModel = (event, modelName) => {
   return new Promise((resolve, reject) => {
     const child = spawn("ollama", ["pull", modelName]);
 
-    let output = "";
     let errorOutput = "";
 
     child.stdout.on("data", (data) => {
-      output += data.toString();
       // 🔹 You can also stream progress to renderer:
       // eventBus.emit("ollama:download-progress", { model: modelName, chunk: data.toString() });
     });
@@ -414,10 +400,12 @@ export const handleDownloadOllamaModel = (event, modelName) => {
 
     // A missing binary emits "error" (never "close"); unhandled, it throws.
     child.on("error", (err) => {
+      clearModelListCache();
       reject({ error: `Download failed: ${err.message}` });
     });
 
     child.on("close", (code) => {
+      clearModelListCache();
       if (code === 0) {
         resolve({ success: true, message: `${modelName} downloaded` });
       } else {
@@ -451,10 +439,12 @@ export const handleDeleteOllamaModel = (event, modelName) => {
     });
 
     child.on("error", (err) => {
+      clearModelListCache();
       reject({ error: `Delete failed: ${err.message}` });
     });
 
     child.on("close", (code) => {
+      clearModelListCache();
       if (code === 0) {
         resolve({ success: true, message: `${modelName} deleted` });
       } else {
@@ -463,28 +453,3 @@ export const handleDeleteOllamaModel = (event, modelName) => {
     });
   });
 };
-
-export async function generateEmbedding(text) {
-  try {
-    const response = await fetch("http://127.0.0.1:11434/api/embeddings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "nomic-embed-text:v1.5",
-        prompt: text,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Ollama embedding API error: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    const data = await response.json();
-    return data.embedding;
-  } catch (error) {
-    log.error("Error generating embedding:", error);
-    throw error;
-  }
-}

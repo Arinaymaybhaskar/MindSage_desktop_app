@@ -291,7 +291,9 @@ describe("the people-tables migration", () => {
     const seeded = seedJournal(db, { users: 1, entriesPerUser: 2 });
     const before = db.prepare("SELECT COUNT(*) n FROM journal_entries").get().n;
 
-    expect(runMigrations(db).applied).toEqual(["people-tables"]);
+    expect(runMigrations(db, MIGRATIONS.slice(0, 9)).applied).toEqual([
+      "people-tables",
+    ]);
     expect(tableNames(db)).toEqual(
       expect.arrayContaining([
         "people",
@@ -342,6 +344,100 @@ describe("the people-tables migration", () => {
     db.prepare("DELETE FROM users WHERE id = ?").run(userId);
     expect(n("SELECT COUNT(*) n FROM people")).toBe(0);
     expect(n("SELECT COUNT(*) n FROM person_mentions")).toBe(0);
+    integrityOk(db);
+  });
+});
+
+describe("the users-email-optional migration", () => {
+  it("lets email be empty and keeps every user, entry, id and cascade", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 9));
+    const seeded = seedJournal(db, { users: 2, entriesPerUser: 3 });
+    // The newest profile was deleted: its id must not be handed out again.
+    const gone = Number(
+      db
+        .prepare(
+          "INSERT INTO users (username, email, password_hash) VALUES ('gone', 'g@example.com', 'x')",
+        )
+        .run().lastInsertRowid,
+    );
+    db.prepare("DELETE FROM users WHERE id = ?").run(gone);
+    const users = db.prepare("SELECT * FROM users ORDER BY id").all();
+    const entries = db.prepare("SELECT * FROM journal_entries").all().length;
+
+    expect(runMigrations(db, MIGRATIONS.slice(0, 10)).applied).toEqual([
+      "users-email-optional",
+    ]);
+
+    expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
+    expect(db.prepare("SELECT * FROM users ORDER BY id").all()).toEqual(users);
+    expect(db.prepare("SELECT * FROM journal_entries").all()).toHaveLength(
+      entries,
+    );
+    const add = db.prepare(
+      "INSERT INTO users (username, email, password_hash) VALUES (?, ?, 'x')",
+    );
+    const a = Number(add.run("nomail1", null).lastInsertRowid);
+    add.run("nomail2", null);
+    expect(a).toBeGreaterThan(gone);
+    expect(() => add.run("nomail1", null)).toThrow(/UNIQUE/);
+    expect(() => add.run("dup", "user1@example.com")).toThrow(/UNIQUE/);
+
+    // Child tables still point at users and still cascade.
+    db.prepare("DELETE FROM users WHERE id = ?").run(seeded[0].userId);
+    expect(
+      db
+        .prepare("SELECT count(*) n FROM journal_entries WHERE user_id = ?")
+        .get(seeded[0].userId).n,
+    ).toBe(0);
+    integrityOk(db);
+  });
+});
+
+describe("the reminder-time migration", () => {
+  it("adds reminder_time, defaulting to 20:00 for existing profiles", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 10));
+    const { userId } = seedJournal(db, { users: 1, entriesPerUser: 1 })[0];
+    db.prepare("INSERT INTO user_settings (user_id) VALUES (?)").run(userId);
+
+    expect(runMigrations(db, MIGRATIONS.slice(0, 11)).applied).toEqual([
+      "reminder-time",
+    ]);
+
+    expect(
+      db
+        .prepare("SELECT reminder_time FROM user_settings WHERE user_id = ?")
+        .get(userId).reminder_time,
+    ).toBe("20:00");
+  });
+});
+
+describe("the tag-family migration", () => {
+  it("adds a nullable family to tags and keeps every tag and link", () => {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 11));
+    const { userId } = seedJournal(db, { users: 1, entriesPerUser: 2 })[0];
+    const tagsBefore = db.prepare("SELECT * FROM tags ORDER BY id").all();
+    const links = db.prepare("SELECT COUNT(*) AS n FROM journal_entry_tags");
+    const linksBefore = links.get().n;
+
+    expect(runMigrations(db).applied).toEqual(["tag-family"]);
+
+    const tagsAfter = db.prepare("SELECT * FROM tags ORDER BY id").all();
+    expect(tagsAfter).toEqual(tagsBefore.map((t) => ({ ...t, family: null })));
+    expect(links.get().n).toBe(linksBefore);
+    db.prepare("INSERT INTO tags (user_id, name, family) VALUES (?, ?, ?)").run(
+      userId,
+      "खुश",
+      "Happy",
+    );
+    // UNIQUE(user_id, name) still holds.
+    expect(() =>
+      db
+        .prepare("INSERT INTO tags (user_id, name) VALUES (?, ?)")
+        .run(userId, "खुश"),
+    ).toThrow(/UNIQUE/);
     integrityOk(db);
   });
 });

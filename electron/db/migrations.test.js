@@ -123,6 +123,31 @@ describe("runMigrations", () => {
     expect(db.calls).not.toContain("exec:three");
   });
 
+  it("turns foreign keys off around a table rebuild, outside its transaction", () => {
+    const db = fakeDb(0);
+    const pragma = db.pragma;
+    db.pragma = (statement, options) => {
+      const s = statement.trim();
+      if (s === "foreign_keys") return 1;
+      if (s.startsWith("foreign_key")) {
+        db.calls.push(s);
+        return [];
+      }
+      return pragma(statement, options);
+    };
+    runMigrations(db, [{ ...fixture[0], rebuildsTables: true }]);
+
+    expect(db.calls).toEqual([
+      "foreign_keys = OFF",
+      "begin",
+      "exec:one",
+      "foreign_key_check",
+      "stamp:1",
+      "commit",
+      "foreign_keys = ON",
+    ]);
+  });
+
   it("treats an unreadable user_version as 0", () => {
     const db = fakeDb(0);
     db.pragma = (statement) =>

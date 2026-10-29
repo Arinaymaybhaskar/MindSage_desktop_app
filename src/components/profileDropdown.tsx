@@ -14,9 +14,7 @@ import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
 
 interface User {
   username: string;
-  email: string;
   created_at: string;
-  full_name: string | null;
   timezone: string;
 }
 
@@ -108,9 +106,10 @@ export const ProfileDropdown: React.FC = () => {
     navigate("/profiles");
   };
 
-  const displayName = user?.full_name || user?.username;
+  const displayName = user?.username;
+  // Array.from keeps an emoji or other astral first character whole.
   const displayInitial = displayName ? (
-    displayName.charAt(0).toUpperCase()
+    Array.from(displayName)[0].toUpperCase()
   ) : (
     <UserIcon size={20} />
   );
@@ -182,9 +181,6 @@ export const ProfileDropdown: React.FC = () => {
                 <div className="w-full text-center">
                   <p className="font-semibold text-text-light dark:text-text-dark">
                     {displayName}
-                  </p>
-                  <p className="text-sm text-text-light-sub dark:text-text-dark-sub">
-                    {user?.email}
                   </p>
                 </div>
               </div>

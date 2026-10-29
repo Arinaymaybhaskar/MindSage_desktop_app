@@ -1,15 +1,15 @@
 import localDB from "../db/index.js";
 import { eventBus } from "../eventBus.js";
 import {
+  ASK_ANSWER_MAX_TOKENS,
+  MAX_OUTPUT_TOKENS,
   generateContextTimeAndBaseQueryPrompt,
   respondWithContext,
   respondWithoutContext,
 } from "./AIPrompts.js";
-import {
-  generateEmbedding,
-  handleOllamaPrompt,
-  streamOllamaPrompt,
-} from "./ollama.js";
+import { embed, generate } from "../ai/client.js";
+import { embedFitting } from "../ai/embedFitting.js";
+import { foreground } from "../ai/queue.js";
 import { partialJsonString } from "./jsonStream.js";
 import { semanticSearch } from "./search.js";
 import { isIndexUnavailable } from "../services/searchIndex.js";
@@ -35,6 +35,35 @@ const chatResponseSchema = z.object({
   response: z.string(),
   suggested_user_prompt: z.string(),
 });
+
+// The same two shapes as JSON schemas, forced on the model as a grammar.
+const PROPS_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    requires_context: { type: "boolean" },
+    requires_time_filter: { type: "boolean" },
+    time_filter_from: { type: ["string", "null"] },
+    time_filter_to: { type: ["string", "null"] },
+    base_query: { type: "string" },
+    notes: { type: "string" },
+  },
+  required: [
+    "requires_context",
+    "requires_time_filter",
+    "time_filter_from",
+    "time_filter_to",
+    "base_query",
+    "notes",
+  ],
+};
+const CHAT_RESPONSE_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    response: { type: "string" },
+    suggested_user_prompt: { type: "string" },
+  },
+  required: ["response", "suggested_user_prompt"],
+};
 
 /**
  * Sends generation progress to the window that asked for it.
@@ -62,7 +91,7 @@ async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       log.debug("calling ai");
-      const raw = await rawFn();
+      const raw = await rawFn(attempt);
       log.debug("ai response", { chars: raw?.length });
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("No JSON found");
@@ -103,8 +132,12 @@ async function aiResponse(
       currentTimeISO,
     );
     const propsRes = await parseAIWithRetries(
-      // (event, model, prompt, jsonMode): called directly, so no IPC event.
-      () => handleOllamaPrompt(null, model, queryPropsPrompt, true),
+      () =>
+        generate(queryPropsPrompt, {
+          schema: PROPS_JSON_SCHEMA,
+          ollamaModel: model,
+          maxTokens: MAX_OUTPUT_TOKENS,
+        }),
       propsResSchema,
       3,
     );
@@ -120,19 +153,25 @@ async function aiResponse(
       // Use original user content
       log.debug("requires context");
       onPhase("searching");
-      const vector = await generateEmbedding(content);
-      semanticResult = semanticSearch(vector, userId, 5);
+      const vector = await embedFitting(embed, content);
+      if (vector) semanticResult = semanticSearch(vector, userId, 5);
     } else if (propsRes.requires_time_filter) {
       log.debug("requires context with time filter");
       onPhase("searching");
       // Use base_query and time filter
-      const vector = await generateEmbedding(propsRes.base_query);
-      semanticResult = semanticSearch(vector, userId, 5, {
-        range: {
-          from: propsRes.time_filter_from,
-          to: propsRes.time_filter_to,
-        },
-      });
+      // A blank base_query (the model's choice) searches with the question.
+      const vector = await embedFitting(
+        embed,
+        propsRes.base_query.trim() || content,
+      );
+      if (vector) {
+        semanticResult = semanticSearch(vector, userId, 5, {
+          range: {
+            from: propsRes.time_filter_from,
+            to: propsRes.time_filter_to,
+          },
+        });
+      }
     }
     log.debug("Semantic result", { count: semanticResult.length });
     let mainPrompt;
@@ -148,14 +187,16 @@ async function aiResponse(
     // 4️⃣ Get final chat response, streaming it to the renderer as it forms.
     onPhase("writing", { sources: semanticResult });
     const chatResponse = await parseAIWithRetries(
-      () => {
+      (attempt) => {
         // A failed attempt may already have streamed a partial answer.
         // Tell the renderer to throw it away before the retry starts,
         // otherwise the second attempt appends to the first.
         onReset();
         let emitted = 0;
-        return streamOllamaPrompt(model, mainPrompt, {
-          jsonMode: true,
+        return generate(mainPrompt, {
+          schema: CHAT_RESPONSE_JSON_SCHEMA,
+          ollamaModel: model,
+          maxTokens: ASK_ANSWER_MAX_TOKENS * attempt,
           onToken: (_fragment, full) => {
             const partial = partialJsonString(full, "response");
             if (partial === null || partial.length <= emitted) return;
@@ -281,11 +322,14 @@ export const handleUserMessage = async (
 
   let aiRes;
   try {
-    aiRes = await aiResponse(message, chatId, messageId, model, userId, {
-      onPhase: (phase, extra) => emit("phase", { phase, ...extra }),
-      onDelta: (text) => emit("delta", { text }),
-      onReset: () => emit("reset"),
-    });
+    // Ask goes ahead of background AI work in the shared queue.
+    aiRes = await foreground(() =>
+      aiResponse(message, chatId, messageId, model, userId, {
+        onPhase: (phase, extra) => emit("phase", { phase, ...extra }),
+        onDelta: (text) => emit("delta", { text }),
+        onReset: () => emit("reset"),
+      }),
+    );
   } catch (err) {
     emit("error", { message: err?.message || "Generation failed." });
     if (isIndexUnavailable(err))

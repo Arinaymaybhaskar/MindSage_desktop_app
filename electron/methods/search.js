@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
-import { generateEmbedding } from "./ollama.js";
+import { embed } from "../ai/client.js";
+import { embedFitting } from "../ai/embedFitting.js";
 import { currentUserId } from "../session.js";
 import * as index from "../db/searchIndex.js";
 import {
@@ -43,8 +44,8 @@ export function registerSearchIPC() {
     const userId = currentUserId();
     if (!userId) return { success: false, error: "Not signed in" };
     try {
-      const vector = await generateEmbedding(queryInput);
-      return semanticSearch(vector, userId, limit);
+      const vector = await embedFitting(embed, queryInput);
+      return vector ? semanticSearch(vector, userId, limit) : [];
     } catch (error) {
       log.error("search:query failed", error);
       return { success: false, error: error.message };
@@ -61,18 +62,6 @@ export function registerSearchIPC() {
     }
     indexer?.noteChanged(type, Number(id));
     return { success: true, message: "Queued for search" };
-  });
-
-  // A sweep that picks up anything still without a vector. Rows that gave up
-  // (attempts used up, no next attempt) are put back to pending first, because
-  // the automatic loop never retries them; this manual action is how a person
-  // asks for that (KAN-373).
-  ipcMain.handle("search:bulk-sync", async () => {
-    if (!index.vectorsAvailable()) return indexUnavailableResult();
-    const retried = index.retryGaveUp();
-    if (retried) log.info(`Search: retrying ${retried} item(s) that gave up`);
-    indexer?.sweep();
-    return { success: true, message: "Indexing started" };
   });
 
   ipcMain.handle("search:status", async () => {

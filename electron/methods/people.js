@@ -10,7 +10,8 @@
 import Store from "electron-store";
 import { BrowserWindow, powerMonitor } from "electron";
 import { eventBus } from "../eventBus.js";
-import { modelStore } from "../store.js";
+import { generate, modelName } from "../ai/client.js";
+import { background } from "../ai/queue.js";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
 import * as peopleDb from "../db/people.js";
@@ -103,36 +104,23 @@ function broadcastChanged() {
   }
 }
 
-// ---------- Ollama ----------
-
-function selectedModel() {
-  return modelStore.get("selectedModels")?.chat || "llama3.2:latest";
-}
+// ---------- AI ----------
 
 /**
- * One structured-output call. `format` takes a JSON schema, which Ollama
- * turns into a grammar, so the answer always parses into the right shape;
- * the grounding checks then decide whether what it says is true.
+ * One structured-output call. The JSON schema becomes a grammar, so the
+ * answer always parses into the right shape; the grounding checks then
+ * decide whether what it says is true.
  */
-async function ollamaJson(prompt, schema, numPredict) {
+async function aiJson(prompt, schema, numPredict) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
   try {
-    const res = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    return await generate(prompt, {
+      schema,
+      temperature: 0,
+      maxTokens: numPredict,
       signal: controller.signal,
-      body: JSON.stringify({
-        model: selectedModel(),
-        prompt,
-        stream: false,
-        format: schema,
-        options: { temperature: 0, num_predict: numPredict },
-      }),
     });
-    if (!res.ok) throw new Error(`Ollama HTTP error: ${res.status}`);
-    const body = await res.json();
-    return body.response;
   } finally {
     clearTimeout(timer);
   }
@@ -273,10 +261,13 @@ async function processEntry(userId, entry) {
 
   let found = [];
   if (shouldExtract(text, peopleDb.trackedAliases(userId))) {
-    const raw = await ollamaJson(
-      buildExtractionPrompt({ sentences, knownPeople: known, ignored }),
-      EXTRACTION_SCHEMA,
-      400,
+    // Background work: waits behind Ask and earlier AI jobs (KAN-392).
+    const raw = await background(() =>
+      aiJson(
+        buildExtractionPrompt({ sentences, knownPeople: known, ignored }),
+        EXTRACTION_SCHEMA,
+        400,
+      ),
     );
     found = groundExtraction(raw, {
       text,
@@ -291,13 +282,15 @@ async function processEntry(userId, entry) {
       for (const f of found) {
         try {
           const second = parseFeeling(
-            await ollamaJson(
-              buildFeelingPrompt(
-                f.nameAsWritten,
-                feelingExcerpt(sentences, f.sentences),
+            await background(() =>
+              aiJson(
+                buildFeelingPrompt(
+                  f.nameAsWritten,
+                  feelingExcerpt(sentences, f.sentences),
+                ),
+                FEELING_SCHEMA,
+                80,
               ),
-              FEELING_SCHEMA,
-              80,
             ),
           );
           if (second) Object.assign(f, second);
@@ -594,13 +587,13 @@ export async function handleSummarize(_e, personId) {
   }
   excerpts.reverse().forEach((e, i) => (e.n = i + 1));
 
-  const raw = await ollamaJson(
+  const raw = await aiJson(
     buildSummaryPrompt(person.display_name, excerpts),
     SUMMARY_SCHEMA,
     350,
   );
   const lines = groundSummary(raw, excerpts);
-  peopleDb.saveSummary(person.id, JSON.stringify(lines), hash, selectedModel());
+  peopleDb.saveSummary(person.id, JSON.stringify(lines), hash, modelName());
   return { lines, stale: false };
 }
 

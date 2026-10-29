@@ -70,19 +70,42 @@ export function collectFiles(inputs) {
  * entries, and warnings worth showing the user.
  */
 export function readAny(inputs) {
-  const files = collectFiles(inputs);
+  // A damaged file is skipped and named, so the readable ones still come across.
+  const files = new Map();
+  const warnings = [];
+  for (const input of inputs) {
+    try {
+      for (const [p, b] of collectFiles([input])) files.set(p, b);
+    } catch {
+      warnings.push(
+        `${basename(input.name)} is damaged or not a valid archive, so it was skipped`,
+      );
+    }
+  }
+  if (!files.size && warnings.length) {
+    throw new Error(
+      inputs.length === 1
+        ? `${basename(inputs[0].name)} looks damaged and couldn't be opened. Try exporting it again from the original app.`
+        : `None of those files could be opened; they look damaged. ${warnings.join(". ")}.`,
+    );
+  }
   const reader = READERS.find((r) => r.detect(files));
   if (!reader) {
     return {
       format: null,
       entries: [],
       warnings: [
+        ...warnings,
         "This doesn't look like a journal export MindSage can read. Supported: a MindSage backup, Day One JSON, Journey, Evernote (.enex), CSV (including Daylio), Markdown and plain text.",
       ],
     };
   }
-  const { entries, warnings } = reader.read(files);
-  return { format: reader.id, entries, warnings };
+  const read = reader.read(files);
+  return {
+    format: reader.id,
+    entries: read.entries,
+    warnings: [...warnings, ...read.warnings],
+  };
 }
 
 /**

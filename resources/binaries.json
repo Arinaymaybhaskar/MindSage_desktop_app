@@ -8,7 +8,6 @@
     { "path": "whisper-bin-x64/Release/whisper-cli.exe", "sha256": "b7c6dc2e999a80bc2d23cd4c76701211f392ae55d5cabdf0d45eb2ca4faf09af" },
     { "path": "whisper-bin-x64/Release/whisper-server.exe", "sha256": "27dd0e748809b42f8cf4e3aba5e405cd7eeefe04f454d5892bd4ea6e6362a2e9" },
     { "path": "whisper-bin-x64/Release/whisper-stream.exe", "sha256": "c5f7c11410a2b2daa072559f1509801d7dee492c7020dddadbfaef2a9308b393" },
-    { "path": "whisper-bin-x64/Release/whisper.dll", "sha256": "bbeceed370799687a363244edc583bac3dc5d472f5bd14691a26f22c7e710bb8" },
-    { "path": "whisper-bin-x64/models/ggml-tiny.en.bin", "sha256": "921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f" }
+    { "path": "whisper-bin-x64/Release/whisper.dll", "sha256": "bbeceed370799687a363244edc583bac3dc5d472f5bd14691a26f22c7e710bb8" }
   ]
 }

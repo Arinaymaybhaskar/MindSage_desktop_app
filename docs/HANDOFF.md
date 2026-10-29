@@ -1,28 +1,72 @@
-# MindSage handoff (2026-10-21)
+# MindSage handoff (2026-10-29, P2 wave 4 built, owner decisions taken, new tickets filed)
 
-You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin`.
+## 2026-10-29 decisions (owner) and new tickets
+- Installer ships CPU and Vulkan engine binaries only. CUDA becomes an optional post-install download for Nvidia GPUs: KAN-434 (no fix version yet). This unblocks KAN-388 (ONNX).
+- The password only locks the profile; it encrypts nothing. KAN-77, 177, 178, 181, 183 moved to fix version P5 (label release-p5). Their descriptions still say "encrypts" and name old releases; rewrite when the real encryption project is scoped.
+- KAN-80 import placement: after sign-up, optional, never blocking (a skippable line on You're set). Ticket KAN-436.
+- KAN-70 "feelings" means the KAN-94 feeling words (built-in plus custom). Mood stays the KAN-93 five words under "Enrich entries". The merged KAN-70 build read it as mood tags, so rework is KAN-437, after #90 merges. The owner already edited KAN-70's description.
+- KAN-64 status card wording is the table in KAN-64's own description (title plus second line per state). The agent said the wording was unavailable; it was in Jira. The built card does not match it. Ticket KAN-435.
+- Follow-ups, all filed as P2 bugs with `found-in-phase-2`, `phase-2-closeout`: KAN-438 People extraction yields to Ask (after #86 merges), KAN-439 chat and search query embeds untruncated, KAN-440 profile names case-insensitive, KAN-441 last-import record deleted with its profile.
+- Owner said not to worry about timelines.
+- Not done: the owner's own actions (release `binaries-whisper-v1` for PR #51; delete KAN-389 in the Jira UI). All 11 PRs (#82, #84 to #92) are CI green and unmerged, mergeable and clean individually; #89 and #90 will conflict in AIPrompts.js, and #90 uses migration 12. Merge only when the owner says "merge", #83 first.
+
+You are the ORCHESTRATOR. Read CLAUDE.md, then docs/agent/orchestrator.md and docs/agent/terse-output.md. Tell the owner at most 2-3 lines, only when asked or when blocked. Start with `git fetch origin` and `git pull` (merge, never rebase), then read this file again if the pull changed it.
 
 ## State
-- Repo: Arinaymaybhaskar/MindSage_desktop_app. Jira KAN, cloudId 5ff5bb5a-94c3-42d4-ae17-384d856cb56f.
-- Flow: ticket branch -> phase/p1-make-the-promise-true -> dev -> main. Hooks block edits, pushes and force-pushes on main/dev/phase/*.
-- PR phase -> dev is #47 (open, not merged; the owner merges it). The phase history was rewritten on 2026-10-21 so all 166 commits are authored by the owner (no Claude author, no trailers). Backup of the old history: local branch backup/phase-p1-pre-rewrite. Branches cut before the rewrite must be recreated from the new tip.
-- Bench committed: docs/benchmarks/PHASE-1-2026-10-20.md, comparison vs 2026-10-06, accepted regressions in OPTIMIZATION_LOG.md. ffmpeg.conversion did not reproduce (78 to 740 ms).
-- Open PRs into the phase: #49 (.gitguardian.yaml ignoring test files and scripts/qa), this handoff.
-- Tickets: KAN-382, 383, 192 and 384 are in Ready for release. KAN-384 is a provisional pass: item 3 (uninstaller leftovers, fix 81e95bc) never ran because the test machine holds the real profile; tracked in KAN-385 (P2, needs a clean Windows account or VM). KAN-384 items 4 and 5 deferred as polish.
-
-## Needs fixing first
-KAN-381 (search p95 at 50,000 vectors): the owner had already revised the target (p95 under 100 ms at 5,000, under 200 ms at 50,000 on Windows; measured 23 ms and 192 ms, so it passes). This session wrongly deferred it to P2 with a different target (250 ms and 30 ms), moved it to To Do and removed release-p1 and phase-1-closeout. Undo: restore labels release-p1 and phase-1-closeout, remove release-later, fix version back to "P1 Make the promise true" (separate edit), correct the comment to the owner's target, move to Ready for release. Also confirm KAN-192's comment names the owner's target, not 250 ms.
+- Repo: Arinaymaybhaskar/MindSage_desktop_app. Jira KAN, cloudId 5ff5bb5a-94c3-42d4-ae17-384d856cb56f. P2 fix version id 10001 ("P2 Remove the setup wall", release 2026-11-23, gate: 7 of 10 testers install and get their first AI reflection without help).
+- Flow: ticket branch -> phase/p2-remove-the-setup-wall -> dev -> main. Never merge the phase branch to dev until the owner says so.
+- Owner instruction (2026-10-22): no testing and no reviewing for now. Built tickets carry the Jira label `not-reviewed`; Jira statuses are NOT moved.
+- Merged into the P2 phase, built, unreviewed and untested: KAN-90, 69, 72, 71, 91, 70, 82, 64, 78, 87, 75, 79 (#67), 76 (#69), 80 (#70), 81 (#73), 65 (#74), 66 (#75), 73 (#76), 86 (#77), 169 (#79), 394 (#80), plus CI fix #71. All carry the `not-reviewed` label and the Jira status "Not reviewed" (checked in Jira 2026-10-22). CI (typecheck/lint, db, Windows e2e) was green on every PR before merge, including #73 to #77; the phase branch itself has no push-triggered CI run, so its tip after the merges is only covered by those PR runs. Reviewed earlier by Opus: KAN-68, KAN-89.
+- Open: #51 KAN-193 binaries out of git, blocked on the owner.
+- KAN-81 was built WITHOUT its blockers: KAN-162 (daily nudge, fix version P3) and KAN-313 (Windows Hello, release-later) are still To Do and unbuilt. The screen's reminder toggle only stores `journal_reminder` and `reminder_time` and fires nothing; Windows Hello is hidden behind `helloAvailable()`, which returns false. Do not build 162/313 in P2 unless the owner says so.
 
 ## Next
-1. Fix KAN-381 in Jira (above), haiku/low.
-2. Check PR #47 and #49 CI is green; GitGuardian incidents may reappear under new hashes: owner resolves them as false positive/test credential in the dashboard, #49 prevents new ones once merged.
-3. Owner merges #49, then the handoff PR, then #47 into dev.
-4. Owner: delete merged remote branches by hand (remote delete fails here), e.g. fix/KAN-378-kill-probes-on-quit, fix/KAN-379-editor-save-race, docs/KAN-45-phase-1-bench-rerun, rewrite/p1-authors (local only), backup branches when no longer needed.
-5. Owner cleanup on the Windows machine: C:\Projects\MindSage_appdata_backup_20261020 (holds the journal) and the leftover worktrees in C:\Projects (ms-test-cap, ms-test-p1, ms-test-people).
+1. Open PRs against the phase branch, all built, unreviewed, untested, NOT merged (owner said do not merge): #82 KAN-393, #84 KAN-386, #85 KAN-387, #86 KAN-390, #87 KAN-392, #88 KAN-391, #89 KAN-93, #90 KAN-94, #91 KAN-67, #92 KAN-74 (#92 CI was pending). CI green on #82 and #84 to #91. All their Jira tickets carry `not-reviewed` and sit in Not reviewed. Merge only when the owner says "merge". Expect conflicts: AIPrompts.js between #89 and #90; migration numbering (#90 uses 12). Merge #83 (this handoff) first.
+2. Follow-ups noted by agents: after #86 merges, People extraction (#87) should also use `yieldToAsk`. Chat and search query embeds (`methods/chat.js`, `methods/search.js`) still send untruncated text (KAN-391 covered the indexer only). `scripts/qa/app.mjs` sign-up still fills #email and #full_name (removed by KAN-76). KAN-74: the last-import record is not deleted when its profile is deleted. KAN-67: names compare case-sensitively ("Maya" and "maya" both allowed). Custom feeling words with comma, ; or | are refused (KAN-94). No tag filter exists in the app, so KAN-94 "appears in filters" had nothing to extend.
+3. Remaining P2 To Do: KAN-388 (ONNX, waits on installer-size decision), KAN-77/177/178/181/183 (encryption/recovery, clash with "password encrypts nothing", re-scope), KAN-83 (landing page), KAN-191 and KAN-193 (blocked on owner), KAN-385 (needs hardware). Nothing else buildable in P2 without an owner decision.
+4. Review first, when the owner lifts the pause: KAN-76 migration 10 and KAN-94 migration 12 (never run on a real profile yet).
+5. KAN-80 placement conflict: first-run /setup runs before sign-up, so its import step only works with a signed-in profile. Owner decides where the screen goes.
+6. The phase branch has no CI run of its own (CI triggers on push to main and on PRs only).
+
+## Facts from this session's agents (things later work must know)
+- KAN-76: profile name is the existing `username` column; sign-up is one screen (`/register`), zxcvbn lazy-loaded (main chunk 1,871 kB to 1,046 kB, zxcvbn own 819 kB chunk); weak passwords blocked (score >= 3). `media:save-profile` path traversal fixed. Stepper.tsx deleted.
+- KAN-80: imports batch 250 entries per transaction; imported entries skip per-entry AI; newest 200 get one backfill (`backfillEnrichment` in electron/methods/ollama.js, capped, idempotent). Settings imports get the same; Undo refused while importing. Ollama-without-choosing users get no immediate backfill (Retry shown).
+- No sidebar exists, only the dock: the KAN-64 status card is mounted fixed bottom-left in App.tsx; its compact rail is not mounted anywhere. Card wording is the agent's own (the "board" wording was not available): ask the owner for it.
+- KAN-69/72/71/70/79/78/87 have NO UI; the Settings > Models picker, dialogs and Advanced sheet belong to the design tickets. ModelDialog and VoiceModelPrompt exist (VoiceModelPrompt is mounted from journalForm; ModelDialog is not mounted).
+- KAN-72: if the free-space read fails the check passes (Infinity) and the download proceeds. Metered-connection warning not done (Electron cannot detect it cheaply); KAN-78 asks every first-time user once instead.
+- KAN-69: the speed probe bypasses the AI queue and can overlap a background job; speeds for non-probed models are scaled by file size (`speedMeasured: false`). Llama 3.1 8B added as on-request, pinned revision + SHA-256 from Hugging Face headers.
+- KAN-91: Whisper tiny model removed from git; base.en and small via the shared downloader; hashes from HF headers. package.json untouched to avoid conflicting with #51; a dev machine with the old model in resources/ still bundles it.
+- KAN-78/87: Ollama path only waits for the registry then emits `pull-model`; that pull has no resume or checksum. Backfill retries every `failed` entry once after models arrive (broader than "failed for lack of models").
+- KAN-79: openai-compatible URLs loopback-only, no redirects; .gguf path from a main-process dialog, header check only; a .gguf provider still needs the built-in embedding model; OpenAI server must serve 768-dim nomic embeddings; settings live in the global modelStore, not per user.
+- KAN-70: "feelings" was read as the mood tags (owner has not confirmed); suggestions switch only blocks generateSuggestion (not queued).
+- KAN-75: welcome only while no profile exists; restore goes sign-up first, then Settings > Import & Export. The first-run /setup page still comes before the welcome.
+- KAN-81: migration 11 adds `users.reminder_time`; each toggle saves at once; Continue opens Today. App.tsx routes to the screen from Onboarding.
+- KAN-65: Sync All button, `search:bulk-sync` handler, preload entry and `searchService.bulkSync` are gone; indexing is automatic only. `retryGaveUp` in electron/db/searchIndex.js has no handler caller but its db test uses it; kept (KAN-394).
+- KAN-66: GlobalSearch empty state polls `search:status` every 3 s while shown ("Still reading n entries", write-first message, index-unavailable notice). No component test (GlobalSearch has none).
+- KAN-73: damaged zip is named and skipped, the rest imports with a warning (all damaged: one error); locked file and disk full have own messages; commit failure rolls back entries and media and keeps the preview. Commit rollback and locked-file paths have no test (db tests cannot run on Windows). Files of another format in a mixed set are ignored silently.
+- KAN-86: 15 renderer-only packages moved to devDependencies (list in PR #77). The 11 packages imported nowhere were removed in KAN-394 (#80); scripts/capture-shots.mjs still has stale `.recharts-*` selectors. KAN-169: ESLint now covers electron/ and scripts/ (no-unused-vars ignores unused args; `@ts-check` on pure modules skipped, typecheck only covers src). Installer size, app.asar contents and a packaged smoke test are NOT verified.
+- Not verified anywhere in this wave: the real app was launched for none of these tickets; no real GPU, Ollama, LM Studio, network drop, packaged build or Mac. gitleaks and lint-staged are not installed in worktrees (hooks skip them).
+
+## Needs the owner
+1. Create release `binaries-whisper-v1` and upload the files (PR #51). History removal waits for KAN-191.
+2. Delete KAN-389 in the Jira UI (duplicate of KAN-388; the connector cannot delete issues).
+3. Say "merge" when ready (see 2026-10-29 section above).
+4. The owner's checkout had an incomplete node_modules (no .bin): `git switch phase/p2-remove-the-setup-wall`, `git pull`, `npm ci` (without --ignore-scripts), then `npm run dev`.
+
+## Decisions made
+- Provider rule (KAN-68): built-in engine only when aiProvider is set to it or both GGUFs are on disk at verified size; otherwise Ollama. Ollama stays a full provider.
+- ONNX (onnxruntime-node, CPU) for the classifier and the NLI gate, as its own ticket (KAN-388).
+- Reviews run as fresh Opus agents, never the author (paused by the owner for now).
 
 ## Rules that bit us
+- When you write the next handoff and the first prompt for the following session, the prompt must tell that session to run `git fetch origin` and `git pull` (merge any open handoff PR first) before reading this file.
 - Read this file before deciding on ticket targets; owner decisions listed in earlier handoffs stand.
-- Create Jira bugs without fixVersions; set them in a separate edit. Labels are set-full on edit.
-- Inline vs agent (orchestrator.md): small edits, docs, Jira moves and merges inline; coding with tests, real-app tests and diff review go to agents.
-- Never run install/uninstall tests on this machine: %APPDATA%\MindSage holds the real journal.
-- Never pkill; port 11434: probe before use. Stage by explicit path. Hooks block force-push except on claude/* and backup/*.
+- The auto-mode classifier denies `gh pr merge` and Jira label edits as "merge without review" until the owner says "merge" in that turn; then retry once. Never the phase branch into dev. If denied, report and stop, do not work around it.
+- CI e2e (`scripts/e2e/run.mjs`) follows the UI text: welcome -> Get started -> Create your profile -> #password -> Create profile. Change the script whenever a first-run screen changes. CI unit tests must not import electron (mock `electron-store`).
+- The Jira connector is flaky (searches time out, some calls hang 300 s). After a timeout, read the issue to see whether the write applied before retrying. Use `issueType` and `additional_fields` on createJiraIssue. Create bugs without fixVersions; set them in a separate edit (`fields: {"fixVersions":[{"id":"10001"}]}`). Labels are set-full on edit. transitionJiraIssue needs `transitionName`, not `transition`.
+- A Haiku batch agent stopped midway and left partial work; verify Jira state after any agent batch.
+- CI installs with `npm ci --ignore-scripts`: no electron binary. Do not import electron at module top level in code that tests load.
+- `npm run test:db` fails 16 tests on Windows with EBUSY temp cleanup (known; CI Linux is authoritative). Full `npm test` has flaky timeouts in log.test.js and hooks.test.mjs under load; they pass alone.
+- Parallel agents in separate worktrees worked when their file areas differed; run agents that touch electron/ai one at a time.
+- Inline vs agent (orchestrator.md): small edits, docs, Jira moves and merges inline; coding with tests goes to agents.
+- Never run install/uninstall tests on this machine: %APPDATA%\MindSage holds the real journal. Never pkill. Stage by explicit path. Hooks block commands that chain `sleep`; use Monitor.

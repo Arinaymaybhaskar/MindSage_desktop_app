@@ -4,6 +4,7 @@ import {
   useLocation,
   useNavigate,
   HashRouter,
+  Navigate,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Login from "./pages/auth/login";
@@ -33,7 +34,6 @@ import Dock from "./components/dock";
 import GoalsPage from "./pages/goals";
 import PeoplePage from "./pages/people";
 import PersonDetail from "./pages/personDetail";
-import OllamaTutorialPage from "./pages/OllamaTutorial";
 import { ColorThemeProvider } from "./context/ColorThemeContext";
 import { initializeColors } from "./utils/colorInitializer";
 import GoalDetail from "./pages/goalDetail";
@@ -44,7 +44,10 @@ import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
 import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
 import Onboarding, { SETUP_COMPLETE_KEY } from "./pages/Onboarding";
+import YoureSet from "./pages/YoureSet";
 import AIReadinessBanner from "./components/AIReadinessBanner";
+import AIStatusCard from "./components/AIStatusCard";
+import CudaOfferPrompt from "./components/CudaOfferPrompt";
 import UpdateBar from "./components/UpdateBar";
 import { ToastProvider } from "./context/ToastContext";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -153,7 +156,6 @@ function AppLayout() {
     location.pathname === "/register" ||
     location.pathname === "/forgot-password" ||
     location.pathname === "/reset-password" ||
-    location.pathname === "/ollama-tutorial" ||
     location.pathname === "/setup";
 
   // CHANGED: Updated the paths for the dock items.
@@ -203,6 +205,12 @@ function AppLayout() {
             {!isQuickCapturePage && !isAuthPage && <UpdateBar />}
             {!isQuickCapturePage && !isAuthPage && <AIReadinessBanner />}
           </div>
+          {!isQuickCapturePage && !isAuthPage && (
+            <div className="fixed bottom-3 left-3 z-40 max-w-60">
+              <AIStatusCard />
+              <CudaOfferPrompt />
+            </div>
+          )}
           {/* Outside the routes: deleting a profile signs the person out, and
               its "deleted" screen has to survive that. */}
           {!isQuickCapturePage && <DeleteProfileDialog />}
@@ -344,9 +352,14 @@ function AppLayout() {
                 />
                 <Route
                   path="/ollama-tutorial"
-                  element={<OllamaTutorialPage />}
+                  element={<Navigate to="/settings/models" replace />}
+                />
+                <Route
+                  path="/qdrant"
+                  element={<Navigate to="/settings/models" replace />}
                 />
                 <Route path="/setup" element={<Onboarding />} />
+                <Route path="/youre-set" element={<YoureSet />} />
                 <Route
                   path="/goals/view/:id"
                   element={

@@ -1,7 +1,8 @@
+import fs from "node:fs";
 import Store from "electron-store";
 import { ipcMain } from "electron";
 import localDB from "../db/index.js";
-import { getThumbnailBase64 } from "./media.js";
+import { getThumbnailBase64, writeProfileImage } from "./media.js";
 import bcrypt from "bcryptjs";
 import {
   currentUserId,
@@ -10,6 +11,7 @@ import {
   signOut,
 } from "../session.js";
 import { log } from "../log.js";
+import { cleanProfileName, DUPLICATE_PROFILE_NAME } from "../profileName.js";
 
 // The session lives in the main process (session.js). Login no longer issues
 // a token: there is no server to present one to, and the old one was never
@@ -18,8 +20,6 @@ import { log } from "../log.js";
 const toUserInfo = (user) => ({
   id: user.id,
   username: user.username,
-  email: user.email,
-  full_name: user.full_name || null,
   created_at: user.created_at,
   profile_picture: user.profile_picture || null,
 });
@@ -27,7 +27,12 @@ const toUserInfo = (user) => ({
 export const handleLogin = async (event, credentials) => {
   const { identifier, password, rememberMe = false } = credentials;
   try {
-    const user = localDB.findUserByIdentifier(identifier);
+    // Sign-in is by profile name only. Exact first (the picker sends the
+    // stored name); a typed name is trimmed and normalised like sign-up.
+    const user =
+      localDB.findUserByName(identifier) ??
+      (typeof identifier === "string" &&
+        localDB.findUserByName(identifier.normalize("NFC").trim()));
     if (!user) throw new Error("User not found");
 
     const match = await bcrypt.compare(password, user.password_hash);
@@ -70,7 +75,6 @@ export const handleListProfiles = async () => {
     rows.map(async (row) => ({
       id: row.id,
       username: row.username,
-      full_name: row.full_name || null,
       avatar: row.profile_picture
         ? await getThumbnailBase64(row.profile_picture, 192).catch(() => null)
         : null,
@@ -118,39 +122,58 @@ export function markLegacySessionChecked() {
   migration.set("legacyTokenChecked", true);
 }
 
+/**
+ * Creates a profile from a profile name (the username column), a password and
+ * an optional photo. No email and no full name: sign-up asks for neither.
+ */
 export const handleRegister = async (event, details) => {
+  let picture = null;
   try {
-    const existingUser = localDB.findUserForCheck(
-      details.email,
-      details.username,
-    );
-    if (existingUser) {
-      throw new Error("Username or email already exists");
+    const username = cleanProfileName(details?.username);
+    if (typeof details.password !== "string" || !details.password) {
+      throw new Error("A password is required");
     }
-    const newUser = localDB.createUser(details);
+    if (localDB.profileNameTaken(username)) {
+      throw new Error(DUPLICATE_PROFILE_NAME);
+    }
+    if (details.photo?.arrayBuffer) {
+      picture = writeProfileImage(
+        details.photo.arrayBuffer,
+        details.photo.filename || "photo",
+      );
+    }
+    const newUser = localDB.createUser({
+      username,
+      password: details.password,
+      timezone: details.timezone,
+      profile_picture: picture,
+    });
     return { user: newUser };
   } catch (error) {
+    // A photo saved for a profile that was never made would linger on disk.
+    if (picture) fs.rmSync(picture, { force: true });
     log.error("Offline registration error:", error);
     throw error;
   }
 };
 
 /**
- * Reports whether a username is still free in the local database.
+ * Reports whether a profile name is allowed and still free, with the reason
+ * when it is not.
  *
  * Registration re-checks this before inserting; this exists so the form can
  * tell the user while they type rather than after they submit.
  */
 export const handleCheckUsername = async (event, username) => {
-  const name = typeof username === "string" ? username.trim() : "";
-  if (!name) {
-    return { available: false };
+  let name;
+  try {
+    name = cleanProfileName(username);
+  } catch (err) {
+    return { available: false, error: err.message };
   }
-  // findUserForCheck matches email OR username. Passing the name as both
-  // would also reject it when it happens to equal someone's email, so the
-  // email side is passed a value no address can equal.
-  const existing = localDB.findUserForCheck(null, name);
-  return { available: !existing };
+  return localDB.profileNameTaken(name)
+    ? { available: false, error: DUPLICATE_PROFILE_NAME }
+    : { available: true };
 };
 
 /**

@@ -12,9 +12,8 @@ export type { SqliteBoolean };
 
 export interface UserInfo {
   id: number;
+  /** The profile name: the only name a profile has (KAN-67). */
   username: string;
-  email: string;
-  full_name?: string | null;
   timezone?: string | null;
   profile_picture?: string | null;
   created_at?: string;
@@ -31,6 +30,7 @@ export interface UserSettings {
   biometric_lock: SqliteBoolean;
   send_to_ai: SqliteBoolean;
   journal_reminder: SqliteBoolean;
+  reminder_time?: string;
   challenge_alert?: SqliteBoolean;
   check_in_frequency: string;
   ai_tone: string;
@@ -55,11 +55,9 @@ export interface UserSettings {
   use_custom_colors?: SqliteBoolean;
 }
 
-/** Payload accepted by the `user:update-profile` channel. */
+/** Payload accepted by the `user:update-profile` channel; a key left out is unchanged. */
 export interface ProfileUpdate {
-  username: string;
-  email: string;
-  full_name?: string;
+  username?: string;
   profile_picture?: string | null;
 }
 

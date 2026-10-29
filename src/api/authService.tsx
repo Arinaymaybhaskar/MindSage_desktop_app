@@ -6,8 +6,6 @@
 interface UserInfo {
   id: number;
   username: string;
-  email: string;
-  full_name: string;
   timezone: string;
   created_at: string;
 }
@@ -36,19 +34,18 @@ interface LoginCredentials {
 export interface Profile {
   id: number;
   username: string;
-  full_name: string | null;
   avatar: string | null;
 }
 
 /**
- * Describes the details required for user registration.
+ * Describes the details required for user registration. `username` is the
+ * profile name; sign-up asks for no email and no full name.
  */
 interface RegistrationDetails {
   username: string;
-  email: string;
   password: string;
-  full_name: string;
   timezone: string;
+  photo?: { arrayBuffer: ArrayBuffer; filename: string };
 }
 
 // --- Type Definition for the Electron Preload API ---
@@ -75,7 +72,7 @@ export const authService = {
   },
 
   /**
-   * @param details - { username, email, password, ... }
+   * @param details - { username, password, timezone, photo? }
    */
   register: async (
     details: RegistrationDetails,
@@ -86,18 +83,21 @@ export const authService = {
     return await window.electron.ipcRenderer.invoke("auth:register", details);
   },
 
-  /**
-   * Reports whether a username is still free, so the registration form can
-   * say so while the user types. Registration re-checks before inserting, so
-   * this is a courtesy rather than the guarantee.
-   */
   /** Every account on this install, for the signed-out profile picker. */
   listProfiles: async (): Promise<Profile[]> => {
     if (!window.electron?.ipcRenderer) return [];
     return await window.electron.ipcRenderer.invoke("auth:list-profiles");
   },
 
-  checkUsername: async (username: string): Promise<{ available: boolean }> => {
+  /**
+   * Reports whether a profile name is allowed and still free, with the reason
+   * when it is not, so the registration form can say so while the user types.
+   * Registration re-checks before inserting, so this is a courtesy rather
+   * than the guarantee.
+   */
+  checkUsername: async (
+    username: string,
+  ): Promise<{ available: boolean; error?: string }> => {
     if (!window.electron?.ipcRenderer) {
       throw new Error("Not in an Electron environment.");
     }

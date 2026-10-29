@@ -3,25 +3,69 @@ import { describe, it, expect } from "vitest";
 import {
   parseJournalMetadata,
   sanitizeMoodTags,
-  clampMoodScore,
+  JOURNAL_METADATA_SCHEMA,
+  getAutoPopulateValues,
   countWords,
   isSummarizable,
   MIN_SUMMARY_WORDS,
   sanitizeSummary,
+  builtInFeeling,
+  cleanFeelingWord,
+  feelingKey,
+  journalMetadataSchema,
   // @ts-expect-error plain JS module without type declarations
 } from "./AIPrompts.js";
 
-describe("clampMoodScore", () => {
-  it("clamps into the 1-5 range and rounds", () => {
-    expect(clampMoodScore(0)).toBe(1);
-    expect(clampMoodScore(9)).toBe(5);
-    expect(clampMoodScore(3.4)).toBe(3);
-    expect(clampMoodScore("4")).toBe(4);
+describe("feeling words of the user's own (KAN-94)", () => {
+  it("matches built-in words by case and Latin accents only", () => {
+    expect(builtInFeeling(" PROUD ")).toEqual({
+      name: "Proud",
+      family: "Happy",
+    });
+    expect(builtInFeeling("Excíted")).toEqual({
+      name: "Excited",
+      family: "Surprised",
+    });
+    expect(builtInFeeling("sad")).toEqual({ name: "Sad", family: "Sad" });
+    expect(builtInFeeling("wistful")).toBeNull();
+    // A Devanagari vowel sign is part of the word, not an accent.
+    expect(feelingKey("खुशी")).not.toBe(feelingKey("खशी"));
   });
 
-  it("returns null for non-numeric input", () => {
-    expect(clampMoodScore("nope")).toBeNull();
-    expect(clampMoodScore(undefined)).toBeNull();
+  it("keeps any script as typed, and refuses what would split a tag list", () => {
+    expect(cleanFeelingWord("  غاضب ")).toBe("غاضب");
+    expect(cleanFeelingWord("a,b")).toBeNull();
+    expect(cleanFeelingWord("a|b")).toBeNull();
+    expect(cleanFeelingWord("line\nbreak")).toBeNull();
+    expect(cleanFeelingWord("")).toBeNull();
+    expect(cleanFeelingWord(42)).toBeNull();
+  });
+
+  it("offers the user's words in the prompt, the enum and the sanitizer", () => {
+    const own = [{ name: "खुशी", family: "Happy" }];
+    expect(getAutoPopulateValues("text", own)).toMatch(
+      /"Happy": \[[^\]]*"खुशी"/,
+    );
+    expect(journalMetadataSchema(own).properties.mood_tags.items.enum).toEqual(
+      expect.arrayContaining(["Proud", "खुशी"]),
+    );
+    expect(sanitizeMoodTags(["खुशी", "Proud"], own)).toEqual(["खुशी", "Proud"]);
+    // Without it, the word is not the model's to pick.
+    expect(sanitizeMoodTags(["खुशी"])).toEqual([]);
+  });
+});
+
+describe("mood word schema (KAN-93)", () => {
+  it("asks for one of the five words through an enum", () => {
+    expect(JOURNAL_METADATA_SCHEMA.properties.mood).toEqual({
+      enum: ["Heavy", "Low", "Steady", "Good", "Bright"],
+    });
+    expect(JOURNAL_METADATA_SCHEMA.required).toContain("mood");
+  });
+
+  it("gives no example mood value in the prompt", () => {
+    const prompt = getAutoPopulateValues("entry text");
+    expect(prompt).not.toMatch(/"mood(_score)?":/);
   });
 });
 
@@ -50,9 +94,16 @@ describe("sanitizeMoodTags", () => {
 });
 
 describe("parseJournalMetadata", () => {
+  it("cuts a runaway title before it reaches the journal", () => {
+    const raw = JSON.stringify({ title: "word ".repeat(100), mood: "Steady" });
+    const { title } = parseJournalMetadata(raw)!;
+    expect(title.length).toBeLessThanOrEqual(80);
+    expect(title).toMatch(/^word/);
+  });
+
   it("parses a clean JSON string and sanitizes fields", () => {
     const raw =
-      '{"title":"A good day","mood_score":4,"mood_tags":["proud","bogus"]}';
+      '{"title":"A good day","mood":"Good","mood_tags":["proud","bogus"]}';
     expect(parseJournalMetadata(raw)).toEqual({
       title: "A good day",
       mood_score: 4,
@@ -62,16 +113,19 @@ describe("parseJournalMetadata", () => {
 
   it("tolerates prose/markdown around the JSON", () => {
     const raw =
-      'Sure! Here is the JSON:\n```json\n{"title":"Reflecting","mood_score":3,"mood_tags":[]}\n```';
+      'Sure! Here is the JSON:\n```json\n{"title":"Reflecting","mood":"steady","mood_tags":[]}\n```';
     expect(parseJournalMetadata(raw)).toMatchObject({
       title: "Reflecting",
       mood_score: 3,
     });
   });
 
-  it("returns null when unusable (no title or bad score) instead of garbage", () => {
-    expect(parseJournalMetadata('{"mood_score":4}')).toBeNull();
-    expect(parseJournalMetadata('{"title":"x","mood_score":"NaN"}')).toBeNull();
+  it("returns null when unusable (no title or bad mood) instead of garbage", () => {
+    expect(parseJournalMetadata('{"mood":"Good"}')).toBeNull();
+    // Nothing outside the five words is stored, numbers included.
+    expect(parseJournalMetadata('{"title":"x","mood":"Great"}')).toBeNull();
+    expect(parseJournalMetadata('{"title":"x","mood_score":4}')).toBeNull();
+    expect(parseJournalMetadata('{"title":"x","mood":4}')).toBeNull();
     expect(parseJournalMetadata("not json at all")).toBeNull();
     expect(parseJournalMetadata("")).toBeNull();
   });

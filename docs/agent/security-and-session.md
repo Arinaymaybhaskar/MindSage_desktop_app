@@ -6,7 +6,7 @@ Read this before you add an IPC channel or handler, touch auth or sign-in, chang
 
 [electron/session.js](../../electron/session.js) holds who is signed in, and every handler under `electron/methods/` reads it with `currentUserId()` (guarded, so signed-out calls refuse) rather than taking a credential from the renderer. **IPC channels take no `token` argument**: when you add one, read the user from the session, and never accept a user id from the renderer.
 
-- Sign-in is `auth:login` (with `rememberMe`, persisted in electron-store `session.json`); `auth:get-session`, `auth:list-profiles` (the signed-out profile picker at `#/profiles`: id, username, full name and an avatar thumbnail, never email), `auth:logout` and the one-shot `auth:adopt-legacy-session` (upgrade path for old localStorage JWTs) are registered early with the setup IPC.
+- Sign-in is `auth:login` (with `rememberMe`, persisted in electron-store `session.json`); `auth:get-session`, `auth:list-profiles` (the signed-out profile picker at `#/profiles`: id, profile name and an avatar thumbnail, never email; sign-in is by profile name only, KAN-67), `auth:logout` and the one-shot `auth:adopt-legacy-session` (upgrade path for old localStorage JWTs) are registered early with the setup IPC.
 - Both windows follow the `auth:changed` broadcast.
 - The password picks the account and keeps people out of the app; **it does not encrypt anything** (decision: option B), and the UI says so. Do not add copy that implies otherwise until encryption exists (a Jira ticket).
 - `localStorage.userInfo` is a display cache only; never put anything in it a handler would trust.

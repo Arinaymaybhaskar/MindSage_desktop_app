@@ -1,0 +1,240 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+// Enrichment on save (KAN-89): title, mood and tags in one schema call, then
+// the summary in its own call, one after the other in the shared AI queue.
+const generate = vi.hoisted(() => vi.fn());
+const getJournalById = vi.hoisted(() => vi.fn());
+const customFeelingWords = vi.hoisted(() => vi.fn(() => []));
+vi.mock("../ai/client.js", () => ({
+  generate,
+  taskModel: (task) => `model-for-${task}`,
+}));
+const failedRows = vi.hoisted(() => ({ rows: [] }));
+const writes = vi.hoisted(() => []);
+vi.mock("../db/connection.js", () => ({
+  db: {
+    prepare: (sql) => ({
+      run: (...args) => writes.push({ sql, args }),
+      all: () => failedRows.rows,
+    }),
+  },
+}));
+vi.mock("../db/index.js", () => ({
+  default: { getJournalById, customFeelingWords },
+}));
+vi.mock("../store.js", () => ({ modelStore: { get: vi.fn() } }));
+vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
+const ALL_ON = {
+  title: true,
+  summary: true,
+  mood: true,
+  feelings: true,
+  suggestions: true,
+};
+const getFeatures = vi.hoisted(() => vi.fn());
+vi.mock("../ai/features.js", async (orig) => ({
+  ...(await orig()),
+  getFeatures,
+}));
+vi.mock("electron-store", () => ({ default: class {} }));
+vi.mock("../log.js", () => ({
+  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+await import("./ollama.js");
+const { eventBus } = await import("../eventBus.js");
+const { background, foreground } = await import("../ai/queue.js");
+
+const entry = {
+  id: 1,
+  user_id: 7,
+  title: "",
+  content: Array.from({ length: 30 }, (_, i) => `word${i}`).join(" "),
+};
+const METADATA = '{"title":"A walk","mood":"Good","mood_tags":["Content"]}';
+const SUMMARY = "The writer walked home in the rain and felt calm.";
+const drained = () => background(() => {});
+
+beforeEach(() => {
+  generate.mockReset();
+  getJournalById.mockReset().mockReturnValue(entry);
+  getFeatures.mockReset().mockReturnValue(ALL_ON);
+});
+
+describe("AI feature switches (KAN-70)", () => {
+  it("enqueues no summary job when summary is off", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, summary: false });
+    generate.mockResolvedValueOnce(METADATA);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate.mock.calls[0][1].schema).toBeDefined();
+  });
+
+  it("enqueues no title/mood/feelings job when all three are off", async () => {
+    getFeatures.mockReturnValue({
+      ...ALL_ON,
+      title: false,
+      mood: false,
+      feelings: false,
+    });
+    generate.mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate.mock.calls[0][1].schema).toBeUndefined();
+  });
+
+  it("enqueues nothing with every feature off", async () => {
+    getFeatures.mockReturnValue({
+      title: false,
+      summary: false,
+      mood: false,
+      feelings: false,
+      suggestions: false,
+    });
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it("skips a queued job whose switch went off while it waited", async () => {
+    let endAsk;
+    const ask = foreground(() => new Promise((r) => (endAsk = r)));
+    eventBus.emit("journal:created", { entry });
+    getFeatures.mockReturnValue({
+      ...ALL_ON,
+      title: false,
+      mood: false,
+      feelings: false,
+      summary: false,
+    });
+    endAsk();
+    await ask;
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it("gives no ghost-text suggestion when suggestions are off", async () => {
+    getFeatures.mockReturnValue({ ...ALL_ON, suggestions: false });
+    const { generateSuggestion } = await import("./ollama.js");
+    expect(await generateSuggestion("Today I")).toBe("");
+    expect(generate).not.toHaveBeenCalled();
+  });
+});
+
+describe("enrichment on save", () => {
+  it("asks for title, mood and tags first, then the summary, never both at once", async () => {
+    let finishMetadata;
+    generate.mockImplementationOnce(
+      () => new Promise((r) => (finishMetadata = () => r(METADATA))),
+    );
+    generate.mockResolvedValueOnce(SUMMARY);
+    const summaries = [];
+    eventBus.on("ollama:summary-generated", (e) => summaries.push(e.summary));
+
+    eventBus.emit("journal:created", { entry });
+    await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+    expect(generate.mock.calls[0][1]).toMatchObject({
+      model: "model-for-metadata",
+      schema: expect.any(Object),
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(generate).toHaveBeenCalledTimes(1);
+
+    finishMetadata();
+    await drained();
+    expect(generate.mock.calls[1][1]).toMatchObject({
+      model: "model-for-summary",
+    });
+    expect(generate.mock.calls[1][1].schema).toBeUndefined();
+    expect(summaries).toEqual([SUMMARY]);
+  });
+
+  it("waits for a running Ask before starting", async () => {
+    let endAsk;
+    const ask = foreground(() => new Promise((r) => (endAsk = r)));
+    generate.mockResolvedValueOnce(METADATA).mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("journal:created", { entry });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(generate).not.toHaveBeenCalled();
+    endAsk();
+    await ask;
+    await drained();
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers the user's 50 most used own words in the prompt and enum (KAN-94)", async () => {
+    const own = [{ name: "उदास", family: "Sad", uses: 3 }];
+    customFeelingWords.mockReturnValueOnce(own);
+    const { generateMetadata } = await import("./ollama.js");
+    generate.mockResolvedValueOnce(
+      '{"title":"A walk","mood":"Low","mood_tags":["उदास","Invented"]}',
+    );
+    const out = await generateMetadata("text", 7);
+    expect(customFeelingWords).toHaveBeenLastCalledWith(7, 50);
+    const [prompt, opts] = generate.mock.calls[0];
+    expect(prompt).toContain("उदास");
+    expect(opts.schema.properties.mood_tags.items.enum).toContain("उदास");
+    expect(out.mood_tags).toEqual(["उदास"]);
+  });
+
+  it("does nothing for an entry moved to the Trash while it waited", async () => {
+    getJournalById.mockReturnValue(null);
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  // KAN-393: left 'pending', a restored entry needed Cancel then Retry.
+  it("marks the pending statuses failed when the entry went to the Trash", async () => {
+    getJournalById.mockReturnValue(null);
+    writes.length = 0;
+    eventBus.emit("journal:created", { entry });
+    await drained();
+    const failed = writes.filter((w) => w.sql.includes("'failed'"));
+    const sql = failed.map((w) => w.sql.replace(/\s+/g, " "));
+    expect(sql).toEqual([
+      expect.stringMatching(
+        /SET ai_metadata_status = 'failed'.*AND ai_metadata_status = 'pending'/,
+      ),
+      expect.stringMatching(
+        /SET ai_summary_status = 'failed'.*AND ai_summary_status = 'pending'/,
+      ),
+    ]);
+    expect(failed.map((w) => w.args[1])).toEqual([entry.id, entry.id]);
+  });
+});
+
+describe("backfill after setup (KAN-87)", () => {
+  const failed = {
+    ...entry,
+    ai_metadata_status: "failed",
+    ai_summary_status: "failed",
+  };
+
+  it("re-runs enrichment once for entries that failed while models were missing", async () => {
+    failedRows.rows = [{ id: 1, user_id: 7 }];
+    getJournalById.mockReturnValue(failed);
+    generate.mockResolvedValueOnce(METADATA).mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("ai:models-ready");
+    await drained();
+    expect(generate).toHaveBeenCalledTimes(2);
+    failedRows.rows = [];
+  });
+
+  // An import calls the backfill too (KAN-80); a job queued twice runs once.
+  it("does nothing for an entry a previous backfill already filled", async () => {
+    failedRows.rows = [{ id: 1, user_id: 7 }];
+    getJournalById.mockReturnValue({
+      ...failed,
+      ai_metadata_status: "completed",
+      ai_summary_status: "completed",
+    });
+    const { backfillEnrichment } = await import("./ollama.js");
+    backfillEnrichment();
+    await drained();
+    expect(generate).not.toHaveBeenCalled();
+    failedRows.rows = [];
+  });
+});

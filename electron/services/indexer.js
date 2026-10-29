@@ -1,6 +1,7 @@
 import { eventBus } from "../eventBus.js";
 import { log } from "../log.js";
 import * as index from "../db/searchIndex.js";
+import { embedFitting, isUnavailable } from "../ai/embedFitting.js";
 
 // Keeps the search index in step with the journal (KAN-192, KAN-88). It runs in
 // the main process: embedding is an HTTP call to Ollama and the writes are
@@ -21,14 +22,6 @@ const TYPE_LABEL = {
   goal: "goals",
   progress_log: "progress logs",
 };
-
-/** Ollama is not running or has no embedding model: not the item's fault. */
-export function isUnavailable(error) {
-  const text = `${error?.message ?? ""} ${error?.cause?.code ?? ""}`;
-  return /fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|ETIMEDOUT|socket|\b404\b|\b503\b/i.test(
-    text,
-  );
-}
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -90,7 +83,9 @@ export function createIndexer({
       index.removeSources(item.type, [item.id]);
       return "gone";
     }
-    const vector = await embed(source.text);
+    // A blank item has nothing to embed (the model returns no vector): it is
+    // done without one instead of failing until it gives up (KAN-391).
+    const vector = await embedFitting(embed, source.text);
     return index.storeVector(item.type, item.id, vector, source.hash);
   }
 

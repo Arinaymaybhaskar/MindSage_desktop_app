@@ -1,5 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
-import path, { dirname, join } from "node:path";
+import { BrowserWindow, dialog, ipcMain } from "electron";
 import {
   handleCommitImport,
   handleExportJournal,
@@ -7,6 +6,7 @@ import {
   handlePickImport,
   handleReadImport,
   handleUndoImport,
+  handleLastImport,
 } from "./methods/portability.js";
 import {
   handleCheckUsername,
@@ -75,6 +75,35 @@ import {
   handleDeleteOllamaModel,
 } from "./methods/ollama.js";
 import {
+  handleCancelAIDownload,
+  handleGetModelPicker,
+  handleProbeAISpeed,
+  handleSelectAIModel,
+  handleDeleteAIModel,
+  handleGetModelDialog,
+  handleDownloadAIModel,
+  handleGetAIStatus,
+  handleRestartAI,
+  handleSetAIProvider,
+  handleGetAIFeatures,
+  handleSetAIFeature,
+  handleGetCudaOffer,
+  handleAnswerCudaOffer,
+} from "./methods/ai.js";
+import {
+  handleAnswerMetered,
+  handleGetSetupState,
+  handlePauseSetup,
+  handleSetupOnline,
+  handleStartSetup,
+} from "./methods/aiSetup.js";
+import {
+  handleApplyProvider,
+  handleCheckProvider,
+  handleGetProviderConfig,
+  handlePickGguf,
+} from "./methods/aiProvider.js";
+import {
   startLiveTranscription,
   stopLiveTranscription,
   transcribeAudioBlob,
@@ -86,8 +115,8 @@ import {
   getUserStats,
 } from "./methods/dashboard.js";
 import { modelStore } from "./store.js";
+import { handleAddCustomWord, handleListCustomWords } from "./methods/tags.js";
 import { registerSearchIPC } from "./methods/search.js";
-import { fileURLToPath } from "node:url";
 import {
   handleChangeChatTitle,
   handleDeleteChat,
@@ -169,6 +198,8 @@ export function registerIPCHandlers() {
   ipcMain.handle("journal:get-chart-data", handleGetChartData);
   ipcMain.handle("journal:retry-ai-metadata", handleRetryAIMetadata);
   ipcMain.handle("journal:update-ai-status", handleUpdateAIStatus);
+  ipcMain.handle("tags:custom-list", handleListCustomWords);
+  ipcMain.handle("tags:custom-add", handleAddCustomWord);
   ipcMain.handle("chat:send", handleChat);
 
   // Categories
@@ -215,6 +246,31 @@ export function registerIPCHandlers() {
   );
   ipcMain.handle("ollama:download-model", handleDownloadOllamaModel);
   ipcMain.handle("ollama:delete-model", handleDeleteOllamaModel);
+
+  // AI client: provider choice and the built-in engine's models
+  ipcMain.handle("ai:get-status", handleGetAIStatus);
+  ipcMain.handle("ai:restart", handleRestartAI);
+  ipcMain.handle("ai:set-provider", handleSetAIProvider);
+  ipcMain.handle("ai:download-model", handleDownloadAIModel);
+  ipcMain.handle("ai:cancel-download", handleCancelAIDownload);
+  ipcMain.handle("ai:get-model-picker", handleGetModelPicker);
+  ipcMain.handle("ai:probe-speed", handleProbeAISpeed);
+  ipcMain.handle("ai:select-model", handleSelectAIModel);
+  ipcMain.handle("ai:delete-model", handleDeleteAIModel);
+  ipcMain.handle("ai:get-features", handleGetAIFeatures);
+  ipcMain.handle("ai:set-feature", handleSetAIFeature);
+  ipcMain.handle("ai:get-model-dialog", handleGetModelDialog);
+  ipcMain.handle("ai:cuda-offer-get", handleGetCudaOffer);
+  ipcMain.handle("ai:cuda-offer-answer", handleAnswerCudaOffer);
+  ipcMain.handle("ai:setup-get-state", handleGetSetupState);
+  ipcMain.handle("ai:setup-start", handleStartSetup);
+  ipcMain.handle("ai:setup-pause", handlePauseSetup);
+  ipcMain.handle("ai:setup-answer-metered", handleAnswerMetered);
+  ipcMain.handle("ai:setup-online", handleSetupOnline);
+  ipcMain.handle("ai:provider-get", handleGetProviderConfig);
+  ipcMain.handle("ai:provider-pick-gguf", handlePickGguf);
+  ipcMain.handle("ai:provider-check", handleCheckProvider);
+  ipcMain.handle("ai:provider-apply", handleApplyProvider);
 
   // Whisper
   ipcMain.handle("whisper:start-live-transcription", startLiveTranscription);
@@ -290,6 +346,7 @@ export function registerIPCHandlers() {
   ipcMain.handle("data:import-read", handleReadImport);
   ipcMain.handle("data:import-commit", handleCommitImport);
   ipcMain.handle("data:import-undo", handleUndoImport);
+  ipcMain.handle("data:import-last", handleLastImport);
 
   ipcMain.handle("dialog:show-save-export", async (event) => {
     const browserWindow = BrowserWindow.fromWebContents(event.sender);

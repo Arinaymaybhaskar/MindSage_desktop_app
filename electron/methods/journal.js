@@ -2,14 +2,10 @@ import localDB from "../db/index.js";
 import { db } from "../db/connection.js";
 import { eventBus } from "../eventBus.js";
 import { updateJournalEntry } from "../db/journal.js";
-import {
-  AISummaryPrompt,
-  getAutoPopulateValues,
-  isSummarizable,
-  parseJournalMetadata,
-  sanitizeSummary,
-} from "./AIPrompts.js";
-import { modelStore } from "../store.js";
+import { isSummarizable } from "./AIPrompts.js";
+import { generateMetadata, generateSummary } from "./ollama.js";
+import { background } from "../ai/queue.js";
+import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
 import { currentUserId } from "../session.js";
 import { log } from "../log.js";
 
@@ -111,7 +107,11 @@ const addContentSummary = (summary, journalId, userId) => {
 // final 'completed' status transition so the entry is never marked completed
 // with empty fields. `force` (set by an explicit user regenerate) overwrites
 // the AI fields; auto-generation on create only fills blanks.
-eventBus.on("journal:aiCompleted", ({ entry, metadata, force }) => {
+eventBus.on("journal:aiCompleted", ({ entry: queued, metadata, force }) => {
+  // The call may have waited in the AI queue (KAN-89): write over the entry as
+  // it is now, so an edit made meanwhile is kept, and leave a Trashed one be.
+  const entry = localDB.getJournalById(queued.user_id, queued.id);
+  if (!entry) return;
   if (!metadata) {
     const error = "AI returned incomplete or invalid metadata";
     db.prepare(
@@ -177,7 +177,11 @@ export async function handleRetryAIMetadata(event, journalId, type) {
   const entry = localDB.getJournalById(userId, journalId);
   if (!entry) throw new Error("Journal entry not found");
 
+  const features = getFeatures(userId);
+  const off = { success: false, error: "This AI feature is turned off" };
+
   if (type === "metadata") {
+    if (!metadataOn(features)) return off;
     // Reset status to pending
     db.prepare(
       `UPDATE journal_entries SET ai_metadata_status = 'pending', ai_metadata_error = NULL WHERE id = ?`,
@@ -186,29 +190,12 @@ export async function handleRetryAIMetadata(event, journalId, type) {
     // Trigger the AI metadata generation again
     eventBus.emit("journal:aiStarted", { entryId: entry.id });
 
-    const prompt = getAutoPopulateValues(entry.content);
-    const selectedModels = (await import("../store.js")).modelStore.get(
-      "selectedModels",
-    );
-    const model = selectedModels?.chat || "llama3.2:latest";
-
     try {
-      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          prompt,
-          stream: false,
-          format: "json",
-          num_predict: 300,
-        }),
-      });
-      if (!res2.ok) throw new Error(`Ollama HTTP error: ${res2.status}`);
-      const aiRes = await res2.json();
-      const metadata = parseJournalMetadata(aiRes.response);
-      if (!metadata)
-        throw new Error("AI returned incomplete or invalid metadata");
+      const metadata = maskMetadata(
+        await background(() => generateMetadata(entry.content, userId)),
+        entry,
+        features,
+      );
       // The journal:aiCompleted persister writes the fields and flips the
       // status to 'completed'. force:true because this is an explicit user
       // retry/regenerate: overwrite the existing AI fields.
@@ -231,6 +218,7 @@ export async function handleRetryAIMetadata(event, journalId, type) {
       return { success: false, error: err.message };
     }
   } else if (type === "summary") {
+    if (!features.summary) return off;
     // Too short to summarize: skip consistently with the create path
     // instead of feeding a 1-sentence entry to a "3-5 sentence" prompt.
     if (!isSummarizable(entry.content)) {
@@ -248,26 +236,8 @@ export async function handleRetryAIMetadata(event, journalId, type) {
 
     eventBus.emit("ollama:summary-started", { entryId: entry.id });
 
-    const prompt = AISummaryPrompt(entry.content);
-    const selectedModels = (await import("../store.js")).modelStore.get(
-      "selectedModels",
-    );
-    const model = selectedModels?.chat || "llama3.2:latest";
-
     try {
-      const res2 = await fetch("http://127.0.0.1:11434/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          prompt,
-          stream: false,
-          num_predict: 300,
-        }),
-      });
-      if (!res2.ok) throw new Error(`Ollama HTTP error: ${res2.status}`);
-      const aiRes = await res2.json();
-      const summary = sanitizeSummary(aiRes.response);
+      const summary = await background(() => generateSummary(entry.content));
       if (!summary) {
         const error = "AI could not produce a valid summary";
         db.prepare(

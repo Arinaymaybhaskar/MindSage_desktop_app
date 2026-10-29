@@ -430,7 +430,7 @@ export const actionsCommands = [
   {
     type: "Action",
     title: "Install Ollama",
-    path: "/ollama-tutorial",
+    path: "/settings/models",
     icon: Rocket,
     keywords: [
       "ollama",
