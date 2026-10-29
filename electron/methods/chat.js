@@ -105,21 +105,35 @@ async function parseAIWithRetries(rawFn, schema, maxRetries = 3) {
   }
 }
 
-async function aiResponse(
-  content,
-  chatId,
-  messageId,
-  model,
-  userId,
-  hooks = {},
-) {
-  const { onPhase = () => {}, onDelta = () => {}, onReset = () => {} } = hooks;
+/** The profile changed while Ask was answering (KAN-454). */
+class ProfileChangedError extends Error {
+  code = "profile-changed";
+  constructor() {
+    super("The profile changed before the answer finished.");
+  }
+}
+
+async function aiResponse(content, chatId, messageId, model, hooks = {}) {
+  const {
+    onPhase = () => {},
+    onDelta = () => {},
+    onReset = () => {},
+    signal,
+    userId: askedBy,
+  } = hooks;
+  // Every tool reads the session; once the profile that asked is gone, the
+  // next step stops instead of reading for, or showing to, another profile.
+  const stillAsker = () => {
+    if (signal?.aborted || currentUserId() !== askedBy) {
+      throw new ProfileChangedError();
+    }
+    return askedBy;
+  };
   try {
     log.debug("aiResponse called", {
       chatId,
       messageId,
       model,
-      userId,
       contentChars: content?.length,
     });
     const now = new Date();
@@ -137,6 +151,7 @@ async function aiResponse(
           schema: PROPS_JSON_SCHEMA,
           ollamaModel: model,
           maxTokens: MAX_OUTPUT_TOKENS,
+          signal,
         }),
       propsResSchema,
       3,
@@ -154,7 +169,7 @@ async function aiResponse(
       log.debug("requires context");
       onPhase("searching");
       const vector = await embedFitting(embed, content);
-      if (vector) semanticResult = semanticSearch(vector, userId, 5);
+      if (vector) semanticResult = semanticSearch(vector, stillAsker(), 5);
     } else if (propsRes.requires_time_filter) {
       log.debug("requires context with time filter");
       onPhase("searching");
@@ -165,7 +180,7 @@ async function aiResponse(
         propsRes.base_query.trim() || content,
       );
       if (vector) {
-        semanticResult = semanticSearch(vector, userId, 5, {
+        semanticResult = semanticSearch(vector, stillAsker(), 5, {
           range: {
             from: propsRes.time_filter_from,
             to: propsRes.time_filter_to,
@@ -185,6 +200,7 @@ async function aiResponse(
     }
 
     // 4️⃣ Get final chat response, streaming it to the renderer as it forms.
+    stillAsker();
     onPhase("writing", { sources: semanticResult });
     const chatResponse = await parseAIWithRetries(
       (attempt) => {
@@ -197,7 +213,9 @@ async function aiResponse(
           schema: CHAT_RESPONSE_JSON_SCHEMA,
           ollamaModel: model,
           maxTokens: ASK_ANSWER_MAX_TOKENS * attempt,
+          signal,
           onToken: (_fragment, full) => {
+            if (signal?.aborted) return;
             const partial = partialJsonString(full, "response");
             if (partial === null || partial.length <= emitted) return;
             onDelta(partial.slice(emitted));
@@ -211,11 +229,16 @@ async function aiResponse(
     log.debug("ai chat response ready", {
       chars: JSON.stringify(chatResponse ?? "").length,
     });
+    stillAsker();
     return { chatResponse, chatId, messageId, semanticResult };
   } catch (error) {
     // The caller tells the renderer this one in plain words; every other
     // failure keeps the old swallow-and-report behaviour.
     if (isIndexUnavailable(error)) throw error;
+    // An aborted call fails with the provider's own error; the signal says why.
+    if (signal?.aborted || error instanceof ProfileChangedError) {
+      throw new ProfileChangedError();
+    }
     log.error("Ask failed", error);
     eventBus.emit("chat:error", error);
   }
@@ -291,6 +314,10 @@ export const handleUserMessage = async (
     return { error: "Not signed in" };
   }
   const emit = makeStreamEmitter(event, streamId);
+  // The chat id comes from the renderer: never add to another profile's chat.
+  if (chatId && !(await localDB.isOwnChat(userId, chatId))) {
+    return { error: "Chat not found" };
+  }
   if (!chatId) {
     const title = message.length < 20 ? message : "chat";
     const newChat = await localDB.AddChat(userId, { title, model });
@@ -320,11 +347,19 @@ export const handleUserMessage = async (
   // chat switch can tell whose stream it is watching.
   emit("start", { chatId, messageId });
 
+  // Signing out or switching profile stops the answer and drops its results.
+  const stop = new AbortController();
+  const onSession = () => {
+    if (currentUserId() !== userId) stop.abort();
+  };
+  eventBus.on("session:changed", onSession);
   let aiRes;
   try {
     // Ask goes ahead of background AI work in the shared queue.
     aiRes = await foreground(() =>
-      aiResponse(message, chatId, messageId, model, userId, {
+      aiResponse(message, chatId, messageId, model, {
+        userId,
+        signal: stop.signal,
         onPhase: (phase, extra) => emit("phase", { phase, ...extra }),
         onDelta: (text) => emit("delta", { text }),
         onReset: () => emit("reset"),
@@ -332,9 +367,11 @@ export const handleUserMessage = async (
     );
   } catch (err) {
     emit("error", { message: err?.message || "Generation failed." });
-    if (isIndexUnavailable(err))
+    if (isIndexUnavailable(err) || err instanceof ProfileChangedError)
       return { error: err.message, code: err.code, chatId, messageId };
     throw err;
+  } finally {
+    eventBus.off("session:changed", onSession);
   }
 
   // aiResponse swallows its own errors and returns undefined, so an empty

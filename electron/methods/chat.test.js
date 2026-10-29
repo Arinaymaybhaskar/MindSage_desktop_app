@@ -7,6 +7,7 @@ const db = {
   AddChat: vi.fn(async () => ({ id: 11 })),
   addMessage: vi.fn(async () => ({ id: 21 })),
   addAIMessage: vi.fn(),
+  isOwnChat: vi.fn((userId, chatId) => chatId !== 99),
 };
 vi.mock("../db/index.js", () => ({ default: db }));
 
@@ -23,9 +24,11 @@ vi.mock("../ai/client.js", () => ai);
 
 const semanticSearch = vi.fn();
 vi.mock("./search.js", () => ({ semanticSearch }));
-vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
+const session = vi.hoisted(() => ({ userId: 7 }));
+vi.mock("../session.js", () => ({ currentUserId: () => session.userId }));
 
 const { handleUserMessage } = await import("./chat.js");
+const { eventBus } = await import("../eventBus.js");
 
 // A renderer that asked for streamed progress, recording what it was sent.
 const streamEvent = () => {
@@ -43,6 +46,7 @@ const streamEvent = () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  session.userId = 7;
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -221,5 +225,43 @@ describe("Ask's answer cap (KAN-387)", () => {
     expect(result.error).toBeUndefined();
     expect(result.aiRes.chatResponse.response).toBe(long);
     expect(ai.generate).toHaveBeenCalledTimes(2); // no retry was needed
+  });
+});
+
+describe("Ask stays with the profile that asked (KAN-454)", () => {
+  it("refuses a chat id that is not this profile's", async () => {
+    const result = await handleUserMessage(null, 99, "hi", "llama3.2");
+
+    expect(result).toEqual({ error: "Chat not found" });
+    expect(db.addMessage).not.toHaveBeenCalled();
+    expect(ai.generate).not.toHaveBeenCalled();
+  });
+
+  it("stops the answer and stores nothing when the profile switches", async () => {
+    semanticSearch.mockReturnValue([]);
+    let aborted = null;
+    ai.generate.mockImplementation(async (_p, { onToken, signal }) => {
+      if (!onToken) return JSON.stringify({ requires_context: false });
+      onToken("x", '{"response":"Alice');
+      session.userId = 8;
+      eventBus.emit("session:changed");
+      aborted = signal.aborted;
+      onToken("y", '{"response":"Alice secret');
+      throw new Error("aborted");
+    });
+    const { event, sent } = streamEvent();
+
+    const result = await handleUserMessage(event, 5, "hi", "m", [], [], "s");
+
+    expect(aborted).toBe(true);
+    expect(result.code).toBe("profile-changed");
+    // Only the question was saved; no answer for the old profile.
+    expect(db.addMessage).toHaveBeenCalledTimes(1);
+    const text = sent
+      .filter((p) => p.type === "delta")
+      .map((d) => d.text)
+      .join("");
+    expect(text).not.toContain("secret");
+    expect(eventBus.listenerCount("session:changed")).toBe(0);
   });
 });

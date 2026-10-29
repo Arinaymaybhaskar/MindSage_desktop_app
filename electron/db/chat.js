@@ -183,6 +183,12 @@ export const getChatById = async (userId, chatId) => {
   });
 };
 
+/** True when the chat exists and is this profile's. */
+export const isOwnChat = (userId, chatId) =>
+  db
+    .prepare(`SELECT 1 FROM chats WHERE id = ? AND user_id = ?`)
+    .get(chatId, userId) !== undefined;
+
 export const AddChat = async (userId, chatData) => {
   try {
     const { title, model } = chatData;

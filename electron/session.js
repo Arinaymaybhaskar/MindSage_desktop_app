@@ -17,6 +17,7 @@
 
 import Store from "electron-store";
 import { BrowserWindow } from "electron";
+import { eventBus } from "./eventBus.js";
 
 const store = new Store({
   name: "session",
@@ -25,8 +26,10 @@ const store = new Store({
 
 let current = null; // { id: number, username: string } | null
 
-/** Tells every window, so the main window and Quick Capture agree. */
+/** Tells every window, so the main window and Quick Capture agree, and the
+ *  main process, so an Ask answer for the old profile stops (KAN-454). */
 function broadcast() {
+  eventBus.emit("session:changed");
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send("auth:changed");
   }
