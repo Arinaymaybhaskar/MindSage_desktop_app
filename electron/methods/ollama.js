@@ -10,7 +10,7 @@ import {
   sanitizeSummary,
 } from "./AIPrompts.js";
 import { generate, taskModel } from "../ai/client.js";
-import { background } from "../ai/queue.js";
+import { background, yieldToAsk } from "../ai/queue.js";
 import { getFeatures, maskMetadata, metadataOn } from "../ai/features.js";
 import { modelStore } from "../store.js";
 import { currentUserId } from "../session.js";
@@ -153,16 +153,21 @@ export const handleOllamaImagePrompt = async (
 
 // One stuck call would hold up every entry queued behind it.
 const ENRICH_TIMEOUT_MS = 5 * 60_000;
+/** Ask's abort (yieldToAsk) or the timeout, whichever comes first. */
+const enrichSignal = (signal) =>
+  AbortSignal.any([signal, AbortSignal.timeout(ENRICH_TIMEOUT_MS)]);
 
 /** Title, mood and tags: one JSON-schema call (KAN-89). Throws when unusable. */
 export async function generateMetadata(content) {
   const metadata = parseJournalMetadata(
-    await generate(getAutoPopulateValues(content), {
-      schema: JOURNAL_METADATA_SCHEMA,
-      maxTokens: MAX_OUTPUT_TOKENS,
-      model: taskModel("metadata"),
-      signal: AbortSignal.timeout(ENRICH_TIMEOUT_MS),
-    }),
+    await yieldToAsk((signal) =>
+      generate(getAutoPopulateValues(content), {
+        schema: JOURNAL_METADATA_SCHEMA,
+        maxTokens: MAX_OUTPUT_TOKENS,
+        model: taskModel("metadata"),
+        signal: enrichSignal(signal),
+      }),
+    ),
   );
   if (!metadata) throw new Error("AI returned incomplete or invalid metadata");
   return metadata;
@@ -171,11 +176,13 @@ export async function generateMetadata(content) {
 /** The summary, its own call (KAN-89); null when the model gave no usable one. */
 export async function generateSummary(content) {
   return sanitizeSummary(
-    await generate(AISummaryPrompt(content), {
-      maxTokens: MAX_OUTPUT_TOKENS,
-      model: taskModel("summary"),
-      signal: AbortSignal.timeout(ENRICH_TIMEOUT_MS),
-    }),
+    await yieldToAsk((signal) =>
+      generate(AISummaryPrompt(content), {
+        maxTokens: MAX_OUTPUT_TOKENS,
+        model: taskModel("summary"),
+        signal: enrichSignal(signal),
+      }),
+    ),
   );
 }
 
