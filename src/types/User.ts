@@ -30,7 +30,6 @@ export interface UserSettings {
   biometric_lock: SqliteBoolean;
   send_to_ai: SqliteBoolean;
   journal_reminder: SqliteBoolean;
-  reminder_time?: string;
   challenge_alert?: SqliteBoolean;
   check_in_frequency: string;
   ai_tone: string;
