@@ -8,6 +8,7 @@ import path from "node:path";
 const fake = vi.hoisted(() => ({
   gpuBroken: false,
   disposedOnce: false, // the next load fails as if a restart disposed the engine
+  fileBroken: false, // every load fails, on any build, as a damaged file does
   cuda: false, // "auto" picks the CUDA build, as with a downloaded engine
   cudaBroken: false,
   gpuAsked: [], // the gpu option of every getLlama call
@@ -55,6 +56,7 @@ vi.mock("node-llama-cpp", () => {
         fake.disposedOnce = false;
         throw new Error("Object is disposed");
       }
+      if (fake.fileBroken) throw new Error("Failed to load model");
       if (gpu === "cuda" && fake.cudaBroken)
         throw new Error("cudaErrorNoDevice");
       if (gpu !== false && fake.gpuBroken) throw new Error("vk::DeviceLost");
@@ -81,11 +83,19 @@ const { BUILTIN_MODELS } = await import("./models.js");
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ms-llama-"));
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-for (const id of ["qwen-2.5-1.5b", "nomic-embed-text-v1.5"]) {
+// Magic, version 3, one tensor, no keys: what checkGguf needs to see.
+const header = Buffer.alloc(24);
+header.write("GGUF");
+header.writeUInt32LE(3, 4);
+header.writeBigUInt64LE(1n, 8);
+/** A file of the model's exact size; `zeros` leaves out the GGUF header. */
+function placeModel(id, { zeros = false } = {}) {
   const fd = fs.openSync(path.join(dir, BUILTIN_MODELS[id].file), "w");
   fs.ftruncateSync(fd, BUILTIN_MODELS[id].bytes);
+  if (!zeros) fs.writeSync(fd, header, 0, header.length, 0);
   fs.closeSync(fd);
 }
+for (const id of ["qwen-2.5-1.5b", "nomic-embed-text-v1.5"]) placeModel(id);
 
 /** A fresh module per test: engine state lives in module scope. */
 async function freshEngine() {
@@ -100,6 +110,7 @@ beforeEach(() => {
   Object.assign(fake, {
     gpuBroken: false,
     disposedOnce: false,
+    fileBroken: false,
     cuda: false,
     cudaBroken: false,
     gpuAsked: [],
@@ -155,6 +166,43 @@ describe("built-in engine", () => {
     expect(status.gpu).toBe(false);
     expect(status.gpuFallback).toMatch(/DeviceLost/);
     expect(store.get("builtinCpuOnly").reason).toMatch(/DeviceLost/);
+  });
+
+  it("does not count a zero-filled file of the right size as downloaded (KAN-492)", async () => {
+    const llama = await freshEngine();
+    expect(llama.isDownloaded("qwen-2.5-1.5b")).toBe(true);
+    placeModel("qwen-2.5-1.5b", { zeros: true });
+    try {
+      expect(llama.isDownloaded("qwen-2.5-1.5b")).toBe(false);
+      await expect(
+        llama.generate("hi", { model: "qwen-2.5-1.5b" }),
+      ).rejects.toMatchObject({ code: "AI_UNAVAILABLE" });
+      expect(fake.gpuAsked).toEqual([]); // never handed to the engine
+    } finally {
+      placeModel("qwen-2.5-1.5b");
+    }
+  });
+
+  it("does not pin the CPU or skip CUDA for a file no build can load (KAN-492)", async () => {
+    fake.fileBroken = true;
+    const llama = await freshEngine();
+    await expect(
+      llama.generate("hi", { model: "qwen-2.5-1.5b" }),
+    ).rejects.toThrow(/Failed to load model/);
+    expect(store.has("builtinCpuOnly")).toBe(false);
+    expect((await llama.status()).gpuFallback).toBe(null);
+    fake.fileBroken = false;
+    await llama.generate("hi", { model: "qwen-2.5-1.5b" });
+    expect((await llama.status()).gpu).toBe("vulkan"); // the GPU again
+
+    fake.fileBroken = true;
+    fake.cuda = true;
+    const cuda = await freshEngine();
+    await expect(
+      cuda.generate("hi", { model: "qwen-2.5-1.5b" }),
+    ).rejects.toThrow(/Failed to load model/);
+    expect(store.has("builtinCudaOff")).toBe(false);
+    expect(store.has("builtinCpuOnly")).toBe(false);
   });
 
   it("does not pin the CPU when a restart disposed the engine mid-load (KAN-489)", async () => {
