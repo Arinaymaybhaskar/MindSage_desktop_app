@@ -7,6 +7,7 @@ import path from "node:path";
 // made to fail a model load, as a crashing driver does; its CPU build works.
 const fake = vi.hoisted(() => ({
   gpuBroken: false,
+  disposedOnce: false, // the next load fails as if a restart disposed the engine
   cuda: false, // "auto" picks the CUDA build, as with a downloaded engine
   cudaBroken: false,
   gpuAsked: [], // the gpu option of every getLlama call
@@ -50,6 +51,10 @@ vi.mock("node-llama-cpp", () => {
     gpu,
     dispose: async () => {},
     loadModel: async () => {
+      if (fake.disposedOnce) {
+        fake.disposedOnce = false;
+        throw new Error("Object is disposed");
+      }
       if (gpu === "cuda" && fake.cudaBroken)
         throw new Error("cudaErrorNoDevice");
       if (gpu !== false && fake.gpuBroken) throw new Error("vk::DeviceLost");
@@ -94,6 +99,7 @@ beforeEach(() => {
   store.clear();
   Object.assign(fake, {
     gpuBroken: false,
+    disposedOnce: false,
     cuda: false,
     cudaBroken: false,
     gpuAsked: [],
@@ -149,6 +155,14 @@ describe("built-in engine", () => {
     expect(status.gpu).toBe(false);
     expect(status.gpuFallback).toMatch(/DeviceLost/);
     expect(store.get("builtinCpuOnly").reason).toMatch(/DeviceLost/);
+  });
+
+  it("does not pin the CPU when a restart disposed the engine mid-load (KAN-489)", async () => {
+    fake.disposedOnce = true;
+    const llama = await freshEngine();
+    expect(await llama.generate("hi", { model: "qwen-2.5-1.5b" })).toBe("calm");
+    expect((await llama.status()).gpu).toBe("vulkan");
+    expect(store.has("builtinCpuOnly")).toBe(false);
   });
 
   it("tries the GPU again once the CPU-only flag is a week old", async () => {
