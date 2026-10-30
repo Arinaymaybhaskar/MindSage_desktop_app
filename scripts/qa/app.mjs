@@ -53,38 +53,44 @@ export async function launchApp({
   return { app, page, root, profileDir };
 }
 
-export async function signUp(page, { username, password }) {
-  await page.evaluate(() => {
-    localStorage.setItem("setup_complete", "1"); // "Skip for now" on first-run AI setup
-    location.hash = "#/profiles";
-  });
-  await page.getByText("No profiles yet").waitFor();
-  await page.getByText("Add new user").click();
+// sign-up blocks passwords zxcvbn scores under 3; keep this one long and odd.
+export const QA_PASSWORD = "correct-horse-battery-staple-9!";
+
+/**
+ * Sign-up on a fresh install, as a person does it: welcome, "Get started", one
+ * screen (profile name plus password). Ends on the profile picker with the new
+ * profile selected; signIn follows.
+ */
+export async function signUp(page, { username, password = QA_PASSWORD }) {
+  await page.getByText("Welcome to MindSage").waitFor();
+  await page.getByText("Get started").click();
   await page.locator("#username").fill(username);
-  await page
-    .getByText(/available/i)
-    .first()
-    .waitFor({ timeout: 15_000 });
-  await page.getByRole("button", { name: "Continue" }).click();
-  await page.locator("#email").fill(`${username}@example.com`);
-  await page.getByRole("button", { name: "Continue" }).click();
-  await page.locator("#full_name").fill("QA Tester");
-  await page.getByRole("button", { name: "Continue" }).click();
-  await page.getByLabel("Enter password").fill(password);
-  await page.getByRole("button", { name: "Complete" }).click();
+  await page.getByText("This name is free.").waitFor({ timeout: 15_000 });
+  await page.locator("#password").fill(password);
+  await page.getByRole("button", { name: "Create profile" }).click();
   await page.waitForFunction(
     () => location.hash.startsWith("#/profiles"),
     null,
-    {
-      timeout: 30_000,
-    },
+    { timeout: 30_000 },
   );
 }
 
-export async function signIn(page, password) {
+/**
+ * Signs in. A new profile's first sign-in lands on Local AI setup, then
+ * You're set (KAN-470): skip the one, start from the other, so the dock is up
+ * when this returns.
+ */
+export async function signIn(page, password = QA_PASSWORD) {
   await page.getByPlaceholder("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByTestId("dock").waitFor({ timeout: 30_000 });
+  const skip = page.getByRole("button", { name: "Skip for now" });
+  const dock = page.getByTestId("dock");
+  await skip.or(dock).waitFor({ timeout: 30_000 });
+  if (await skip.isVisible()) {
+    await skip.click();
+    await page.getByRole("button", { name: "Start writing" }).click();
+  }
+  await dock.waitFor({ timeout: 30_000 });
 }
 
 /** Saves an entry through the UI; returns its id. */
