@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { MIGRATIONS } from "./migrations.js";
+import { MIGRATIONS, runMigrations } from "./migrations.js";
 import {
   makePreVersioningDb,
   openDb,
@@ -134,5 +134,111 @@ describe("replacing the backups when a profile is deleted (KAN-344)", () => {
       MIGRATIONS.at(-1).version,
     );
     snapshot.close();
+  });
+});
+
+describe("a migration that fails on every launch (KAN-487)", () => {
+  const folders = [];
+  afterAll(() => {
+    vi.doUnmock("./migrations.js");
+    for (const f of folders) fs.rmSync(f, { recursive: true, force: true });
+  });
+
+  // A journal at the current schema version, with entries in it.
+  const journal = () => {
+    const folder = tempDir("mindsage-stuck");
+    folders.push(folder);
+    const d = openDb(path.join(folder, "mind-sage.db"));
+    runMigrations(d, MIGRATIONS);
+    seedJournal(d, { users: 1, entriesPerUser: 3 });
+    d.close();
+    return folder;
+  };
+
+  // One launch of the app with one more migration that always throws; the
+  // handle is closed afterwards, as quitting would.
+  const launch = async (folder) => {
+    vi.resetModules();
+    vi.doMock("./migrations.js", async (importOriginal) => {
+      const real = await importOriginal();
+      const failing = {
+        version: real.MIGRATIONS.at(-1).version + 1,
+        name: "always_fails",
+        up() {
+          throw new Error("always fails");
+        },
+      };
+      return { ...real, MIGRATIONS: [...real.MIGRATIONS, failing] };
+    });
+    process.env.MS_DB_DIR = folder;
+    process.env.MS_USER_DATA_DIR = folder;
+    delete process.env.MS_SKIP_DB_BACKUP;
+    const { initDatabase, db } = await import("./connection.js");
+    try {
+      expect(() => initDatabase()).toThrow("always fails");
+    } finally {
+      db.close();
+    }
+  };
+
+  const listIn = (folder) => fs.readdirSync(path.join(folder, "backups"));
+
+  const writeEntry = (folder, n) => {
+    const d = openDb(path.join(folder, "mind-sage.db"));
+    d.prepare(
+      "INSERT INTO journal_entries (user_id, title, content) VALUES (1, ?, 'written on the old schema')",
+    ).run(`Entry ${n}`);
+    d.close();
+  };
+
+  it("takes one backup, not one per launch, while the journal is unchanged", async () => {
+    const folder = journal();
+    await launch(folder);
+    await launch(folder);
+    const made = listIn(folder);
+    expect(made).toHaveLength(1);
+    expect(made[0]).toMatch(
+      new RegExp(`^mind-sage-v${MIGRATIONS.at(-1).version}-.*\\.db$`),
+    );
+  });
+
+  it("never pushes out the older good snapshots", async () => {
+    const folder = journal();
+    const dir = path.join(folder, "backups");
+    fs.mkdirSync(dir);
+    const good = [
+      "mind-sage-v9-2020-01-01T00-00-00-000Z.db",
+      "mind-sage-v12-2020-01-02T00-00-00-000Z.db",
+    ];
+    for (const name of good) fs.writeFileSync(path.join(dir, name), "good");
+
+    // Entries written between launches, so each launch has something new.
+    for (let n = 0; n < 6; n++) {
+      writeEntry(folder, n);
+      await launch(folder);
+    }
+
+    const left = listIn(folder);
+    expect(left).toHaveLength(5);
+    for (const name of good) expect(left).toContain(name);
+  });
+
+  it("keeps the backup it just took when older ones have one-digit versions", async () => {
+    const folder = journal();
+    const dir = path.join(folder, "backups");
+    fs.mkdirSync(dir);
+    for (const v of [4, 5, 6, 7, 8]) {
+      const name = `mind-sage-v${v}-2020-01-0${v}T00-00-00-000Z.db`;
+      fs.writeFileSync(path.join(dir, name), "good");
+    }
+    await launch(folder);
+    const left = listIn(folder);
+    expect(left).toHaveLength(5);
+    expect(left).not.toContain("mind-sage-v4-2020-01-04T00-00-00-000Z.db");
+    expect(
+      left.some((n) =>
+        n.startsWith(`mind-sage-v${MIGRATIONS.at(-1).version}-`),
+      ),
+    ).toBe(true);
   });
 });

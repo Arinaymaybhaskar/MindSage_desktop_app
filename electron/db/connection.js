@@ -135,9 +135,56 @@ function backupDatabase(fromVersion) {
     }
   }
 
+  // A migration that keeps failing gets here on every launch; a copy identical
+  // to the last one of this version adds nothing and would push out older
+  // ones (KAN-487).
+  try {
+    const previous = listBackups(dir).findLast(
+      (b) => b.version === fromVersion && b.name !== path.basename(target),
+    );
+    if (previous && sameCopy(path.join(dir, previous.name), target)) {
+      removeBackup(dir, path.basename(target));
+      log.info(`Database unchanged since the backup ${previous.name}; kept it`);
+      return path.join(dir, previous.name);
+    }
+  } catch (err) {
+    // The new copy is kept, so a failed comparison never leaves none.
+    log.error("Could not compare with the previous database backup:", err);
+  }
+
   log.info(`Backed up the database to ${target}`);
   pruneBackups(dir);
   return target;
+}
+
+const BACKUP_NAME = /^mind-sage-v(\d+)-(.+)\.db$/;
+
+/** The backups in `dir`, oldest first by their ISO stamp. */
+function listBackups(dir) {
+  return fs
+    .readdirSync(dir)
+    .map((name) => [name, BACKUP_NAME.exec(name)])
+    .filter(([, m]) => m)
+    .map(([name, m]) => ({ name, version: Number(m[1]), stamp: m[2] }))
+    .sort((a, b) => (a.stamp > b.stamp) - (a.stamp < b.stamp));
+}
+
+/** True when both copies hold the same bytes, write-ahead log included. */
+function sameCopy(a, b) {
+  for (const suffix of ["", "-wal"]) {
+    const [x, y] = [a + suffix, b + suffix];
+    if (fs.existsSync(x) !== fs.existsSync(y)) return false;
+    if (!fs.existsSync(x)) continue;
+    if (fs.statSync(x).size !== fs.statSync(y).size) return false;
+    if (!fs.readFileSync(x).equals(fs.readFileSync(y))) return false;
+  }
+  return true;
+}
+
+function removeBackup(dir, name) {
+  for (const suffix of ["", "-wal", "-shm"]) {
+    fs.rmSync(path.join(dir, name + suffix), { force: true });
+  }
 }
 
 /**
@@ -175,14 +222,21 @@ function pruneBackups(dir) {
   // Only ever after a successful write, so a failed prune cannot leave zero
   // backups behind.
   try {
-    const backups = fs
-      .readdirSync(dir)
-      .filter((name) => name.startsWith("mind-sage-v") && name.endsWith(".db"))
-      .sort(); // ISO stamps sort chronologically
-    for (const stale of backups.slice(0, -BACKUPS_TO_KEEP)) {
-      fs.rmSync(path.join(dir, stale), { force: true });
-      fs.rmSync(path.join(dir, stale + "-wal"), { force: true });
-      fs.rmSync(path.join(dir, stale + "-shm"), { force: true });
+    const backups = listBackups(dir);
+    // The newest copy of each version is the one taken just before that
+    // version's last migration attempt, so the older repeats of one version
+    // (a migration that keeps failing) go before any other version (KAN-487).
+    const newest = new Map(backups.map((b) => [b.version, b]));
+    const isNewest = (b) => newest.get(b.version) === b;
+    const order = [
+      ...backups.filter((b) => !isNewest(b)),
+      ...backups.filter(isNewest),
+    ];
+    for (const stale of order.slice(
+      0,
+      Math.max(0, backups.length - BACKUPS_TO_KEEP),
+    )) {
+      removeBackup(dir, stale.name);
     }
   } catch (err) {
     log.error("Could not prune old database backups:", err);
