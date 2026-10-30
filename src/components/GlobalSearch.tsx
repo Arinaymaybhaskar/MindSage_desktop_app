@@ -362,6 +362,8 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
    * every character typed.
    */
   const [settledQuery, setSettledQuery] = useState("");
+  /** Bumped when indexing ends, so the open results are asked for again (KAN-494). */
+  const [indexedTick, setIndexedTick] = useState(0);
 
   const navigate = useNavigate();
   const { user: sessionUser } = useAuth();
@@ -616,7 +618,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [trimmed, hasQuery, isSlash, sessionUser]);
+  }, [trimmed, hasQuery, isSlash, sessionUser, indexedTick]);
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -626,15 +628,24 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   const busy = hasQuery && !isSlash && settledQuery !== trimmed;
   const showEmptyState = hasQuery && flatResults.length === 0 && !busy;
 
-  // While nothing matched, say why: still indexing, empty journal, or no
-  // vector store. Polled so the count falls as indexing finishes.
+  // Says why results may be incomplete (still indexing, empty journal, no
+  // vector store). Polled while a query is open so the count falls as indexing
+  // finishes, and the results are asked for again when it reaches 0 (KAN-494).
+  const wasReading = useRef(false);
   useEffect(() => {
-    if (!showEmptyState) return;
+    if (!hasQuery || isSlash) return;
     let cancelled = false;
     const load = () =>
       searchService
         .status()
-        .then((s) => !cancelled && setIndexStatus(s))
+        .then((s) => {
+          if (cancelled) return;
+          setIndexStatus(s);
+          const reading =
+            s.success && s.available ? s.pending + s.missing > 0 : false;
+          if (wasReading.current && !reading) setIndexedTick((t) => t + 1);
+          wasReading.current = reading;
+        })
         .catch(() => undefined);
     load();
     const timer = setInterval(load, 3000);
@@ -642,7 +653,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [showEmptyState]);
+  }, [hasQuery, isSlash]);
   const stillReading =
     indexStatus?.success && indexStatus.available
       ? indexStatus.pending + indexStatus.missing
@@ -736,6 +747,17 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
           aria-label="Search results"
           className="overflow-y-auto overscroll-contain p-2 flex-1 min-h-0"
         >
+          {hasQuery && !isSlash && stillReading > 0 && (
+            <div
+              role="status"
+              className="mx-1 mb-2 p-3 text-xs text-text-light-sub dark:text-text-dark-sub"
+            >
+              Search is rebuilding: {indexStatus?.success ? indexStatus.ok : 0}{" "}
+              of {indexStatus?.success ? indexStatus.total : 0} items ready.
+              Exact words match now; results update when it finishes.
+            </div>
+          )}
+
           {searchError && indexUnavailable && (
             <div className="mx-1 mb-2 p-3 text-xs text-text-light-sub dark:text-text-dark-sub">
               Search by meaning is unavailable on this device. Exact words still
