@@ -225,7 +225,7 @@ async function skipCuda(reason) {
   await (await old?.catch(() => null))?.dispose();
 }
 
-async function open(id) {
+async function open(id, retried = false) {
   const spec = specOf(id);
   const file = modelPath(id);
   if (!isDownloaded(id)) throw unavailable(`${spec.label} is not downloaded`);
@@ -270,6 +270,14 @@ async function open(id) {
       }
       await disposeOthers(id);
       return open(id);
+    }
+    // A restart, unload or delete disposed the engine under this load: not a
+    // GPU fault (KAN-489). Retry once on a fresh engine without pinning the CPU.
+    if (llama.disposed || /disposed/i.test(err.message)) {
+      if (retried) throw err;
+      if ((await engine?.catch(() => null)) === llama) engine = null;
+      modelStore.delete(GPU_PENDING); // the new engine marks it again
+      return open(id, true);
     }
     if (llama.gpu === false) throw err;
     await disposeOthers(id);
