@@ -108,8 +108,10 @@ export function createSetup(deps) {
     const host = deps.hostFor(ids[0]);
     const reach = await deps.reachable(deps.probeFor(ids[0]));
     if (mine !== ticket) return;
-    if (reach === "work-network") return set({ state: "work-network", host });
-    if (reach === "offline") return scheduleRetry({ state: "offline", host });
+    if (reach === "work-network")
+      return set({ state: "work-network", host, sizeBytes: need });
+    if (reach === "offline")
+      return scheduleRetry({ state: "offline", host, sizeBytes: need });
     if (deps.asked.get() === undefined && !opts.auto && !opts.confirmed) {
       return set({ state: "metered", sizeBytes: need });
     }

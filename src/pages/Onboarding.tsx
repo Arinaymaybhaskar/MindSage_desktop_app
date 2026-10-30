@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { MindSageMark } from "../components/ui/MindSageMark";
 import { SetupStepBar } from "../components/SetupStepBar";
+import { aiProviderService } from "../api/aiProviderService";
+import { aiSetupService, type AiSetupState } from "../api/aiSetupService";
 import {
   setupService,
   appPrefsService,
@@ -86,6 +88,90 @@ function ProgressBar({ percent }: { percent: number }) {
   );
 }
 
+const size = (bytes?: number) =>
+  bytes ? ` (about ${(bytes / 1e9).toFixed(1)} GB)` : "";
+
+const btn =
+  "mt-3 mr-2 inline-flex items-center gap-2 rounded-lg bg-dark1 px-4 py-2 text-sm font-semibold text-white dark:bg-light1 dark:text-dark1";
+
+/** The built-in engine's step (KAN-493): what the setup is doing, in plain words. */
+function LocalAIStep({ s }: { s: AiSetupState | null }) {
+  const start = (confirmed = false) => void aiSetupService.start(confirmed);
+  const kind = s?.state ?? "starting";
+  const stepState: StepState =
+    kind === "ready"
+      ? "done"
+      : kind === "failed" || kind === "low-disk"
+        ? "error"
+        : kind === "paused" || kind === "offline" || kind === "metered"
+          ? "pending"
+          : "active";
+  let detail = "Getting ready…";
+  let actions: React.ReactNode = null;
+  if (s?.state === "ready") detail = "Ready. Local AI runs on this computer.";
+  else if (s?.state === "downloading")
+    detail = `Downloading ${s.label}. You can carry on; this runs in the background.`;
+  else if (s?.state === "offline")
+    detail = `You are offline. Local AI${size(s.sizeBytes)} will download when you are back online. You can finish setup now and write as usual.`;
+  else if (s?.state === "work-network")
+    detail = `This network is asking for a sign-in before it lets MindSage download${size(s.sizeBytes)}. You can finish setup and try again later.`;
+  else if (s?.state === "metered") {
+    detail = `Local AI needs a download${size(s.sizeBytes)}. Your connection may be metered. Download now, or wait for Wi-Fi?`;
+    actions = (
+      <>
+        <button
+          className={btn}
+          onClick={() => aiSetupService.answerMetered(false)}
+        >
+          Download now
+        </button>
+        <button
+          className={btn}
+          onClick={() => aiSetupService.answerMetered(true)}
+        >
+          Wait for Wi-Fi
+        </button>
+      </>
+    );
+  } else if (s?.state === "paused") {
+    detail =
+      s.reason === "wifi"
+        ? "Waiting for Wi-Fi before downloading Local AI."
+        : "Download paused.";
+    actions = (
+      <button className={btn} onClick={() => start(true)}>
+        {s.reason === "wifi" ? "Download now" : "Resume"}
+      </button>
+    );
+  } else if (s?.state === "low-disk") {
+    detail = `Local AI needs ${(s.needBytes / 1e9).toFixed(1)} GB free and this disk has ${(s.freeBytes / 1e9).toFixed(1)} GB. Free some space and try again.`;
+    actions = (
+      <button className={btn} onClick={() => start()}>
+        Try again
+      </button>
+    );
+  } else if (s?.state === "low-memory") {
+    detail = s.warning;
+    actions = (
+      <button className={btn} onClick={() => start(true)}>
+        Download anyway
+      </button>
+    );
+  } else if (s?.state === "failed") {
+    detail = s.error || "The download did not finish.";
+    actions = (
+      <button className={btn} onClick={() => start()}>
+        Try again
+      </button>
+    );
+  }
+  return (
+    <StepRow state={stepState} title="Local AI" detail={detail}>
+      {actions}
+    </StepRow>
+  );
+}
+
 export default function Onboarding() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<SetupStatus | null>(null);
@@ -95,6 +181,25 @@ export default function Onboarding() {
   const [progress, setProgress] = useState<SetupProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const unsubRef = useRef<(() => void) | null>(null);
+  // Ollama is the advanced choice; every other provider gets the built-in step.
+  const [ollama, setOllama] = useState(false);
+  const [aiState, setAiState] = useState<AiSetupState | null>(null);
+
+  useEffect(() => {
+    let off = () => {};
+    let gone = false;
+    void aiProviderService.get().then(async (cfg) => {
+      if (gone || cfg?.provider === "ollama")
+        return setOllama(cfg?.provider === "ollama");
+      off = aiSetupService.onState(setAiState);
+      // Starts at once (or reports where it is); the metered question comes before any download.
+      setAiState(await aiSetupService.start());
+    });
+    return () => {
+      gone = true;
+      off();
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     const s = await setupService.getStatus();
@@ -249,137 +354,145 @@ export default function Onboarding() {
         )}
 
         <div className="space-y-3">
-          {/* Step 1: Ollama */}
-          <StepRow
-            state={ollamaState}
-            title="Local AI engine (Ollama)"
-            detail={
-              status?.ollamaRunning
-                ? "Installed and running."
-                : status?.ollamaInstalled
-                  ? "Installed but not running."
-                  : "Not detected on this machine."
-            }
-          >
-            {progress?.phase === "installing-ollama" && installing && (
-              <>
-                <p className="mt-2 text-xs text-text-light-sub dark:text-text-dark-sub">
-                  {progress.step === "downloading"
-                    ? "Downloading installer…"
-                    : progress.step === "running-installer"
-                      ? "Running installer…"
-                      : progress.step === "starting-service"
-                        ? "Starting service…"
-                        : "Working…"}
-                </p>
-                <ProgressBar percent={pullPercent} />
-              </>
-            )}
-            {!status?.ollamaInstalled && !installing && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  onClick={handleInstallOllama}
-                  className="inline-flex items-center gap-2 rounded-lg bg-dark1 px-4 py-2 text-sm font-semibold text-white dark:bg-light1 dark:text-dark1"
-                >
-                  <Download size={15} /> Install automatically
-                </button>
-                <button
-                  onClick={() => navigate("/settings/models")}
-                  className="rounded-lg border border-border-light px-4 py-2 text-sm font-semibold text-text-light-sub dark:border-border-dark dark:text-text-dark-sub"
-                >
-                  Install manually
-                </button>
-              </div>
-            )}
-            {status?.ollamaInstalled && !status?.ollamaRunning && (
-              <button
-                onClick={handleStartOllama}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-dark1 px-4 py-2 text-sm font-semibold text-white dark:bg-light1 dark:text-dark1"
+          {ollama ? (
+            <>
+              {/* Step 1: Ollama */}
+              <StepRow
+                state={ollamaState}
+                title="Local AI engine (Ollama)"
+                detail={
+                  status?.ollamaRunning
+                    ? "Installed and running."
+                    : status?.ollamaInstalled
+                      ? "Installed but not running."
+                      : "Not detected on this machine."
+                }
               >
-                <RefreshCw size={15} /> Start engine
-              </button>
-            )}
-          </StepRow>
-
-          {/* Step 2: Embedding model (required) */}
-          <StepRow
-            state={embeddingState}
-            title="Search model (required)"
-            detail="A small model that powers private search across your journal (~275 MB)."
-          >
-            {pulling === "nomic-embed-text:v1.5" && (
-              <>
-                <p className="mt-2 text-xs text-text-light-sub dark:text-text-dark-sub">
-                  {progress?.phase === "pulling-model"
-                    ? progress.status
-                    : "Downloading…"}
-                </p>
-                <ProgressBar percent={pullPercent} />
-              </>
-            )}
-            {status?.ollamaRunning &&
-              !status.embeddingReady &&
-              pulling !== "nomic-embed-text:v1.5" && (
-                <button
-                  onClick={handleEnsureEmbedding}
-                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-dark1 px-4 py-2 text-sm font-semibold text-white dark:bg-light1 dark:text-dark1"
-                >
-                  <Download size={15} /> Download search model
-                </button>
-              )}
-          </StepRow>
-
-          {/* Step 3: Generation model (optional, spec-aware) */}
-          <StepRow
-            state={status?.generationReady ? "done" : "pending"}
-            title="Writing model (optional)"
-            detail={
-              status?.generationReady
-                ? "A generation model is installed."
-                : rec
-                  ? `Powers titles, summaries and chat. Recommended for your machine: ${rec.label} (~${rec.sizeGB} GB). Every machine differs, so you can change this anytime.`
-                  : "Powers titles, summaries and chat."
-            }
-          >
-            {!status?.generationReady && status?.ollamaRunning && rec && (
-              <>
-                {pulling && pulling !== "nomic-embed-text:v1.5" && (
+                {progress?.phase === "installing-ollama" && installing && (
                   <>
                     <p className="mt-2 text-xs text-text-light-sub dark:text-text-dark-sub">
-                      Downloading {pulling}…{" "}
-                      {progress?.phase === "pulling-model"
-                        ? progress.status
-                        : ""}
+                      {progress.step === "downloading"
+                        ? "Downloading installer…"
+                        : progress.step === "running-installer"
+                          ? "Running installer…"
+                          : progress.step === "starting-service"
+                            ? "Starting service…"
+                            : "Working…"}
                     </p>
                     <ProgressBar percent={pullPercent} />
                   </>
                 )}
-                {!pulling && (
+                {!status?.ollamaInstalled && !installing && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
-                      onClick={() => handlePullGeneration(rec.model)}
+                      onClick={handleInstallOllama}
                       className="inline-flex items-center gap-2 rounded-lg bg-dark1 px-4 py-2 text-sm font-semibold text-white dark:bg-light1 dark:text-dark1"
                     >
-                      <Download size={15} /> Download {rec.label} (~{rec.sizeGB}{" "}
-                      GB)
+                      <Download size={15} /> Install automatically
                     </button>
-                    {rec.model !== rec.smallDefault && (
-                      <button
-                        onClick={() => handlePullGeneration(rec.smallDefault)}
-                        className="rounded-lg border border-border-light px-4 py-2 text-sm font-semibold text-text-light-sub dark:border-border-dark dark:text-text-dark-sub"
-                      >
-                        Small model instead (deletable later)
-                      </button>
-                    )}
+                    <button
+                      onClick={() => navigate("/settings/models")}
+                      className="rounded-lg border border-border-light px-4 py-2 text-sm font-semibold text-text-light-sub dark:border-border-dark dark:text-text-dark-sub"
+                    >
+                      Install manually
+                    </button>
                   </div>
                 )}
-                <p className="mt-2 text-xs text-text-light-sub dark:text-text-dark-sub">
-                  Prefer to decide later? Skip this: MindSage will suggest a
-                  compatible model the first time you use an AI feature.
-                </p>
-              </>
-            )}
-          </StepRow>
+                {status?.ollamaInstalled && !status?.ollamaRunning && (
+                  <button
+                    onClick={handleStartOllama}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-dark1 px-4 py-2 text-sm font-semibold text-white dark:bg-light1 dark:text-dark1"
+                  >
+                    <RefreshCw size={15} /> Start engine
+                  </button>
+                )}
+              </StepRow>
+
+              {/* Step 2: Embedding model (required) */}
+              <StepRow
+                state={embeddingState}
+                title="Search model (required)"
+                detail="A small model that powers private search across your journal (~275 MB)."
+              >
+                {pulling === "nomic-embed-text:v1.5" && (
+                  <>
+                    <p className="mt-2 text-xs text-text-light-sub dark:text-text-dark-sub">
+                      {progress?.phase === "pulling-model"
+                        ? progress.status
+                        : "Downloading…"}
+                    </p>
+                    <ProgressBar percent={pullPercent} />
+                  </>
+                )}
+                {status?.ollamaRunning &&
+                  !status.embeddingReady &&
+                  pulling !== "nomic-embed-text:v1.5" && (
+                    <button
+                      onClick={handleEnsureEmbedding}
+                      className="mt-3 inline-flex items-center gap-2 rounded-lg bg-dark1 px-4 py-2 text-sm font-semibold text-white dark:bg-light1 dark:text-dark1"
+                    >
+                      <Download size={15} /> Download search model
+                    </button>
+                  )}
+              </StepRow>
+
+              {/* Step 3: Generation model (optional, spec-aware) */}
+              <StepRow
+                state={status?.generationReady ? "done" : "pending"}
+                title="Writing model (optional)"
+                detail={
+                  status?.generationReady
+                    ? "A generation model is installed."
+                    : rec
+                      ? `Powers titles, summaries and chat. Recommended for your machine: ${rec.label} (~${rec.sizeGB} GB). Every machine differs, so you can change this anytime.`
+                      : "Powers titles, summaries and chat."
+                }
+              >
+                {!status?.generationReady && status?.ollamaRunning && rec && (
+                  <>
+                    {pulling && pulling !== "nomic-embed-text:v1.5" && (
+                      <>
+                        <p className="mt-2 text-xs text-text-light-sub dark:text-text-dark-sub">
+                          Downloading {pulling}…{" "}
+                          {progress?.phase === "pulling-model"
+                            ? progress.status
+                            : ""}
+                        </p>
+                        <ProgressBar percent={pullPercent} />
+                      </>
+                    )}
+                    {!pulling && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handlePullGeneration(rec.model)}
+                          className="inline-flex items-center gap-2 rounded-lg bg-dark1 px-4 py-2 text-sm font-semibold text-white dark:bg-light1 dark:text-dark1"
+                        >
+                          <Download size={15} /> Download {rec.label} (~
+                          {rec.sizeGB} GB)
+                        </button>
+                        {rec.model !== rec.smallDefault && (
+                          <button
+                            onClick={() =>
+                              handlePullGeneration(rec.smallDefault)
+                            }
+                            className="rounded-lg border border-border-light px-4 py-2 text-sm font-semibold text-text-light-sub dark:border-border-dark dark:text-text-dark-sub"
+                          >
+                            Small model instead (deletable later)
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <p className="mt-2 text-xs text-text-light-sub dark:text-text-dark-sub">
+                      Prefer to decide later? Skip this: MindSage will suggest a
+                      compatible model the first time you use an AI feature.
+                    </p>
+                  </>
+                )}
+              </StepRow>
+            </>
+          ) : (
+            <LocalAIStep s={aiState} />
+          )}
         </div>
 
         {/* Launch-at-startup opt-in */}
@@ -409,7 +522,9 @@ export default function Onboarding() {
             onClick={finish}
             className="inline-flex items-center gap-2 rounded-lg bg-dark1 px-6 py-2.5 font-semibold text-white dark:bg-light1 dark:text-dark1"
           >
-            {status?.embeddingReady ? "Finish" : "Continue"}{" "}
+            {(ollama ? status?.embeddingReady : aiState?.state === "ready")
+              ? "Finish"
+              : "Continue"}{" "}
             <ArrowRight size={16} />
           </button>
         </div>
