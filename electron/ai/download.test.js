@@ -101,4 +101,12 @@ describe("downloadFile", () => {
     await downloadFile({ url: "u", dest, sha256: SHA, fetchImpl: server });
     expect(server).not.toHaveBeenCalled();
   });
+
+  it("fetches again a file already there that fails its checksum (KAN-492)", async () => {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(dest, Buffer.alloc(BYTES.length)); // zeros, right size
+    await downloadFile({ url: "u", dest, sha256: SHA, fetchImpl: server });
+    expect(server).toHaveBeenCalledTimes(1);
+    expect(fs.readFileSync(dest)).toEqual(BYTES);
+  });
 });

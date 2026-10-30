@@ -18,6 +18,7 @@ import {
   fitsInMemory,
 } from "./models.js";
 import { isUnpacked, unpackedDir, useDownloadedCuda } from "./cuda.js";
+import { checkGguf } from "./gguf.js";
 
 const CHAT_CONTEXT = { min: 2048, max: 8192 };
 /** nomic-embed-text was trained on 2048 tokens; longer text is cut, as Ollama did. */
@@ -76,7 +77,12 @@ export function isDownloaded(id) {
   try {
     if (specOf(id).role === "engine")
       return isUnpacked(unpackedDir(modelPath(id)));
-    return fs.statSync(modelPath(id)).size === specOf(id).bytes;
+    const file = modelPath(id);
+    // A file of the right size can still be zeros (KAN-492): a .gguf must open as one.
+    return (
+      fs.statSync(file).size === specOf(id).bytes &&
+      (!file.endsWith(".gguf") || checkGguf(file).ok)
+    );
   } catch {
     return false;
   }
@@ -208,15 +214,18 @@ export async function shutdown() {
   engine = null;
 }
 
-/** A GPU that fails to load a model gets the CPU from then on, with a notice. */
-async function fallBackToCpu(reason) {
-  gpuFallback = reason;
-  rememberCpuOnly(reason);
-  modelStore.delete(GPU_PENDING);
-  log.warn("Built-in AI: the GPU failed, running on the CPU", { reason });
+async function dropEngine() {
   const old = engine;
   engine = null;
   await (await old?.catch(() => null))?.dispose();
+}
+
+/** A GPU that fails to load a model gets the CPU; open() saves it once the CPU loads it. */
+async function fallBackToCpu(reason) {
+  gpuFallback = reason;
+  modelStore.delete(GPU_PENDING);
+  log.warn("Built-in AI: the GPU failed, running on the CPU", { reason });
+  await dropEngine();
 }
 
 /** CUDA that fails to load a model is skipped from then on: Vulkan runs instead. */
@@ -224,9 +233,7 @@ async function skipCuda(reason) {
   modelStore.set(CUDA_OFF, reason);
   modelStore.delete(GPU_PENDING);
   log.warn("Built-in AI: CUDA failed, using Vulkan", { reason });
-  const old = engine;
-  engine = null;
-  await (await old?.catch(() => null))?.dispose();
+  await dropEngine();
 }
 
 async function open(id, retried = false) {
@@ -285,9 +292,20 @@ async function open(id, retried = false) {
     }
     if (llama.gpu === false) throw err;
     await disposeOthers(id);
-    if (llama.gpu === "cuda") await skipCuda(err.message);
+    const cuda = llama.gpu === "cuda";
+    if (cuda) await skipCuda(err.message);
     else await fallBackToCpu(err.message);
-    return open(id);
+    try {
+      const entry = await open(id);
+      if (!cuda) rememberCpuOnly(err.message);
+      return entry;
+    } catch (fallbackErr) {
+      // The fallback failed the same load, so the file is bad, not the GPU (KAN-492).
+      if (cuda) modelStore.delete(CUDA_OFF);
+      else gpuFallback = null;
+      await dropEngine();
+      throw fallbackErr;
+    }
   }
 }
 

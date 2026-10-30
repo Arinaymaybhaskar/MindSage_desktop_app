@@ -13,7 +13,8 @@ async function sha256Of(file) {
 /**
  * Downloads `url` to `dest` through `dest.part`, resuming a part an earlier
  * try left behind, and keeps the file only when its SHA-256 matches. A
- * mismatch deletes the part, so the next try starts clean.
+ * mismatch deletes the part, so the next try starts clean. A `dest` already
+ * there is fetched again unless its SHA-256 matches.
  *
  * @param {{ url: string, dest: string, sha256: string,
  *   onProgress?: (p: { done: number, total: number }) => void,
@@ -30,7 +31,11 @@ export async function downloadFile({
   fetchImpl = fetch,
   redirect = "follow",
 }) {
-  if (fs.existsSync(dest)) return dest;
+  if (fs.existsSync(dest)) {
+    // A file already there is kept only if it is the right one (KAN-492).
+    if ((await sha256Of(dest)) === sha256) return dest;
+    fs.rmSync(dest, { force: true });
+  }
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   const part = `${dest}.part`;
   let have = fs.existsSync(part) ? fs.statSync(part).size : 0;

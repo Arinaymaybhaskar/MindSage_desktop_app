@@ -22,10 +22,15 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ms-client-"));
 builtin.setModelsDir(dir);
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-/** A file of the model's exact size, as a verified download leaves it. */
+/** A file of the model's exact size with a GGUF header, as a verified download leaves it. */
 function placeModel(id) {
+  const header = Buffer.alloc(24);
+  header.write("GGUF");
+  header.writeUInt32LE(3, 4);
+  header.writeBigUInt64LE(1n, 8);
   const fd = fs.openSync(builtin.modelPath(id), "w");
   fs.ftruncateSync(fd, BUILTIN_MODELS[id].bytes);
+  fs.writeSync(fd, header, 0, header.length, 0);
   fs.closeSync(fd);
 }
 
