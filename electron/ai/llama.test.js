@@ -165,6 +165,30 @@ describe("built-in engine", () => {
     expect(store.has("builtinCpuOnly")).toBe(false);
   });
 
+  it("never takes a restart for a GPU crash, however often it repeats (KAN-489)", async () => {
+    store.set("builtinModels", { chat: "qwen-2.5-1.5b" }); // restart reloads it
+    const llama = await freshEngine();
+    await llama.generate("hi", { model: "qwen-2.5-1.5b" });
+    await llama.restart();
+    // The restart's own call proved the new engine and cleared the marker.
+    expect(store.has("builtinGpuPending")).toBe(false);
+    await llama.generate("hi", { model: "qwen-2.5-1.5b" });
+    await llama.restart();
+    expect(store.has("builtinCpuOnly")).toBe(false);
+    expect((await llama.status()).gpu).toBe("vulkan");
+    expect(fake.gpuAsked).toEqual(["auto", "auto", "auto"]);
+  });
+
+  it("does not read a marker left by a disposed engine as a crash (KAN-489)", async () => {
+    store.set("builtinModels", { chat: "qwen-2.5-1.5b" });
+    const llama = await freshEngine();
+    await llama.generate("hi", { model: "qwen-2.5-1.5b" });
+    store.set("builtinGpuPending", true); // a restart landed before a call proved the new engine
+    await llama.restart();
+    expect(store.has("builtinCpuOnly")).toBe(false);
+    expect((await llama.status()).gpu).toBe("vulkan");
+  });
+
   it("tries the GPU again once the CPU-only flag is a week old", async () => {
     const day = 24 * 60 * 60 * 1000;
     store.set("builtinCpuOnly", { reason: "old", at: Date.now() - 8 * day });
