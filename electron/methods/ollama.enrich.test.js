@@ -309,6 +309,22 @@ describe("backfill after setup (KAN-87)", () => {
     failedRows.rows = [];
   });
 
+  it("tells the status card about each entry it works on (KAN-486)", async () => {
+    const started = [];
+    const off = (e) => started.push(e);
+    eventBus.on("journal:aiStarted", off);
+    eventBus.on("ollama:summary-started", off);
+    failedRows.rows = [{ id: 1, user_id: 7 }];
+    getJournalById.mockReturnValue(failed);
+    generate.mockResolvedValueOnce(METADATA).mockResolvedValueOnce(SUMMARY);
+    eventBus.emit("ai:models-ready");
+    await drained();
+    eventBus.off("journal:aiStarted", off);
+    eventBus.off("ollama:summary-started", off);
+    expect(started).toEqual([{ entryId: 1 }, { entryId: 1 }]);
+    failedRows.rows = [];
+  });
+
   // An import calls the backfill too (KAN-80); a job queued twice runs once.
   it("does nothing for an entry a previous backfill already filled", async () => {
     failedRows.rows = [{ id: 1, user_id: 7 }];

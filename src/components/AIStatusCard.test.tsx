@@ -158,6 +158,33 @@ describe("AIStatusCard", () => {
     expect(live.textContent).toBe(announced);
   });
 
+  it("never says it works on 0 entries while the last job settles (KAN-486)", async () => {
+    await mount();
+    emit("ai-status-event", {
+      event: "journal:aiStarted",
+      data: { entryId: 1 },
+    });
+    await settle();
+    emit("ai-status-event", {
+      event: "journal:aiCompleted",
+      data: { entryId: 1 },
+    });
+    expect(screen.queryByText(/Working on 0/)).toBeNull();
+    expect(screen.getByText("Working on 1 entry")).toBeVisible();
+  });
+
+  it("moves to not set up when a model delete is announced (KAN-486)", async () => {
+    await mount();
+    status = {
+      ...baseStatus(),
+      models: [{ ...models[0], downloaded: false }],
+    };
+    emit("ai:download-progress", { id: "chat", finished: true });
+    await act(async () => {});
+    await settle();
+    expect(screen.getByText("Local AI not set up")).toBeVisible();
+  });
+
   it("clicking the title opens Settings > Local AI", async () => {
     await mount();
     fireEvent.click(screen.getByRole("button", { name: "Local AI ready" }));

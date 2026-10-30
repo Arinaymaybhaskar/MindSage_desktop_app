@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -155,7 +155,10 @@ export default function AIStatusCard({
   const entries = new Set(
     [...jobs.keys()].map((k) => k.slice(k.indexOf(":") + 1)).filter(Boolean),
   ).size;
-  const count = entries || jobs.size;
+  // Never "Working on 0" while the settle delay holds the old state (KAN-486).
+  const lastCount = useRef(1);
+  const count = entries || jobs.size || lastCount.current;
+  lastCount.current = count;
   const gb = (n: number) => (n / 1024 ** 3).toFixed(1);
   const pct =
     progress?.total && progress.done !== undefined
