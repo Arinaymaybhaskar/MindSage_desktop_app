@@ -8,12 +8,15 @@ export const MAX_PROFILE_NAME = 40;
 const ALLOWED =
   /^[\p{L}\p{M}\p{N}\p{Extended_Pictographic}\p{Emoji_Component} _.'-]+$/u;
 
-/** The name as stored (NFC, trimmed, inner whitespace collapsed); throws a user-facing message when it is not allowed. */
+/** NFC, trimmed, inner whitespace collapsed: how sign-up stores a name and sign-in looks it up. */
+export const normalizeProfileName = (raw) =>
+  typeof raw === "string"
+    ? raw.normalize("NFC").trim().replace(/\s+/g, " ")
+    : "";
+
+/** The name as stored; throws a user-facing message when it is not allowed. */
 export function cleanProfileName(raw) {
-  const name =
-    typeof raw === "string"
-      ? raw.normalize("NFC").trim().replace(/\s+/g, " ")
-      : "";
+  const name = normalizeProfileName(raw);
   if (!name) throw new Error("Enter a profile name");
   if ([...name].length > MAX_PROFILE_NAME) {
     throw new Error(

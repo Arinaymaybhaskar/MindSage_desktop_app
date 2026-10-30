@@ -467,22 +467,24 @@ describe("the users-email-optional migration", () => {
   });
 });
 
-describe("the reminder-time migration", () => {
-  it("adds reminder_time, defaulting to 20:00 for existing profiles", () => {
+describe("migration 11 (KAN-473)", () => {
+  it("stamps its version and adds no unread reminder_time column", () => {
     const { db } = open();
     runMigrations(db, MIGRATIONS.slice(0, 10));
-    const { userId } = seedJournal(db, { users: 1, entriesPerUser: 1 })[0];
-    db.prepare("INSERT INTO user_settings (user_id) VALUES (?)").run(userId);
+    const columns = () =>
+      db
+        .prepare("PRAGMA table_info(user_settings)")
+        .all()
+        .map((c) => c.name);
+    const before = columns();
 
     expect(runMigrations(db, MIGRATIONS.slice(0, 11)).applied).toEqual([
-      "reminder-time",
+      "reminder-time-removed",
     ]);
 
-    expect(
-      db
-        .prepare("SELECT reminder_time FROM user_settings WHERE user_id = ?")
-        .get(userId).reminder_time,
-    ).toBe("20:00");
+    expect(version(db)).toBe(11);
+    expect(columns()).toEqual(before);
+    expect(columns()).not.toContain("reminder_time");
   });
 });
 

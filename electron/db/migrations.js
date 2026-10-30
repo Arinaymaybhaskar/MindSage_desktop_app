@@ -666,14 +666,12 @@ export const MIGRATIONS = [
     },
   },
   {
-    // The "You're set" screen (KAN-81) stores the daily reminder time next to
-    // journal_reminder. Nothing fires it yet.
+    // Added user_settings.reminder_time for "You're set" (KAN-81), but the
+    // reminder was cut and nothing read it. It never shipped, so it adds
+    // nothing now (KAN-473); the version stays so 12 and 13 keep theirs.
     version: 11,
-    name: "reminder-time",
-    up: (d) =>
-      d.exec(
-        `ALTER TABLE user_settings ADD COLUMN reminder_time TEXT DEFAULT '20:00'`,
-      ),
+    name: "reminder-time-removed",
+    up: () => {},
   },
   {
     // A feeling word the user writes in their own words (KAN-94) keeps the

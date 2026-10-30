@@ -268,9 +268,10 @@ export function markFailure(type, id, userId, error, now = Date.now()) {
 
 /**
  * Puts rows that gave up (failed, no next attempt, attempts used up) back to
- * pending with a clean slate. Only the manual sync calls this: the automatic
- * loop leaves such rows alone until their text changes. Rows still waiting on a
- * backoff and rows that are indexed are not touched.
+ * pending with a clean slate. The indexer calls this once per launch
+ * (KAN-472); otherwise the loop leaves such rows alone until their text
+ * changes. Rows still waiting on a backoff and rows that are indexed are not
+ * touched.
  * @returns {number} how many rows were reset
  */
 export function retryGaveUp() {

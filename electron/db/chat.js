@@ -189,13 +189,33 @@ export const isOwnChat = (userId, chatId) =>
     .prepare(`SELECT 1 FROM chats WHERE id = ? AND user_id = ?`)
     .get(chatId, userId) !== undefined;
 
-/** The last `limit` messages of one of this profile's chats, oldest first. */
+/**
+ * The last `limit` messages of one of this profile's chats, oldest first.
+ * A message citing a trashed entry or goal is left out (KAN-475): its quotes
+ * are only scrubbed at the purge.
+ */
 export const recentMessages = (userId, chatId, limit) =>
   db
     .prepare(
       `SELECT m.sender, m.content FROM messages m
          JOIN chats c ON c.id = m.chat_id
         WHERE m.chat_id = ? AND c.user_id = ?
+          AND NOT EXISTS (
+            SELECT 1 FROM message_sources s
+             WHERE s.message_id = m.id AND (
+                   (s.source_type = 'journal' AND EXISTS (
+                     SELECT 1 FROM journal_entries j
+                      WHERE j.id = CAST(s.source_id AS INTEGER)
+                        AND j.is_deleted = 1))
+                OR (s.source_type = 'goal' AND EXISTS (
+                     SELECT 1 FROM goals g
+                      WHERE g.id = CAST(s.source_id AS INTEGER)
+                        AND g.is_deleted = 1))
+                OR (s.source_type = 'progress_log' AND EXISTS (
+                     SELECT 1 FROM progress_logs l
+                       JOIN goals g ON g.id = l.goal_id
+                      WHERE l.id = CAST(s.source_id AS INTEGER)
+                        AND g.is_deleted = 1))))
         ORDER BY m.id DESC LIMIT ?`,
     )
     .all(chatId, userId, limit)

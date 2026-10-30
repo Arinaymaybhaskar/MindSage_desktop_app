@@ -41,6 +41,14 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Register", () => {
+  it("says the password only locks the profile and does not claim 100% private (KAN-478)", () => {
+    renderPage();
+    expect(
+      screen.getByText(/only locks this profile on this PC/i),
+    ).toHaveTextContent(/does not encrypt your journal/i);
+    expect(screen.queryByText(/100% private/i)).toBeNull();
+  });
+
   it("asks for no email or full name", () => {
     renderPage();
     expect(screen.queryByLabelText(/email/i)).toBeNull();

@@ -159,6 +159,37 @@ describe("the indexer", () => {
     expect(stateOf(bad.id).state).toBe("ok");
   });
 
+  it("retries a goal that gave up at the next launch (KAN-472)", async () => {
+    const goal = Number(
+      db
+        .prepare(
+          `INSERT INTO goals (user_id, title, target_value, unit)
+           VALUES (?, 'run a marathon', 42, 'km')`,
+        )
+        .run(alice).lastInsertRowid,
+    );
+    for (let i = 0; i < idx.MAX_ATTEMPTS; i++) {
+      idx.markFailure("goal", goal, alice, new Error("model said no"), clock);
+    }
+    expect(idx.getState("goal", goal)).toMatchObject({
+      state: "failed",
+      next_attempt_at: null,
+    });
+
+    const indexer = make(async () => unit(10));
+    indexer.start();
+    try {
+      advance(10_000);
+      await indexer.drain();
+      expect(idx.getState("goal", goal)).toMatchObject({
+        state: "ok",
+        attempts: 0,
+      });
+    } finally {
+      indexer.stop();
+    }
+  });
+
   it("does not spend attempts while the embedding model is unavailable", async () => {
     const e = entry({ content: "while ollama is down" });
     const down = make(async () => {

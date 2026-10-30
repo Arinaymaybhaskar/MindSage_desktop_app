@@ -11,7 +11,11 @@ import {
   signOut,
 } from "../session.js";
 import { log } from "../log.js";
-import { cleanProfileName, DUPLICATE_PROFILE_NAME } from "../profileName.js";
+import {
+  cleanProfileName,
+  DUPLICATE_PROFILE_NAME,
+  normalizeProfileName,
+} from "../profileName.js";
 
 // The session lives in the main process (session.js). Login no longer issues
 // a token: there is no server to present one to, and the old one was never
@@ -31,8 +35,7 @@ export const handleLogin = async (event, credentials) => {
     // stored name); a typed name is trimmed and normalised like sign-up.
     const user =
       localDB.findUserByName(identifier) ??
-      (typeof identifier === "string" &&
-        localDB.findUserByName(identifier.normalize("NFC").trim()));
+      localDB.findUserByName(normalizeProfileName(identifier));
     if (!user) throw new Error("User not found");
 
     const match = await bcrypt.compare(password, user.password_hash);
