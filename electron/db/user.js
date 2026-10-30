@@ -83,7 +83,6 @@ export const SETTINGS_COLUMNS = [
   "biometric_lock",
   "send_to_ai",
   "journal_reminder",
-  "reminder_time",
   "challenge_alert",
   "check_in_frequency",
   "ai_tone",
