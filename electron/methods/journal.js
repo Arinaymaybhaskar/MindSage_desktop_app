@@ -75,6 +75,8 @@ export async function handleAcceptFeeling(event, journalId, name) {
   const updated = localDB.acceptSuggestedTag(userId, journalId, name);
   if (!updated) return { error: "That feeling is no longer offered" };
   eventBus.emit("journal:updated", { entry: updated });
+  // The person changed the entry: an import Undo must not take it (KAN-479).
+  eventBus.emit("journal:edited", { userId, entry: updated });
   return updated;
 }
 

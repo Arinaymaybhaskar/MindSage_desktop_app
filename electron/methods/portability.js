@@ -145,8 +145,9 @@ export function importErrorText(err, name) {
 
 let pending = null; // { userId, format, entries, duplicates }
 
-// Only the editor's save emits journal:edited (AI fills do not), so an edit
-// here means the person changed an imported entry: Undo would lose that.
+// Only the person's changes emit journal:edited (the editor's save, an accepted
+// feeling; AI fills do not), so an edit here means the person changed an
+// imported entry: Undo would lose that.
 eventBus.on("journal:edited", ({ userId, entry }) => {
   try {
     const last = userId && getLast(userId);
