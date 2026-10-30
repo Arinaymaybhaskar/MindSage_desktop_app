@@ -11,10 +11,12 @@ vi.mock("../log.js", () => ({ log: { error: vi.fn(), info: vi.fn() } }));
 
 const available = { value: false };
 const searchSimilar = vi.fn(() => [{ id: 1 }]);
+const keywordSearch = vi.fn(() => [{ id: 2 }]);
 vi.mock("../db/searchIndex.js", () => ({
   SOURCE_TYPES: ["journal"],
   vectorsAvailable: () => available.value,
   searchSimilar,
+  keywordSearch,
 }));
 
 const { registerSearchIPC, setIndexer } = await import("./search.js");
@@ -26,6 +28,22 @@ describe("search:query (KAN-439)", () => {
     available.value = true;
     embed.mockReset();
     searchSimilar.mockClear();
+    keywordSearch.mockClear();
+  });
+
+  it("returns the entries holding the words when the query cannot be embedded (KAN-490)", async () => {
+    embed.mockRejectedValue(
+      Object.assign(new Error("nomic is not downloaded"), {
+        code: "AI_UNAVAILABLE",
+      }),
+    );
+    const result = await handlers.get("search:query")({}, "harbour", 5);
+    expect(result).toEqual({
+      success: false,
+      error: "nomic is not downloaded",
+      results: [{ id: 2 }],
+    });
+    expect(keywordSearch).toHaveBeenCalledWith(7, "harbour", 5);
   });
 
   it("embeds a shorter start of a query too long for the model", async () => {

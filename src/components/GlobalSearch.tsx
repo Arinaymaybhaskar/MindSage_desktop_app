@@ -82,6 +82,48 @@ interface SearchResultHit {
   };
 }
 
+/** One search hit as a result row. */
+const toSearchItem = (res: SearchResultHit): SearchableItem => {
+  const p = res.payload ?? {};
+  if (p.source_type === "goal") {
+    return {
+      type: "Goal",
+      title: p.title || "Untitled Goal",
+      icon: Target,
+      path: `/goals/view/${p.source_id}`,
+      current_value: p.current_value,
+      target_value: p.target_value,
+      unit: p.unit,
+      content: p.description || "",
+      relevance: res.score,
+      createdAt: p.created_at,
+    };
+  }
+  if (p.source_type === "progress_log") {
+    return {
+      type: "ProgressLog",
+      title: p.title || `Progress for "${p.goal_title || "goal"}"`,
+      icon: ListTodo,
+      path: `/progress-logs/${p.source_id}`,
+      content: p.description || `Logged ${p.value_logged} ${p.unit || ""}`,
+      goal_title: p.goal_title,
+      value_logged: p.value_logged,
+      relevance: res.score,
+      createdAt: p.created_at,
+    };
+  }
+  return {
+    type: "Journal",
+    title: p.title || "Untitled Entry",
+    icon: BookOpen,
+    content: p.content || "",
+    path: `/journal/view/${p.source_id}`,
+    relevance: res.score,
+    createdAt: p.created_at,
+    moodScore: p.mood_score ?? undefined,
+  };
+};
+
 // Groups render in this order regardless of the order results arrive in, so
 // the list does not reshuffle as the semantic query resolves.
 const GROUP_ORDER = [
@@ -538,12 +580,17 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
         // Ollama is not running. Treating that as an empty result set is why
         // the palette used to sit there claiming "No results".
         if (!Array.isArray(results)) {
-          const failure = results as { error?: string; code?: string };
+          const failure = results as {
+            error?: string;
+            code?: string;
+            results?: SearchResultHit[];
+          };
           const message = failure?.error ?? "Semantic search is unavailable.";
           if (!cancelled) {
             setIndexUnavailable(failure?.code === "index-unavailable");
             setSearchError(message);
-            setSemanticResults([]);
+            // Meaning search is down but the entries holding the words can show.
+            setSemanticResults((failure.results ?? []).map(toSearchItem));
           }
           return;
         }
@@ -551,49 +598,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
         if (cancelled) return;
         setSearchError(null);
         setIndexUnavailable(false);
-        setSemanticResults(
-          (results as SearchResultHit[]).map((res): SearchableItem => {
-            const p = res.payload ?? {};
-            if (p.source_type === "goal") {
-              return {
-                type: "Goal",
-                title: p.title || "Untitled Goal",
-                icon: Target,
-                path: `/goals/view/${p.source_id}`,
-                current_value: p.current_value,
-                target_value: p.target_value,
-                unit: p.unit,
-                content: p.description || "",
-                relevance: res.score,
-                createdAt: p.created_at,
-              };
-            }
-            if (p.source_type === "progress_log") {
-              return {
-                type: "ProgressLog",
-                title: p.title || `Progress for "${p.goal_title || "goal"}"`,
-                icon: ListTodo,
-                path: `/progress-logs/${p.source_id}`,
-                content:
-                  p.description || `Logged ${p.value_logged} ${p.unit || ""}`,
-                goal_title: p.goal_title,
-                value_logged: p.value_logged,
-                relevance: res.score,
-                createdAt: p.created_at,
-              };
-            }
-            return {
-              type: "Journal",
-              title: p.title || "Untitled Entry",
-              icon: BookOpen,
-              content: p.content || "",
-              path: `/journal/view/${p.source_id}`,
-              relevance: res.score,
-              createdAt: p.created_at,
-              moodScore: p.mood_score ?? undefined,
-            };
-          }),
-        );
+        setSemanticResults((results as SearchResultHit[]).map(toSearchItem));
       } catch (err) {
         if (!cancelled) {
           console.error("Semantic search error:", err);

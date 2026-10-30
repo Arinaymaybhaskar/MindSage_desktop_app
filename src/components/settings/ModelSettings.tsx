@@ -388,7 +388,7 @@ export default function ModelSettings({ settings }: ModelSettingsProps) {
             AI Model Settings
           </h2>
           <p className="text-sm text-text-light-sub dark:text-text-dark-sub mt-1">
-            Assign local Ollama models to specific app features.
+            Assign local models to specific app features.
           </p>
         </div>
 

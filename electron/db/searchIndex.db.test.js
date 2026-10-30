@@ -166,6 +166,32 @@ describe("storing and searching", () => {
   });
 });
 
+describe("keywordSearch (KAN-490)", () => {
+  it("finds live entries holding every word, for the signed-in user only", () => {
+    const hit = entry(alice, {
+      title: "Harbour walk",
+      content: "Backfill the wind before rain",
+    });
+    entry(alice, { title: "Other", content: "harbour only" });
+    entry(bob, { title: "Harbour", content: "Backfill too" });
+    const gone = entry(alice, { title: "Harbour", content: "Backfill gone" });
+    localDB.deleteJournalEntry(alice, gone.id);
+
+    const found = idx.keywordSearch(alice, "harbour BACKFILL", 5);
+    expect(found.map((r) => r.payload.source_id)).toEqual([hit.id]);
+    expect(found[0].payload.title).toBe("Harbour walk");
+    expect(idx.keywordSearch(alice, "  ", 5)).toEqual([]);
+  });
+
+  it("treats % and _ as plain characters", () => {
+    entry(alice, { title: "100% sure", content: "plain" });
+    entry(alice, { title: "unrelated", content: "plain" });
+    expect(idx.keywordSearch(alice, "100%", 5)).toHaveLength(1);
+    expect(idx.keywordSearch(alice, "%", 5)).toHaveLength(1);
+    expect(idx.keywordSearch(alice, "_nrelated", 5)).toHaveLength(0);
+  });
+});
+
 describe("the trash and the purge", () => {
   it("a trashed item is not returned, and comes back on restore without a new embedding", () => {
     const e = entry(alice, { content: "trash me" });

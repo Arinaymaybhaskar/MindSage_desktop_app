@@ -48,7 +48,15 @@ export function registerSearchIPC() {
       return vector ? semanticSearch(vector, userId, limit) : [];
     } catch (error) {
       log.error("search:query failed", error);
-      return { success: false, error: error.message };
+      // Embedding failed (say, no embedding model): still return the entries
+      // that hold the words, next to the error that marks meaning search down.
+      let results = [];
+      try {
+        results = index.keywordSearch(userId, queryInput, limit);
+      } catch (keywordError) {
+        log.error("search:query keyword fallback failed", keywordError);
+      }
+      return { success: false, error: error.message, results };
     }
   });
 
