@@ -93,6 +93,27 @@ describe("LocalAIPanel", () => {
     expect(pill()).toHaveTextContent("Ollama missing");
   });
 
+  it("follows the built-in engine, not the Ollama channel (KAN-490)", async () => {
+    cleanup();
+    const status = {
+      provider: "builtin",
+      chatModel: "qwen",
+      models: [{ id: "qwen", label: "Qwen", role: "chat", downloaded: true }],
+      downloading: null,
+      restart: { state: "ready", provider: "builtin", managed: true },
+    };
+    (window.electron.ipcRenderer as unknown as { invoke: unknown }).invoke = vi
+      .fn()
+      .mockResolvedValue(status);
+    render(
+      <MemoryRouter>
+        <LocalAIPanel />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("AI ready")).toBeInTheDocument();
+    expect(screen.queryByText("Checking AI")).toBeNull();
+  });
+
   it("puts the Ollama engine and its setup links in the panel", async () => {
     act(() => emitEngine({ type: "ollama-not-installed" }));
     const panel = await openPanel();

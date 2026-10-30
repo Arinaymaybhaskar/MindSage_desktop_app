@@ -751,7 +751,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
                 </span>
                 <span className="text-xs text-text-light-sub dark:text-text-dark-sub break-words">
                   {searchError} Entries are found by meaning using a local
-                  embedding model; check that Ollama is running.
+                  embedding model; check that it is downloaded and running.
                 </span>
                 <button
                   onClick={() => {
