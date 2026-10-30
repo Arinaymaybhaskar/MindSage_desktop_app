@@ -182,7 +182,7 @@ const ColorSettings: React.FC<ColorSettingsProps> = ({
       selected_theme: localSettings.selectedTheme,
       use_custom_colors: localSettings.useCustomColors ? 1 : 0,
     };
-    if (settings) onSettingsSave({ ...settings, ...dbSettings });
+    if (settings) onSettingsSave(dbSettings);
   };
 
   const handleReset = () => {

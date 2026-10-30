@@ -68,5 +68,6 @@ export interface SettingsPanelProps {
   user: UserInfo | null;
   settings: UserSettings | null;
   onProfileSave: (profile: ProfileUpdate) => void | Promise<void>;
-  onSettingsSave: (settings: UserSettings) => void | Promise<void>;
+  /** Only the changed columns: the main process refuses any other key. */
+  onSettingsSave: (settings: Partial<UserSettings>) => void | Promise<void>;
 }

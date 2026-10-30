@@ -73,9 +73,41 @@ export function getUserSettings(userId) {
     .get(userId);
 }
 
+// The user_settings columns the renderer may set. Keys become column names in
+// the SQL below, so anything else (user_id, timestamps, sync state) is refused.
+export const SETTINGS_COLUMNS = [
+  "dark_mode",
+  "font_size",
+  "auto_save_interval",
+  "speech_language",
+  "biometric_lock",
+  "send_to_ai",
+  "journal_reminder",
+  "challenge_alert",
+  "check_in_frequency",
+  "ai_tone",
+  "breathing_reminder",
+  "daily_challenge_type",
+  "auto_summarize",
+  "ai_tags",
+  "insight_tone",
+  "enable_ai_image",
+  "enable_voice_mood",
+  "enable_smart_prompts",
+  "auto_save_timer",
+  "journal_streaks",
+  "weekly_summary_email",
+  "journaling_goal",
+  "custom_colors",
+  "selected_theme",
+  "use_custom_colors",
+];
+
 export function updateUserSettings(userId, settings) {
   const fields = Object.keys(settings);
   let values = Object.values(settings);
+  const unknown = fields.find((field) => !SETTINGS_COLUMNS.includes(field));
+  if (unknown !== undefined) throw new Error(`Unknown setting: ${unknown}`);
   if (fields.length === 0) return;
   // --- FIX: Sanitize boolean values for SQLite ---
   // This loop converts any `true` to `1` and `false` to `0`.
