@@ -88,11 +88,7 @@ async function main() {
     );
   });
 
-  await step("skip first-run AI setup, open sign-up", async () => {
-    await page.evaluate(() => {
-      localStorage.setItem("setup_complete", "1"); // what "Skip for now" does
-      location.hash = "#/profiles";
-    });
+  await step("open sign-up", async () => {
     // A fresh install has no profiles: the picker shows the welcome.
     await page.getByText("Welcome to MindSage").waitFor();
     await page.getByText("Get started").click();
@@ -115,6 +111,10 @@ async function main() {
   await step("sign in", async () => {
     await page.getByPlaceholder("Password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
+    // A new profile's first sign-in lands on Local AI setup, then You're set.
+    await page.getByRole("button", { name: "Skip for now" }).click();
+    await page.getByText("You're set").waitFor();
+    await page.getByRole("button", { name: "Start writing" }).click();
     await page.getByTestId("dock").waitFor({ timeout: 30_000 });
   });
 
