@@ -127,6 +127,16 @@ describe("profile name (KAN-67)", () => {
     }
   });
 
+  it("signs in with inner spaces collapsed like sign-up stores them (KAN-477)", async () => {
+    await register("Ana  Maria");
+    await expect(
+      auth.handleLogin(null, { identifier: "Ana  Maria", password: "pw" }),
+    ).resolves.toMatchObject({ userInfo: { username: "Ana Maria" } });
+    await expect(
+      auth.handleLogin(null, { identifier: " Ana \t Maria ", password: "pw" }),
+    ).resolves.toMatchObject({ userInfo: { username: "Ana Maria" } });
+  });
+
   it("treats the seeded System name as taken, at any case (KAN-476)", async () => {
     for (const name of ["System", "system", "SYSTEM"]) {
       await expect(register(name)).rejects.toThrow(/already exists/);
