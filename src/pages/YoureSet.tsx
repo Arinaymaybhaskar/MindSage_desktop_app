@@ -102,10 +102,22 @@ function ImportLine() {
               {preview.duplicates ? `, ${preview.duplicates} already here` : ""}
               .
             </p>
+            {preview.warnings?.length ? (
+              <ul className="list-disc pl-5 text-sm text-text-light-sub dark:text-text-dark-sub">
+                {preview.warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+                {!!preview.moreWarnings && (
+                  <li>and {preview.moreWarnings} more</li>
+                )}
+              </ul>
+            ) : null}
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={commit} className={btn}>
-                Import
-              </button>
+              {!!preview.toImport && (
+                <button type="button" onClick={commit} className={btn}>
+                  Import
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setStage("idle")}

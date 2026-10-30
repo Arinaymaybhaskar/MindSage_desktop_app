@@ -336,6 +336,33 @@ describe("other apps' exports", () => {
   });
 });
 
+describe("files the preview names (KAN-488)", () => {
+  const csvText = "date,text\n2026-10-01,A good day.\n";
+
+  it("names a file it does not read, in a drop and in a zip", () => {
+    const drop = readAny([file("good.csv", csvText), file("mystery.xyz", "x")]);
+    expect(drop.entries).toHaveLength(1);
+    expect(drop.warnings).toEqual([
+      "mystery.xyz is not a journal file, so it was skipped",
+    ]);
+    const zip = zipSync({
+      "inzip.csv": strToU8(csvText),
+      "junk.bin": strToU8("x"),
+    });
+    expect(readAny([file("a.zip", zip)]).warnings).toEqual([
+      "junk.bin is not a journal file, so it was skipped",
+    ]);
+  });
+
+  it("says an empty file is empty", () => {
+    const { entries, warnings } = readAny([file("empty.csv", "")]);
+    expect(entries).toHaveLength(0);
+    expect(warnings).toEqual([
+      "empty.csv is empty, so there is nothing to import",
+    ]);
+  });
+});
+
 describe("helpers", () => {
   it("puts every app's mood onto MindSage's 1 to 5 scale", async () => {
     const { clampMood } = await import("./common.js");
