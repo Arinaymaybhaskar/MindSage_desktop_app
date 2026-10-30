@@ -194,6 +194,46 @@ describe("Ask's history as profile A (KAN-444)", () => {
     );
     expect(localDB.recentMessages(a, theirs, 8)).toEqual([]);
   });
+
+  it("leaves out answers citing a trashed entry or goal (KAN-475)", () => {
+    const run = (sql, ...args) =>
+      Number(db.prepare(sql).run(...args).lastInsertRowid);
+    const chat = run(`INSERT INTO chats (user_id, title) VALUES (?, 'c')`, a);
+    const entry = () =>
+      run(`INSERT INTO journal_entries (user_id, content) VALUES (?, 'x')`, a);
+    const kept = entry();
+    const trashed = entry();
+    const goal = run(
+      `INSERT INTO goals (user_id, title, target_value, unit)
+       VALUES (?, 'g', 1, 'km')`,
+      a,
+    );
+    const answer = (content, type, id) => {
+      const m = run(
+        `INSERT INTO messages (chat_id, sender, content) VALUES (?, 'ai', ?)`,
+        chat,
+        content,
+      );
+      run(
+        `INSERT INTO message_sources (message_id, source_type, source_id)
+         VALUES (?, ?, ?)`,
+        m,
+        type,
+        String(id),
+      );
+    };
+    answer("quotes the kept entry", "journal", kept);
+    answer("quotes the trashed entry", "journal", trashed);
+    answer("quotes the trashed goal", "goal", goal);
+    db.prepare(`UPDATE journal_entries SET is_deleted = 1 WHERE id = ?`).run(
+      trashed,
+    );
+    db.prepare(`UPDATE goals SET is_deleted = 1 WHERE id = ?`).run(goal);
+
+    expect(localDB.recentMessages(a, chat, 8).map((m) => m.content)).toEqual([
+      "quotes the kept entry",
+    ]);
+  });
 });
 
 describe("Ask's search as profile A", () => {
