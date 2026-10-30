@@ -53,6 +53,8 @@ const setup = createSetup({
   reachable: (url) => checkReachable(url),
   // The host the file really comes from, not a stand-in.
   hostFor: (id) => new URL(BUILTIN_MODELS[id].url).origin,
+  // The file itself: the host's home page answers text/html, which reads as a captive portal.
+  probeFor: (id) => BUILTIN_MODELS[id].url,
   // Ollama's own setup listens for this and pulls the embedding model.
   pullOllama: () => ipcMain.emit("pull-model"),
   asked: {

@@ -53,6 +53,7 @@ export async function checkReachable(url, fetchImpl = fetch) {
  *   pauseDownload: () => Promise<unknown>,
  *   reachable: (url: string) => Promise<"ok" | "offline" | "work-network">,
  *   hostFor: (id: string) => string, the host the model really comes from
+ *   probeFor: (id: string) => string, the file URL to probe (a host's home page is HTML)
  *   pullOllama?: () => void,
  *   asked: { get: () => boolean | undefined, set: (waitForWifi: boolean) => void },
  *   onReady: () => Promise<void> | void,
@@ -105,7 +106,7 @@ export function createSetup(deps) {
       return set({ state: "low-disk", needBytes: need, freeBytes: free });
     }
     const host = deps.hostFor(ids[0]);
-    const reach = await deps.reachable(host);
+    const reach = await deps.reachable(deps.probeFor(ids[0]));
     if (mine !== ticket) return;
     if (reach === "work-network") return set({ state: "work-network", host });
     if (reach === "offline") return scheduleRetry({ state: "offline", host });
@@ -138,7 +139,7 @@ export function createSetup(deps) {
           });
         }
         // A drop mid-download: the .part stays and the retry resumes it.
-        const again = await deps.reachable(deps.hostFor(id));
+        const again = await deps.reachable(deps.probeFor(id));
         if (mine !== ticket) return;
         if (again === "work-network") {
           return set({ state: "work-network", host: deps.hostFor(id) });

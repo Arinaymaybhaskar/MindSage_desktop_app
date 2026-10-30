@@ -26,6 +26,7 @@ function make(over = {}) {
     pauseDownload: vi.fn(async () => null),
     reachable: vi.fn(async () => "ok"),
     hostFor: () => "https://huggingface.co",
+    probeFor: (id) => `https://huggingface.co/${id}.gguf`,
     pullOllama: vi.fn(),
     asked: { get: () => asked, set: (v) => (asked = v) },
     onReady: vi.fn(),
@@ -196,6 +197,14 @@ describe("checkReachable", () => {
   const res = (status, type = "application/json") => ({
     status,
     headers: { get: () => type },
+  });
+
+  it("probes the model file, not the host's home page", async () => {
+    const { setup, deps } = make();
+    await setup.start();
+    expect(deps.reachable).toHaveBeenCalledWith(
+      "https://huggingface.co/nomic-embed-text-v1.5.gguf",
+    );
   });
 
   it("treats 407 as work-network", async () => {
