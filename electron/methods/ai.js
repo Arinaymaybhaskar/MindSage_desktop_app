@@ -372,6 +372,8 @@ export async function handleDeleteAIModel(_event, id, confirmed = false) {
       chat: impact.alternative,
     });
   lastProbe = lastProbe?.id === id ? null : lastProbe;
+  // The status card refreshes on "finished"; a delete changes it too (KAN-486).
+  broadcast({ id, finished: true });
   return {
     success: true,
     chatModel:

@@ -300,14 +300,19 @@ export function backfillEnrichment() {
       if (!current) return;
       const now = getFeatures(row.user_id);
       // Statuses as they are now: an earlier backfill or a retry may have filled them.
-      if (current.ai_metadata_status === "failed" && metadataOn(now))
+      // The *Started events put the entry on the status card (KAN-486).
+      if (current.ai_metadata_status === "failed" && metadataOn(now)) {
+        eventBus.emit("journal:aiStarted", { entryId: current.id });
         await fillMetadata(current, now);
+      }
       if (
         current.ai_summary_status === "failed" &&
         now.enrich &&
         isSummarizable(current.content)
-      )
+      ) {
+        eventBus.emit("ollama:summary-started", { entryId: current.id });
         await fillSummary(current);
+      }
     }).catch((err) => log.error("AI backfill failed:", err));
   }
 }
