@@ -112,12 +112,16 @@ let lib = null;
 let engine = null; // Promise<Llama>
 let gpuFallback = null; // why the GPU was given up for the CPU
 let gpuProven = false;
+let launchChecked = false; // the crash marker is read once per launch, not per engine
 const loading = new Map(); // model id -> Promise<entry>, so one load per model
 const ready = new Map(); // model id -> { model, ctx, sequence, queue, closed }
 
 function getEngine() {
   engine ??= (async () => {
-    const pending = modelStore.get(GPU_PENDING);
+    // A marker found later belongs to an engine this launch disposed, not a crash (KAN-489).
+    const pending = launchChecked ? undefined : modelStore.get(GPU_PENDING);
+    launchChecked = true;
+    gpuProven = false; // the new engine clears the marker with its first good call
     if (!gpuFallback && pending === "cuda") {
       modelStore.set(CUDA_OFF, CUDA_CRASHED);
       modelStore.delete(GPU_PENDING);
