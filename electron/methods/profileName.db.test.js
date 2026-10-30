@@ -127,6 +127,20 @@ describe("profile name (KAN-67)", () => {
     }
   });
 
+  it("treats the seeded System name as taken, at any case (KAN-476)", async () => {
+    for (const name of ["System", "system", "SYSTEM"]) {
+      await expect(register(name)).rejects.toThrow(/already exists/);
+      expect(await auth.handleCheckUsername(null, name)).toMatchObject({
+        available: false,
+        error: expect.stringMatching(/already exists/),
+      });
+    }
+    await auth.handleLogin(null, { identifier: "José", password: "pw" });
+    await expect(
+      user.userUpdateProfile(null, { username: "system" }),
+    ).rejects.toThrow(/already exists/);
+  });
+
   it("signs in by profile name only, not by email", async () => {
     db.prepare(
       "INSERT INTO users (username, email, password_hash) VALUES ('legacy', 'old@example.com', ?)",

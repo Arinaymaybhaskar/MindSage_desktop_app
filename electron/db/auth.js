@@ -13,10 +13,13 @@ export function findUserByName(name) {
  * Whether another profile (not `exceptId`) already has this name, ignoring
  * case (KAN-440). Done in JS so non-ASCII letters fold too; profiles are few.
  * Sign-in still matches the stored name exactly, so old clashing pairs work.
+ * Includes the seeded system account (id 0, "System"): the picker hides it but
+ * its name still holds the UNIQUE slot (KAN-476).
  */
 export function profileNameTaken(name, exceptId = null) {
   const key = name.toLowerCase();
-  return listProfiles().some(
+  const rows = db.prepare("SELECT id, username FROM users").all();
+  return rows.some(
     (p) => p.id !== exceptId && p.username.toLowerCase() === key,
   );
 }
