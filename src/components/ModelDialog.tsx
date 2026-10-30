@@ -13,6 +13,8 @@ interface Props {
   onClose: () => void;
   /** Download: called when it ends (it runs after the dialog closes). Delete: when it is done. */
   onResult: (result: ModelResult) => void;
+  /** Called when Download is pressed, just before onClose. */
+  onStart?: () => void;
 }
 
 /**
@@ -26,6 +28,7 @@ export default function ModelDialog({
   mode,
   onClose,
   onResult,
+  onStart,
 }: Props) {
   const [info, setInfo] = useState<ModelDialogInfo | null>(null);
   const [error, setError] = useState("");
@@ -56,6 +59,7 @@ export default function ModelDialog({
   const download = () => {
     // The download runs for minutes: close now, report when it ends.
     void aiModelService.download(modelId, true).then(onResult);
+    onStart?.();
     onClose();
   };
 

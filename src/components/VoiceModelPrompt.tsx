@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ModelDialog from "./ModelDialog";
 import type { ModelResult } from "../api/aiModelService";
 
@@ -16,19 +16,41 @@ const CHOICES = [
 export default function VoiceModelPrompt({ onClose }: { onClose: () => void }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [result, setResult] = useState<ModelResult | null>(null);
+  // The dialog closes itself when Download starts; keep the choice so the
+  // result still has somewhere to show (KAN-485).
+  const [downloading, setDownloading] = useState(false);
+  const started = useRef(false);
 
   if (picked) {
     return (
       <>
-        {!result && (
+        {!result && downloading && (
+          <p role="status">Downloading the voice model…</p>
+        )}
+        {!result && !downloading && (
           <ModelDialog
             modelId={picked}
             mode="download"
-            onClose={() => setPicked(null)}
+            onStart={() => {
+              started.current = true;
+              setDownloading(true);
+            }}
+            onClose={() => {
+              if (!started.current) setPicked(null);
+            }}
             onResult={setResult}
           />
         )}
-        {result && <Outcome result={result} onRetry={() => setResult(null)} />}
+        {result && (
+          <Outcome
+            result={result}
+            onRetry={() => {
+              started.current = false;
+              setDownloading(false);
+              setResult(null);
+            }}
+          />
+        )}
         {result && (
           <button type="button" onClick={onClose}>
             {result.success ? "Done" : "Later"}
