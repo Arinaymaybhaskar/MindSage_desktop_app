@@ -125,7 +125,7 @@ const Settings = () => {
     }
   };
 
-  const handleSettingsSave = async (newSettings: UserSettings) => {
+  const handleSettingsSave = async (newSettings: Partial<UserSettings>) => {
     showToast("Saving settings...", "info");
     try {
       const updatedSettings = await userService.updateSettings(newSettings);
