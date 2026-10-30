@@ -127,6 +127,16 @@ describe("profile name (KAN-67)", () => {
     }
   });
 
+  it("signs in with inner spaces collapsed like sign-up stores them (KAN-477)", async () => {
+    await register("Ana  Maria");
+    await expect(
+      auth.handleLogin(null, { identifier: "Ana  Maria", password: "pw" }),
+    ).resolves.toMatchObject({ userInfo: { username: "Ana Maria" } });
+    await expect(
+      auth.handleLogin(null, { identifier: " Ana \t Maria ", password: "pw" }),
+    ).resolves.toMatchObject({ userInfo: { username: "Ana Maria" } });
+  });
+
   it("signs in by profile name only, not by email", async () => {
     db.prepare(
       "INSERT INTO users (username, email, password_hash) VALUES ('legacy', 'old@example.com', ?)",
