@@ -43,7 +43,8 @@ import Trash from "./pages/Trash";
 import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal";
 import QuickCapture from "./components/quickCapture";
 import NotFoundPage from "./pages/NotFoundPage";
-import Onboarding, { SETUP_COMPLETE_KEY } from "./pages/Onboarding";
+import Onboarding from "./pages/Onboarding";
+import SetupGate from "./components/SetupGate";
 import YoureSet from "./pages/YoureSet";
 import AIReadinessBanner from "./components/AIReadinessBanner";
 import AIStatusCard from "./components/AIStatusCard";
@@ -60,22 +61,6 @@ function AppLayout() {
   const [showKeyboardModal, setShowKeyboardModal] = useState(false);
 
   const isQuickCapturePage = location.pathname === "/quick-capture";
-
-  // First-run gate: send new installs through the AI setup flow once. It's
-  // skippable (Onboarding sets SETUP_COMPLETE_KEY on Skip/Finish), so this
-  // never traps the user or loops.
-  useEffect(() => {
-    if (
-      window.electron?.ipcRenderer &&
-      localStorage.getItem(SETUP_COMPLETE_KEY) !== "1" &&
-      location.pathname !== "/setup" &&
-      location.pathname !== "/quick-capture"
-    ) {
-      navigate("/setup", { replace: true });
-    }
-    // Intentionally run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Readiness marker for Playwright-driven screenshot and demo-video runs.
   // Startup is slow and staged (database, Ollama models, the search index,
@@ -214,6 +199,7 @@ function AppLayout() {
           {/* Outside the routes: deleting a profile signs the person out, and
               its "deleted" screen has to survive that. */}
           {!isQuickCapturePage && <DeleteProfileDialog />}
+          <SetupGate />
           <main
             className={`flex-1 overflow-hidden no-scrollbar ${
               isQuickCapturePage ? "" : "peer-empty:pt-10"
