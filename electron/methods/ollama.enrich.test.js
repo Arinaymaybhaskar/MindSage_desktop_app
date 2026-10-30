@@ -340,3 +340,29 @@ describe("backfill after setup (KAN-87)", () => {
     failedRows.rows = [];
   });
 });
+
+describe("entries left 'pending' by a close (KAN-491)", () => {
+  it("turns stale pending rows into failed, skips the Trash, and retries them", async () => {
+    writes.length = 0;
+    failedRows.rows = [{ id: 1, user_id: 7 }];
+    getJournalById.mockReturnValue({
+      ...entry,
+      ai_metadata_status: "failed",
+      ai_summary_status: "failed",
+    });
+    generate.mockResolvedValueOnce(METADATA).mockResolvedValueOnce(SUMMARY);
+    const { requeueInterruptedEnrichment } = await import("./ollama.js");
+    requeueInterruptedEnrichment();
+    await drained();
+    expect(writes.slice(0, 2).map((w) => w.sql)).toEqual([
+      expect.stringMatching(
+        /ai_metadata_status = 'failed'.*is_deleted = 0 AND ai_metadata_status = 'pending'/s,
+      ),
+      expect.stringMatching(
+        /ai_summary_status = 'failed'.*is_deleted = 0 AND ai_summary_status = 'pending'/s,
+      ),
+    ]);
+    expect(generate).toHaveBeenCalledTimes(2);
+    failedRows.rows = [];
+  });
+});
