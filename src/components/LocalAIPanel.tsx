@@ -19,6 +19,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import journalService from "../api/journalService";
 import { searchService } from "../api/searchService";
+import { aiStatusService, type AIStatus } from "../api/aiModelService";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import {
@@ -176,6 +177,9 @@ export default function LocalAIPanel() {
   const [entries, setEntries] = useState<EntryActivity[]>([]);
   const [bulks, setBulks] = useState<BulkActivity[]>([]);
   const [engine, setEngine] = useState<EngineStatus>({ type: "init" });
+  // Set only while the built-in engine is the provider (KAN-490): the Ollama
+  // `status-update` channel says nothing about it.
+  const [builtin, setBuiltin] = useState<AIStatus | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -193,6 +197,20 @@ export default function LocalAIPanel() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    const refresh = () =>
+      aiStatusService
+        .get()
+        .then((s) => setBuiltin(s?.provider === "builtin" ? s : null))
+        .catch(() => setBuiltin(null));
+    refresh();
+    const offs = [
+      aiStatusService.onRestartStatus(refresh),
+      aiStatusService.onDownloadProgress((p) => p.finished && refresh()),
+    ];
+    return () => offs.forEach((off) => off());
   }, []);
 
   // One channel carries every AI event: starts, completions, failures, skips
@@ -320,6 +338,47 @@ export default function LocalAIPanel() {
 
   /** Engine state as the pill and the panel's first row present it. */
   const engineView = useMemo(() => {
+    if (builtin) {
+      const chat = builtin.models.find((m) => m.id === builtin.chatModel);
+      if (builtin.restart.state === "starting") {
+        return {
+          icon: <Loader2 size={13} className="animate-spin" />,
+          short: "Starting AI",
+          title: "Starting the local AI engine",
+          detail: "Search and Ask are ready in a moment.",
+          tone: "text-text-light-sub dark:text-text-dark-sub",
+          action: null,
+        };
+      }
+      if (builtin.restart.state === "error") {
+        return {
+          icon: <AlertCircle size={13} />,
+          short: "AI unavailable",
+          title: "The local AI engine hit a problem",
+          detail: builtin.restart.details || "The last start failed.",
+          tone: "text-danger",
+          action: { label: "Set up", to: "/setup" },
+        };
+      }
+      if (chat && !chat.downloaded) {
+        return {
+          icon: <Rocket size={13} />,
+          short: "AI not set up",
+          title: "Local AI is not set up",
+          detail: "Writing works without it.",
+          tone: "text-warning",
+          action: { label: "Set up", to: "/setup" },
+        };
+      }
+      return {
+        icon: <CheckCircle2 size={13} />,
+        short: "AI ready",
+        title: "Local AI is running",
+        detail: "Models are local; nothing leaves this machine.",
+        tone: "text-success",
+        action: null,
+      };
+    }
     switch (engine.type) {
       case "downloading":
         return {
@@ -379,7 +438,7 @@ export default function LocalAIPanel() {
           action: null,
         };
     }
-  }, [engine]);
+  }, [engine, builtin]);
 
   /** Work in progress outranks engine state; the engine is the resting view. */
   const pill = useMemo(() => {
