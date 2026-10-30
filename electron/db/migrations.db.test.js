@@ -392,6 +392,79 @@ describe("the users-email-optional migration", () => {
     ).toBe(0);
     integrityOk(db);
   });
+
+  // Foreign keys were not enforced before 9ae9a40, so older journals can hold
+  // a progress log whose goal is gone or an entry whose profile is (KAN-469).
+  function v9WithOrphans() {
+    const { db } = open();
+    runMigrations(db, MIGRATIONS.slice(0, 9));
+    const { userId } = seedJournal(db, { users: 1, entriesPerUser: 2 })[0];
+    const goal = db
+      .prepare(
+        "INSERT INTO goals (user_id, title, target_value, unit) VALUES (?, 'g', 1, 'x')",
+      )
+      .run(userId).lastInsertRowid;
+    db.prepare(
+      "INSERT INTO progress_logs (goal_id, value, description) VALUES (?, 1, 'kept')",
+    ).run(goal);
+    db.pragma("foreign_keys = OFF");
+    db.exec(`
+      INSERT INTO progress_logs (goal_id, value, description) VALUES (999, 2, 'orphan');
+      INSERT INTO journal_entries (user_id, content) VALUES (99, 'orphan entry');
+    `);
+    db.pragma("foreign_keys = ON");
+    return db;
+  }
+  const fkCheck = (d) =>
+    d
+      .pragma("foreign_key_check")
+      .map((v) => `${v.table}:${v.rowid}`)
+      .sort();
+  const dump = (d) =>
+    Object.fromEntries(
+      tableNames(d).map((t) => [
+        t,
+        d.prepare(`SELECT * FROM "${t}" ORDER BY rowid`).all(),
+      ]),
+    );
+
+  it("migrates past rows orphaned before foreign keys were enforced, keeping them", () => {
+    const db = v9WithOrphans();
+    const orphans = fkCheck(db);
+    expect(orphans).toHaveLength(2);
+    const before = dump(db);
+
+    expect(runMigrations(db).to).toBe(LATEST_VERSION);
+
+    expect(version(db)).toBe(LATEST_VERSION);
+    expect(fkCheck(db)).toEqual(orphans);
+    // Every row keeps every value; migrations 11 to 13 only add columns.
+    expect(dump(db)).toMatchObject(before);
+    expect(runMigrations(db)).toEqual({
+      from: LATEST_VERSION,
+      to: LATEST_VERSION,
+      applied: [],
+    });
+  });
+
+  it("still fails a rebuild that breaks a foreign key itself", () => {
+    const db = v9WithOrphans();
+    const breaks = [
+      ...MIGRATIONS.slice(0, 9),
+      {
+        version: 10,
+        name: "bad-rebuild",
+        rebuildsTables: true,
+        up: (d) => d.exec("DELETE FROM goals"),
+      },
+    ];
+
+    expect(() => runMigrations(db, breaks)).toThrow(
+      "bad-rebuild left a broken foreign key",
+    );
+    expect(version(db)).toBe(9);
+    expect(db.prepare("SELECT count(*) n FROM goals").get().n).toBe(1);
+  });
 });
 
 describe("the reminder-time migration", () => {

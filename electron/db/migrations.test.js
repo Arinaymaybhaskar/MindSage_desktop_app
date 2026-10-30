@@ -140,12 +140,40 @@ describe("runMigrations", () => {
     expect(db.calls).toEqual([
       "foreign_keys = OFF",
       "begin",
+      "foreign_key_check",
       "exec:one",
       "foreign_key_check",
       "stamp:1",
       "commit",
       "foreign_keys = ON",
     ]);
+  });
+
+  it("fails a table rebuild only on a foreign key violation it made", () => {
+    const old = { table: "progress_logs", rowid: 7, parent: "goals", fkid: 0 };
+    const made = {
+      table: "journal_entries",
+      rowid: 1,
+      parent: "users",
+      fkid: 0,
+    };
+    const run = (after) => {
+      const db = fakeDb(0);
+      const pragma = db.pragma;
+      let checks = 0;
+      db.pragma = (statement, options) => {
+        const s = statement.trim();
+        if (s === "foreign_keys") return 1;
+        if (s === "foreign_key_check") return checks++ ? after : [old];
+        if (s.startsWith("foreign_keys")) return undefined;
+        return pragma(statement, options);
+      };
+      runMigrations(db, [{ ...fixture[0], rebuildsTables: true }]);
+      return db.version;
+    };
+
+    expect(run([old])).toBe(1);
+    expect(() => run([old, made])).toThrow("one left a broken foreign key");
   });
 
   it("treats an unreadable user_version as 0", () => {

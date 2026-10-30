@@ -696,6 +696,14 @@ export const MIGRATIONS = [
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
 
+/** Every foreign key violation in the database, one key per broken row. */
+const fkViolations = (d) =>
+  new Set(
+    d
+      .pragma("foreign_key_check")
+      .map((v) => `${v.table}|${v.rowid}|${v.parent}|${v.fkid}`),
+  );
+
 /**
  * Applies every migration newer than the database's current user_version,
  * each in its own transaction together with the version stamp, so a failure
@@ -729,8 +737,11 @@ export function runMigrations(d, migrations = MIGRATIONS, options = {}) {
     if (fkOff) d.pragma("foreign_keys = OFF");
     try {
       d.transaction(() => {
+        // Rows orphaned before foreign keys were enforced (9ae9a40) are kept
+        // as they are; only a violation the rebuild itself made fails it.
+        const known = migration.rebuildsTables && fkViolations(d);
         migration.up(d);
-        if (migration.rebuildsTables && d.pragma("foreign_key_check").length) {
+        if (known && [...fkViolations(d)].some((v) => !known.has(v))) {
           throw new Error(`${migration.name} left a broken foreign key`);
         }
         // PRAGMA takes no bound parameters, hence the interpolation. The value
