@@ -146,6 +146,31 @@ export function loadSource(type, id) {
   };
 }
 
+/**
+ * Entries whose title or text holds every word of the query, newest first. The
+ * answer when the query cannot be embedded (no embedding model), so entries are
+ * still found by their words; the payloads match `searchSimilar`'s.
+ */
+export function keywordSearch(userId, query, limit) {
+  const words = query.trim().split(/\s+/).filter(Boolean).slice(0, 8);
+  if (!words.length) return [];
+  const one = "(title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')";
+  const like = words.map((w) => `%${w.replace(/[\\%_]/g, "\\$&")}%`);
+  const ids = db
+    .prepare(
+      `SELECT id FROM journal_entries
+        WHERE user_id = ? AND is_deleted = 0
+          AND ${words.map(() => one).join(" AND ")}
+        ORDER BY created_at DESC LIMIT ?`,
+    )
+    .all(userId, ...like.flatMap((l) => [l, l]), limit);
+  return ids.map(({ id }) => ({
+    id,
+    score: 1,
+    payload: loadSource("journal", id).payload,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // State rows
 // ---------------------------------------------------------------------------

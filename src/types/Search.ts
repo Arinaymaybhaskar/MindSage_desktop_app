@@ -12,6 +12,8 @@ export interface SearchUnavailable {
   success: false;
   code?: string;
   error: string;
+  /** Entries that hold the query's words, when meaning search failed but the words still match. */
+  results?: SearchHit[];
 }
 
 export interface SearchSyncResult {
