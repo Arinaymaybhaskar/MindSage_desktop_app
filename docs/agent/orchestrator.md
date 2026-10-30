@@ -58,10 +58,20 @@ Rules:
 - **Escalate on failure.** If a `sonnet` fix fails retest twice, the bug goes to `opus` instead of a third try (see the effort rule below for the order).
 - **Effort is set explicitly too.** Every agent is launched with the `effort` parameter from the table (`low`, `medium`, `high`, `xhigh`, `max`); this file is the standing instruction that allows setting it. Effort rises before the model does: a failed `sonnet` fix is retried once at `high` before escalating to `opus`, and an `opus` fix that fails is retried at `xhigh`. Use `xhigh` or `max` only for migrations, data-loss risks and security findings, never for routine work.
 - **Brief like a peer.** Each brief names the ticket key and branch, the files that matter, what is already ruled out, the checks to run (`typecheck`, `lint`, `format:check`, `npm test`, `npm run test:db`), the commit rules in [workflow.md](workflow.md) (conventional commit, `Refs: KAN-nn`, no `Co-Authored-By` or session trailers), and asks for a short report: what changed, what was checked, what was not. Agents do not touch Jira statuses unless their step in the loop says so.
-- **Parallel where independent.** Tickets that touch different files run as separate agents in one batch, each in its own worktree (`isolation: "worktree"`) when they could collide. Do not run several agents on the same files.
+- **Parallel where independent.** Tickets that touch different files run as separate agents in one batch, each in its own pool worktree (see Worktrees below) when they could collide. Do not run several agents on the same files.
 - **Inline vs agent.** Decide by the rule above before writing a brief; a brief that would cost more than the job is a sign to do it inline.
 - **Keep the main context small.** Ask for summaries, not file dumps, and do not re-read what an agent already reported. Do not start an agent for something a single grep answers.
 - **Verify before relaying.** An agent's report is a claim: the orchestrator checks the commit exists and the checks it names were run before it moves a ticket or tells the owner it is done, and says plainly what was not verified.
+
+## Worktrees: reuse and clean up
+
+Each fresh worktree costs a full `npm ci` (about 250 MB of `node_modules`) and agents never remove theirs, so 47 of them once filled 10 GB.
+
+- **Pool, not `isolation: "worktree"`.** Keep up to 4 long-lived worktrees at `.claude/worktrees/pool-1` to `pool-4`. Create each once (`git worktree add --detach .claude/worktrees/pool-N origin/<phase>`, then `npm ci`). The brief names the pool directory; the agent runs `git fetch origin` and `git switch -c <type>/<KEY>-<slug> origin/<phase>` there. One agent per pool directory at a time.
+- **Install only when the lockfile moved.** Before an agent starts, compare `package-lock.json` with `node_modules/.package-lock.json` (npm writes it on install). Run `npm ci` only if the dependency lists differ.
+- **Release after use.** When an agent's branch is pushed and merged, run `git switch --detach origin/<phase>` and `git clean -fd` in its pool directory (no `-x`, so `node_modules` stays), then mark it free.
+- **Delete one-offs.** Remove any other worktree (an `isolation: "worktree"` agent, a review checkout) with `git worktree remove --force <path>` once its report is verified and its work is pushed. Never remove one with uncommitted files or unpushed commits.
+- **Start of session.** Run `git worktree list` and `git worktree prune`, then remove every clean, fully pushed worktree outside the pool.
 
 ## Reporting and token rules
 
