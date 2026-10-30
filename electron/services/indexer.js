@@ -225,6 +225,9 @@ export function createIndexer({
   return {
     /** Subscribes to changes and does a first pass (the fill of a new index). */
     start() {
+      // Items that gave up get a fresh round once per launch (KAN-472).
+      const retried = index.retryGaveUp();
+      if (retried) log.info(`Search: retrying ${retried} item(s) that gave up`);
       stopped = false;
       for (const [name, fn] of listeners) eventBus.on(name, fn);
       wake(0);
