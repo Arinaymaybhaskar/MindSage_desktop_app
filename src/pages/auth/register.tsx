@@ -298,7 +298,8 @@ export default function Register() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                Your information is stored locally and is 100% private.
+                Your journal stays on this computer. Your password only locks
+                this profile on this PC. It does not encrypt your journal.
               </p>
             </div>
           </div>

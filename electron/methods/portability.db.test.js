@@ -217,4 +217,32 @@ describe("last import with Undo (KAN-74)", () => {
     await expect(portability.handleUndoImport()).rejects.toThrow(/edited/);
     expect(live(ids)).toBe(2);
   });
+
+  it("turns Undo off once a feeling is accepted on an imported entry (KAN-479)", async () => {
+    const ids = await importCsv(2);
+    db.prepare(
+      "UPDATE journal_entries SET suggested_tags = ? WHERE id = ?",
+    ).run(JSON.stringify(["calm"]), ids[0]);
+    // The earlier restart closed its connection: start fresh modules.
+    vi.resetModules();
+    const fresh = await import("./portability.js");
+    const { handleAcceptFeeling } = await import("./journal.js");
+    try {
+      await handleAcceptFeeling(null, ids[0], "calm");
+      expect(await fresh.handleLastImport()).toMatchObject({ edited: true });
+      await expect(fresh.handleUndoImport()).rejects.toThrow(/edited/);
+      expect(live(ids)).toBe(2);
+      expect(
+        db
+          .prepare(
+            `SELECT t.name FROM journal_entry_tags jt
+               JOIN tags t ON t.id = jt.tag_id WHERE jt.journal_entry_id = ?`,
+          )
+          .pluck()
+          .all(ids[0]),
+      ).toEqual(["calm"]);
+    } finally {
+      (await import("../db/connection.js")).db.close();
+    }
+  });
 });

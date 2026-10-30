@@ -48,8 +48,39 @@ function seed(userId, name) {
     goal,
     `${name} ran`,
   );
-  run(`INSERT INTO tags (user_id, name) VALUES (?, ?)`, userId, `${name}-tag`);
-  run(`INSERT INTO chats (user_id, title) VALUES (?, ?)`, userId, `${name}`);
+  const tag = run(
+    `INSERT INTO tags (user_id, name) VALUES (?, ?)`,
+    userId,
+    `${name}-tag`,
+  );
+  run(
+    `INSERT INTO journal_entry_tags (journal_entry_id, tag_id) VALUES (?, ?)`,
+    entry,
+    tag,
+  );
+  const chat = run(
+    `INSERT INTO chats (user_id, title) VALUES (?, ?)`,
+    userId,
+    `${name}`,
+  );
+  run(
+    `INSERT INTO messages (chat_id, sender, content) VALUES (?, 'user', ?)`,
+    chat,
+    `${name} asked`,
+  );
+  const person = run(
+    `INSERT INTO people (user_id, display_name) VALUES (?, ?)`,
+    userId,
+    `${name} friend`,
+  );
+  run(
+    `INSERT INTO person_aliases (person_id, alias, alias_normalised)
+     VALUES (?, ?, ?)`,
+    person,
+    `${name}f`,
+    `${name}f`,
+  );
+  run(`INSERT OR IGNORE INTO user_settings (user_id) VALUES (?)`, userId);
   return { entry, goal };
 }
 
@@ -67,6 +98,30 @@ const rowsOf = (userId) => ({
     .all(userId),
   tags: db.prepare(`SELECT * FROM tags WHERE user_id = ?`).all(userId),
   chats: db.prepare(`SELECT * FROM chats WHERE user_id = ?`).all(userId),
+  messages: db
+    .prepare(
+      `SELECT m.* FROM messages m JOIN chats c ON c.id = m.chat_id
+        WHERE c.user_id = ?`,
+    )
+    .all(userId),
+  entryTags: db
+    .prepare(
+      `SELECT jt.* FROM journal_entry_tags jt
+         JOIN journal_entries j ON j.id = jt.journal_entry_id
+        WHERE j.user_id = ?`,
+    )
+    .all(userId),
+  people: db.prepare(`SELECT * FROM people WHERE user_id = ?`).all(userId),
+  aliases: db
+    .prepare(
+      `SELECT a.* FROM person_aliases a JOIN people p ON p.id = a.person_id
+        WHERE p.user_id = ?`,
+    )
+    .all(userId),
+  settings: db
+    .prepare(`SELECT * FROM user_settings WHERE user_id = ?`)
+    .all(userId),
+  user: db.prepare(`SELECT * FROM users WHERE id = ?`).all(userId),
 });
 
 beforeAll(async () => {
@@ -121,14 +176,49 @@ const HOSTILE = [
   `UPDATE chats SET user_id = $A`,
 ];
 
+// Tables no tool changes: every write is refused, the profile's own rows too.
+const READ_ONLY = [
+  `UPDATE messages SET content = 'gone'`,
+  `INSERT INTO messages (chat_id, sender, content)
+     SELECT id, 'user', 'planted' FROM chats WHERE user_id = $A`,
+  `DELETE FROM journal_entry_tags`,
+  `INSERT INTO journal_entry_tags (journal_entry_id, tag_id)
+     SELECT j.id, t.id FROM journal_entries j, tags t
+      WHERE j.user_id = $A AND t.user_id = $B`,
+  `UPDATE people SET display_name = 'gone' WHERE user_id = $A`,
+  `DELETE FROM people WHERE user_id = $B`,
+  `UPDATE person_aliases SET alias = 'gone'`,
+  `UPDATE user_settings SET journal_reminder = 0 WHERE user_id = $A`,
+  `UPDATE users SET password_hash = 'y' WHERE id = $B`,
+  `DELETE FROM users WHERE id = $A`,
+  `INSERT INTO users (username, password_hash) VALUES ('c', 'x')`,
+  `UPDATE search_index SET state = 'ok'`,
+];
+
 describe("the AI connection's profile guard", () => {
   it("refuses every write that reaches another profile's rows", () => {
     const before = rowsOf(b);
     for (const sql of HOSTILE) {
       const text = sql.replaceAll("$A", a).replaceAll("$B", b);
-      expect(() => ai.aiDb().exec(text), text).toThrow(ai.GUARD_MESSAGE);
+      // A delete may stop first at a read-only child it cascades into.
+      expect(() => ai.aiDb().exec(text), text).toThrow(
+        new RegExp(`${ai.GUARD_MESSAGE}|${ai.READ_ONLY_MESSAGE}`),
+      );
     }
     expect(rowsOf(b)).toEqual(before);
+  });
+
+  it("refuses every write to a table no tool changes", () => {
+    const before = [rowsOf(a), rowsOf(b)];
+    for (const sql of READ_ONLY) {
+      const text = sql.replaceAll("$A", a).replaceAll("$B", b);
+      expect(() => ai.aiDb().exec(text), text).toThrow(ai.READ_ONLY_MESSAGE);
+    }
+    expect([rowsOf(a), rowsOf(b)]).toEqual(before);
+  });
+
+  it("overwrites deleted rows like the main connection", () => {
+    expect(ai.aiDb().pragma("secure_delete", { simple: true })).toBe(1);
   });
 
   it("lets a write to the signed-in profile's own rows through", () => {
@@ -193,6 +283,46 @@ describe("Ask's history as profile A (KAN-444)", () => {
       Array.from({ length: 8 }, (_, i) => `mine ${i + 3}`),
     );
     expect(localDB.recentMessages(a, theirs, 8)).toEqual([]);
+  });
+
+  it("leaves out answers citing a trashed entry or goal (KAN-475)", () => {
+    const run = (sql, ...args) =>
+      Number(db.prepare(sql).run(...args).lastInsertRowid);
+    const chat = run(`INSERT INTO chats (user_id, title) VALUES (?, 'c')`, a);
+    const entry = () =>
+      run(`INSERT INTO journal_entries (user_id, content) VALUES (?, 'x')`, a);
+    const kept = entry();
+    const trashed = entry();
+    const goal = run(
+      `INSERT INTO goals (user_id, title, target_value, unit)
+       VALUES (?, 'g', 1, 'km')`,
+      a,
+    );
+    const answer = (content, type, id) => {
+      const m = run(
+        `INSERT INTO messages (chat_id, sender, content) VALUES (?, 'ai', ?)`,
+        chat,
+        content,
+      );
+      run(
+        `INSERT INTO message_sources (message_id, source_type, source_id)
+         VALUES (?, ?, ?)`,
+        m,
+        type,
+        String(id),
+      );
+    };
+    answer("quotes the kept entry", "journal", kept);
+    answer("quotes the trashed entry", "journal", trashed);
+    answer("quotes the trashed goal", "goal", goal);
+    db.prepare(`UPDATE journal_entries SET is_deleted = 1 WHERE id = ?`).run(
+      trashed,
+    );
+    db.prepare(`UPDATE goals SET is_deleted = 1 WHERE id = ?`).run(goal);
+
+    expect(localDB.recentMessages(a, chat, 8).map((m) => m.content)).toEqual([
+      "quotes the kept entry",
+    ]);
   });
 });
 
