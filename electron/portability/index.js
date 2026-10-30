@@ -5,7 +5,7 @@
 // export. Pure (fflate, no electron), so the whole round trip is testable.
 
 import { unzipSync, zipSync, strToU8 } from "fflate";
-import { basename } from "./common.js";
+import { basename, isAudioName, isImageName } from "./common.js";
 import { mindsage } from "./formats/mindsage.js";
 import { dayone } from "./formats/dayone.js";
 import { journey } from "./formats/journey.js";
@@ -35,6 +35,38 @@ export const FORMAT_NAMES = {
   markdown: "Markdown",
   text: "Plain text",
 };
+
+// The files each reader opens. Anything else in the drop is named as skipped
+// (KAN-488); photos, recordings and video/PDF attachments ride along silently.
+const READS = {
+  mindsage: /\.json$/i,
+  dayone: /\.json$/i,
+  journey: /\.json$/i,
+  enex: /\.enex$/i,
+  csv: /\.csv$/i,
+  markdown: /\.(md|markdown)$/i,
+  text: /\.txt$/i,
+};
+const ATTACHMENT = /\.(mp4|mov|m4v|pdf)$/i;
+
+function skippedFileWarnings(reader, files) {
+  const warnings = [];
+  const otherFormat = Object.values(READS);
+  for (const [p, bytes] of files) {
+    const name = basename(p);
+    if (READS[reader.id].test(p)) {
+      if (!bytes.length)
+        warnings.push(`${name} is empty, so there is nothing to import`);
+    } else if (!isImageName(p) && !isAudioName(p) && !ATTACHMENT.test(p)) {
+      warnings.push(
+        otherFormat.some((re) => re.test(p))
+          ? `${name} is a different format from the rest, so it was skipped`
+          : `${name} is not a journal file, so it was skipped`,
+      );
+    }
+  }
+  return warnings;
+}
 
 const looksZipped = (bytes) =>
   bytes.length > 3 &&
@@ -104,7 +136,11 @@ export function readAny(inputs) {
   return {
     format: reader.id,
     entries: read.entries,
-    warnings: [...warnings, ...read.warnings],
+    warnings: [
+      ...warnings,
+      ...skippedFileWarnings(reader, files),
+      ...read.warnings,
+    ],
   };
 }
 

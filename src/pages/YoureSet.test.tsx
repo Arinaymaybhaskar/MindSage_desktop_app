@@ -67,6 +67,20 @@ describe("You're set screen (KAN-81)", () => {
     expect(navigate).toHaveBeenCalledWith("/", { replace: true });
   });
 
+  it("lists skipped files and offers no Import for an empty one (KAN-488)", async () => {
+    pickImport.mockResolvedValue({
+      canceled: false,
+      format: "csv",
+      formatName: "CSV",
+      toImport: 0,
+      warnings: ["empty.csv is empty, so there is nothing to import"],
+    });
+    await renderIt();
+    await choose();
+    expect(screen.getByText(/empty\.csv is empty/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import" })).toBeNull();
+  });
+
   it("lists the supported formats when the file is not one (KAN-80)", async () => {
     pickImport.mockResolvedValue({
       canceled: false,
