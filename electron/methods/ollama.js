@@ -318,10 +318,11 @@ export function backfillEnrichment() {
 }
 
 /**
- * On launch no enrichment job can be running, so a row still 'pending' was cut
- * off by closing the app (KAN-491): make it 'failed' and backfill picks it up.
+ * A row still 'pending' at launch was cut off by closing the app (KAN-491):
+ * make it 'failed' so the backfill picks it up. Call it before the journal
+ * handlers register, while no job of this run can have set 'pending' (KAN-495).
  */
-export function requeueInterruptedEnrichment() {
+export function markInterruptedEnrichment() {
   const error = "Interrupted when the app closed";
   db.prepare(
     `UPDATE journal_entries SET ai_metadata_status = 'failed', ai_metadata_error = ?
@@ -331,7 +332,6 @@ export function requeueInterruptedEnrichment() {
     `UPDATE journal_entries SET ai_summary_status = 'failed', ai_summary_error = ?
      WHERE is_deleted = 0 AND ai_summary_status = 'pending'`,
   ).run(error);
-  backfillEnrichment();
 }
 
 // The models just arrived (setup finished after an offline start).

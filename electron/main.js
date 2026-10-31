@@ -21,7 +21,10 @@ import { createIndexer } from "./services/indexer.js";
 import { activeProvider, embed } from "./ai/client.js";
 import * as builtinAI from "./ai/llama.js";
 import { resumeSetupOnLaunch } from "./methods/aiSetup.js";
-import { requeueInterruptedEnrichment } from "./methods/ollama.js";
+import {
+  backfillEnrichment,
+  markInterruptedEnrichment,
+} from "./methods/ollama.js";
 import { vectorSupport } from "./db/connection.js";
 import { registerTrashIPC, startTrashJob } from "./methods/trash.js";
 import { OllamaEmbeddingModelSetup } from "./services/OllamaSetup.js";
@@ -264,6 +267,9 @@ app.whenReady().then(async () => {
     log("Initializing localDB");
     splashStatus("Initializing local database…");
     localDB.initDatabase();
+    // Before the handlers register, so no job of this run is taken for one
+    // the last close cut off (KAN-495).
+    markInterruptedEnrichment();
   } catch (e) {
     log(`localDB init error: ${e?.stack || e}`);
   }
@@ -284,8 +290,8 @@ app.whenReady().then(async () => {
   }
   // A setup the user began (or an offline one) resumes by itself; it never blocks startup.
   setTimeout(resumeSetupOnLaunch, 15_000);
-  // Entries whose AI job was cut off by the last close are tried again.
-  setTimeout(requeueInterruptedEnrichment, 20_000);
+  // Entries whose AI job failed or was cut off by the last close are tried again.
+  setTimeout(backfillEnrichment, 20_000);
 
   // The renderer pings this once it has actually painted (see App.tsx),
   // after waiting a couple of animation frames past mount so this isn't just
