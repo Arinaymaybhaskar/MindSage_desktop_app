@@ -241,10 +241,14 @@ export async function aiResponse(
         title: s.source_title,
       },
     }));
-    // Shown above the answer: which tool ran and over what.
-    const lead = found?.ok ? `${found.summary}\n\n` : "";
+    // Shown above the answer: which tool ran and over what, and what it left
+    // out. Code says the second part because a 3B ignores the rule (KAN-505).
+    const unchecked = (plan.unchecked ?? "").trim().replace(/[\s.]+$/, "");
+    const lead = found?.ok
+      ? `${found.summary}${unchecked ? ` Not checked: ${unchecked}.` : ""}\n\n`
+      : "";
     const mainPrompt = found?.ok
-      ? respondWithContext(content, found.text, history, plan.unchecked ?? "")
+      ? respondWithContext(content, found.text, history, unchecked)
       : respondWithoutContext(content, history);
 
     // 3️⃣ Get final chat response, streaming it to the renderer as it forms.

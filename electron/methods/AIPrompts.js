@@ -409,7 +409,7 @@ export function respondWithContext(
 - Incorrect Example (from AI to user): "What do you think is your biggest obstacle when starting new projects?"`;
 
   const uncheckedRule = unchecked
-    ? `\n- Only part of the question was looked up. Say in one short sentence that you did not check: ${unchecked}.`
+    ? `\n- Only part of the question was looked up. Nothing was looked up about: ${unchecked}. The reply already says so; do not mention it or guess about it.`
     : "";
 
   const prompt = `
