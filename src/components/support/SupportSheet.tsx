@@ -359,7 +359,7 @@ export default function SupportSheet({ open, onClose }: SupportSheetProps) {
             </>
           )}
 
-          {somewhereElse && !data && (
+          {!data && (
             <p className="mt-4 text-sm">
               {INTERNATIONAL_HELP.text}{" "}
               <a
