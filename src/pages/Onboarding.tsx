@@ -96,7 +96,7 @@ const btn =
 
 /** The built-in engine's step (KAN-493): what the setup is doing, in plain words. */
 function LocalAIStep({ s }: { s: AiSetupState | null }) {
-  const start = (confirmed = false) => void aiSetupService.start(confirmed);
+  const start = (lowMemoryOk = false) => void aiSetupService.start(lowMemoryOk);
   const kind = s?.state ?? "starting";
   const stepState: StepState =
     kind === "ready"
@@ -139,7 +139,14 @@ function LocalAIStep({ s }: { s: AiSetupState | null }) {
         ? "Waiting for Wi-Fi before downloading Local AI."
         : "Download paused.";
     actions = (
-      <button className={btn} onClick={() => start(true)}>
+      <button
+        className={btn}
+        onClick={() =>
+          s.reason === "wifi"
+            ? void aiSetupService.answerMetered(false)
+            : start()
+        }
+      >
         {s.reason === "wifi" ? "Download now" : "Resume"}
       </button>
     );

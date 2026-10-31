@@ -21,10 +21,10 @@ export const aiSetupService = {
   getState: async (): Promise<AiSetupState | null> =>
     hasElectron() ? invoke<AiSetupState>("ai:setup-get-state") : null,
 
-  /** Returns at once; `confirmed` accepts a low-memory warning or a metered link. */
-  start: async (confirmed = false): Promise<AiSetupState | null> =>
+  /** Returns at once; `lowMemoryOk` accepts the low-memory warning only; the metered question is answerMetered's. */
+  start: async (lowMemoryOk = false): Promise<AiSetupState | null> =>
     hasElectron()
-      ? invoke<AiSetupState>("ai:setup-start", { confirmed })
+      ? invoke<AiSetupState>("ai:setup-start", { lowMemoryOk })
       : null,
 
   pause: async (): Promise<AiSetupState | null> =>

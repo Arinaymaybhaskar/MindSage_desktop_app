@@ -66,6 +66,7 @@ export function createSetup(deps) {
   let retryTimer = null;
   let attempt = 0; // network retries since the last good download
   let ticket = 0; // a newer start/pause makes an older run stop quietly
+  let lowMemoryOk = false; // "Download anyway" holds for later retries; it says nothing about metered
 
   const set = (next) => {
     state = { ...next };
@@ -81,17 +82,17 @@ export function createSetup(deps) {
   function scheduleRetry(reason) {
     clearRetry();
     const wait = BACKOFF_MS[Math.min(attempt++, BACKOFF_MS.length - 1)];
-    retryTimer = setTimeout(() => api.start({ auto: true }), wait);
+    retryTimer = setTimeout(() => api.start(), wait);
     retryTimer.unref?.();
     return set({ ...reason, retryInMs: wait });
   }
 
-  async function runBuiltin(opts, mine) {
+  async function runBuiltin(mine) {
     const ids = deps.plan();
     if (!ids.length) return;
     const chat = deps.chatId();
     const warning = downloadWarning(chat, deps.totalMem());
-    if (warning && !opts.confirmed) {
+    if (warning && !lowMemoryOk) {
       return set({ state: "low-memory", warning, modelId: chat });
     }
     // One disk check for the whole plan; a half-done .part counts as done.
@@ -112,10 +113,11 @@ export function createSetup(deps) {
       return set({ state: "work-network", host, sizeBytes: need });
     if (reach === "offline")
       return scheduleRetry({ state: "offline", host, sizeBytes: need });
-    if (deps.asked.get() === undefined && !opts.auto && !opts.confirmed) {
+    // Only "Download now" (asked === false) lets a download start; retries and relaunches obey it too.
+    if (deps.asked.get() === undefined) {
       return set({ state: "metered", sizeBytes: need });
     }
-    if (deps.asked.get() === true && !opts.auto && !opts.confirmed) {
+    if (deps.asked.get() === true) {
       return set({ state: "paused", reason: "wifi" });
     }
 
@@ -178,6 +180,7 @@ export function createSetup(deps) {
     async start(opts = {}) {
       if (running) return state;
       running = true;
+      if (opts.lowMemoryOk) lowMemoryOk = true;
       clearRetry();
       const mine = ++ticket;
       try {
@@ -186,7 +189,7 @@ export function createSetup(deps) {
         if (kind === "ollama") await runOllama(mine);
         else if (kind === "external" || !deps.plan().length)
           set({ state: "ready" });
-        else await runBuiltin(opts, mine);
+        else await runBuiltin(mine);
       } catch (err) {
         // The message is the downloader's or the engine's; never entry text.
         deps.log?.warn("Local AI setup failed", { error: err.message });
@@ -207,13 +210,13 @@ export function createSetup(deps) {
       deps.asked.set(waitForWifi === true);
       return waitForWifi === true
         ? set({ state: "paused", reason: "wifi" })
-        : api.start({ confirmed: true });
+        : api.start();
     },
     /** The network came back (the window's online event): retry without waiting out the backoff. */
     online() {
       if (state.state !== "offline") return state;
       attempt = 0;
-      return api.start({ auto: true });
+      return api.start();
     },
   };
   return api;

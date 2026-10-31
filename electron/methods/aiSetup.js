@@ -79,7 +79,7 @@ export const handleGetSetupState = () => setup.getState();
 export function handleStartSetup(_event, options = {}) {
   modelStore.set(WANTED, true);
   // Not awaited: the caller gets the state at once and the rest arrives as events.
-  setup.start({ confirmed: options?.confirmed === true });
+  setup.start({ lowMemoryOk: options?.lowMemoryOk === true });
   return setup.getState();
 }
 
@@ -90,5 +90,5 @@ export const handleSetupOnline = () => setup.online();
 
 /** Launch: a setup the user already began picks up where it stopped. */
 export function resumeSetupOnLaunch() {
-  if (modelStore.get(WANTED) === true) setup.start({ auto: true });
+  if (modelStore.get(WANTED) === true) setup.start();
 }

@@ -8,10 +8,10 @@ import {
 
 const GiB = 2 ** 30;
 
-function make(over = {}) {
+function make({ answered, ...over } = {}) {
   const have = new Set();
   const states = [];
-  let asked;
+  let asked = answered ? false : undefined;
   const deps = {
     provider: () => "builtin",
     plan: () => ["nomic-embed-text-v1.5"].filter((id) => !have.has(id)),
@@ -63,8 +63,28 @@ describe("setup state transitions", () => {
       totalMem: () => 6 * GiB,
     });
     expect((await setup.start()).state).toBe("low-memory");
+    // KAN-496: confirming low memory does not answer the metered question.
+    expect((await setup.start({ lowMemoryOk: true })).state).toBe("metered");
     await setup.answerMetered(false);
     expect(setup.getState().state).toBe("ready");
+  });
+
+  // KAN-500: the launch resume and the offline retry call start() with no flags.
+  it("an unanswered metered question stays a question on a later start", async () => {
+    const { setup, deps } = make();
+    await setup.start();
+    expect((await setup.start()).state).toBe("metered");
+    expect(deps.download).not.toHaveBeenCalled();
+  });
+
+  it("Wait for Wi-Fi stays paused across later starts and offline retries", async () => {
+    vi.useFakeTimers();
+    const { setup, deps } = make();
+    await setup.start();
+    setup.answerMetered(true);
+    expect((await setup.start()).state).toBe("paused");
+    await vi.advanceTimersByTimeAsync(BACKOFF_MS[0]);
+    expect(deps.download).not.toHaveBeenCalled();
   });
 
   it("reports low disk with the shortfall", async () => {
@@ -108,8 +128,11 @@ describe("offline first run", () => {
   it("is offline, retries with backoff, then downloads when online", async () => {
     vi.useFakeTimers();
     let net = "offline";
-    const { setup, states, deps } = make({ reachable: async () => net });
-    await setup.start({ confirmed: true });
+    const { setup, states, deps } = make({
+      answered: true,
+      reachable: async () => net,
+    });
+    await setup.start();
     expect(setup.getState()).toMatchObject({
       state: "offline",
       retryInMs: BACKOFF_MS[0],
@@ -127,8 +150,11 @@ describe("offline first run", () => {
   it("the online event retries at once", async () => {
     vi.useFakeTimers();
     let net = "offline";
-    const { setup, deps } = make({ reachable: async () => net });
-    await setup.start({ confirmed: true });
+    const { setup, deps } = make({
+      answered: true,
+      reachable: async () => net,
+    });
+    await setup.start();
     net = "ok";
     await setup.online();
     expect(deps.download).toHaveBeenCalledOnce();
@@ -140,6 +166,7 @@ describe("offline first run", () => {
     let net = "ok";
     let calls = 0;
     const { setup, have } = make({
+      answered: true,
       reachable: async () => net,
       download: async (id) => {
         if (calls++ === 0) {
@@ -150,7 +177,7 @@ describe("offline first run", () => {
         return { success: true };
       },
     });
-    await setup.start({ confirmed: true });
+    await setup.start();
     expect(setup.getState().state).toBe("offline");
     net = "ok";
     await vi.advanceTimersByTimeAsync(BACKOFF_MS[0]);
@@ -172,6 +199,7 @@ describe("checksum mismatch", () => {
   it("retries once, then succeeds", async () => {
     const results = [bad];
     const { setup, deps, have } = make({
+      answered: true,
       download: vi.fn(async (id) => {
         const r = results.shift();
         if (r) return r;
@@ -179,14 +207,17 @@ describe("checksum mismatch", () => {
         return { success: true };
       }),
     });
-    await setup.start({ confirmed: true });
+    await setup.start();
     expect(deps.download).toHaveBeenCalledTimes(2);
     expect(setup.getState().state).toBe("ready");
   });
 
   it("fails clearly after the second mismatch, with no third try", async () => {
-    const { setup, deps } = make({ download: vi.fn(async () => bad) });
-    await setup.start({ confirmed: true });
+    const { setup, deps } = make({
+      answered: true,
+      download: vi.fn(async () => bad),
+    });
+    await setup.start();
     expect(deps.download).toHaveBeenCalledTimes(2);
     expect(setup.getState()).toMatchObject({ state: "failed" });
     expect(setup.getState().error).toMatch(/damaged twice/);
