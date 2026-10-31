@@ -2,7 +2,7 @@
  * Measures cold start, step by step, from the app's own startup log.
  *
  * electron/main.js already writes timestamped markers to
- * `<userData>/main.log` for exactly this purpose ("App ready", "Search
+ * `<userData>/logs/mindsage.log` for exactly this purpose ("App ready", "Search
  * index ready", "Sent services-ready to renderer", and so on), so nothing needs
  * instrumenting - this launches the packaged build, waits for the run to
  * complete, and turns those timestamps into per-step deltas.
@@ -73,7 +73,7 @@ for (const part of PROFILE_PARTS) {
   fs.cpSync(from, path.join(userData, part), { recursive: true });
   copied.push(part);
 }
-const logPath = path.join(userData, "main.log");
+const logPath = path.join(userData, "logs", "mindsage.log");
 
 if (!fs.existsSync(exePath)) {
   console.error(
@@ -134,7 +134,7 @@ const readChromiumLog = () => {
 let totalMissingHandlers = 0;
 let runsWithoutLog = 0;
 
-const LINE = /^\[([^\]]+)\]\s+(.*)$/;
+const LINE = /^(\S+)\s+[A-Z]+\s+(.*)$/;
 
 /** Parses the log tail written after `sinceBytes` into ordered marker events. */
 function parseRun(sinceBytes) {
