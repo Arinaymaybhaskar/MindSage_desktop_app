@@ -18,7 +18,8 @@ import { createServiceAnnouncer } from "./services/serviceAnnouncer.js";
 import { removeLegacyQdrantData } from "./legacyQdrant.js";
 import { isIndexReady, setIndexer } from "./methods/search.js";
 import { createIndexer } from "./services/indexer.js";
-import { activeProvider, embed } from "./ai/client.js";
+import { activeProvider, defaultNewInstall, embed } from "./ai/client.js";
+import { firstLaunch } from "./store.js";
 import * as builtinAI from "./ai/llama.js";
 import { resumeSetupOnLaunch } from "./methods/aiSetup.js";
 import {
@@ -270,6 +271,8 @@ app.whenReady().then(async () => {
     // Before the handlers register, so no job of this run is taken for one
     // the last close cut off (KAN-495).
     markInterruptedEnrichment();
+    // Before the provider check below and before any window asks for it.
+    defaultNewInstall(firstLaunch, localDB.listProfiles().length);
   } catch (e) {
     log(`localDB init error: ${e?.stack || e}`);
   }

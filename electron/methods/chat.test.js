@@ -416,11 +416,30 @@ describe("Ask picks one tool per question (KAN-447)", () => {
     });
     runTool.mockResolvedValueOnce(october);
 
-    await handleUserMessage(null, 5, "Compare my mood and running", "m");
+    const result = await handleUserMessage(
+      null,
+      5,
+      "Compare my mood and running",
+      "m",
+    );
 
     expect(ai.generate.mock.calls[1][0]).toContain(
-      "you did not check: your running goal",
+      "Nothing was looked up about: your running goal.",
     );
+    // Said by code, whatever the model writes (KAN-505).
+    expect(result.aiRes.chatResponse.response).toBe(
+      "Looked at 12 entries from 1 to 31 October. Not checked: your running goal.\n\nok",
+    );
+  });
+
+  it("adds no not-checked line when the plan left nothing out", async () => {
+    plan({ intent: "goals", arguments: {}, unchecked: " . " });
+    runTool.mockResolvedValueOnce(october);
+
+    const result = await handleUserMessage(null, 5, "My goals?", "m");
+
+    expect(result.aiRes.chatResponse.response).not.toContain("Not checked");
+    expect(ai.generate.mock.calls[1][0]).not.toContain("Nothing was looked up");
   });
 
   it("searches the question when the planning call times out", async () => {

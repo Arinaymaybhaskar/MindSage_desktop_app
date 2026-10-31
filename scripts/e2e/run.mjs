@@ -37,6 +37,12 @@ const log = (msg) =>
   console.log(`[e2e ${((Date.now() - t0) / 1000).toFixed(1)}s] ${msg}`);
 const t0 = Date.now();
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "mindsage-e2e-"));
+// This run drives Ollama; a brand-new install would start on the built-in
+// engine and its multi-GB download (KAN-501).
+fs.writeFileSync(
+  path.join(profile, "model-settings.json"),
+  JSON.stringify({ aiProvider: "ollama" }),
+);
 
 let app;
 let page;
