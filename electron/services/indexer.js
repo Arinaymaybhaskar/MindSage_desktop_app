@@ -238,6 +238,8 @@ export function createIndexer({
       for (const [name, fn] of listeners) eventBus.off(name, fn);
     },
     noteChanged,
+    /** True while the model is unreachable, so pending items cannot progress. */
+    isWaiting: () => unavailableCount > 0,
     /** Re-checks everything: items with no state row, due retries. */
     sweep() {
       wake(0);

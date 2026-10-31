@@ -29,6 +29,8 @@ export type SearchStatus =
   | {
       success: true;
       available: boolean;
+      /** The indexer cannot reach the embedding model, so nothing is progressing. */
+      waiting?: boolean;
       total: number;
       ok: number;
       pending: number;
