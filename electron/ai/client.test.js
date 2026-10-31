@@ -7,14 +7,19 @@ import path from "node:path";
 // calls and Ollama's are replaced.
 const settings = {};
 vi.mock("../store.js", () => ({
-  modelStore: { get: (key) => settings[key], set: vi.fn(), delete: vi.fn() },
+  modelStore: {
+    get: (key) => settings[key],
+    set: vi.fn((key, value) => (settings[key] = value)),
+    delete: vi.fn(),
+  },
 }));
 vi.mock("../log.js", () => ({
   log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 vi.mock("./ollama.js", () => ({ generate: vi.fn(async () => "ollama") }));
 
-const { activeProvider, generate } = await import("./client.js");
+const { activeProvider, defaultNewInstall, generate } =
+  await import("./client.js");
 const builtin = await import("./llama.js");
 const { BUILTIN_MODELS, EMBED_MODEL } = await import("./models.js");
 
@@ -40,7 +45,7 @@ beforeEach(() => {
 });
 
 describe("AI provider choice", () => {
-  it("keeps Ollama on a fresh install until the built-in models are on disk", async () => {
+  it("keeps Ollama on an unchosen install until the built-in models are on disk", async () => {
     expect(activeProvider()).toBe("ollama");
     expect(await generate("hi")).toBe("ollama");
   });
@@ -70,5 +75,34 @@ describe("AI provider choice", () => {
     placeModel(EMBED_MODEL);
     settings.aiProvider = "ollama";
     expect(activeProvider()).toBe("ollama");
+  });
+});
+
+describe("a new install's default (KAN-501)", () => {
+  it("saves the built-in engine on a first launch with no profile", () => {
+    defaultNewInstall(true, 0);
+    expect(settings.aiProvider).toBe("builtin");
+    expect(activeProvider()).toBe("builtin"); // before any model is on disk
+  });
+
+  it("leaves an install that ran before on Ollama", () => {
+    settings.selectedModels = { chat: "llama3.2:latest" };
+    defaultNewInstall(false, 1);
+    defaultNewInstall(false, 0); // its last profile was deleted
+    expect(settings.aiProvider).toBeUndefined();
+    expect(activeProvider()).toBe("ollama");
+  });
+
+  it("leaves a database that already has a profile on Ollama", () => {
+    defaultNewInstall(true, 1);
+    expect(activeProvider()).toBe("ollama");
+  });
+
+  it("never overwrites an explicit choice", () => {
+    for (const chosen of ["ollama", "openai", "gguf"]) {
+      settings.aiProvider = chosen;
+      defaultNewInstall(true, 0);
+      expect(activeProvider()).toBe(chosen);
+    }
   });
 });

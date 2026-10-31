@@ -13,14 +13,24 @@ import { checkGguf } from "./gguf.js";
 export const PROVIDERS = ["builtin", "ollama", "openai", "gguf"];
 
 /**
- * The chosen provider. Without a choice, the built-in engine runs only once
- * its models are on disk; until then Ollama does, as before, so nobody loses
- * AI while the setup screens for the built-in engine do not exist yet.
+ * The chosen provider. Without a choice (an install from before KAN-501),
+ * the built-in engine runs only once its models are on disk; until then
+ * Ollama does, as before, so an existing Ollama user is never switched.
  */
 export function activeProvider() {
   const chosen = modelStore.get("aiProvider");
   if (PROVIDERS.includes(chosen)) return chosen;
   return builtin.modelsReady() ? "builtin" : "ollama";
+}
+
+/**
+ * KAN-501: a brand-new install (no model-settings.json before this launch and
+ * no profile in the database) is saved as a built-in engine install, so its
+ * setup is the built-in one. Ollama stays reachable as the advanced option.
+ */
+export function defaultNewInstall(firstLaunch, profileCount) {
+  if (!firstLaunch || profileCount > 0 || modelStore.get("aiProvider")) return;
+  modelStore.set("aiProvider", "builtin");
 }
 
 /** The saved .gguf, checked again before every call (a 24-byte read). */
