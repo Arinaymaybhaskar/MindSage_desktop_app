@@ -103,8 +103,8 @@ export async function handleDownloadAIModel(_event, id, confirmed = false) {
       sha256: spec.sha256,
       redirect: spec.redirect,
       signal: controller.signal,
-      onProgress: ({ done, total }) => {
-        downloading = { id, done, total };
+      onProgress: ({ done, total, checking }) => {
+        downloading = { id, done, total, checking };
         if (Date.now() - sentAt < PROGRESS_EVERY_MS) return;
         sentAt = Date.now();
         broadcast(downloading);

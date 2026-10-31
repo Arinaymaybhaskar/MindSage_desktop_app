@@ -128,7 +128,11 @@ describe("downloadFile", () => {
         onProgress: (p) => progress.push(p),
       });
       expect(progress.length).toBeGreaterThan(1);
-      expect(progress.at(-1)).toEqual({ done: big.length, total: big.length });
+      expect(progress.at(-1)).toEqual({
+        done: big.length,
+        total: big.length,
+        checking: true,
+      });
     });
 
     it("stops on Cancel, before the hash finishes", async () => {

@@ -69,6 +69,20 @@ describe("setup state transitions", () => {
     expect(setup.getState().state).toBe("ready");
   });
 
+  it("remembers a confirmed low-memory warning across a relaunch (KAN-503)", async () => {
+    let saved;
+    const over = {
+      chatId: () => "llama-3.1-8b",
+      totalMem: () => 6 * GiB,
+      lowMemoryOk: { get: () => saved, set: (v) => (saved = v) },
+      answered: true,
+    };
+    await make(over).setup.start({ lowMemoryOk: true });
+    expect(saved).toBe(true);
+    const relaunched = make(over);
+    expect((await relaunched.setup.start()).state).not.toBe("low-memory");
+  });
+
   // KAN-500: the launch resume and the offline retry call start() with no flags.
   it("an unanswered metered question stays a question on a later start", async () => {
     const { setup, deps } = make();

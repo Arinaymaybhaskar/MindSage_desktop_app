@@ -56,6 +56,7 @@ export async function checkReachable(url, fetchImpl = fetch) {
  *   probeFor: (id: string) => string, the file URL to probe (a host's home page is HTML)
  *   pullOllama?: () => void,
  *   asked: { get: () => boolean | undefined, set: (waitForWifi: boolean) => void },
+ *   lowMemoryOk?: { get: () => boolean | undefined, set: (ok: boolean) => void },
  *   onReady: () => Promise<void> | void,
  *   onChange: (state: object) => void,
  *   log?: { info: Function, warn: Function } }} deps
@@ -66,7 +67,7 @@ export function createSetup(deps) {
   let retryTimer = null;
   let attempt = 0; // network retries since the last good download
   let ticket = 0; // a newer start/pause makes an older run stop quietly
-  let lowMemoryOk = false; // "Download anyway" holds for later retries; it says nothing about metered
+  let lowMemoryOk = deps.lowMemoryOk?.get() === true; // "Download anyway" holds for retries and relaunches; it says nothing about metered
 
   const set = (next) => {
     state = { ...next };
@@ -180,7 +181,10 @@ export function createSetup(deps) {
     async start(opts = {}) {
       if (running) return state;
       running = true;
-      if (opts.lowMemoryOk) lowMemoryOk = true;
+      if (opts.lowMemoryOk) {
+        lowMemoryOk = true;
+        deps.lowMemoryOk?.set(true);
+      }
       clearRetry();
       const mine = ++ticket;
       try {
