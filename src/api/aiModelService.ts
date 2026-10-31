@@ -136,6 +136,8 @@ export interface DownloadProgress {
   id: string;
   done?: number;
   total?: number;
+  /** Hashing a file already on disk, not downloading. */
+  checking?: boolean;
   finished?: boolean;
   paused?: boolean;
   error?: string;
