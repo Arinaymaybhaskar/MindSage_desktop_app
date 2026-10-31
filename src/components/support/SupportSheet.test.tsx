@@ -72,6 +72,11 @@ describe("SupportSheet", () => {
   it("asks for a country when the region is unknown, and remembers the choice", () => {
     render(<SupportSheet open onClose={() => {}} />);
     expect(screen.getByText(/choose your country/i)).toBeInTheDocument();
+    // KAN-504: an unlisted region sees international help at once.
+    expect(
+      screen.getByRole("link", { name: "findahelpline.com" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/local emergency number/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Other countries/ }));
     fireEvent.click(screen.getByRole("button", { name: "Germany" }));
     expect(screen.getByText("Telefonseelsorge")).toBeInTheDocument();
