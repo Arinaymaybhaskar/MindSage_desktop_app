@@ -63,6 +63,14 @@ describe("search while indexing (KAN-494)", () => {
     );
   });
 
+  it("shows no rebuilding banner when the model is unreachable (KAN-497)", async () => {
+    status.mockResolvedValue({ ...counts(0, 4), waiting: true });
+    type("harbour");
+    await waitFor(() => expect(status).toHaveBeenCalled());
+    await waitFor(() => expect(search).toHaveBeenCalled());
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("asks again when indexing ends, without retyping", async () => {
     status.mockResolvedValueOnce(counts(2, 8)).mockResolvedValue(counts(10, 0));
     type("harbour");

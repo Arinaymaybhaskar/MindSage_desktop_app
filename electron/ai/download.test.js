@@ -109,4 +109,48 @@ describe("downloadFile", () => {
     expect(server).toHaveBeenCalledTimes(1);
     expect(fs.readFileSync(dest)).toEqual(BYTES);
   });
+
+  // KAN-498: a model already there is up to 4.9 GB to hash.
+  describe("checking a file already there", () => {
+    const big = Buffer.alloc(4 * 1024 * 1024, 1);
+    beforeEach(() => {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, big);
+    });
+
+    it("shows progress while it hashes", async () => {
+      const progress = [];
+      await downloadFile({
+        url: "u",
+        dest,
+        sha256: createHash("sha256").update(big).digest("hex"),
+        fetchImpl: server,
+        onProgress: (p) => progress.push(p),
+      });
+      expect(progress.length).toBeGreaterThan(1);
+      expect(progress.at(-1)).toEqual({ done: big.length, total: big.length });
+    });
+
+    it("stops on Cancel, before the hash finishes", async () => {
+      const controller = new AbortController();
+      const progress = [];
+      await expect(
+        downloadFile({
+          url: "u",
+          dest,
+          sha256: SHA,
+          fetchImpl: server,
+          signal: controller.signal,
+          onProgress: (p) => {
+            progress.push(p);
+            controller.abort();
+          },
+        }),
+      ).rejects.toThrow();
+      expect(progress[0].done).toBeLessThan(big.length);
+      expect(progress.at(-1).done).toBeLessThan(big.length);
+      expect(server).not.toHaveBeenCalled();
+      expect(fs.existsSync(dest)).toBe(true);
+    });
+  });
 });

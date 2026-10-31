@@ -10,8 +10,12 @@ vi.mock("../session.js", () => ({ currentUserId: () => 7 }));
 vi.mock("../log.js", () => ({ log: { error: vi.fn(), info: vi.fn() } }));
 
 const available = { value: false };
-const searchSimilar = vi.fn(() => [{ id: 1 }]);
-const keywordSearch = vi.fn(() => [{ id: 2 }]);
+const hit = (id, source_id) => ({
+  id,
+  payload: { source_type: "journal", source_id },
+});
+const searchSimilar = vi.fn(() => [hit(1, 10)]);
+const keywordSearch = vi.fn(() => [hit(2, 20)]);
 vi.mock("../db/searchIndex.js", () => ({
   SOURCE_TYPES: ["journal"],
   vectorsAvailable: () => available.value,
@@ -41,9 +45,26 @@ describe("search:query (KAN-439)", () => {
     expect(result).toEqual({
       success: false,
       error: "nomic is not downloaded",
-      results: [{ id: 2 }],
+      results: [hit(2, 20)],
     });
     expect(keywordSearch).toHaveBeenCalledWith(7, "harbour", 5);
+  });
+
+  it("adds exact-word hits the index has not caught up with, without doubles (KAN-499)", async () => {
+    embed.mockResolvedValue([0.1]);
+    keywordSearch.mockReturnValueOnce([hit(2, 10), hit(3, 30)]);
+    const result = await handlers.get("search:query")({}, "garden", 5);
+    expect(result).toEqual([hit(1, 10), hit(3, 30)]);
+  });
+
+  it("returns exact-word hits when the vector store is unavailable (KAN-499)", async () => {
+    available.value = false;
+    const result = await handlers.get("search:query")({}, "garden", 5);
+    expect(result).toEqual({
+      ...indexUnavailableResult(),
+      results: [hit(2, 20)],
+    });
+    expect(embed).not.toHaveBeenCalled();
   });
 
   it("embeds a shorter start of a query too long for the model", async () => {
@@ -62,7 +83,7 @@ describe("search:query (KAN-439)", () => {
       "word ".repeat(10_000),
     );
     expect(sent).toEqual([8_000, 4_000, 2_000]);
-    expect(result).toEqual([{ id: 1 }]);
+    expect(result).toEqual([hit(1, 10), hit(2, 20)]);
   });
 
   it("answers a blank query with no results and no embedding", async () => {

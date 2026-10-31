@@ -40,23 +40,35 @@ const TYPES = new Set(index.SOURCE_TYPES);
 
 export function registerSearchIPC() {
   ipcMain.handle("search:query", async (_e, queryInput, limit = 5) => {
-    if (!index.vectorsAvailable()) return indexUnavailableResult();
     const userId = currentUserId();
     if (!userId) return { success: false, error: "Not signed in" };
+    // Exact words need no vectors and no model, so they answer while items are
+    // still indexing and when the vector store or the model is down (KAN-499).
+    let words = [];
+    try {
+      words = index.keywordSearch(userId, queryInput, limit);
+    } catch (keywordError) {
+      log.error("search:query keyword search failed", keywordError);
+    }
+    if (!index.vectorsAvailable()) {
+      return { ...indexUnavailableResult(), results: words };
+    }
     try {
       const vector = await embedFitting(embed, queryInput);
-      return vector ? semanticSearch(vector, userId, limit) : [];
+      if (!vector) return [];
+      const found = semanticSearch(vector, userId, limit);
+      const seen = new Set(
+        found.map((r) => `${r.payload.source_type}:${r.payload.source_id}`),
+      );
+      const extra = words.filter(
+        (r) => !seen.has(`${r.payload.source_type}:${r.payload.source_id}`),
+      );
+      return [...found, ...extra].slice(0, limit);
     } catch (error) {
       log.error("search:query failed", error);
-      // Embedding failed (say, no embedding model): still return the entries
-      // that hold the words, next to the error that marks meaning search down.
-      let results = [];
-      try {
-        results = index.keywordSearch(userId, queryInput, limit);
-      } catch (keywordError) {
-        log.error("search:query keyword fallback failed", keywordError);
-      }
-      return { success: false, error: error.message, results };
+      // Embedding failed (say, no embedding model): meaning search is down, the
+      // entries that hold the words still come back.
+      return { success: false, error: error.message, results: words };
     }
   });
 
@@ -78,6 +90,8 @@ export function registerSearchIPC() {
     return {
       success: true,
       available: index.vectorsAvailable(),
+      // No model or Ollama: the rebuild is waiting, not progressing (KAN-497).
+      waiting: indexer?.isWaiting() ?? false,
       ...index.indexCounts(userId),
     };
   });
