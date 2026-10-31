@@ -20,6 +20,7 @@ import {
 
 const ASKED = "aiSetupMeteredWaitForWifi";
 const WANTED = "aiSetupWanted";
+const LOW_MEMORY_OK = "aiSetupLowMemoryOk";
 // Only an explicit choice of Ollama keeps setup on Ollama; an AI server on this
 // PC ("external") has nothing to download; a .gguf still needs the embedding model.
 const chosen = () => modelStore.get("aiProvider");
@@ -60,6 +61,10 @@ const setup = createSetup({
   asked: {
     get: () => modelStore.get(ASKED),
     set: (v) => modelStore.set(ASKED, v),
+  },
+  lowMemoryOk: {
+    get: () => modelStore.get(LOW_MEMORY_OK),
+    set: (v) => modelStore.set(LOW_MEMORY_OK, v),
   },
   onReady() {
     builtin.warmUp();

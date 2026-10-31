@@ -5,11 +5,11 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 /** Passes chunks through, reporting the running byte count. */
-function counter(done, total, onProgress) {
+function counter(done, total, onProgress, extra) {
   return new Transform({
     transform(chunk, _enc, cb) {
       done += chunk.length;
-      onProgress?.({ done, total });
+      onProgress?.({ done, total, ...extra });
       cb(null, chunk);
     },
   });
@@ -20,7 +20,7 @@ async function sha256Of(file, signal, onProgress) {
   const total = fs.statSync(file).size;
   await pipeline(
     fs.createReadStream(file),
-    counter(0, total, onProgress),
+    counter(0, total, onProgress, { checking: true }),
     hash,
     { signal },
   );

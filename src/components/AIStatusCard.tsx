@@ -180,11 +180,16 @@ export default function AIStatusCard({
       lead: "Working on your entries",
       second: "Adding titles, mood and tags",
     },
-    downloading: {
-      title: "Downloading a model",
-      second: dlSecond,
-      lead: "Downloading a model",
-    },
+    downloading: progress?.checking
+      ? {
+          title: "Checking the downloaded model",
+          second: "Making sure the file on this PC is whole",
+        }
+      : {
+          title: "Downloading a model",
+          second: dlSecond,
+          lead: "Downloading a model",
+        },
     starting: {
       title: "Starting Local AI…",
       second: "Search and Ask ready in a moment",
