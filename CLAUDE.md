@@ -50,7 +50,7 @@ This file is an index: detail lives in `docs/agent/`, read on demand.
 | Benchmarks | [docs/benchmarks/README.md](docs/benchmarks/README.md) |
 | Theming and colours | [docs/COLOR_SYSTEM_README.md](docs/COLOR_SYSTEM_README.md) |
 | UI patterns | [designPatterns.json](designPatterns.json) |
-| The design of the new MindSage (screens, flows, look and feel): a design canvas artifact on claude.ai | [New MindSage design canvas](https://claude.ai/artifact/9CxcTL7VHLAaUFM8ZmL2yd#page-f407c45f8fe0) |
+| The design of the new MindSage (screens, flows, look and feel): a design canvas artifact on claude.ai | [New MindSage design canvas](https://claude.ai/artifact/9CxcTL7VHLAaUFM8ZmL2yd) |
 | Per-directory map, packaging caveats, toolchain quirks | [AGENTS.md](AGENTS.md) (where it disagrees with this file or `docs/agent/`, those win) |
 | Features, platforms, workflow diagrams | [README.md](README.md) |
 
