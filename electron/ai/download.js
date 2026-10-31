@@ -4,9 +4,26 @@ import { createHash } from "node:crypto";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
-async function sha256Of(file) {
+/** Passes chunks through, reporting the running byte count. */
+function counter(done, total, onProgress) {
+  return new Transform({
+    transform(chunk, _enc, cb) {
+      done += chunk.length;
+      onProgress?.({ done, total });
+      cb(null, chunk);
+    },
+  });
+}
+
+async function sha256Of(file, signal, onProgress) {
   const hash = createHash("sha256");
-  await pipeline(fs.createReadStream(file), hash);
+  const total = fs.statSync(file).size;
+  await pipeline(
+    fs.createReadStream(file),
+    counter(0, total, onProgress),
+    hash,
+    { signal },
+  );
   return hash.digest("hex");
 }
 
@@ -33,7 +50,8 @@ export async function downloadFile({
 }) {
   if (fs.existsSync(dest)) {
     // A file already there is kept only if it is the right one (KAN-492).
-    if ((await sha256Of(dest)) === sha256) return dest;
+    // Up to 4.9 GB, so it shows progress and stops on Cancel (KAN-498).
+    if ((await sha256Of(dest, signal, onProgress)) === sha256) return dest;
     fs.rmSync(dest, { force: true });
   }
   fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -52,23 +70,15 @@ export async function downloadFile({
     if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
     if (res.status !== 206) have = 0; // the server ignored the range
     const total = have + Number(res.headers.get("content-length") ?? 0);
-    let done = have;
-    const count = new Transform({
-      transform(chunk, _enc, cb) {
-        done += chunk.length;
-        onProgress?.({ done, total });
-        cb(null, chunk);
-      },
-    });
     await pipeline(
       Readable.fromWeb(res.body),
-      count,
+      counter(have, total, onProgress),
       fs.createWriteStream(part, { flags: have ? "a" : "w" }),
       { signal },
     );
   }
 
-  if ((await sha256Of(part)) !== sha256) {
+  if ((await sha256Of(part, signal)) !== sha256) {
     fs.rmSync(part, { force: true });
     throw new Error("Download failed: checksum mismatch");
   }
