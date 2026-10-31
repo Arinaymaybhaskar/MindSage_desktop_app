@@ -123,6 +123,19 @@ describe("AIStatusCard", () => {
     expect(screen.getByText("Everything runs on this PC")).toBeVisible();
   });
 
+  it("says it is checking a file already on disk, with no internet claim (KAN-503)", async () => {
+    await mount();
+    emit("ai:download-progress", {
+      id: "chat",
+      done: 1,
+      total: 2,
+      checking: true,
+    });
+    await settle();
+    expect(screen.getByText("Checking the downloaded model")).toBeVisible();
+    expect(screen.queryByText(/internet/i)).toBeNull();
+  });
+
   it("shows the table's title and second line for starting and paused", async () => {
     await mount();
     emit("ai:restart-status", { state: "starting" });
