@@ -642,7 +642,9 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
           if (cancelled) return;
           setIndexStatus(s);
           const reading =
-            s.success && s.available ? s.pending + s.missing > 0 : false;
+            s.success && s.available && !s.waiting
+              ? s.pending + s.missing > 0
+              : false;
           if (wasReading.current && !reading) setIndexedTick((t) => t + 1);
           wasReading.current = reading;
         })
@@ -655,7 +657,7 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
     };
   }, [hasQuery, isSlash]);
   const stillReading =
-    indexStatus?.success && indexStatus.available
+    indexStatus?.success && indexStatus.available && !indexStatus.waiting
       ? indexStatus.pending + indexStatus.missing
       : 0;
   const journalEmpty = indexStatus?.success === true && indexStatus.total === 0;
