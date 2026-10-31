@@ -54,7 +54,18 @@ describe("search:query (KAN-439)", () => {
     embed.mockResolvedValue([0.1]);
     keywordSearch.mockReturnValueOnce([hit(2, 10), hit(3, 30)]);
     const result = await handlers.get("search:query")({}, "garden", 5);
-    expect(result).toEqual([hit(1, 10), hit(3, 30)]);
+    expect(result).toEqual([hit(2, 10), hit(3, 30)]);
+  });
+
+  it("keeps an unindexed exact match when semantic hits fill the limit (KAN-502)", async () => {
+    embed.mockResolvedValue([0.1]);
+    searchSimilar.mockReturnValueOnce(
+      Array.from({ length: 8 }, (_, i) => hit(i, i + 100)),
+    );
+    keywordSearch.mockReturnValueOnce([hit(99, 999)]);
+    const result = await handlers.get("search:query")({}, "garden", 8);
+    expect(result).toHaveLength(8);
+    expect(result[0]).toEqual(hit(99, 999));
   });
 
   it("returns exact-word hits when the vector store is unavailable (KAN-499)", async () => {
@@ -83,7 +94,7 @@ describe("search:query (KAN-439)", () => {
       "word ".repeat(10_000),
     );
     expect(sent).toEqual([8_000, 4_000, 2_000]);
-    expect(result).toEqual([hit(1, 10), hit(2, 20)]);
+    expect(result).toEqual([hit(2, 20), hit(1, 10)]);
   });
 
   it("answers a blank query with no results and no embedding", async () => {
