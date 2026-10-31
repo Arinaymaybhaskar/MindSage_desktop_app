@@ -57,13 +57,13 @@ export function registerSearchIPC() {
       const vector = await embedFitting(embed, queryInput);
       if (!vector) return [];
       const found = semanticSearch(vector, userId, limit);
-      const seen = new Set(
-        found.map((r) => `${r.payload.source_type}:${r.payload.source_id}`),
+      // Exact-word hits go first so the limit never cuts them off.
+      const key = (r) => `${r.payload.source_type}:${r.payload.source_id}`;
+      const seen = new Set(words.map(key));
+      return [...words, ...found.filter((r) => !seen.has(key(r)))].slice(
+        0,
+        limit,
       );
-      const extra = words.filter(
-        (r) => !seen.has(`${r.payload.source_type}:${r.payload.source_id}`),
-      );
-      return [...found, ...extra].slice(0, limit);
     } catch (error) {
       log.error("search:query failed", error);
       // Embedding failed (say, no embedding model): meaning search is down, the
